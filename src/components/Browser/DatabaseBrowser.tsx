@@ -3,11 +3,12 @@
 import {
   AlertCircle,
   Calendar,
-  ChevronLeft,
   ChevronRight,
   Code2,
+  Columns3,
   Database,
   Download,
+  Eraser,
   Eye,
   FileCode,
   FunctionSquare,
@@ -23,13 +24,24 @@ import {
   ShieldAlert,
   Table,
   TerminalSquare,
+  Trash2,
   X,
   Zap,
 } from 'lucide-react';
-import { lazy, type ReactNode, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  lazy,
+  type ReactNode,
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { useTranslation } from 'react-i18next';
 import { LuaScriptModal } from '@/components/Editor/LuaScriptModal';
 import { RedisEditorModal, type RedisEditorMode } from '@/components/Editor/RedisEditorModal';
+import { DangerConfirmDialog } from '@/components/Guard/DangerConfirmDialog';
 
 // ERDiagram pulls in heavy graph-rendering dependencies (D3 / GoJS / etc.).
 // Lazy-loaded so the chunk is only fetched when the user actually opens
@@ -40,14 +52,22 @@ const ERDiagram = lazy(() =>
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { invalidateCollectionsCache, invalidateTableSchemaCache } from '@/hooks/useSchemaCache';
 import {
   type DriverSchemaObjectCapabilities,
   type DriverTerminology,
   getSchemaObjectCapabilities,
   getTerminology,
+  isDocumentDatabase,
 } from '@/lib/connection/driverCapabilities';
+import { buildDropTableSQL, buildTruncateTableSQL } from '@/lib/ddl';
 import { emitTableChange, onTableChange } from '@/lib/events/tableEvents';
-import { getNamespaceTableVisits, type TableVisitInsight } from '@/lib/tableInsights';
+import { notify } from '@/lib/notify';
+import {
+  getNamespaceTableVisits,
+  removeTableVisit,
+  type TableVisitInsight,
+} from '@/lib/tableInsights';
 import { cn } from '@/lib/utils';
 import {
   DRIVER_ICONS,
@@ -105,6 +125,8 @@ interface DatabaseBrowserProps {
   connectionName?: string;
   connectionId?: string;
   onTableSelect: (namespace: Namespace, tableName: string, relationFilter?: RelationFilter) => void;
+  onOpenTableTab?: (namespace: Namespace, tableName: string, tab: 'data' | 'structure') => void;
+  onOpenTableQuery?: (namespace: Namespace, tableName: string) => void;
   schemaRefreshTrigger?: number;
   onSchemaChange?: () => void;
   onOpenQueryTab?: (namespace: Namespace) => void;
@@ -140,11 +162,15 @@ interface BrowserTabDefinition {
   label: string;
 }
 
+interface PendingTableDangerAction {
+  action: 'drop' | 'truncate';
+  collection: Collection;
+}
+
 interface UseDatabaseBrowserDataArgs {
   activeTab: DatabaseBrowserTab;
   driverMeta: DriverMetadata;
   namespace: Namespace;
-  page: number;
   schemaObjectCapabilities: DriverSchemaObjectCapabilities;
   search: string;
   sessionId: string;
@@ -290,7 +316,6 @@ function useDatabaseBrowserData({
   activeTab,
   driverMeta,
   namespace,
-  page,
   schemaObjectCapabilities,
   search,
   sessionId,
@@ -305,8 +330,12 @@ function useDatabaseBrowserData({
   const [sequences, setSequences] = useState<Sequence[]>([]);
   const [sequencesLoading, setSequencesLoading] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [totalCount, setTotalCount] = useState(0);
+  const [collectionPage, setCollectionPage] = useState(1);
+  const collectionRequestId = useRef(0);
+  const loadingMoreInFlight = useRef(false);
 
   const loadRoutines = useCallback(async () => {
     if (!schemaObjectCapabilities.routines) {
@@ -383,40 +412,93 @@ function useDatabaseBrowserData({
     }
   }, [namespace, schemaObjectCapabilities.sequences, sessionId]);
 
-  const loadCollectionsAndStats = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-
-    try {
-      const fetchOptions = getCollectionFetchOptions(activeTab, page, search);
-      const collectionsResult = await listCollections(
-        sessionId,
-        namespace,
-        fetchOptions.search,
-        fetchOptions.page,
-        fetchOptions.limit
-      );
-
-      if (collectionsResult.success && collectionsResult.data) {
-        setCollections(collectionsResult.data.collections);
-        setTotalCount(collectionsResult.data.total_count);
+  const loadCollectionsAndStats = useCallback(
+    async (requestedPage = 1, append = false) => {
+      const requestId = ++collectionRequestId.current;
+      if (append) {
+        setLoadingMore(true);
+      } else {
+        setLoading(true);
       }
+      setError(null);
 
-      const nextStats = await loadDatabaseStats({
-        driverMeta,
-        includeSqlStats: driverMeta.supportsSQL && fetchOptions.isOverview,
-        namespace,
-        sessionId,
-        tableCount: collectionsResult.data?.total_count ?? 0,
-      });
+      try {
+        const fetchOptions = getCollectionFetchOptions(activeTab, requestedPage, search);
+        const collectionsResult = await listCollections(
+          sessionId,
+          namespace,
+          fetchOptions.search,
+          fetchOptions.page,
+          fetchOptions.limit
+        );
 
-      setStats(nextStats);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load database info');
-    } finally {
-      setLoading(false);
+        if (requestId !== collectionRequestId.current) return;
+
+        if (collectionsResult.success && collectionsResult.data) {
+          setCollections(previous => {
+            if (!append) return collectionsResult.data?.collections ?? [];
+
+            const byName = new Map(previous.map(collection => [collection.name, collection]));
+            for (const collection of collectionsResult.data?.collections ?? []) {
+              byName.set(collection.name, collection);
+            }
+            return Array.from(byName.values());
+          });
+          setTotalCount(collectionsResult.data.total_count);
+          setCollectionPage(fetchOptions.page);
+        }
+
+        const nextStats = await loadDatabaseStats({
+          driverMeta,
+          includeSqlStats: driverMeta.supportsSQL && fetchOptions.isOverview,
+          namespace,
+          sessionId,
+          tableCount: collectionsResult.data?.total_count ?? 0,
+        });
+
+        if (requestId === collectionRequestId.current) {
+          setStats(nextStats);
+        }
+      } catch (err) {
+        if (requestId === collectionRequestId.current) {
+          setError(err instanceof Error ? err.message : 'Failed to load database info');
+        }
+      } finally {
+        if (requestId === collectionRequestId.current) {
+          setLoading(false);
+          setLoadingMore(false);
+        }
+      }
+    },
+    [activeTab, driverMeta, namespace, search, sessionId]
+  );
+
+  const loadMoreCollections = useCallback(async () => {
+    if (
+      activeTab !== 'tables' ||
+      loading ||
+      loadingMore ||
+      loadingMoreInFlight.current ||
+      collections.length >= totalCount
+    ) {
+      return;
     }
-  }, [activeTab, driverMeta, namespace, page, search, sessionId]);
+
+    loadingMoreInFlight.current = true;
+    try {
+      await loadCollectionsAndStats(collectionPage + 1, true);
+    } finally {
+      loadingMoreInFlight.current = false;
+    }
+  }, [
+    activeTab,
+    collectionPage,
+    collections.length,
+    loadCollectionsAndStats,
+    loading,
+    loadingMore,
+    totalCount,
+  ]);
 
   const refreshData = useCallback(async () => {
     switch (activeTab) {
@@ -445,6 +527,8 @@ function useDatabaseBrowserData({
     dbEvents,
     error,
     loading,
+    loadingMore,
+    loadMoreCollections,
     refreshData,
     routines,
     routinesLoading,
@@ -469,6 +553,8 @@ export function DatabaseBrowser({
   connectionName,
   connectionId,
   onTableSelect,
+  onOpenTableTab,
+  onOpenTableQuery,
   schemaRefreshTrigger,
   onSchemaChange,
   onOpenQueryTab,
@@ -502,9 +588,12 @@ export function DatabaseBrowser({
   const [redisEditorMode, setRedisEditorMode] = useState<RedisEditorMode | null>(null);
   const [luaModalOpen, setLuaModalOpen] = useState(false);
   const [schemaExportOpen, setSchemaExportOpen] = useState(false);
+  const [pendingDangerAction, setPendingDangerAction] = useState<PendingTableDangerAction | null>(
+    null
+  );
+  const [dangerActionLoading, setDangerActionLoading] = useState(false);
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
-  const [page, setPage] = useState(1);
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearch(search), 300);
@@ -521,6 +610,8 @@ export function DatabaseBrowser({
     dbEvents,
     error,
     loading,
+    loadingMore,
+    loadMoreCollections,
     refreshData,
     routines,
     routinesLoading,
@@ -537,11 +628,73 @@ export function DatabaseBrowser({
     activeTab,
     driverMeta,
     namespace: stableNamespace,
-    page,
     schemaObjectCapabilities,
     search: debouncedSearch,
     sessionId,
   });
+
+  const executePendingDangerAction = useCallback(async () => {
+    if (!pendingDangerAction) return;
+    if (readOnly) {
+      notify.error(t('environment.blocked'));
+      return;
+    }
+
+    const { action, collection } = pendingDangerAction;
+    const tableName = collection.name;
+    setDangerActionLoading(true);
+
+    try {
+      let query: string;
+      if (isDocumentDatabase(driver)) {
+        query = JSON.stringify(
+          action === 'drop'
+            ? {
+                database: collection.namespace.database,
+                collection: tableName,
+                operation: 'drop_collection',
+              }
+            : {
+                database: collection.namespace.database,
+                collection: tableName,
+                operation: 'delete_many',
+                filter: {},
+              }
+        );
+      } else {
+        query =
+          action === 'drop'
+            ? buildDropTableSQL(collection.namespace, tableName, driver)
+            : buildTruncateTableSQL(collection.namespace, tableName, driver);
+      }
+
+      const result = await executeQuery(sessionId, query, { acknowledgedDangerous: true });
+      if (!result.success) {
+        notify.error(
+          action === 'drop' ? t('dropTable.failed') : t('tableMenu.truncateError'),
+          result.error
+        );
+        return;
+      }
+
+      invalidateTableSchemaCache(sessionId, collection.namespace, tableName);
+      if (action === 'drop') {
+        invalidateCollectionsCache(sessionId, collection.namespace);
+        removeTableVisit(collection.namespace, tableName, connectionId);
+        emitTableChange({ type: 'drop', namespace: collection.namespace, tableName });
+        notify.success(t('dropTable.success', { name: tableName }));
+      } else {
+        emitTableChange({ type: 'truncate', namespace: collection.namespace, tableName });
+        notify.success(t('tableMenu.truncateSuccess', { name: tableName }));
+      }
+
+      setPendingDangerAction(null);
+    } catch (err) {
+      notify.error(t('common.error'), err);
+    } finally {
+      setDangerActionLoading(false);
+    }
+  }, [connectionId, driver, pendingDangerAction, readOnly, sessionId, t]);
 
   const overviewPreviewItems = buildOverviewPreviewItems(collections, tableVisits);
   const hasRoutinesTab = driverMeta.supportsSQL && schemaObjectCapabilities.routines;
@@ -694,18 +847,23 @@ export function DatabaseBrowser({
         <TablesTabContent
           collections={collections}
           error={error}
+          hasMore={collections.length < totalCount}
           loading={loading}
+          loadingMore={loadingMore}
           namespace={stableNamespace}
-          onNextPage={() => setPage(currentPage => currentPage + 1)}
-          onPreviousPage={() => setPage(currentPage => Math.max(1, currentPage - 1))}
-          onSearchChange={value => {
-            setSearch(value);
-            setPage(1);
-          }}
+          onLoadMore={loadMoreCollections}
+          onOpenTableQuery={driverMeta.supportsSQL ? onOpenTableQuery : undefined}
+          onOpenTableTab={onOpenTableTab}
+          onRequestDangerAction={(action, collection) =>
+            setPendingDangerAction({ action, collection })
+          }
+          onSearchChange={setSearch}
           onTableSelect={onTableSelect}
-          page={page}
+          readOnly={readOnly}
+          resourceLabel={t(terminology.tableLabel)}
           search={search}
-          totalCount={totalCount}
+          supportsStructure={driverMeta.supportsSQL}
+          supportsTableMutations={driverMeta.supportsSQL || isDocumentDatabase(driver)}
         />
       );
       break;
@@ -819,6 +977,36 @@ export function DatabaseBrowser({
 
           void refreshData();
         }}
+      />
+
+      <DangerConfirmDialog
+        open={pendingDangerAction?.action === 'truncate'}
+        onOpenChange={open => !open && setPendingDangerAction(null)}
+        title={t('tableMenu.truncateTitle')}
+        description={t('tableMenu.truncateDescription', {
+          name: pendingDangerAction?.collection.name ?? '',
+        })}
+        confirmationLabel={
+          environment === 'production' ? pendingDangerAction?.collection.name : undefined
+        }
+        confirmLabel={t('tableMenu.truncateConfirm')}
+        loading={dangerActionLoading}
+        onConfirm={executePendingDangerAction}
+      />
+
+      <DangerConfirmDialog
+        open={pendingDangerAction?.action === 'drop'}
+        onOpenChange={open => !open && setPendingDangerAction(null)}
+        title={t('dropTable.title')}
+        description={t('dropTable.confirm', {
+          name: pendingDangerAction?.collection.name ?? '',
+        })}
+        confirmationLabel={
+          environment === 'production' ? pendingDangerAction?.collection.name : undefined
+        }
+        confirmLabel={t('common.delete')}
+        loading={dangerActionLoading}
+        onConfirm={executePendingDangerAction}
       />
 
       <SchemaExportDialog
@@ -1279,31 +1467,68 @@ function OverviewAction({
 interface TablesTabContentProps {
   collections: Collection[];
   error: string | null;
+  hasMore: boolean;
   loading: boolean;
+  loadingMore: boolean;
   namespace: Namespace;
-  onNextPage: () => void;
-  onPreviousPage: () => void;
+  onLoadMore: () => Promise<void>;
+  onOpenTableQuery?: DatabaseBrowserProps['onOpenTableQuery'];
+  onOpenTableTab?: DatabaseBrowserProps['onOpenTableTab'];
+  onRequestDangerAction: (
+    action: PendingTableDangerAction['action'],
+    collection: Collection
+  ) => void;
   onSearchChange: (value: string) => void;
   onTableSelect: DatabaseBrowserProps['onTableSelect'];
-  page: number;
+  readOnly: boolean;
+  resourceLabel: string;
   search: string;
-  totalCount: number;
+  supportsStructure: boolean;
+  supportsTableMutations: boolean;
 }
 
 function TablesTabContent({
   collections,
   error,
+  hasMore,
   loading,
+  loadingMore,
   namespace,
-  onNextPage,
-  onPreviousPage,
+  onLoadMore,
+  onOpenTableQuery,
+  onOpenTableTab,
+  onRequestDangerAction,
   onSearchChange,
   onTableSelect,
-  page,
+  readOnly,
+  resourceLabel,
   search,
-  totalCount,
+  supportsStructure,
+  supportsTableMutations,
 }: TablesTabContentProps) {
   const { t } = useTranslation();
+  const listSurfaceRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const surface = listSurfaceRef.current;
+    if (!surface || collections.length === 0 || !hasMore || loading || loadingMore) return;
+
+    // A large viewport may show the first batch without creating a scrollbar.
+    // Keep fetching until the surface becomes scrollable or the list is complete.
+    if (surface.scrollHeight - surface.clientHeight <= 160) {
+      void onLoadMore();
+    }
+  }, [collections.length, hasMore, loading, loadingMore, onLoadMore]);
+
+  function handleScroll(event: React.UIEvent<HTMLDivElement>) {
+    if (!hasMore || loading || loadingMore) return;
+
+    const surface = event.currentTarget;
+    const distanceFromBottom = surface.scrollHeight - surface.scrollTop - surface.clientHeight;
+    if (distanceFromBottom <= 160) {
+      void onLoadMore();
+    }
+  }
 
   return (
     <div className="flex flex-col h-full gap-4">
@@ -1319,7 +1544,7 @@ function TablesTabContent({
         </div>
       </div>
 
-      <ListSurface loading={loading}>
+      <ListSurface containerRef={listSurfaceRef} loading={loading} onScroll={handleScroll}>
         {!loading && error ? (
           <ErrorBanner className="m-4" message={error} />
         ) : collections.length === 0 && !loading ? (
@@ -1327,60 +1552,123 @@ function TablesTabContent({
             message={search ? t('databaseBrowser.noResults') : t('databaseBrowser.noTables')}
           />
         ) : (
-          collections.map(collection => (
-            <button
-              type="button"
-              key={collection.name}
-              className="flex items-center justify-between w-full px-4 py-3 hover:bg-muted/50 transition-colors text-left"
-              onClick={() => onTableSelect(namespace, collection.name)}
-            >
-              <div className="flex items-center gap-3">
-                <CollectionTypeIcon collectionType={collection.collection_type} size={16} />
-                <div>
-                  <span className="font-mono text-sm">{collection.name}</span>
+          <>
+            <div className="sticky top-0 z-10 grid grid-cols-[minmax(12rem,1fr)_auto] gap-4 bg-muted/90 px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground backdrop-blur-sm">
+              <span>{resourceLabel}</span>
+              <span>{t('databaseBrowser.actions')}</span>
+            </div>
+
+            {collections.map(collection => (
+              <div
+                key={collection.name}
+                className="group flex min-h-12 items-center gap-4 px-4 py-2 transition-colors hover:bg-muted/50"
+              >
+                <button
+                  type="button"
+                  className="flex min-w-0 flex-1 items-center gap-3 text-left"
+                  onClick={() => onTableSelect(namespace, collection.name)}
+                >
+                  <CollectionTypeIcon collectionType={collection.collection_type} size={16} />
+                  <span className="min-w-0 truncate font-mono text-sm">{collection.name}</span>
                   {isViewCollection(collection.collection_type) && (
-                    <span className="ml-2 text-xs text-muted-foreground">(view)</span>
+                    <span className="shrink-0 text-xs text-muted-foreground">(view)</span>
                   )}
+                </button>
+
+                <div className="flex shrink-0 items-center gap-1">
+                  <TableQuickAction
+                    icon={Eye}
+                    label={t('table.data')}
+                    onClick={() => {
+                      if (onOpenTableTab) {
+                        onOpenTableTab(namespace, collection.name, 'data');
+                      } else {
+                        onTableSelect(namespace, collection.name);
+                      }
+                    }}
+                  />
+                  {supportsStructure && onOpenTableTab && (
+                    <TableQuickAction
+                      icon={Columns3}
+                      label={t('table.structure')}
+                      onClick={() => onOpenTableTab(namespace, collection.name, 'structure')}
+                    />
+                  )}
+                  {onOpenTableQuery && (
+                    <TableQuickAction
+                      icon={TerminalSquare}
+                      label={t('tableMenu.newQuery')}
+                      onClick={() => onOpenTableQuery(namespace, collection.name)}
+                    />
+                  )}
+                  {supportsTableMutations &&
+                    (collection.collection_type === 'Table' ||
+                      collection.collection_type === 'Collection') && (
+                      <>
+                        <TableQuickAction
+                          icon={Eraser}
+                          label={t('tableMenu.truncate')}
+                          disabled={readOnly}
+                          tone="warning"
+                          onClick={() => onRequestDangerAction('truncate', collection)}
+                        />
+                        <TableQuickAction
+                          icon={Trash2}
+                          label={t('tableMenu.drop')}
+                          disabled={readOnly}
+                          tone="danger"
+                          onClick={() => onRequestDangerAction('drop', collection)}
+                        />
+                      </>
+                    )}
                 </div>
               </div>
-              <ChevronRight size={16} className="text-muted-foreground" />
-            </button>
-          ))
+            ))}
+
+            {loadingMore && (
+              <div className="flex items-center justify-center gap-2 px-4 py-3 text-xs text-muted-foreground">
+                <Loader2 size={14} className="animate-spin" />
+                {t('common.loading')}
+              </div>
+            )}
+          </>
         )}
       </ListSurface>
-
-      <div className="flex items-center justify-between border-t border-border pt-4">
-        <div className="text-sm text-muted-foreground">
-          {t('common.pagination', {
-            start: totalCount === 0 ? 0 : (page - 1) * TABLES_PAGE_SIZE + 1,
-            end: Math.min(page * TABLES_PAGE_SIZE, totalCount),
-            total: totalCount,
-          })}
-        </div>
-
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onPreviousPage}
-            disabled={page === 1 || loading}
-          >
-            <ChevronLeft size={16} />
-          </Button>
-
-          <div className="text-sm font-medium w-8 text-center">{page}</div>
-
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onNextPage}
-            disabled={page * TABLES_PAGE_SIZE >= totalCount || loading}
-          >
-            <ChevronRight size={16} />
-          </Button>
-        </div>
-      </div>
     </div>
+  );
+}
+
+function TableQuickAction({
+  disabled = false,
+  icon: Icon,
+  label,
+  onClick,
+  tone = 'default',
+}: {
+  disabled?: boolean;
+  icon: LucideIcon;
+  label: string;
+  onClick: () => void;
+  tone?: 'default' | 'warning' | 'danger';
+}) {
+  return (
+    <Button
+      type="button"
+      variant="ghost"
+      size="sm"
+      className={cn(
+        'h-8 gap-1.5 px-2 text-xs text-muted-foreground hover:text-foreground',
+        tone === 'warning' && 'hover:text-warning',
+        tone === 'danger' && 'hover:text-destructive'
+      )}
+      disabled={disabled}
+      onClick={onClick}
+      title={label}
+      aria-label={label}
+    >
+      <Icon size={14} />
+      <span className="hidden xl:inline">{label}</span>
+    </Button>
   );
 }
 
@@ -1900,9 +2188,19 @@ function ErrorBanner({ className, message }: { className?: string; message: stri
   );
 }
 
-function ListSurface({ children, loading }: { children: ReactNode; loading?: boolean }) {
+function ListSurface({
+  children,
+  containerRef,
+  loading,
+  onScroll,
+}: {
+  children: ReactNode;
+  containerRef?: React.RefObject<HTMLDivElement | null>;
+  loading?: boolean;
+  onScroll?: React.UIEventHandler<HTMLDivElement>;
+}) {
   return (
-    <div className={LIST_SURFACE_CLASS_NAME}>
+    <div ref={containerRef} className={LIST_SURFACE_CLASS_NAME} onScroll={onScroll}>
       {loading && <LoadingOverlay />}
       {children}
     </div>

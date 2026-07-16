@@ -1026,6 +1026,30 @@ pub async fn query_table(
     table: &str,
     options: TableQueryOptions,
 ) -> EngineResult<PaginatedQueryResult> {
+    query_table_with_dialect(sessions, session, namespace, table, options, false).await
+}
+
+/// PostgreSQL-wire table browsing using DuckDB SQL semantics. MotherDuck's
+/// transport is PostgreSQL-compatible, but regex and text-search expressions
+/// must still use DuckDB functions rather than PostgreSQL FTS operators.
+pub async fn query_table_duckdb(
+    sessions: &SessionMap,
+    session: SessionId,
+    namespace: &Namespace,
+    table: &str,
+    options: TableQueryOptions,
+) -> EngineResult<PaginatedQueryResult> {
+    query_table_with_dialect(sessions, session, namespace, table, options, true).await
+}
+
+async fn query_table_with_dialect(
+    sessions: &SessionMap,
+    session: SessionId,
+    namespace: &Namespace,
+    table: &str,
+    options: TableQueryOptions,
+    duckdb_dialect: bool,
+) -> EngineResult<PaginatedQueryResult> {
     let pg = get_session(sessions, session).await?;
     let start = Instant::now();
 
@@ -1088,23 +1112,39 @@ pub async fn query_table(
                     })?;
                     bind_values.push(filter.value.clone());
                     let flags = filter.options.sanitized_regex_flags();
-                    let op = if flags.contains('i') { "~*" } else { "~" };
-                    format!("{} {} ${}", col_ident, op, param_idx)
+                    if duckdb_dialect {
+                        if flags.is_empty() {
+                            format!("regexp_matches({}::VARCHAR, ${})", col_ident, param_idx)
+                        } else {
+                            format!(
+                                "regexp_matches({}::VARCHAR, ${}, '{}')",
+                                col_ident, param_idx, flags
+                            )
+                        }
+                    } else {
+                        let op = if flags.contains('i') { "~*" } else { "~" };
+                        format!("{} {} ${}", col_ident, op, param_idx)
+                    }
                 }
                 FilterOperator::Text => {
-                    filter.value.as_text().ok_or_else(|| {
+                    let term = filter.value.as_text().ok_or_else(|| {
                         EngineError::syntax_error(
                             "text operator requires a string value in 'value'",
                         )
                     })?;
-                    bind_values.push(filter.value.clone());
-                    let lang = filter.options.sanitized_text_language("english");
-                    // `lang` is guaranteed to be `[a-z_]{1,32}`, safe to
-                    // interpolate into the SQL function call.
-                    format!(
-                        "to_tsvector('{}', {}::text) @@ plainto_tsquery('{}', ${})",
-                        lang, col_ident, lang, param_idx
-                    )
+                    if duckdb_dialect {
+                        bind_values.push(Value::Text(format!("%{term}%")));
+                        format!("{}::VARCHAR ILIKE ${}", col_ident, param_idx)
+                    } else {
+                        bind_values.push(filter.value.clone());
+                        let lang = filter.options.sanitized_text_language("english");
+                        // `lang` is guaranteed to be `[a-z_]{1,32}`, safe to
+                        // interpolate into the SQL function call.
+                        format!(
+                            "to_tsvector('{}', {}::text) @@ plainto_tsquery('{}', ${})",
+                            lang, col_ident, lang, param_idx
+                        )
+                    }
                 }
             };
             where_clauses.push(clause);
@@ -1141,8 +1181,12 @@ pub async fn query_table(
                     .try_get("data_type")
                     .map_err(|e| EngineError::execution_error(e.to_string()))?;
 
-                let is_unsearchable =
-                    matches!(data_type.as_str(), "bytea" | "tsvector" | "tsquery");
+                let normalized_type = data_type.to_ascii_uppercase();
+                let is_unsearchable = if duckdb_dialect {
+                    normalized_type.contains("BLOB")
+                } else {
+                    matches!(data_type.as_str(), "bytea" | "tsvector" | "tsquery")
+                };
                 if is_unsearchable {
                     continue;
                 }

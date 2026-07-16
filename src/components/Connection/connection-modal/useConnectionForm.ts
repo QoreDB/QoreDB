@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { supportsConnectionUrl } from '@/lib/connection/connectionUrls';
 import { DEFAULT_PORTS, Driver } from '@/lib/connection/drivers';
 import { detectDriverFromDsn } from '@/lib/connection/dsnDetector';
 import type { PartialConnectionConfig, SavedConnection } from '@/lib/tauri';
@@ -43,6 +44,21 @@ function mapDriverString(driver: string | undefined): Driver | undefined {
     default:
       return undefined;
   }
+}
+
+function preserveCompatibleSelectedDriver(selected: Driver, parsed: Driver): Driver {
+  if (
+    parsed === Driver.Postgres &&
+    [Driver.Supabase, Driver.Neon, Driver.Timescaledb, Driver.Motherduck].includes(selected)
+  ) {
+    return selected;
+  }
+
+  if (parsed === Driver.Mysql && selected === Driver.Mariadb) {
+    return selected;
+  }
+
+  return parsed;
 }
 
 export function useConnectionForm(options: {
@@ -110,9 +126,18 @@ export function useConnectionForm(options: {
       ...prev,
       driver,
       port: DEFAULT_PORTS[driver],
+      host:
+        driver === Driver.Motherduck && prev.host === 'localhost'
+          ? 'pg.us-east-1-aws.motherduck.com'
+          : prev.host,
+      username: driver === Driver.Motherduck && !prev.username ? 'postgres' : prev.username,
+      database: driver === Driver.Motherduck && !prev.database ? 'md:' : prev.database,
+      ssl: driver === Driver.Motherduck ? true : prev.ssl,
+      sslMode: driver === Driver.Motherduck && !prev.sslMode ? 'verify-full' : prev.sslMode,
       // Cloud-managed Postgres providers are almost always configured via DSN —
       // pre-enable the URL toggle so the user can paste right away.
-      useUrl: driverPrefersUrl(driver) ? true : prev.useUrl,
+      useUrl: driverPrefersUrl(driver) ? true : supportsConnectionUrl(driver) ? prev.useUrl : false,
+      connectionUrl: driver === prev.driver ? prev.connectionUrl : '',
     }));
   }
 
@@ -137,7 +162,10 @@ export function useConnectionForm(options: {
   const applyParsedConfig = useCallback((config: PartialConnectionConfig, rawUrl?: string) => {
     setFormData(prev => {
       const detected = rawUrl ? detectDriverFromDsn(rawUrl) : null;
-      const driver = detected?.driver ?? mapDriverString(config.driver) ?? prev.driver;
+      const parsedDriver = mapDriverString(config.driver);
+      const driver =
+        detected?.driver ??
+        (parsedDriver ? preserveCompatibleSelectedDriver(prev.driver, parsedDriver) : prev.driver);
       const port = config.port ?? DEFAULT_PORTS[driver];
 
       return {
@@ -146,10 +174,17 @@ export function useConnectionForm(options: {
         driver,
         host: config.host ?? prev.host,
         port,
-        username: config.username ?? prev.username,
+        username:
+          config.username ??
+          (driver === Driver.Motherduck && !prev.username ? 'postgres' : prev.username),
         password: config.password ?? prev.password,
-        database: config.database ?? prev.database,
-        ssl: config.ssl ?? prev.ssl,
+        database:
+          config.database ??
+          (driver === Driver.Motherduck && !prev.database ? 'md:' : prev.database),
+        ssl: config.ssl ?? (driver === Driver.Motherduck ? true : prev.ssl),
+        sslMode:
+          config.options?.sslmode ??
+          (driver === Driver.Motherduck && !prev.sslMode ? 'verify-full' : prev.sslMode),
       };
     });
   }, []);

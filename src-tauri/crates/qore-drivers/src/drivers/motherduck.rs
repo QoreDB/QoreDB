@@ -12,19 +12,39 @@
 //! connects yet shows an empty schema explorer.
 
 use async_trait::async_trait;
+use std::time::Instant;
 
 use crate::drivers::pg_compat::{self, SessionMap};
 use qore_core::error::{EngineError, EngineResult};
 use qore_core::traits::{DataEngine, StreamSender};
 use qore_core::types::{
     CancelSupport, Collection, CollectionList, CollectionListOptions, CollectionType,
-    ConnectionConfig, ForeignKey, Namespace, PaginatedQueryResult, QueryId, QueryResult, RowData,
-    SessionId, TableColumn, TableIndex, TableQueryOptions, TableSchema, Value,
+    ConnectionConfig, ForeignKey, MaintenanceMessage, MaintenanceMessageLevel,
+    MaintenanceOperationInfo, MaintenanceOperationType, MaintenanceRequest, MaintenanceResult,
+    Namespace, PaginatedQueryResult, QueryId, QueryResult, Routine, RoutineDefinition, RoutineList,
+    RoutineListOptions, RoutineOperationResult, RoutineType, RowData, Sequence, SequenceDefinition,
+    SequenceList, SequenceListOptions, SequenceOperationResult, SessionId, TableColumn, TableIndex,
+    TableQueryOptions, TableSchema, Value,
 };
+use qore_sql::safety;
 
 pub struct MotherDuckDriver {
     sessions: SessionMap,
 }
+
+const MACRO_ARGUMENTS_SQL: &str = r#"
+    CASE WHEN len(parameters) = 0 THEN '' ELSE array_to_string(
+        list_transform(
+            range(1, len(parameters) + 1),
+            i -> parameters[i] || CASE
+                WHEN parameter_types[i] IS NULL
+                  OR parameter_types[i] IN ('ANY', 'UNKNOWN') THEN ''
+                ELSE ' ' || parameter_types[i]
+            END
+        ),
+        ', '
+    ) END
+"#;
 
 impl MotherDuckDriver {
     pub fn new() -> Self {
@@ -33,10 +53,47 @@ impl MotherDuckDriver {
         }
     }
 
-    /// `my_db` is the personal database provisioned for every MotherDuck account;
-    /// used only when the connection specifies no database.
-    fn conn_str(config: &ConnectionConfig) -> String {
-        pg_compat::build_pg_connection_string(config, "my_db")
+    /// MotherDuck's Postgres endpoint uses `md:` to select the account's
+    /// default database. TLS is mandatory; default to full verification when
+    /// the connection did not explicitly choose another secure SSL mode.
+    fn conn_str(config: &ConnectionConfig) -> EngineResult<String> {
+        let mut normalized = config.clone();
+        let ssl_mode = normalized.ssl_mode.as_deref().map(str::to_ascii_lowercase);
+        if matches!(ssl_mode.as_deref(), Some("disable" | "allow" | "prefer")) {
+            return Err(EngineError::connection_failed(
+                "MotherDuck's Postgres endpoint requires TLS (use sslmode=require or verify-full)",
+            ));
+        }
+        normalized.ssl = true;
+        if normalized.ssl_mode.is_none() {
+            normalized.ssl_mode = Some("verify-full".into());
+        }
+        Ok(pg_compat::build_pg_connection_string(&normalized, "md:"))
+    }
+
+    fn ensure_safe_query(query: &str) -> EngineResult<()> {
+        if let Some(danger) = safety::classify_duckdb_script_dangerous(query) {
+            return Err(EngineError::not_supported(danger.reason()));
+        }
+        Ok(())
+    }
+}
+
+fn split_catalog_list(value: &str) -> Vec<String> {
+    value
+        .split(',')
+        .map(|item| item.trim().trim_matches('"').to_string())
+        .filter(|item| !item.is_empty())
+        .collect()
+}
+
+fn extract_index_columns(sql: Option<&str>) -> Vec<String> {
+    let Some(sql) = sql else {
+        return Vec::new();
+    };
+    match (sql.rfind('('), sql.rfind(')')) {
+        (Some(start), Some(end)) if start < end => split_catalog_list(&sql[start + 1..end]),
+        _ => Vec::new(),
     }
 }
 
@@ -57,11 +114,15 @@ impl DataEngine for MotherDuckDriver {
     }
 
     async fn test_connection(&self, config: &ConnectionConfig) -> EngineResult<()> {
-        pg_compat::test_connection(&Self::conn_str(config)).await
+        pg_compat::test_connection(&Self::conn_str(config)?).await
     }
 
     async fn connect(&self, config: &ConnectionConfig) -> EngineResult<SessionId> {
-        pg_compat::connect(&self.sessions, config, &Self::conn_str(config)).await
+        let mut pool_config = config.clone();
+        // Do not keep idle cloud connections alive unless the user explicitly
+        // requested a minimum. This lets MotherDuck scale to zero naturally.
+        pool_config.pool_min_connections = Some(config.pool_min_connections.unwrap_or(0));
+        pg_compat::connect(&self.sessions, &pool_config, &Self::conn_str(config)?).await
     }
 
     async fn disconnect(&self, session: SessionId) -> EngineResult<()> {
@@ -116,8 +177,9 @@ impl DataEngine for MotherDuckDriver {
             r#"
             SELECT COUNT(*)
             FROM information_schema.tables
-            WHERE table_schema = $1
-              AND ($2 IS NULL OR table_name LIKE $3)
+            WHERE table_catalog = current_database()
+              AND table_schema = $1
+              AND ($2 IS NULL OR table_name ILIKE $3)
             "#,
         )
         .bind(schema)
@@ -130,8 +192,9 @@ impl DataEngine for MotherDuckDriver {
         let mut query_str = r#"
             SELECT table_name, table_type
             FROM information_schema.tables
-            WHERE table_schema = $1
-              AND ($2 IS NULL OR table_name LIKE $3)
+            WHERE table_catalog = current_database()
+              AND table_schema = $1
+              AND ($2 IS NULL OR table_name ILIKE $3)
             ORDER BY table_name
         "#
         .to_string();
@@ -174,6 +237,328 @@ impl DataEngine for MotherDuckDriver {
         })
     }
 
+    fn supports_routines(&self) -> bool {
+        true
+    }
+
+    async fn list_routines(
+        &self,
+        session: SessionId,
+        namespace: &Namespace,
+        options: RoutineListOptions,
+    ) -> EngineResult<RoutineList> {
+        if matches!(options.routine_type, Some(RoutineType::Procedure)) {
+            return Ok(RoutineList {
+                routines: Vec::new(),
+                total_count: 0,
+            });
+        }
+
+        let pg = pg_compat::get_session(&self.sessions, session).await?;
+        let schema = namespace.schema.as_deref().unwrap_or("main");
+        let search = options.search.as_ref().map(|value| format!("%{value}%"));
+        let count: i64 = sqlx::query_scalar(
+            r#"
+            SELECT count(*)
+            FROM duckdb_functions()
+            WHERE database_name = current_database()
+              AND schema_name = $1
+              AND internal = false
+              AND macro_definition IS NOT NULL
+              AND ($2 IS NULL OR function_name ILIKE $3)
+            "#,
+        )
+        .bind(schema)
+        .bind(&search)
+        .bind(&search)
+        .fetch_one(&pg.pool)
+        .await
+        .map_err(|e| EngineError::execution_error(e.to_string()))?;
+
+        let mut sql = format!(
+            r#"
+            SELECT function_name, function_type,
+                   {MACRO_ARGUMENTS_SQL}, return_type
+            FROM duckdb_functions()
+            WHERE database_name = current_database()
+              AND schema_name = $1
+              AND internal = false
+              AND macro_definition IS NOT NULL
+              AND ($2 IS NULL OR function_name ILIKE $3)
+            ORDER BY function_name, function_oid
+        "#
+        );
+        if let Some(page_size) = options.page_size {
+            let page = options.page.unwrap_or(1).max(1);
+            sql.push_str(&format!(
+                " LIMIT {page_size} OFFSET {}",
+                (page - 1) * page_size
+            ));
+        }
+
+        let rows: Vec<(String, String, String, Option<String>)> = sqlx::query_as(&sql)
+            .bind(schema)
+            .bind(&search)
+            .bind(&search)
+            .fetch_all(&pg.pool)
+            .await
+            .map_err(|e| EngineError::execution_error(e.to_string()))?;
+        let namespace = namespace.clone();
+        let routines = rows
+            .into_iter()
+            .map(|(name, function_type, arguments, return_type)| Routine {
+                namespace: namespace.clone(),
+                name,
+                routine_type: RoutineType::Function,
+                arguments,
+                return_type: if function_type.contains("table") {
+                    Some("TABLE".into())
+                } else {
+                    return_type
+                },
+                language: Some("SQL macro".into()),
+            })
+            .collect();
+
+        Ok(RoutineList {
+            routines,
+            total_count: count.max(0) as u32,
+        })
+    }
+
+    async fn get_routine_definition(
+        &self,
+        session: SessionId,
+        namespace: &Namespace,
+        routine_name: &str,
+        routine_type: RoutineType,
+        _arguments: Option<&str>,
+    ) -> EngineResult<RoutineDefinition> {
+        if routine_type == RoutineType::Procedure {
+            return Err(EngineError::not_supported(
+                "MotherDuck does not support stored procedures",
+            ));
+        }
+        let pg = pg_compat::get_session(&self.sessions, session).await?;
+        let schema = namespace.schema.as_deref().unwrap_or("main");
+        let definition_sql = format!(
+            r#"
+            SELECT function_type, {MACRO_ARGUMENTS_SQL},
+                   return_type, macro_definition
+            FROM duckdb_functions()
+            WHERE database_name = current_database()
+              AND schema_name = $1 AND function_name = $2
+              AND internal = false AND macro_definition IS NOT NULL
+            ORDER BY function_oid
+            "#
+        );
+        let rows: Vec<(String, String, Option<String>, String)> = sqlx::query_as(&definition_sql)
+            .bind(schema)
+            .bind(routine_name)
+            .fetch_all(&pg.pool)
+            .await
+            .map_err(|e| EngineError::execution_error(e.to_string()))?;
+        let candidate = rows
+            .into_iter()
+            .find(|(_, arguments, _, _)| _arguments.is_none_or(|requested| requested == arguments));
+        let (function_type, arguments, return_type, body) = candidate.ok_or_else(|| {
+            EngineError::execution_error(format!(
+                "MotherDuck macro {}.{} was not found",
+                schema, routine_name
+            ))
+        })?;
+        let table_keyword = if function_type.contains("table") {
+            " TABLE"
+        } else {
+            ""
+        };
+        let definition = format!(
+            "CREATE MACRO {}.{}({}) AS{} {};",
+            pg_compat::quote_ident(schema),
+            pg_compat::quote_ident(routine_name),
+            arguments,
+            table_keyword,
+            body
+        );
+
+        Ok(RoutineDefinition {
+            name: routine_name.to_string(),
+            namespace: namespace.clone(),
+            routine_type: RoutineType::Function,
+            definition,
+            language: Some("SQL macro".into()),
+            arguments,
+            return_type: if function_type.contains("table") {
+                Some("TABLE".into())
+            } else {
+                return_type
+            },
+        })
+    }
+
+    async fn drop_routine(
+        &self,
+        session: SessionId,
+        namespace: &Namespace,
+        routine_name: &str,
+        routine_type: RoutineType,
+        _arguments: Option<&str>,
+    ) -> EngineResult<RoutineOperationResult> {
+        if routine_type == RoutineType::Procedure {
+            return Err(EngineError::not_supported(
+                "MotherDuck does not support stored procedures",
+            ));
+        }
+        let pg = pg_compat::get_session(&self.sessions, session).await?;
+        let schema = namespace.schema.as_deref().unwrap_or("main");
+        let sql = format!(
+            "DROP MACRO {}.{}",
+            pg_compat::quote_ident(schema),
+            pg_compat::quote_ident(routine_name)
+        );
+        let start = Instant::now();
+        sqlx::query(&sql)
+            .execute(&pg.pool)
+            .await
+            .map_err(|e| EngineError::execution_error(e.to_string()))?;
+        Ok(RoutineOperationResult {
+            success: true,
+            executed_command: sql,
+            message: Some("MotherDuck macro dropped successfully".into()),
+            execution_time_ms: start.elapsed().as_micros() as f64 / 1000.0,
+        })
+    }
+
+    fn supports_sequences(&self) -> bool {
+        true
+    }
+
+    async fn list_sequences(
+        &self,
+        session: SessionId,
+        namespace: &Namespace,
+        options: SequenceListOptions,
+    ) -> EngineResult<SequenceList> {
+        let pg = pg_compat::get_session(&self.sessions, session).await?;
+        let schema = namespace.schema.as_deref().unwrap_or("main");
+        let search = options.search.as_ref().map(|value| format!("%{value}%"));
+        let count: i64 = sqlx::query_scalar(
+            r#"
+            SELECT count(*) FROM duckdb_sequences()
+            WHERE database_name = current_database() AND schema_name = $1
+              AND ($2 IS NULL OR sequence_name ILIKE $3)
+            "#,
+        )
+        .bind(schema)
+        .bind(&search)
+        .bind(&search)
+        .fetch_one(&pg.pool)
+        .await
+        .map_err(|e| EngineError::execution_error(e.to_string()))?;
+
+        let mut sql = r#"
+            SELECT sequence_name, start_value, min_value, max_value, increment_by, cycle
+            FROM duckdb_sequences()
+            WHERE database_name = current_database() AND schema_name = $1
+              AND ($2 IS NULL OR sequence_name ILIKE $3)
+            ORDER BY sequence_name
+        "#
+        .to_string();
+        if let Some(page_size) = options.page_size {
+            let page = options.page.unwrap_or(1).max(1);
+            sql.push_str(&format!(
+                " LIMIT {page_size} OFFSET {}",
+                (page - 1) * page_size
+            ));
+        }
+        let rows: Vec<(String, i64, i64, i64, i64, bool)> = sqlx::query_as(&sql)
+            .bind(schema)
+            .bind(&search)
+            .bind(&search)
+            .fetch_all(&pg.pool)
+            .await
+            .map_err(|e| EngineError::execution_error(e.to_string()))?;
+        let namespace = namespace.clone();
+        let sequences = rows
+            .into_iter()
+            .map(
+                |(name, start_value, min_value, max_value, increment, cycle)| Sequence {
+                    namespace: namespace.clone(),
+                    name,
+                    data_type: "BIGINT".into(),
+                    start_value,
+                    min_value,
+                    max_value,
+                    increment,
+                    cycle,
+                    cache_size: 0,
+                },
+            )
+            .collect();
+        Ok(SequenceList {
+            sequences,
+            total_count: count.max(0) as u32,
+        })
+    }
+
+    async fn get_sequence_definition(
+        &self,
+        session: SessionId,
+        namespace: &Namespace,
+        sequence_name: &str,
+    ) -> EngineResult<SequenceDefinition> {
+        let pg = pg_compat::get_session(&self.sessions, session).await?;
+        let schema = namespace.schema.as_deref().unwrap_or("main");
+        let definition: Option<String> = sqlx::query_scalar(
+            r#"
+            SELECT sql FROM duckdb_sequences()
+            WHERE database_name = current_database()
+              AND schema_name = $1 AND sequence_name = $2
+            "#,
+        )
+        .bind(schema)
+        .bind(sequence_name)
+        .fetch_optional(&pg.pool)
+        .await
+        .map_err(|e| EngineError::execution_error(e.to_string()))?;
+        Ok(SequenceDefinition {
+            name: sequence_name.to_string(),
+            namespace: namespace.clone(),
+            definition: definition.ok_or_else(|| {
+                EngineError::execution_error(format!(
+                    "MotherDuck sequence {}.{} was not found",
+                    schema, sequence_name
+                ))
+            })?,
+        })
+    }
+
+    async fn drop_sequence(
+        &self,
+        session: SessionId,
+        namespace: &Namespace,
+        sequence_name: &str,
+    ) -> EngineResult<SequenceOperationResult> {
+        let pg = pg_compat::get_session(&self.sessions, session).await?;
+        let schema = namespace.schema.as_deref().unwrap_or("main");
+        let sql = format!(
+            "DROP SEQUENCE {}.{}",
+            pg_compat::quote_ident(schema),
+            pg_compat::quote_ident(sequence_name)
+        );
+        let start = Instant::now();
+        sqlx::query(&sql)
+            .execute(&pg.pool)
+            .await
+            .map_err(|e| EngineError::execution_error(e.to_string()))?;
+        Ok(SequenceOperationResult {
+            success: true,
+            executed_command: sql,
+            message: Some("MotherDuck sequence dropped successfully".into()),
+            execution_time_ms: start.elapsed().as_micros() as f64 / 1000.0,
+        })
+    }
+
     async fn describe_table(
         &self,
         session: SessionId,
@@ -188,7 +573,8 @@ impl DataEngine for MotherDuckDriver {
             r#"
             SELECT column_name, data_type, is_nullable, column_default
             FROM information_schema.columns
-            WHERE table_schema = $1 AND table_name = $2
+            WHERE table_catalog = current_database()
+              AND table_schema = $1 AND table_name = $2
             ORDER BY ordinal_position
             "#,
         )
@@ -198,6 +584,13 @@ impl DataEngine for MotherDuckDriver {
         .await
         .map_err(|e| EngineError::execution_error(e.to_string()))?;
 
+        if column_rows.is_empty() {
+            return Err(EngineError::execution_error(format!(
+                "MotherDuck table or view {}.{} was not found",
+                schema, table
+            )));
+        }
+
         // Constraints and indexes come from DuckDB table functions that a given
         // MotherDuck endpoint may not expose — treat them as best-effort so the
         // core column list still renders if they fail.
@@ -205,7 +598,9 @@ impl DataEngine for MotherDuckDriver {
             r#"
             SELECT unnest(constraint_column_names)
             FROM duckdb_constraints()
-            WHERE schema_name = $1 AND table_name = $2 AND constraint_type = 'PRIMARY KEY'
+            WHERE database_name = current_database()
+              AND schema_name = $1 AND table_name = $2
+              AND constraint_type = 'PRIMARY KEY'
             "#,
         )
         .bind(schema)
@@ -220,7 +615,9 @@ impl DataEngine for MotherDuckDriver {
             SELECT unnest(constraint_column_names), unnest(referenced_column_names),
                    referenced_table, constraint_name
             FROM duckdb_constraints()
-            WHERE schema_name = $1 AND table_name = $2 AND constraint_type = 'FOREIGN KEY'
+            WHERE database_name = current_database()
+              AND schema_name = $1 AND table_name = $2
+              AND constraint_type = 'FOREIGN KEY'
             "#,
         )
         .bind(schema)
@@ -244,11 +641,14 @@ impl DataEngine for MotherDuckDriver {
             )
             .collect();
 
-        let idx_rows: Vec<(String, bool)> = sqlx::query_as(
+        let constraint_idx_rows: Vec<(String, String, String)> = sqlx::query_as(
             r#"
-            SELECT index_name, is_unique
-            FROM duckdb_indexes()
-            WHERE schema_name = $1 AND table_name = $2
+            SELECT constraint_name, constraint_type,
+                   array_to_string(constraint_column_names, ',')
+            FROM duckdb_constraints()
+            WHERE database_name = current_database()
+              AND schema_name = $1 AND table_name = $2
+              AND constraint_type IN ('PRIMARY KEY', 'UNIQUE')
             "#,
         )
         .bind(schema)
@@ -257,22 +657,49 @@ impl DataEngine for MotherDuckDriver {
         .await
         .unwrap_or_default();
 
-        let indexes = idx_rows
+        let mut indexes: Vec<TableIndex> = constraint_idx_rows
             .into_iter()
-            .map(|(name, is_unique)| TableIndex {
+            .map(|(name, constraint_type, columns)| TableIndex {
                 name,
-                columns: Vec::new(),
-                is_unique,
-                is_primary: false,
-                index_type: None,
+                columns: split_catalog_list(&columns),
+                is_unique: true,
+                is_primary: constraint_type == "PRIMARY KEY",
+                index_type: Some("ART".into()),
             })
             .collect();
+
+        let idx_rows: Vec<(String, bool, Option<String>)> = sqlx::query_as(
+            r#"
+            SELECT index_name, is_unique, sql
+            FROM duckdb_indexes()
+            WHERE database_name = current_database()
+              AND schema_name = $1 AND table_name = $2
+            "#,
+        )
+        .bind(schema)
+        .bind(table)
+        .fetch_all(pool)
+        .await
+        .unwrap_or_default();
+
+        indexes.extend(
+            idx_rows
+                .into_iter()
+                .map(|(name, is_unique, sql)| TableIndex {
+                    name,
+                    columns: extract_index_columns(sql.as_deref()),
+                    is_unique,
+                    is_primary: false,
+                    index_type: Some("ART".into()),
+                }),
+        );
 
         let row_count_estimate: Option<u64> = sqlx::query_scalar::<_, i64>(
             r#"
             SELECT estimated_size
             FROM duckdb_tables()
-            WHERE schema_name = $1 AND table_name = $2
+            WHERE database_name = current_database()
+              AND schema_name = $1 AND table_name = $2
             "#,
         )
         .bind(schema)
@@ -291,8 +718,10 @@ impl DataEngine for MotherDuckDriver {
                     name,
                     data_type,
                     nullable: is_nullable == "YES",
+                    is_auto_increment: default_value
+                        .as_deref()
+                        .is_some_and(|value| value.to_ascii_lowercase().contains("nextval(")),
                     default_value,
-                    is_auto_increment: false,
                 },
             )
             .collect();
@@ -316,6 +745,7 @@ impl DataEngine for MotherDuckDriver {
         query: &str,
         query_id: QueryId,
     ) -> EngineResult<QueryResult> {
+        Self::ensure_safe_query(query)?;
         pg_compat::execute_in_namespace(
             &self.sessions,
             self.driver_id(),
@@ -334,6 +764,7 @@ impl DataEngine for MotherDuckDriver {
         query: &str,
         query_id: QueryId,
     ) -> EngineResult<QueryResult> {
+        Self::ensure_safe_query(query)?;
         pg_compat::execute_in_namespace(
             &self.sessions,
             self.driver_id(),
@@ -352,6 +783,7 @@ impl DataEngine for MotherDuckDriver {
         query_id: QueryId,
         sender: StreamSender,
     ) -> EngineResult<()> {
+        Self::ensure_safe_query(query)?;
         pg_compat::execute_stream_in_namespace(
             &self.sessions,
             self.driver_id(),
@@ -372,6 +804,7 @@ impl DataEngine for MotherDuckDriver {
         query_id: QueryId,
         sender: StreamSender,
     ) -> EngineResult<()> {
+        Self::ensure_safe_query(query)?;
         pg_compat::execute_stream_in_namespace(
             &self.sessions,
             self.driver_id(),
@@ -408,7 +841,7 @@ impl DataEngine for MotherDuckDriver {
         table: &str,
         options: TableQueryOptions,
     ) -> EngineResult<PaginatedQueryResult> {
-        pg_compat::query_table(&self.sessions, session, namespace, table, options).await
+        pg_compat::query_table_duckdb(&self.sessions, session, namespace, table, options).await
     }
 
     async fn peek_foreign_key(
@@ -435,7 +868,10 @@ impl DataEngine for MotherDuckDriver {
     }
 
     fn cancel_support(&self) -> CancelSupport {
-        pg_compat::cancel_support()
+        // The endpoint is a PostgreSQL protocol translation layer. Cancellation
+        // uses pg_cancel_backend when exposed, but MotherDuck does not document
+        // it as a hard compatibility guarantee.
+        CancelSupport::BestEffort
     }
 
     async fn begin_transaction(&self, session: SessionId) -> EngineResult<()> {
@@ -487,6 +923,58 @@ impl DataEngine for MotherDuckDriver {
 
     fn supports_mutations(&self) -> bool {
         true
+    }
+
+    fn supports_maintenance(&self) -> bool {
+        true
+    }
+
+    async fn list_maintenance_operations(
+        &self,
+        _session: SessionId,
+        _namespace: &Namespace,
+        _table: &str,
+    ) -> EngineResult<Vec<MaintenanceOperationInfo>> {
+        Ok(vec![MaintenanceOperationInfo {
+            operation: MaintenanceOperationType::Analyze,
+            is_heavy: false,
+            has_options: false,
+        }])
+    }
+
+    async fn run_maintenance(
+        &self,
+        session: SessionId,
+        namespace: &Namespace,
+        table: &str,
+        request: &MaintenanceRequest,
+    ) -> EngineResult<MaintenanceResult> {
+        if request.operation != MaintenanceOperationType::Analyze {
+            return Err(EngineError::not_supported(
+                "Only ANALYZE is supported for MotherDuck",
+            ));
+        }
+        let pg = pg_compat::get_session(&self.sessions, session).await?;
+        let schema = namespace.schema.as_deref().unwrap_or("main");
+        let sql = format!(
+            "ANALYZE {}.{}",
+            pg_compat::quote_ident(schema),
+            pg_compat::quote_ident(table)
+        );
+        let start = Instant::now();
+        sqlx::query(&sql)
+            .execute(&pg.pool)
+            .await
+            .map_err(|e| EngineError::execution_error(e.to_string()))?;
+        Ok(MaintenanceResult {
+            executed_command: sql,
+            messages: vec![MaintenanceMessage {
+                level: MaintenanceMessageLevel::Info,
+                text: "MotherDuck statistics updated successfully".into(),
+            }],
+            execution_time_ms: start.elapsed().as_micros() as f64 / 1000.0,
+            success: true,
+        })
     }
 
     async fn create_database(
@@ -549,7 +1037,7 @@ mod tests {
     #[test]
     fn motherduck_connection_string() {
         let cfg = make_config();
-        let conn = MotherDuckDriver::conn_str(&cfg);
+        let conn = MotherDuckDriver::conn_str(&cfg).unwrap();
         assert!(conn.contains("pg.us-east-1-aws.motherduck.com"));
         assert!(conn.contains(":5432"));
         assert!(conn.contains("sslmode=verify-full"));
@@ -558,7 +1046,49 @@ mod tests {
     #[test]
     fn motherduck_default_db_when_missing() {
         let cfg = make_config();
-        let conn = MotherDuckDriver::conn_str(&cfg);
-        assert!(conn.contains("/my_db?"));
+        let conn = MotherDuckDriver::conn_str(&cfg).unwrap();
+        assert!(conn.contains("/md:?"));
+    }
+
+    #[test]
+    fn motherduck_tls_is_secure_by_default_and_cannot_be_disabled() {
+        let mut cfg = make_config();
+        cfg.ssl = false;
+        cfg.ssl_mode = None;
+        let conn = MotherDuckDriver::conn_str(&cfg).unwrap();
+        assert!(conn.contains("sslmode=verify-full"));
+
+        cfg.ssl_mode = Some("disable".into());
+        assert!(MotherDuckDriver::conn_str(&cfg).is_err());
+    }
+
+    #[test]
+    fn motherduck_applies_duckdb_security_to_every_statement() {
+        assert!(MotherDuckDriver::ensure_safe_query("SELECT 1").is_ok());
+        assert!(MotherDuckDriver::ensure_safe_query("SELECT 1; INSTALL httpfs").is_err());
+        assert!(MotherDuckDriver::ensure_safe_query(
+            "SELECT ';' AS harmless; COPY (SELECT 1) TO '/tmp/leak.csv'"
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn motherduck_exposes_duckdb_schema_objects_and_maintenance() {
+        let driver = MotherDuckDriver::new();
+        assert!(driver.supports_routines());
+        assert!(driver.supports_sequences());
+        assert!(driver.supports_maintenance());
+        assert_eq!(driver.cancel_support(), CancelSupport::BestEffort);
+    }
+
+    #[test]
+    fn motherduck_catalog_helpers_extract_columns() {
+        assert_eq!(split_catalog_list("id, customer_id"), ["id", "customer_id"]);
+        assert_eq!(
+            extract_index_columns(Some(
+                "CREATE INDEX orders_idx ON main.orders (\"customer_id\", \"status\")"
+            )),
+            ["customer_id", "status"]
+        );
     }
 }

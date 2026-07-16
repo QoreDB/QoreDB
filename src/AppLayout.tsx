@@ -241,15 +241,35 @@ export function AppLayout() {
   }, [disconnectActiveConnection, t]);
 
   const handleTableSelect = useCallback(
-    (ns: Namespace, tableName: string, rf?: RelationFilter, sf?: SearchFilter) => {
+    (
+      ns: Namespace,
+      tableName: string,
+      rf?: RelationFilter,
+      sf?: SearchFilter,
+      requestedTab?: TableBrowserTab
+    ) => {
       AnalyticsService.capture('resource_opened', {
         source: sf ? 'search' : rf ? 'relation' : 'tree',
         resource_type: driver === Driver.Mongodb ? 'collection' : 'table',
         driver,
       });
-      openTab(createTableTab(ns, tableName, rf, sf));
+      const nextTab = createTableTab(ns, tableName, rf, sf);
+
+      if (requestedTab) {
+        const existing = tabs.find(
+          tab =>
+            tab.type === 'table' &&
+            tab.namespace?.database === ns.database &&
+            tab.namespace?.schema === ns.schema &&
+            tab.tableName === tableName &&
+            tab.connectionId === activeConnection?.id
+        );
+        updateTableBrowserTab(existing?.id ?? nextTab.id, requestedTab);
+      }
+
+      openTab(nextTab);
     },
-    [driver, openTab]
+    [activeConnection?.id, driver, openTab, tabs, updateTableBrowserTab]
   );
 
   const handleDatabaseSelect = useCallback(
@@ -1033,7 +1053,13 @@ interface AppContentProps {
   hasConnections: boolean;
   recovery: ReturnType<typeof useRecovery>;
   schemaRefreshTrigger: number;
-  onTableSelect: (ns: Namespace, table: string, rf?: RelationFilter, sf?: SearchFilter) => void;
+  onTableSelect: (
+    ns: Namespace,
+    table: string,
+    rf?: RelationFilter,
+    sf?: SearchFilter,
+    requestedTab?: TableBrowserTab
+  ) => void;
   onDatabaseSelect: (ns: Namespace) => void;
   onNewQuery: () => void;
   onOpenLibrary: () => void;
@@ -1164,6 +1190,12 @@ function AppContent({
         connectionName={activeConnection?.name}
         connectionId={activeConnection?.id}
         onTableSelect={onTableSelect}
+        onOpenTableTab={(ns, table, tab) => onTableSelect(ns, table, undefined, undefined, tab)}
+        onOpenTableQuery={(ns, table) =>
+          onOpenTab(
+            createQueryTab(`SELECT * FROM ${buildQualifiedTableName(ns, table, driver)};`, ns)
+          )
+        }
         schemaRefreshTrigger={schemaRefreshTrigger}
         onSchemaChange={onSchemaChange}
         initialTab={databaseBrowserTabs[activeTab.id]}

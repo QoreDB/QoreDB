@@ -256,7 +256,90 @@ pub(crate) fn bind_param<'q>(
         },
         Value::Bytes(b) => query.bind(b),
         Value::Json(j) => query.bind(j),
-        Value::Array(_) => query.bind(Option::<String>::None),
+        Value::Array(values) if values.is_empty() => query.bind(value.to_json()),
+        Value::Array(values)
+            if values
+                .iter()
+                .all(|value| matches!(value, Value::Null | Value::Bool(_))) =>
+        {
+            query.bind(
+                values
+                    .iter()
+                    .map(|value| match value {
+                        Value::Bool(value) => Some(*value),
+                        _ => None,
+                    })
+                    .collect::<Vec<Option<bool>>>(),
+            )
+        }
+        Value::Array(values)
+            if values
+                .iter()
+                .all(|value| matches!(value, Value::Null | Value::Int(_))) =>
+        {
+            query.bind(
+                values
+                    .iter()
+                    .map(|value| match value {
+                        Value::Int(value) => Some(*value),
+                        _ => None,
+                    })
+                    .collect::<Vec<Option<i64>>>(),
+            )
+        }
+        Value::Array(values)
+            if values
+                .iter()
+                .all(|value| matches!(value, Value::Null | Value::Int(_) | Value::Float(_))) =>
+        {
+            query.bind(
+                values
+                    .iter()
+                    .map(|value| match value {
+                        Value::Int(value) => Some(*value as f64),
+                        Value::Float(value) => Some(*value),
+                        _ => None,
+                    })
+                    .collect::<Vec<Option<f64>>>(),
+            )
+        }
+        Value::Array(values)
+            if values
+                .iter()
+                .all(|value| matches!(value, Value::Null | Value::Text(_))) =>
+        {
+            let all_uuids = values.iter().all(|value| match value {
+                Value::Null => true,
+                Value::Text(value) => parse_canonical_uuid(value).is_some(),
+                _ => false,
+            });
+            if all_uuids && values.iter().any(|value| !matches!(value, Value::Null)) {
+                query.bind(
+                    values
+                        .iter()
+                        .map(|value| match value {
+                            Value::Text(value) => parse_canonical_uuid(value),
+                            _ => None,
+                        })
+                        .collect::<Vec<Option<Uuid>>>(),
+                )
+            } else {
+                query.bind(
+                    values
+                        .iter()
+                        .map(|value| match value {
+                            Value::Text(value) => Some(value.clone()),
+                            _ => None,
+                        })
+                        .collect::<Vec<Option<String>>>(),
+                )
+            }
+        }
+        // Preserve heterogeneous/nested data as JSON rather than silently
+        // binding NULL. Backends that accept JSON-to-list coercion (including
+        // MotherDuck) can use it; incompatible column types return a clear
+        // server error instead of losing the value.
+        Value::Array(_) => query.bind(value.to_json()),
     }
 }
 

@@ -923,6 +923,7 @@
     "createFirstTable": "Create first table",
     "recentTables": "Recently opened",
     "quickActions": "Quick actions",
+    "actions": "Actions",
     "browseTables": "Browse all tables",
     "noRoutines": "No routines in this database",
     "triggers": "Triggers",

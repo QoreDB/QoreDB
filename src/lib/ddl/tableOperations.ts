@@ -17,5 +17,9 @@ export function buildTruncateTableSQL(
   tableName: string,
   driver: Driver
 ): string {
+  if (driver === 'sqlite') {
+    return `DELETE FROM ${buildQualifiedTableName(namespace, tableName, driver)};`;
+  }
+
   return `TRUNCATE TABLE ${buildQualifiedTableName(namespace, tableName, driver)}`;
 }

@@ -176,10 +176,11 @@ fn returns_rows_uncached(driver_id: &str, trimmed: &str) -> Result<bool, String>
     let dialect = dialect_for_driver(driver_id);
     let statements = Parser::parse_sql(&*dialect, trimmed).map_err(|err| err.to_string())?;
 
-    let first = statements.first().ok_or_else(|| "Empty SQL".to_string())?;
-    Ok(statement_returns_rows(first)
-        || (driver_id.eq_ignore_ascii_case("duckdb")
-            && matches!(first, Statement::Call(_) | Statement::Pragma { .. })))
+    let last = statements.last().ok_or_else(|| "Empty SQL".to_string())?;
+    let is_duckdb_dialect =
+        driver_id.eq_ignore_ascii_case("duckdb") || driver_id.eq_ignore_ascii_case("motherduck");
+    Ok(statement_returns_rows(last)
+        || (is_duckdb_dialect && matches!(last, Statement::Call(_) | Statement::Pragma { .. })))
 }
 
 pub fn split_sql_statements(driver_id: &str, sql: &str) -> Result<Vec<String>, String> {
@@ -886,6 +887,15 @@ mod tests {
         assert_eq!(
             returns_rows("duckdb", "INSERT INTO t VALUES (1)"),
             Ok(false)
+        );
+        assert_eq!(
+            returns_rows("motherduck", "CALL pragma_version()"),
+            Ok(true)
+        );
+        assert_eq!(returns_rows("motherduck", "PRAGMA database_size"), Ok(true));
+        assert_eq!(
+            returns_rows("motherduck", "INSERT INTO t VALUES (1); SELECT * FROM t"),
+            Ok(true)
         );
     }
 

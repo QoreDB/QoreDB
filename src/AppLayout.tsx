@@ -1232,7 +1232,7 @@ function AppContent({
 
   if (activeTab?.type === 'migrations') {
     return (
-      <div className="flex-1 min-h-0 flex flex-col">
+      <div className="flex h-full min-h-0 flex-col overflow-hidden">
         <MigrationsPanel
           key={activeTab.id}
           sessionId={sessionId ?? undefined}

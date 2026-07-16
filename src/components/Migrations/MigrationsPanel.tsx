@@ -457,125 +457,137 @@ export function MigrationsPanel({
   const selectedDirection = nextMigrationDirection(selectedStatus);
 
   return (
-    <div className="flex-1 min-h-0 flex flex-col p-3">
+    <div className="flex h-full min-h-0 flex-col p-3">
       <div className="flex-1 min-h-0 flex flex-col overflow-hidden rounded-xl border border-border bg-background shadow-sm">
-        <div className="flex flex-wrap items-center gap-2 px-4 py-3 border-b border-border">
-          <div className="flex-1 min-w-0">
-            <h2 className="text-sm font-semibold">{t('migrations.title')}</h2>
-            <p className="text-xs text-muted-foreground truncate">
-              {!sessionId
-                ? t('migrations.connectHint')
-                : !driverSupported
-                  ? t('migrations.driverUnsupported')
-                  : t('migrations.description')}
-            </p>
-          </div>
-          {sessionId && driverSupported && databaseOptions.length > 0 && (
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-muted-foreground">
-                {t('migrations.targetDatabase')}
-              </span>
-              <Select value={targetDatabase || undefined} onValueChange={setTargetDatabase}>
-                <SelectTrigger
-                  size="sm"
-                  className="w-48"
-                  aria-label={t('migrations.targetDatabase')}
-                >
-                  <Database className="size-3.5" />
-                  <SelectValue placeholder={t('migrations.selectDatabase')} />
-                </SelectTrigger>
-                <SelectContent>
-                  {databaseOptions.map(option => (
-                    <SelectItem key={option} value={option}>
-                      {option}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+        <div className="border-b border-border">
+          <div className="flex flex-wrap items-center justify-between gap-4 px-5 pt-4 pb-3">
+            <div className="min-w-0">
+              <h2 className="text-base font-semibold">{t('migrations.title')}</h2>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                {!sessionId
+                  ? t('migrations.connectHint')
+                  : !driverSupported
+                    ? t('migrations.driverUnsupported')
+                    : t('migrations.description')}
+              </p>
             </div>
-          )}
-          {list.length > 0 && (
+
             <div className="flex items-center gap-2">
-              <Input
-                value={newName}
-                onChange={e => setNewName(e.target.value)}
-                onKeyDown={e => {
-                  if (e.key === 'Enter') void handleCreate();
+              {sessionId && driverSupported && databaseOptions.length > 0 && (
+                <>
+                  <span className="text-xs font-medium text-muted-foreground">
+                    {t('migrations.targetDatabase')}
+                  </span>
+                  <Select value={targetDatabase || undefined} onValueChange={setTargetDatabase}>
+                    <SelectTrigger
+                      size="sm"
+                      className="min-w-28 max-w-64"
+                      aria-label={t('migrations.targetDatabase')}
+                    >
+                      <Database className="size-3.5" />
+                      <SelectValue placeholder={t('migrations.selectDatabase')} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {databaseOptions.map(option => (
+                        <SelectItem key={option} value={option}>
+                          {option}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </>
+              )}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  void loadMigrations();
+                  void refreshStatus();
                 }}
-                placeholder={t('migrations.newPlaceholder')}
-                className="w-56 h-8"
-              />
-              <Button
-                onClick={() => void handleCreate()}
-                disabled={creating || !newName.trim()}
-                size="sm"
+                title={t('migrations.refresh')}
+                aria-label={t('migrations.refresh')}
               >
-                {creating ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Plus className="w-4 h-4" />
-                )}
-                {t('migrations.create')}
+                <RefreshCw className={cn('size-4', isLoading && 'animate-spin')} />
               </Button>
             </div>
-          )}
-          {canGenerate && (
-            <div className="flex items-center gap-1 pl-1 ml-1 border-l border-border">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => void handleCaptureBaseline()}
-                disabled={capturing}
-                title={t('migrations.captureBaselineHint')}
-              >
-                {capturing ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Camera className="w-4 h-4" />
-                )}
-                {baseline ? t('migrations.recaptureBaseline') : t('migrations.captureBaseline')}
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => void handleGenerate()}
-                disabled={!baseline || generating}
-                title={t('migrations.generateHint')}
-              >
-                {generating ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Wand2 className="w-4 h-4" />
-                )}
-                {t('migrations.generate')}
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => void handleCheckDrift()}
-                disabled={!baseline || checkingDrift}
-                title={t('migrations.driftCheckHint')}
-              >
-                {checkingDrift ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <ScanSearch className="w-4 h-4" />
-                )}
-                {t('migrations.driftCheck')}
-              </Button>
+          </div>
+
+          <div className="flex flex-wrap items-center justify-between gap-3 px-5 pb-4">
+            <div className="flex items-center gap-2">
+              {canGenerate && (
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => void handleCaptureBaseline()}
+                    disabled={capturing}
+                    title={t('migrations.captureBaselineHint')}
+                  >
+                    {capturing ? (
+                      <Loader2 className="size-4 animate-spin" />
+                    ) : (
+                      <Camera className="size-4" />
+                    )}
+                    {baseline ? t('migrations.recaptureBaseline') : t('migrations.captureBaseline')}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => void handleGenerate()}
+                    disabled={!baseline || generating}
+                    title={t('migrations.generateHint')}
+                  >
+                    {generating ? (
+                      <Loader2 className="size-4 animate-spin" />
+                    ) : (
+                      <Wand2 className="size-4" />
+                    )}
+                    {t('migrations.generate')}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => void handleCheckDrift()}
+                    disabled={!baseline || checkingDrift}
+                    title={t('migrations.driftCheckHint')}
+                  >
+                    {checkingDrift ? (
+                      <Loader2 className="size-4 animate-spin" />
+                    ) : (
+                      <ScanSearch className="size-4" />
+                    )}
+                    {t('migrations.driftCheck')}
+                  </Button>
+                </>
+              )}
             </div>
-          )}
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => {
-              void loadMigrations();
-              void refreshStatus();
-            }}
-            title={t('migrations.refresh')}
-          >
-            <RefreshCw className={cn('w-4 h-4', isLoading && 'animate-spin')} />
-          </Button>
+
+            {list.length > 0 && (
+              <div className="flex items-center gap-2">
+                <Input
+                  value={newName}
+                  onChange={event => setNewName(event.target.value)}
+                  onKeyDown={event => {
+                    if (event.key === 'Enter') void handleCreate();
+                  }}
+                  placeholder={t('migrations.newPlaceholder')}
+                  className="h-8 w-60"
+                />
+                <Button
+                  onClick={() => void handleCreate()}
+                  disabled={creating || !newName.trim()}
+                  size="sm"
+                >
+                  {creating ? (
+                    <Loader2 className="size-4 animate-spin" />
+                  ) : (
+                    <Plus className="size-4" />
+                  )}
+                  {t('migrations.create')}
+                </Button>
+              </div>
+            )}
+          </div>
         </div>
 
         {schemaDiffAvailable && !hasSchemaDiff && (
@@ -626,7 +638,7 @@ export function MigrationsPanel({
             </div>
           )}
 
-        <div className="flex-1 min-h-0 flex">
+        <div className="flex min-h-0 flex-1 overflow-hidden">
           {list.length === 0 ? (
             <div className="flex-1 flex items-center justify-center p-8">
               <div className="w-full max-w-lg rounded-xl border border-border bg-muted/20 p-8 text-center shadow-sm">
@@ -735,7 +747,7 @@ export function MigrationsPanel({
                 })}
               </div>
 
-              <div className="flex-1 min-w-0 overflow-y-auto p-4">
+              <div className="min-h-0 min-w-0 flex-1 overflow-y-auto p-4 pb-8">
                 {generateWarnings.length > 0 && (
                   <div className="mb-3">
                     <WarningsBanner warnings={generateWarnings} defaultOpen />

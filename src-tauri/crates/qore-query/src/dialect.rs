@@ -47,7 +47,7 @@ impl Dialect {
             "mysql" | "mariadb" => Some(Dialect::MySql),
             "sqlite" => Some(Dialect::Sqlite),
             "sqlserver" | "mssql" => Some(Dialect::SqlServer),
-            "duckdb" => Some(Dialect::DuckDb),
+            "duckdb" | "motherduck" => Some(Dialect::DuckDb),
             _ => None,
         }
     }

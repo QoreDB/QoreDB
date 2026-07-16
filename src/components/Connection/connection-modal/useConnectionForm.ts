@@ -27,6 +27,8 @@ function mapDriverString(driver: string | undefined): Driver | undefined {
       return Driver.Sqlite;
     case 'duckdb':
       return Driver.Duckdb;
+    case 'motherduck':
+      return Driver.Motherduck;
     case 'sqlserver':
     case 'mssql':
       return Driver.SqlServer;
@@ -115,7 +117,7 @@ export function useConnectionForm(options: {
   }
 
   function driverPrefersUrl(driver: Driver): boolean {
-    return driver === Driver.Supabase || driver === Driver.Neon;
+    return driver === Driver.Supabase || driver === Driver.Neon || driver === Driver.Motherduck;
   }
 
   function handleChange(field: keyof ConnectionFormData, value: string | number | boolean) {

@@ -428,7 +428,10 @@ fn extract_base(
     let host = url.host_str().filter(|h| !h.is_empty()).map(String::from);
 
     if host.is_none() {
-        return Err(ParseError::new(ParseErrorCode::MissingHost, missing_host_msg));
+        return Err(ParseError::new(
+            ParseErrorCode::MissingHost,
+            missing_host_msg,
+        ));
     }
 
     let port = url.port().or(Some(default_port));
@@ -445,9 +448,7 @@ fn extract_base(
         .password()
         .map(percent_decode)
         .transpose()
-        .map_err(|_| {
-            ParseError::new(ParseErrorCode::InvalidUtf8, "Invalid password encoding")
-        })?;
+        .map_err(|_| ParseError::new(ParseErrorCode::InvalidUtf8, "Invalid password encoding"))?;
 
     let database = if decode_database {
         url.path()

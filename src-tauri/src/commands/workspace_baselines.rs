@@ -33,9 +33,7 @@ pub(crate) fn validate_baseline_id(connection_id: &str) -> Result<(), String> {
         || connection_id.contains('\\')
         || connection_id.contains('\0')
     {
-        return Err(
-            EngineError::internal("Connection id contains invalid characters").to_string(),
-        );
+        return Err(EngineError::internal("Connection id contains invalid characters").to_string());
     }
     if !connection_id
         .chars()
@@ -74,9 +72,7 @@ pub async fn ws_read_baseline(
     match fs::read_to_string(&path) {
         Ok(content) => Ok(Some(content)),
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
-        Err(e) => {
-            Err(EngineError::internal(format!("Failed to read baseline: {}", e)).to_string())
-        }
+        Err(e) => Err(EngineError::internal(format!("Failed to read baseline: {}", e)).to_string()),
     }
 }
 

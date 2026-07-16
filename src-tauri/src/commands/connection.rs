@@ -127,17 +127,17 @@ pub async fn test_saved_connection(
         Arc::clone(&state.session_manager)
     };
 
-    let config = match resolve_saved_connection(&app, &ws_manager, &project_id, &connection_id).await
-    {
-        Ok((cfg, _name)) => cfg,
-        Err(e) => {
-            return Ok(ConnectionResponse {
-                success: false,
-                session_id: None,
-                error: Some(e),
-            });
-        }
-    };
+    let config =
+        match resolve_saved_connection(&app, &ws_manager, &project_id, &connection_id).await {
+            Ok((cfg, _name)) => cfg,
+            Err(e) => {
+                return Ok(ConnectionResponse {
+                    success: false,
+                    session_id: None,
+                    error: Some(e),
+                });
+            }
+        };
 
     match qore_service::connection::test_connection(&session_manager, config).await {
         Ok(()) => Ok(ConnectionResponse {

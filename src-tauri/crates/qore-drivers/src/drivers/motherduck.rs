@@ -1,11 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 
-//! PostgreSQL Driver
+//! MotherDuck Driver
 //!
-//! Implements the DataEngine trait for PostgreSQL databases.
-//! Most of the heavy lifting is done by the shared `pg_compat` module;
-//! this file only contains PostgreSQL-specific overrides (materialized views
-//! in list_collections, full maintenance ops, connection string defaults).
+//! MotherDuck exposes a PostgreSQL wire-protocol endpoint
+//! (`pg.<region>.motherduck.com:5432`, token as password) that runs DuckDB SQL
+//! underneath. Transport therefore reuses the shared `pg_compat` helpers, but
+//! schema introspection must use the DuckDB catalog (`information_schema` +
+//! `duckdb_*` table functions): the vanilla PostgreSQL introspection references
+//! catalogs DuckDB doesn't have (`pg_matviews`, `pg_stat_user_tables`, ...),
+//! which is why a MotherDuck connection routed through the Postgres driver
+//! connects yet shows an empty schema explorer.
 
 use async_trait::async_trait;
 
@@ -14,43 +18,42 @@ use qore_core::error::{EngineError, EngineResult};
 use qore_core::traits::{DataEngine, StreamSender};
 use qore_core::types::{
     CancelSupport, Collection, CollectionList, CollectionListOptions, CollectionType,
-    ConnectionConfig, ForeignKey, MaintenanceOperationInfo, MaintenanceRequest, MaintenanceResult,
-    Namespace, PaginatedQueryResult, QueryId, QueryResult, RoutineDefinition, RoutineList,
-    RoutineListOptions, RoutineOperationResult, RoutineType, RowData, SessionId, TableQueryOptions,
-    TableSchema, TriggerDefinition, TriggerList, TriggerListOptions, TriggerOperationResult,
-    TruncateAllResult, Value,
+    ConnectionConfig, ForeignKey, Namespace, PaginatedQueryResult, QueryId, QueryResult, RowData,
+    SessionId, TableColumn, TableIndex, TableQueryOptions, TableSchema, Value,
 };
 
-pub struct PostgresDriver {
+pub struct MotherDuckDriver {
     sessions: SessionMap,
 }
 
-impl PostgresDriver {
+impl MotherDuckDriver {
     pub fn new() -> Self {
         Self {
             sessions: pg_compat::new_session_map(),
         }
     }
 
+    /// `my_db` is the personal database provisioned for every MotherDuck account;
+    /// used only when the connection specifies no database.
     fn conn_str(config: &ConnectionConfig) -> String {
-        pg_compat::build_pg_connection_string(config, "postgres")
+        pg_compat::build_pg_connection_string(config, "my_db")
     }
 }
 
-impl Default for PostgresDriver {
+impl Default for MotherDuckDriver {
     fn default() -> Self {
         Self::new()
     }
 }
 
 #[async_trait]
-impl DataEngine for PostgresDriver {
+impl DataEngine for MotherDuckDriver {
     fn driver_id(&self) -> &'static str {
-        "postgres"
+        "motherduck"
     }
 
     fn driver_name(&self) -> &'static str {
-        "PostgreSQL"
+        "MotherDuck"
     }
 
     async fn test_connection(&self, config: &ConnectionConfig) -> EngineResult<()> {
@@ -80,11 +83,11 @@ impl DataEngine for PostgresDriver {
 
         let rows: Vec<(String,)> = sqlx::query_as(
             r#"
-            SELECT nspname
-            FROM pg_catalog.pg_namespace
-            WHERE nspname NOT IN ('information_schema', 'pg_catalog', 'pg_toast')
-              AND nspname NOT LIKE 'pg_temp_%'
-            ORDER BY nspname
+            SELECT DISTINCT schema_name
+            FROM information_schema.schemata
+            WHERE catalog_name = current_database()
+              AND schema_name NOT IN ('information_schema', 'pg_catalog')
+            ORDER BY schema_name
             "#,
         )
         .fetch_all(pool)
@@ -97,7 +100,6 @@ impl DataEngine for PostgresDriver {
             .collect())
     }
 
-    // Postgres-specific: materialized views are surfaced alongside tables and views.
     async fn list_collections(
         &self,
         session: SessionId,
@@ -107,22 +109,15 @@ impl DataEngine for PostgresDriver {
         let pg = pg_compat::get_session(&self.sessions, session).await?;
         let pool = &pg.pool;
 
-        let schema = namespace.schema.as_deref().unwrap_or("public");
+        let schema = namespace.schema.as_deref().unwrap_or("main");
         let search_pattern = options.search.as_ref().map(|s| format!("%{}%", s));
 
         let count_row: (i64,) = sqlx::query_as(
             r#"
-            SELECT COUNT(*) FROM (
-                SELECT table_name AS name
-                FROM information_schema.tables
-                WHERE table_schema = $1
-                AND ($2 IS NULL OR table_name LIKE $3)
-                UNION ALL
-                SELECT matviewname AS name
-                FROM pg_matviews
-                WHERE schemaname = $1
-                AND ($2 IS NULL OR matviewname LIKE $3)
-            ) combined
+            SELECT COUNT(*)
+            FROM information_schema.tables
+            WHERE table_schema = $1
+              AND ($2 IS NULL OR table_name LIKE $3)
             "#,
         )
         .bind(schema)
@@ -133,18 +128,11 @@ impl DataEngine for PostgresDriver {
         .map_err(|e| EngineError::execution_error(e.to_string()))?;
 
         let mut query_str = r#"
-            SELECT name, ctype FROM (
-                SELECT table_name AS name,
-                    CASE WHEN table_type = 'VIEW' THEN 'View' ELSE 'Table' END AS ctype
-                FROM information_schema.tables
-                WHERE table_schema = $1
-                AND ($2 IS NULL OR table_name LIKE $3)
-                UNION ALL
-                SELECT matviewname AS name, 'MaterializedView' AS ctype
-                FROM pg_matviews
-                WHERE schemaname = $1
-                AND ($2 IS NULL OR matviewname LIKE $3)
-            ) combined ORDER BY name
+            SELECT table_name, table_type
+            FROM information_schema.tables
+            WHERE table_schema = $1
+              AND ($2 IS NULL OR table_name LIKE $3)
+            ORDER BY table_name
         "#
         .to_string();
 
@@ -166,11 +154,11 @@ impl DataEngine for PostgresDriver {
 
         let collections = rows
             .into_iter()
-            .map(|(name, ctype)| {
-                let collection_type = match ctype.as_str() {
-                    "View" => CollectionType::View,
-                    "MaterializedView" => CollectionType::MaterializedView,
-                    _ => CollectionType::Table,
+            .map(|(name, table_type)| {
+                let collection_type = if table_type.to_ascii_uppercase().contains("VIEW") {
+                    CollectionType::View
+                } else {
+                    CollectionType::Table
                 };
                 Collection {
                     namespace: namespace.clone(),
@@ -192,7 +180,134 @@ impl DataEngine for PostgresDriver {
         namespace: &Namespace,
         table: &str,
     ) -> EngineResult<TableSchema> {
-        pg_compat::describe_table_core(&self.sessions, session, namespace, table, true).await
+        let pg = pg_compat::get_session(&self.sessions, session).await?;
+        let pool = &pg.pool;
+        let schema = namespace.schema.as_deref().unwrap_or("main");
+
+        let column_rows: Vec<(String, String, String, Option<String>)> = sqlx::query_as(
+            r#"
+            SELECT column_name, data_type, is_nullable, column_default
+            FROM information_schema.columns
+            WHERE table_schema = $1 AND table_name = $2
+            ORDER BY ordinal_position
+            "#,
+        )
+        .bind(schema)
+        .bind(table)
+        .fetch_all(pool)
+        .await
+        .map_err(|e| EngineError::execution_error(e.to_string()))?;
+
+        // Constraints and indexes come from DuckDB table functions that a given
+        // MotherDuck endpoint may not expose — treat them as best-effort so the
+        // core column list still renders if they fail.
+        let pk_columns: Vec<String> = sqlx::query_as::<_, (String,)>(
+            r#"
+            SELECT unnest(constraint_column_names)
+            FROM duckdb_constraints()
+            WHERE schema_name = $1 AND table_name = $2 AND constraint_type = 'PRIMARY KEY'
+            "#,
+        )
+        .bind(schema)
+        .bind(table)
+        .fetch_all(pool)
+        .await
+        .map(|rows| rows.into_iter().map(|(c,)| c).collect())
+        .unwrap_or_default();
+
+        let fk_rows: Vec<(String, String, String, Option<String>)> = sqlx::query_as(
+            r#"
+            SELECT unnest(constraint_column_names), unnest(referenced_column_names),
+                   referenced_table, constraint_name
+            FROM duckdb_constraints()
+            WHERE schema_name = $1 AND table_name = $2 AND constraint_type = 'FOREIGN KEY'
+            "#,
+        )
+        .bind(schema)
+        .bind(table)
+        .fetch_all(pool)
+        .await
+        .unwrap_or_default();
+
+        let foreign_keys = fk_rows
+            .into_iter()
+            .map(
+                |(column, referenced_column, referenced_table, constraint_name)| ForeignKey {
+                    column,
+                    referenced_table,
+                    referenced_column,
+                    referenced_schema: Some(schema.to_string()),
+                    referenced_database: None,
+                    constraint_name,
+                    is_virtual: false,
+                },
+            )
+            .collect();
+
+        let idx_rows: Vec<(String, bool)> = sqlx::query_as(
+            r#"
+            SELECT index_name, is_unique
+            FROM duckdb_indexes()
+            WHERE schema_name = $1 AND table_name = $2
+            "#,
+        )
+        .bind(schema)
+        .bind(table)
+        .fetch_all(pool)
+        .await
+        .unwrap_or_default();
+
+        let indexes = idx_rows
+            .into_iter()
+            .map(|(name, is_unique)| TableIndex {
+                name,
+                columns: Vec::new(),
+                is_unique,
+                is_primary: false,
+                index_type: None,
+            })
+            .collect();
+
+        let row_count_estimate: Option<u64> = sqlx::query_scalar::<_, i64>(
+            r#"
+            SELECT estimated_size
+            FROM duckdb_tables()
+            WHERE schema_name = $1 AND table_name = $2
+            "#,
+        )
+        .bind(schema)
+        .bind(table)
+        .fetch_optional(pool)
+        .await
+        .ok()
+        .flatten()
+        .and_then(|c| if c < 0 { None } else { Some(c as u64) });
+
+        let columns = column_rows
+            .into_iter()
+            .map(
+                |(name, data_type, is_nullable, default_value)| TableColumn {
+                    is_primary_key: pk_columns.contains(&name),
+                    name,
+                    data_type,
+                    nullable: is_nullable == "YES",
+                    default_value,
+                    is_auto_increment: false,
+                },
+            )
+            .collect();
+
+        Ok(TableSchema {
+            columns,
+            primary_key: if pk_columns.is_empty() {
+                None
+            } else {
+                Some(pk_columns)
+            },
+            foreign_keys,
+            row_count_estimate,
+            indexes,
+        })
     }
 
     async fn execute(
@@ -276,7 +391,7 @@ impl DataEngine for PostgresDriver {
         table: &str,
         limit: u32,
     ) -> EngineResult<QueryResult> {
-        let schema = namespace.schema.as_deref().unwrap_or("public");
+        let schema = namespace.schema.as_deref().unwrap_or("main");
         let query = format!(
             "SELECT * FROM {}.{} LIMIT {}",
             pg_compat::quote_ident(schema),
@@ -374,155 +489,17 @@ impl DataEngine for PostgresDriver {
         true
     }
 
-    fn supports_routines(&self) -> bool {
-        true
-    }
-
-    async fn list_routines(
-        &self,
-        session: SessionId,
-        namespace: &Namespace,
-        options: RoutineListOptions,
-    ) -> EngineResult<RoutineList> {
-        pg_compat::list_routines(&self.sessions, session, namespace, options).await
-    }
-
-    async fn get_routine_definition(
-        &self,
-        session: SessionId,
-        namespace: &Namespace,
-        routine_name: &str,
-        routine_type: RoutineType,
-        arguments: Option<&str>,
-    ) -> EngineResult<RoutineDefinition> {
-        pg_compat::get_routine_definition(
-            &self.sessions,
-            session,
-            namespace,
-            routine_name,
-            routine_type,
-            arguments,
-        )
-        .await
-    }
-
-    async fn drop_routine(
-        &self,
-        session: SessionId,
-        namespace: &Namespace,
-        routine_name: &str,
-        routine_type: RoutineType,
-        arguments: Option<&str>,
-    ) -> EngineResult<RoutineOperationResult> {
-        pg_compat::drop_routine(
-            &self.sessions,
-            session,
-            namespace,
-            routine_name,
-            routine_type,
-            arguments,
-        )
-        .await
-    }
-
-    fn supports_triggers(&self) -> bool {
-        true
-    }
-
-    async fn list_triggers(
-        &self,
-        session: SessionId,
-        namespace: &Namespace,
-        options: TriggerListOptions,
-    ) -> EngineResult<TriggerList> {
-        pg_compat::list_triggers(&self.sessions, session, namespace, options).await
-    }
-
-    async fn get_trigger_definition(
-        &self,
-        session: SessionId,
-        namespace: &Namespace,
-        trigger_name: &str,
-    ) -> EngineResult<TriggerDefinition> {
-        pg_compat::get_trigger_definition(&self.sessions, session, namespace, trigger_name).await
-    }
-
-    async fn drop_trigger(
-        &self,
-        session: SessionId,
-        namespace: &Namespace,
-        trigger_name: &str,
-        table_name: &str,
-    ) -> EngineResult<TriggerOperationResult> {
-        pg_compat::drop_trigger(&self.sessions, session, namespace, trigger_name, table_name).await
-    }
-
-    async fn toggle_trigger(
-        &self,
-        session: SessionId,
-        namespace: &Namespace,
-        trigger_name: &str,
-        table_name: &str,
-        enable: bool,
-    ) -> EngineResult<TriggerOperationResult> {
-        pg_compat::toggle_trigger(
-            &self.sessions,
-            session,
-            namespace,
-            trigger_name,
-            table_name,
-            enable,
-        )
-        .await
-    }
-
     async fn create_database(
         &self,
         session: SessionId,
         name: &str,
         _options: Option<Value>,
     ) -> EngineResult<()> {
-        pg_compat::create_schema(&self.sessions, session, name, "Postgres").await
+        pg_compat::create_schema(&self.sessions, session, name, "MotherDuck").await
     }
 
     async fn drop_database(&self, session: SessionId, name: &str) -> EngineResult<()> {
-        pg_compat::drop_schema(&self.sessions, session, name, "Postgres").await
-    }
-
-    // Postgres-specific maintenance: VACUUM, ANALYZE, REINDEX, CLUSTER.
-    fn supports_maintenance(&self) -> bool {
-        true
-    }
-
-    async fn list_maintenance_operations(
-        &self,
-        _session: SessionId,
-        _namespace: &Namespace,
-        _table: &str,
-    ) -> EngineResult<Vec<MaintenanceOperationInfo>> {
-        Ok(pg_compat::maintenance_operations())
-    }
-
-    async fn run_maintenance(
-        &self,
-        session: SessionId,
-        namespace: &Namespace,
-        table: &str,
-        request: &MaintenanceRequest,
-    ) -> EngineResult<MaintenanceResult> {
-        pg_compat::run_maintenance(&self.sessions, session, namespace, table, request).await
-    }
-
-    fn supports_truncate_all(&self) -> bool {
-        true
-    }
-
-    async fn truncate_all(
-        &self,
-        session: SessionId,
-        namespace: &Namespace,
-    ) -> EngineResult<TruncateAllResult> {
-        pg_compat::truncate_all(&self.sessions, session, namespace, "Postgres").await
+        pg_compat::drop_schema(&self.sessions, session, name, "MotherDuck").await
     }
 
     fn supports_streaming(&self) -> bool {
@@ -538,17 +515,17 @@ impl DataEngine for PostgresDriver {
 mod tests {
     use super::*;
 
-    fn make_config(username: &str, password: &str) -> ConnectionConfig {
+    fn make_config() -> ConnectionConfig {
         ConnectionConfig {
-            driver: "postgres".to_string(),
-            host: "localhost".to_string(),
+            driver: "motherduck".to_string(),
+            host: "pg.us-east-1-aws.motherduck.com".to_string(),
             port: 5432,
-            username: username.to_string(),
-            password: password.to_string(),
-            database: Some("testdb".to_string()),
-            ssl: false,
-            ssl_mode: None,
-            environment: "development".to_string(),
+            username: "postgres".to_string(),
+            password: "md_token".to_string(),
+            database: None,
+            ssl: true,
+            ssl_mode: Some("verify-full".to_string()),
+            environment: "production".to_string(),
             read_only: false,
             ssh_tunnel: None,
             pool_acquire_timeout_secs: None,
@@ -563,31 +540,25 @@ mod tests {
     }
 
     #[test]
-    fn test_connection_string_building() {
-        let config = make_config("user", "pass");
-
-        let conn_str = PostgresDriver::conn_str(&config);
-        assert!(conn_str.contains("localhost:5432"));
-        assert!(conn_str.contains("testdb"));
-        assert!(conn_str.contains("sslmode=disable"));
+    fn motherduck_driver_identity() {
+        let d = MotherDuckDriver::new();
+        assert_eq!(d.driver_id(), "motherduck");
+        assert_eq!(d.driver_name(), "MotherDuck");
     }
 
     #[test]
-    fn test_connection_string_special_chars_in_password() {
-        let config = make_config("admin", "p@ss:word/123?#&=!");
-
-        let conn_str = PostgresDriver::conn_str(&config);
-        assert!(!conn_str.contains("p@ss:word/123?#&=!"));
-        assert!(conn_str.contains("p%40ss%3Aword%2F123%3F%23%26%3D%21"));
-        assert!(conn_str.contains("@localhost:5432"));
+    fn motherduck_connection_string() {
+        let cfg = make_config();
+        let conn = MotherDuckDriver::conn_str(&cfg);
+        assert!(conn.contains("pg.us-east-1-aws.motherduck.com"));
+        assert!(conn.contains(":5432"));
+        assert!(conn.contains("sslmode=verify-full"));
     }
 
     #[test]
-    fn test_connection_string_special_chars_in_username() {
-        let config = make_config("user@domain", "pass");
-
-        let conn_str = PostgresDriver::conn_str(&config);
-        assert!(conn_str.contains("user%40domain"));
-        assert!(conn_str.contains("@localhost:5432"));
+    fn motherduck_default_db_when_missing() {
+        let cfg = make_config();
+        let conn = MotherDuckDriver::conn_str(&cfg);
+        assert!(conn.contains("/my_db?"));
     }
 }

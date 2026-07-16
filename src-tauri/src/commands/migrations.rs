@@ -100,7 +100,9 @@ pub async fn apply_migration(
         let mgr = ws_manager.lock().await;
         let ws = mgr.active();
         if ws.source == WorkspaceSource::Default {
-            return Ok(fail("Migrations require a file-based workspace".to_string()));
+            return Ok(fail(
+                "Migrations require a file-based workspace".to_string(),
+            ));
         }
         read_migration_file(&ws.path, &filename)?
     };
@@ -230,10 +232,7 @@ pub async fn apply_migration(
 
     if supports_tx {
         if let Err(e) = driver.commit(session).await {
-            return Ok(fail(format!(
-                "Failed to commit: {}",
-                e.sanitized_message()
-            )));
+            return Ok(fail(format!("Failed to commit: {}", e.sanitized_message())));
         }
     }
 
@@ -300,9 +299,8 @@ pub async fn get_migration_status(
 
     // version -> (checksum, applied_at, rolled_back_at). Absent table => empty.
     let history: HashMap<String, (String, Option<String>, Option<String>)> = {
-        let query = format!(
-            "SELECT version, checksum, applied_at, rolled_back_at FROM {HISTORY_TABLE}"
-        );
+        let query =
+            format!("SELECT version, checksum, applied_at, rolled_back_at FROM {HISTORY_TABLE}");
         match driver.execute(session, &query, QueryId::new()).await {
             Ok(result) => result
                 .rows

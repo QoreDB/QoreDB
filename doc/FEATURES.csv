@@ -64,6 +64,7 @@ Data Engine Kernel,Driver SQLite,Backend / Core,Driver SQLite avec support WAL e
 Data Tools,Visual Data Diff,Frontend / Diff,Comparaison côte à côte de deux résultats de requêtes ou tables (type Git diff).,Terminé,P1,V2,3,Compare Prod vs Staging.
 Data Tools,Fédération Inter-bases,Fullstack,Exécution de requêtes SQL cross-database avec jointures entre connexions actives.,Terminé,P1,V2,5,Pipeline de fédération basé sur DuckDB avec source mapping.
 Data Engine Kernel,Driver DuckDB,Backend / Core,Driver DuckDB pour analyse de fichiers locaux CSV/Parquet et fédération.,Terminé,P1,V2,3,Support OLAP et fichiers locaux.
+Data Engine Kernel,Driver MotherDuck,Backend / Core,Driver MotherDuck via l'endpoint PostgreSQL wire (token) avec introspection catalogue DuckDB.,Terminé,P2,V2,3,Transport pg_compat et introspection information_schema/duckdb_*.
 Data Engine Kernel,Driver SQL Server,Backend / Core,Driver SQL Server complet via Tiberius avec connection pooling bb8.,Terminé,P1,V2,4,Support OFFSET/FETCH pagination.
 Data Engine Kernel,Driver CockroachDB,Backend / Core,Driver CockroachDB basé sur la couche de compatibilité PostgreSQL.,Terminé,P1,V2,3,Wire-compatible PostgreSQL.
 DDL / Management,Routines & Procédures,Fullstack,Interface dédiée pour lister créer et éditer les fonctions et procédures stockées.,Terminé,P1,V2,4,Support multi-driver avec context menu.

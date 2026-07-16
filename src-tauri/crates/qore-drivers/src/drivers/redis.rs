@@ -1373,8 +1373,7 @@ impl DataEngine for RedisDriver {
             "string" => Self::read_string(&mut conn, key).await,
             "hash" => {
                 let start = Instant::now();
-                let rows =
-                    Self::read_hash_page(&mut conn, key, 0, limit as usize).await?;
+                let rows = Self::read_hash_page(&mut conn, key, 0, limit as usize).await?;
                 Ok(QueryResult {
                     columns: vec![
                         ColumnInfo {

@@ -28,6 +28,13 @@ export function detectDriverFromDsn(dsn: string): DsnDetection | null {
     return { driver: Driver.Neon, hint: '*.neon.tech' };
   }
 
+  // MotherDuck's Postgres-wire endpoint uses the postgres:// scheme but runs
+  // DuckDB underneath — detect it so introspection uses the DuckDB catalog
+  // instead of PostgreSQL's (which leaves the schema explorer empty).
+  if (/\.motherduck\.com/i.test(trimmed)) {
+    return { driver: Driver.Motherduck, hint: '*.motherduck.com' };
+  }
+
   // Elastic Cloud endpoints / Cloud IDs.
   if (/\.es\.[^/]*\.cloud\.es\.io/i.test(trimmed) || /\.aws\.elastic-cloud\.com/i.test(trimmed)) {
     return { driver: Driver.Elasticsearch, hint: '*.cloud.es.io' };

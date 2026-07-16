@@ -7,6 +7,7 @@ export enum Driver {
   Redis = 'redis',
   Sqlite = 'sqlite',
   Duckdb = 'duckdb',
+  Motherduck = 'motherduck',
   SqlServer = 'sqlserver',
   Cockroachdb = 'cockroachdb',
   Mariadb = 'mariadb',
@@ -305,6 +306,41 @@ export const DRIVERS: Record<Driver, DriverMetadata> = {
     treeRootLabel: 'dbtree.schemasHeader',
     createAction: 'schema',
     databaseFieldLabel: 'connection.filePath',
+    supportsSchemas: true,
+    supportsSQL: true,
+    dataModel: 'relational',
+    isDocumentBased: false,
+    identifier: {
+      quoteStart: '"',
+      quoteEnd: '"',
+      namespaceStrategy: 'schema',
+    },
+    queries: {
+      databaseSizeQuery: () =>
+        'SELECT pg_size_pretty(database_size) as size FROM duckdb_databases() WHERE database_name = current_database()',
+      tableSizeQuery: (schema, table) => {
+        const s = assertSafeSqlIdent(schema, 'schema');
+        const t = assertSafeSqlIdent(table, 'table');
+        return `SELECT estimated_size as total_bytes FROM duckdb_tables() WHERE schema_name = '${s}' AND table_name = '${t}'`;
+      },
+      indexCountQuery: schema => {
+        const s = assertSafeSqlIdent(schema, 'schema');
+        return `SELECT COUNT(*) as cnt FROM duckdb_indexes() WHERE schema_name = '${s}'`;
+      },
+    },
+  },
+  [Driver.Motherduck]: {
+    id: Driver.Motherduck,
+    label: 'MotherDuck',
+    icon: 'motherduck.png',
+    defaultPort: 5432,
+    namespaceLabel: 'dbtree.schema',
+    namespacePluralLabel: 'dbtree.schemas',
+    collectionLabel: 'dbtree.table',
+    collectionPluralLabel: 'dbtree.tables',
+    treeRootLabel: 'dbtree.schemasHeader',
+    createAction: 'schema',
+    databaseFieldLabel: 'connection.databaseInitial',
     supportsSchemas: true,
     supportsSQL: true,
     dataModel: 'relational',

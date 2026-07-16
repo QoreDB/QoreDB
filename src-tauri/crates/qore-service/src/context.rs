@@ -6,8 +6,9 @@ use qore_core::DriverRegistry;
 use qore_drivers::drivers::{
     clickhouse::ClickHouseDriver, cockroachdb::CockroachDbDriver, duckdb::DuckDbDriver,
     elasticsearch::ElasticsearchDriver, mariadb::MariaDbDriver, mongodb::MongoDriver,
-    mysql::MySqlDriver, neon::NeonDriver, opensearch::OpenSearchDriver, postgres::PostgresDriver,
-    redis::RedisDriver, sqlite::SqliteDriver, sqlserver::SqlServerDriver, supabase::SupabaseDriver,
+    motherduck::MotherDuckDriver, mysql::MySqlDriver, neon::NeonDriver,
+    opensearch::OpenSearchDriver, postgres::PostgresDriver, redis::RedisDriver,
+    sqlite::SqliteDriver, sqlserver::SqlServerDriver, supabase::SupabaseDriver,
     timescaledb::TimescaleDbDriver,
 };
 use qore_drivers::query_manager::QueryManager;
@@ -44,6 +45,7 @@ impl ServiceContext {
         registry.register(Arc::new(RedisDriver::new()));
         registry.register(Arc::new(SqliteDriver::new()));
         registry.register(Arc::new(DuckDbDriver::new()));
+        registry.register(Arc::new(MotherDuckDriver::new()));
         registry.register(Arc::new(CockroachDbDriver::new()));
         registry.register(Arc::new(SqlServerDriver::new()));
         registry.register(Arc::new(MariaDbDriver::new()));

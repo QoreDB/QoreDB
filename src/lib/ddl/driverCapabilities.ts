@@ -133,6 +133,7 @@ const CAPABILITIES: Record<Driver, DdlCapabilities> = {
   [Driver.Mariadb]: MYSQL_CAPS,
   [Driver.Sqlite]: SQLITE_CAPS,
   [Driver.Duckdb]: DUCKDB_CAPS,
+  [Driver.Motherduck]: DUCKDB_CAPS,
   [Driver.SqlServer]: SQLSERVER_CAPS,
   [Driver.Mongodb]: NO_DDL,
   [Driver.Redis]: NO_DDL,

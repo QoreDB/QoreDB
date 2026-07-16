@@ -64,4 +64,3 @@ fn generate_token() -> String {
     let raw = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(bytes);
     format!("qsrv-{raw}")
 }
-

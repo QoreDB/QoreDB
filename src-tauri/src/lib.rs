@@ -9,9 +9,9 @@ pub mod api;
 pub mod atomic_write;
 pub mod backup;
 pub mod commands;
-pub mod emit_gate;
 #[cfg(feature = "pro")]
 pub mod contracts;
+pub mod emit_gate;
 pub mod engine;
 pub mod export;
 #[cfg(feature = "pro")]

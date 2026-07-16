@@ -12,6 +12,7 @@ export const SCHEMA_MIGRATION_DRIVERS = new Set([
   'mariadb',
   'sqlite',
   'duckdb',
+  'motherduck',
   'sqlserver',
   'timescaledb',
   'supabase',

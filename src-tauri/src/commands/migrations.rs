@@ -67,9 +67,12 @@ pub struct MigrationStatusEntry {
     pub version: String,
     pub name: String,
     pub filename: String,
-    /// "applied" | "pending" | "rolled_back"
+    /// "applied" | "pending" | "rolled_back" | "failed"
     pub status: String,
     pub applied_at: Option<String>,
+    /// Direction that failed on a non-transactional path. Lets the UI resume a
+    /// failed rollback as `down` instead of accidentally offering `up`.
+    pub failed_direction: Option<&'static str>,
     /// True when an applied file was edited after being applied (checksum drift).
     pub checksum_mismatch: bool,
     /// True when another file claims the same version — they would share one
@@ -110,7 +113,10 @@ fn checksum(content: &str) -> String {
 /// Checksum stored on new rows: SHA-256 of the `up` script only, so editing the
 /// rollback section never reports as drift.
 pub(crate) fn checksum_v2(file_content: &str) -> String {
-    format!("{CHECKSUM_V2_PREFIX}{}", checksum(&split_up_down(file_content).0))
+    format!(
+        "{CHECKSUM_V2_PREFIX}{}",
+        checksum(&split_up_down(file_content).0)
+    )
 }
 
 /// Whether `stored` still matches `file_content`, in either checksum format.
@@ -131,24 +137,30 @@ fn is_sqlserver(driver_id: &str) -> bool {
     matches!(driver_id, "sqlserver" | "mssql")
 }
 
-/// Whether DDL participates in transactions. `DataEngine::supports_transactions`
-/// answers a different question — MySQL reports `true` for DML but commits DDL
-/// implicitly, so a `ROLLBACK` after a failed `ALTER` undoes nothing.
-fn has_transactional_ddl(driver_id: &str) -> bool {
-    !matches!(driver_id, "mysql" | "mariadb")
+fn is_mysql_family(driver_id: &str) -> bool {
+    matches!(driver_id, "mysql" | "mariadb")
 }
 
-/// Whether a statement implicitly commits on the non-transactional-DDL drivers.
-fn is_ddl(op: QueryOperationType) -> bool {
-    matches!(
+/// MySQL has more implicit-commit statements than the generic operation enum can
+/// express (`RENAME TABLE`, `LOCK TABLES`, account-management statements, ...).
+/// Use a positive list instead: only statements known to remain inside an
+/// InnoDB transaction may opt into the transactional path. Unknown SQL is
+/// deliberately conservative so a rollback can never pretend to undo a commit.
+fn mysql_statement_is_transaction_safe(op: QueryOperationType, sql: &str) -> bool {
+    if matches!(
         op,
-        QueryOperationType::Create
-            | QueryOperationType::Alter
-            | QueryOperationType::Drop
-            | QueryOperationType::Truncate
-            | QueryOperationType::Grant
-            | QueryOperationType::Revoke
-    )
+        QueryOperationType::Select
+            | QueryOperationType::Insert
+            | QueryOperationType::Update
+            | QueryOperationType::Delete
+    ) {
+        return true;
+    }
+
+    sql.trim_start()
+        .split_whitespace()
+        .next()
+        .is_some_and(|word| word.eq_ignore_ascii_case("REPLACE"))
 }
 
 /// DDL to create the history table if absent. Portable across the SQL drivers
@@ -167,6 +179,66 @@ fn history_table_ddl(driver_id: &str) -> String {
              checksum TEXT NOT NULL, applied_at VARCHAR(64) NOT NULL, applied_by TEXT, \
              execution_ms BIGINT, rolled_back_at VARCHAR(64), failed_at VARCHAR(64))"
         )
+    }
+}
+
+fn history_failed_column_probe() -> String {
+    format!("SELECT failed_at FROM {HISTORY_TABLE} WHERE 1 = 0")
+}
+
+fn history_add_failed_column_ddl(driver_id: &str) -> String {
+    if is_sqlserver(driver_id) {
+        format!("ALTER TABLE {HISTORY_TABLE} ADD failed_at NVARCHAR(64) NULL")
+    } else {
+        format!("ALTER TABLE {HISTORY_TABLE} ADD COLUMN failed_at VARCHAR(64)")
+    }
+}
+
+/// Creates the history table on first use and upgrades the pre-`failed_at`
+/// schema in place. The final probe also tolerates a concurrent process winning
+/// the ADD COLUMN race between our first probe and ALTER.
+async fn prepare_history(
+    driver: &Arc<dyn DataEngine>,
+    session: SessionId,
+    driver_id: &str,
+) -> Result<(), String> {
+    driver
+        .execute(session, &history_table_ddl(driver_id), QueryId::new())
+        .await
+        .map_err(|e| {
+            format!(
+                "Failed to prepare migration history: {}",
+                e.sanitized_message()
+            )
+        })?;
+
+    let probe = history_failed_column_probe();
+    if driver
+        .execute(session, &probe, QueryId::new())
+        .await
+        .is_ok()
+    {
+        return Ok(());
+    }
+
+    let alter = history_add_failed_column_ddl(driver_id);
+    match driver.execute(session, &alter, QueryId::new()).await {
+        Ok(_) => Ok(()),
+        Err(alter_error) => {
+            // Another app process may have added the column after our probe.
+            if driver
+                .execute(session, &probe, QueryId::new())
+                .await
+                .is_ok()
+            {
+                Ok(())
+            } else {
+                Err(format!(
+                    "Failed to upgrade migration history with `failed_at`: {}",
+                    alter_error.sanitized_message()
+                ))
+            }
+        }
     }
 }
 
@@ -200,6 +272,14 @@ impl HistoryRow {
         } else {
             HistoryState::Applied
         }
+    }
+
+    fn failed_direction(&self) -> Option<&'static str> {
+        (self.state() == HistoryState::Failed).then_some(if self.rolled_back_at.is_some() {
+            "down"
+        } else {
+            "up"
+        })
     }
 }
 
@@ -334,7 +414,12 @@ pub(crate) struct MigrationRun<'a> {
     pub force: bool,
 }
 
-fn exec_result(success: bool, error: Option<String>, ms: f64, rows: Option<i64>) -> QueryExecutionResult {
+fn exec_result(
+    success: bool,
+    error: Option<String>,
+    ms: f64,
+    rows: Option<i64>,
+) -> QueryExecutionResult {
     QueryExecutionResult {
         success,
         error,
@@ -357,10 +442,20 @@ async fn read_history_row(
     let result = driver
         .execute(session, &sql, QueryId::new())
         .await
-        .map_err(|e| format!("Failed to read migration history: {}", e.sanitized_message()))?;
+        .map_err(|e| {
+            format!(
+                "Failed to read migration history: {}",
+                e.sanitized_message()
+            )
+        })?;
 
     Ok(result.rows.first().map(|row| {
-        let cell = |i: usize| row.values.get(i).and_then(|v| v.as_text()).map(String::from);
+        let cell = |i: usize| {
+            row.values
+                .get(i)
+                .and_then(|v| v.as_text())
+                .map(String::from)
+        };
         HistoryRow {
             checksum: cell(0).unwrap_or_default(),
             applied_at: cell(1),
@@ -380,17 +475,17 @@ pub(crate) async fn run_migration(run: MigrationRun<'_>) -> ApplyMigrationRespon
     let driver_id = driver.driver_id().to_string();
     let is_production = matches!(run.environment, Environment::Production);
 
-    let statements = match qore_sql::migration_split::split_migration_statements(&driver_id, run.script)
-    {
-        Ok(s) => s,
-        Err(e) => {
-            return blocked(
-                MigrationBlockReason::UnsplittableScript,
-                format!("Cannot split this migration safely: {e}"),
-                false,
-            )
-        }
-    };
+    let statements =
+        match qore_sql::migration_split::split_migration_statements(&driver_id, run.script) {
+            Ok(s) => s,
+            Err(e) => {
+                return blocked(
+                    MigrationBlockReason::UnsplittableScript,
+                    format!("Cannot split this migration safely: {e}"),
+                    false,
+                )
+            }
+        };
     if statements.is_empty() {
         return fail("Migration script has no statements".to_string());
     }
@@ -407,7 +502,10 @@ pub(crate) async fn run_migration(run: MigrationRun<'_>) -> ApplyMigrationRespon
                 if is_production && (run.policy.prod_block_dangerous_sql || !run.acknowledged) {
                     return blocked(
                         MigrationBlockReason::SafetyBlocked,
-                        format!("Statement {}: SQL could not be parsed for safety analysis ({e})", stmt.index),
+                        format!(
+                            "Statement {}: SQL could not be parsed for safety analysis ({e})",
+                            stmt.index
+                        ),
                         false,
                     );
                 }
@@ -439,7 +537,12 @@ pub(crate) async fn run_migration(run: MigrationRun<'_>) -> ApplyMigrationRespon
             if run.policy.prod_block_dangerous_sql {
                 run.interceptor.post_execute(
                     &ctx,
-                    &exec_result(false, Some("blocked by production policy".into()), 0.0, None),
+                    &exec_result(
+                        false,
+                        Some("blocked by production policy".into()),
+                        0.0,
+                        None,
+                    ),
                     true,
                     None,
                 );
@@ -486,17 +589,11 @@ pub(crate) async fn run_migration(run: MigrationRun<'_>) -> ApplyMigrationRespon
         planned.push((stmt.index, stmt.text, ctx, warn));
     }
 
-    // History table is created outside the migration transaction so it persists
-    // even if the migration is rolled back — and so the guard read below never
-    // has to treat "table absent" as a case.
-    if let Err(e) = driver
-        .execute(run.session, &history_table_ddl(&driver_id), QueryId::new())
-        .await
-    {
-        return fail(format!(
-            "Failed to prepare migration history: {}",
-            e.sanitized_message()
-        ));
+    // History preparation stays outside the migration transaction so it
+    // persists on rollback. It also upgrades tables created before `failed_at`
+    // existed, before any guard attempts to read that column.
+    if let Err(msg) = prepare_history(driver, run.session, &driver_id).await {
+        return fail(msg);
     }
 
     let row = match read_history_row(driver, run.session, run.version).await {
@@ -512,12 +609,16 @@ pub(crate) async fn run_migration(run: MigrationRun<'_>) -> ApplyMigrationRespon
         return blocked(refusal.reason, refusal.message, refusal.overridable);
     }
 
-    // A transaction only protects this run if the driver can also roll DDL back.
-    // MySQL reports transaction support but commits DDL implicitly, so wrapping a
-    // DDL migration in BEGIN/ROLLBACK would undo nothing while looking like it did.
-    let has_ddl = planned.iter().any(|(_, _, ctx, _)| is_ddl(ctx.operation_type));
-    let supports_tx = driver.supports_transactions_for_session(run.session).await
-        && (has_transactional_ddl(&driver_id) || !has_ddl);
+    // MySQL reports transaction support, but many statements commit implicitly.
+    // Only an all-safe DML/read script may use its transactional path; unknown
+    // operations are treated conservatively because the generic enum does not
+    // cover statements such as `RENAME TABLE` or `LOCK TABLES`.
+    let transaction_safe = !is_mysql_family(&driver_id)
+        || planned
+            .iter()
+            .all(|(_, sql, ctx, _)| mysql_statement_is_transaction_safe(ctx.operation_type, sql));
+    let supports_tx =
+        driver.supports_transactions_for_session(run.session).await && transaction_safe;
 
     if supports_tx {
         if let Err(e) = driver.begin_transaction(run.session).await {
@@ -556,28 +657,35 @@ pub(crate) async fn run_migration(run: MigrationRun<'_>) -> ApplyMigrationRespon
                     false,
                     warn.as_deref(),
                 );
-                if supports_tx {
+                let marker_error = if supports_tx {
                     // The claim and every statement so far go away together.
                     let _ = driver.rollback(run.session).await;
+                    None
                 } else {
                     // Nothing can undo what already ran. Deleting the claim would
                     // report "pending" over a half-migrated schema, so record the
                     // failure instead and let a human resolve it.
-                    let _ = driver
-                        .execute(run.session, &mark_failed_sql(run.version, &now), QueryId::new())
-                        .await;
-                }
+                    let failed_at = chrono::Utc::now().to_rfc3339();
+                    mark_failed(driver, run.session, run.version, &failed_at)
+                        .await
+                        .err()
+                };
                 return ApplyMigrationResponse {
                     success: false,
                     execution_ms: started.elapsed().as_millis() as u64,
-                    error: Some(if supports_tx {
-                        msg
-                    } else {
-                        format!(
-                            "{msg}\n\nThis driver commits DDL implicitly, so the statements that \
-                             already ran could not be undone. The migration is marked as failed: \
-                             check the schema before retrying."
-                        )
+                    error: Some(match (supports_tx, marker_error) {
+                        (true, _) => msg,
+                        (false, None) => format!(
+                            "{msg}\n\nThis driver may commit statements implicitly, so the statements \
+                             that already ran could not be undone. The migration is marked as \
+                             failed: check the schema before retrying."
+                        ),
+                        (false, Some(marker)) => format!(
+                            "{msg}\n\nThis driver may commit statements implicitly, so the statements \
+                             that already ran could not be undone. QoreDB also could not mark the \
+                             migration as failed ({marker}); the history state is uncertain and \
+                             must be inspected manually."
+                        ),
                     }),
                     failed_statement: Some(index - 1),
                     blocked_reason: None,
@@ -633,6 +741,22 @@ fn mark_failed_sql(version: &str, now: &str) -> String {
     )
 }
 
+async fn mark_failed(
+    driver: &Arc<dyn DataEngine>,
+    session: SessionId,
+    version: &str,
+    now: &str,
+) -> Result<(), String> {
+    let result = driver
+        .execute(session, &mark_failed_sql(version, now), QueryId::new())
+        .await
+        .map_err(|e| e.sanitized_message())?;
+    if result.affected_rows == Some(0) {
+        return Err("the history claim no longer exists".to_string());
+    }
+    Ok(())
+}
+
 /// Writes the history row before the script runs. A lost race surfaces as a
 /// primary-key conflict (up) or a zero-row update (down).
 async fn claim(
@@ -673,7 +797,11 @@ async fn claim(
             sql_str(now),
             sql_str(run.applied_by),
         );
-        if driver.execute(run.session, &ins, QueryId::new()).await.is_err() {
+        if driver
+            .execute(run.session, &ins, QueryId::new())
+            .await
+            .is_err()
+        {
             return abort(blocked(
                 MigrationBlockReason::ConcurrentApply,
                 "This migration is being applied by someone else.".to_string(),
@@ -807,7 +935,9 @@ pub async fn apply_migration(
         .await
         .unwrap_or_else(|_| "development".to_string());
     let connection_key = session_manager.connection_key(session).await;
-    let applied_by = connection_key.clone().unwrap_or_else(|| "unknown".to_string());
+    let applied_by = connection_key
+        .clone()
+        .unwrap_or_else(|| "unknown".to_string());
 
     let Some(_claim) = ApplyClaim::try_acquire(session, &summary.version) else {
         return Ok(blocked(
@@ -897,31 +1027,50 @@ pub async fn get_migration_status(
         .await
         .map_err(|e| e.sanitized_message())?;
 
-    // Absent table => nothing applied yet.
+    // Reading status must remain compatible with history tables created before
+    // `failed_at`. Applying a migration upgrades the table; until then, fall
+    // back to the legacy projection instead of reporting every file as pending.
     let history: HashMap<String, HistoryRow> = {
-        let query = format!(
+        let current = format!(
             "SELECT version, checksum, applied_at, rolled_back_at, failed_at FROM {HISTORY_TABLE}"
         );
-        match driver.execute(session, &query, QueryId::new()).await {
-            Ok(result) => result
-                .rows
-                .iter()
-                .filter_map(|row| {
-                    let cell = |i: usize| row.values.get(i).and_then(|v| v.as_text());
-                    let version = cell(0)?.to_string();
-                    Some((
-                        version,
-                        HistoryRow {
-                            checksum: cell(1).unwrap_or("").to_string(),
-                            applied_at: cell(2).map(|s| s.to_string()),
-                            rolled_back_at: cell(3).map(|s| s.to_string()),
-                            failed_at: cell(4).map(|s| s.to_string()),
-                        },
-                    ))
-                })
-                .collect(),
-            Err(_) => HashMap::new(),
-        }
+        let legacy =
+            format!("SELECT version, checksum, applied_at, rolled_back_at FROM {HISTORY_TABLE}");
+        let (result, has_failed_at) = match driver.execute(session, &current, QueryId::new()).await
+        {
+            Ok(result) => (Some(result), true),
+            Err(_) => match driver.execute(session, &legacy, QueryId::new()).await {
+                Ok(result) => (Some(result), false),
+                // An absent history table still means nothing has been applied.
+                Err(_) => (None, false),
+            },
+        };
+
+        result
+            .map(|result| {
+                result
+                    .rows
+                    .iter()
+                    .filter_map(|row| {
+                        let cell = |i: usize| row.values.get(i).and_then(|v| v.as_text());
+                        let version = cell(0)?.to_string();
+                        Some((
+                            version,
+                            HistoryRow {
+                                checksum: cell(1).unwrap_or("").to_string(),
+                                applied_at: cell(2).map(|s| s.to_string()),
+                                rolled_back_at: cell(3).map(|s| s.to_string()),
+                                failed_at: if has_failed_at {
+                                    cell(4).map(str::to_string)
+                                } else {
+                                    None
+                                },
+                            },
+                        ))
+                    })
+                    .collect()
+            })
+            .unwrap_or_default()
     };
 
     let entries = files
@@ -944,6 +1093,7 @@ pub async fn get_migration_status(
                         }
                         .to_string(),
                         applied_at: row.applied_at.clone(),
+                        failed_direction: row.failed_direction(),
                         checksum_mismatch: state == HistoryState::Applied
                             && !checksum_matches(&row.checksum, content),
                         duplicate_version,
@@ -956,6 +1106,7 @@ pub async fn get_migration_status(
                     filename: filename.clone(),
                     status: "pending".to_string(),
                     applied_at: None,
+                    failed_direction: None,
                     checksum_mismatch: false,
                     duplicate_version,
                     malformed,
@@ -973,7 +1124,8 @@ mod tests {
     use crate::engine::testing::{affected_result, empty_result, DriverCall, MockDriver};
     use qore_core::types::{ColumnInfo, QueryResult, Row, Value};
 
-    const FILE: &str = "-- migrate:up\nCREATE TABLE t (id int);\n\n-- migrate:down\nDROP TABLE t;\n";
+    const FILE: &str =
+        "-- migrate:up\nCREATE TABLE t (id int);\n\n-- migrate:down\nDROP TABLE t;\n";
 
     fn row(checksum: &str, rolled_back: Option<&str>) -> HistoryRow {
         HistoryRow {
@@ -1008,7 +1160,11 @@ mod tests {
         ]
     }
 
-    fn history_result(checksum: &str, rolled_back: Option<&str>, failed: Option<&str>) -> QueryResult {
+    fn history_result(
+        checksum: &str,
+        rolled_back: Option<&str>,
+        failed: Option<&str>,
+    ) -> QueryResult {
         QueryResult {
             columns: history_columns(),
             rows: vec![Row {
@@ -1100,7 +1256,14 @@ mod tests {
         driver.set_default(empty_result());
 
         let d = Arc::clone(&driver);
-        let resp = run_migration(run(&harness(), d, false, "DROP TABLE t;", Environment::Development)).await;
+        let resp = run_migration(run(
+            &harness(),
+            d,
+            false,
+            "DROP TABLE t;",
+            Environment::Development,
+        ))
+        .await;
 
         assert!(!resp.success);
         assert_eq!(resp.blocked_reason, Some(MigrationBlockReason::NotApplied));
@@ -1114,14 +1277,29 @@ mod tests {
     #[tokio::test]
     async fn up_already_applied_is_refused_without_touching_the_database() {
         let driver = Arc::new(MockDriver::new("postgres").with_transactions(true));
-        driver.add("SELECT checksum", history_result(&checksum_v2(FILE), None, None));
+        driver.add(
+            "SELECT checksum",
+            history_result(&checksum_v2(FILE), None, None),
+        );
         driver.set_default(empty_result());
 
         let d = Arc::clone(&driver);
-        let resp = run_migration(run(&harness(), d, true, "CREATE TABLE t (id int);", Environment::Development)).await;
+        let resp = run_migration(run(
+            &harness(),
+            d,
+            true,
+            "CREATE TABLE t (id int);",
+            Environment::Development,
+        ))
+        .await;
 
-        assert_eq!(resp.blocked_reason, Some(MigrationBlockReason::AlreadyApplied));
-        assert!(!executed(&driver).iter().any(|q| q.contains("CREATE TABLE t")));
+        assert_eq!(
+            resp.blocked_reason,
+            Some(MigrationBlockReason::AlreadyApplied)
+        );
+        assert!(!executed(&driver)
+            .iter()
+            .any(|q| q.contains("CREATE TABLE t")));
         assert!(!driver.call_log().contains(&DriverCall::Begin));
     }
 
@@ -1132,18 +1310,32 @@ mod tests {
         driver.set_default(empty_result());
 
         let d = Arc::clone(&driver);
-        let resp = run_migration(run(&harness(), d, true, "CREATE TABLE t (id int);", Environment::Development)).await;
+        let resp = run_migration(run(
+            &harness(),
+            d,
+            true,
+            "CREATE TABLE t (id int);",
+            Environment::Development,
+        ))
+        .await;
         assert!(resp.success, "{:?}", resp.error);
 
         let log = driver.call_log();
         let pos = |needle: &str| {
-            log.iter().position(|c| matches!(c, DriverCall::Execute(q) if q.contains(needle)))
+            log.iter()
+                .position(|c| matches!(c, DriverCall::Execute(q) if q.contains(needle)))
         };
-        let begin = log.iter().position(|c| *c == DriverCall::Begin).expect("begin");
+        let begin = log
+            .iter()
+            .position(|c| *c == DriverCall::Begin)
+            .expect("begin");
         let ddl = pos("CREATE TABLE IF NOT EXISTS qoredb_migrations").expect("history ddl");
         let insert = pos("INSERT INTO qoredb_migrations").expect("claim");
         let script = pos("CREATE TABLE t (id int)").expect("script");
-        let commit = log.iter().position(|c| *c == DriverCall::Commit).expect("commit");
+        let commit = log
+            .iter()
+            .position(|c| *c == DriverCall::Commit)
+            .expect("commit");
 
         // History DDL stays outside the transaction; the claim is inside it and
         // precedes the script, so a lost race can't run the script twice.
@@ -1157,10 +1349,8 @@ mod tests {
     async fn failed_statement_rolls_back_and_reports_zero_based_index() {
         let driver = Arc::new(MockDriver::new("postgres").with_transactions(true));
         driver.add("SELECT checksum", empty_history());
+        driver.add_err("CREATE TABLE b", "boom");
         driver.set_default(empty_result());
-        // Executes so far: history DDL, SELECT, DELETE claim, INSERT claim, then
-        // statement 1, then statement 2 -> index 5 is the second statement.
-        driver.fail_nth_execute(5, "boom");
 
         let d = Arc::clone(&driver);
         let resp = run_migration(run(
@@ -1174,7 +1364,10 @@ mod tests {
 
         assert!(!resp.success);
         assert_eq!(resp.failed_statement, Some(1));
-        assert_eq!(*driver.call_log().last().expect("last"), DriverCall::Rollback);
+        assert_eq!(
+            *driver.call_log().last().expect("last"),
+            DriverCall::Rollback
+        );
     }
 
     #[tokio::test]
@@ -1221,12 +1414,38 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn mysql_rename_then_failure_marks_partial_instead_of_rolling_back() {
+        // `RENAME TABLE` is classified as Other by the generic first-keyword
+        // mapper, but MySQL commits it implicitly. Unknown operations must stay
+        // on the conservative non-transactional path.
+        let driver = Arc::new(MockDriver::new("mysql").with_transactions(true));
+        driver.add("SELECT checksum", empty_history());
+        driver.add_err("INSERT INTO missing", "table does not exist");
+        driver.set_default(empty_result());
+
+        let d = Arc::clone(&driver);
+        let resp = run_migration(run(
+            &harness(),
+            d,
+            true,
+            "RENAME TABLE users TO old_users; INSERT INTO missing VALUES (1);",
+            Environment::Development,
+        ))
+        .await;
+
+        assert!(!resp.success);
+        assert!(!driver.call_log().contains(&DriverCall::Begin));
+        assert!(executed(&driver)
+            .iter()
+            .any(|q| q.contains("SET failed_at")));
+    }
+
+    #[tokio::test]
     async fn failed_mysql_ddl_marks_the_migration_failed_not_pending() {
         let driver = Arc::new(MockDriver::new("mysql").with_transactions(true));
         driver.add("SELECT checksum", empty_history());
+        driver.add_err("CREATE TABLE a (id int)", "boom");
         driver.set_default(empty_result());
-        // History DDL, SELECT, DELETE claim, INSERT claim, then statement 1.
-        driver.fail_nth_execute(4, "boom");
 
         let d = Arc::clone(&driver);
         let resp = run_migration(run(
@@ -1254,7 +1473,56 @@ mod tests {
                 .any(|q| q.starts_with("DELETE") && !q.contains("failed_at IS NOT NULL")),
             "the claim must not be erased after a failure: {ran:?}"
         );
-        assert!(resp.error.expect("error").contains("commits DDL implicitly"));
+        assert!(resp
+            .error
+            .expect("error")
+            .contains("may commit statements implicitly"));
+    }
+
+    #[tokio::test]
+    async fn failed_marker_error_is_reported_as_uncertain_history() {
+        let driver = Arc::new(MockDriver::new("mysql").with_transactions(true));
+        driver.add("SELECT checksum", empty_history());
+        driver.add_err("CREATE TABLE a (id int)", "script failed");
+        driver.add_err("SET failed_at", "history unavailable");
+        driver.set_default(empty_result());
+
+        let d = Arc::clone(&driver);
+        let resp = run_migration(run(
+            &harness(),
+            d,
+            true,
+            "CREATE TABLE a (id int);",
+            Environment::Development,
+        ))
+        .await;
+
+        let error = resp.error.expect("error");
+        assert!(error.contains("could not mark the migration as failed"));
+        assert!(error.contains("history state is uncertain"));
+    }
+
+    #[tokio::test]
+    async fn pre_failed_at_history_table_is_upgraded_before_guard_read() {
+        let driver = Arc::new(MockDriver::new("postgres").with_transactions(true));
+        driver.add_err("SELECT failed_at", "column does not exist");
+        driver.add("SELECT checksum", empty_history());
+        driver.set_default(empty_result());
+
+        let d = Arc::clone(&driver);
+        let resp = run_migration(run(
+            &harness(),
+            d,
+            true,
+            "CREATE TABLE a (id int);",
+            Environment::Development,
+        ))
+        .await;
+
+        assert!(resp.success, "{:?}", resp.error);
+        assert!(executed(&driver)
+            .iter()
+            .any(|q| q == "ALTER TABLE qoredb_migrations ADD COLUMN failed_at VARCHAR(64)"));
     }
 
     #[tokio::test]
@@ -1276,22 +1544,43 @@ mod tests {
         ))
         .await;
 
-        assert_eq!(resp.blocked_reason, Some(MigrationBlockReason::PartiallyApplied));
+        assert_eq!(
+            resp.blocked_reason,
+            Some(MigrationBlockReason::PartiallyApplied)
+        );
         assert!(resp.overridable);
-        assert!(!executed(&driver).iter().any(|q| q.contains("CREATE TABLE t (id int)")));
+        assert!(!executed(&driver)
+            .iter()
+            .any(|q| q.contains("CREATE TABLE t (id int)")));
     }
 
     #[tokio::test]
     async fn down_claim_with_zero_affected_rows_aborts_before_the_script() {
         let driver = Arc::new(MockDriver::new("postgres").with_transactions(true));
-        driver.add("SELECT checksum", history_result(&checksum_v2(FILE), None, None));
-        driver.add("UPDATE qoredb_migrations SET rolled_back_at", affected_result(0));
+        driver.add(
+            "SELECT checksum",
+            history_result(&checksum_v2(FILE), None, None),
+        );
+        driver.add(
+            "UPDATE qoredb_migrations SET rolled_back_at",
+            affected_result(0),
+        );
         driver.set_default(empty_result());
 
         let d = Arc::clone(&driver);
-        let resp = run_migration(run(&harness(), d, false, "DROP TABLE t;", Environment::Development)).await;
+        let resp = run_migration(run(
+            &harness(),
+            d,
+            false,
+            "DROP TABLE t;",
+            Environment::Development,
+        ))
+        .await;
 
-        assert_eq!(resp.blocked_reason, Some(MigrationBlockReason::ConcurrentApply));
+        assert_eq!(
+            resp.blocked_reason,
+            Some(MigrationBlockReason::ConcurrentApply)
+        );
         assert!(!executed(&driver).iter().any(|q| q.contains("DROP TABLE t")));
     }
 
@@ -1332,8 +1621,14 @@ mod tests {
         ))
         .await;
 
-        assert_eq!(resp.blocked_reason, Some(MigrationBlockReason::UnsplittableScript));
-        assert!(driver.call_log().is_empty(), "nothing may run before a safe split");
+        assert_eq!(
+            resp.blocked_reason,
+            Some(MigrationBlockReason::UnsplittableScript)
+        );
+        assert!(
+            driver.call_log().is_empty(),
+            "nothing may run before a safe split"
+        );
     }
 
     #[tokio::test]
@@ -1341,13 +1636,27 @@ mod tests {
         let driver = Arc::new(MockDriver::new("postgres").with_transactions(true));
         driver.add("CREATE TABLE IF NOT EXISTS", empty_result());
         driver.add_err("SELECT checksum", "connection lost");
+        driver.set_default(empty_result());
 
         let d = Arc::clone(&driver);
-        let resp = run_migration(run(&harness(), d, true, "CREATE TABLE t (id int);", Environment::Development)).await;
+        let resp = run_migration(run(
+            &harness(),
+            d,
+            true,
+            "CREATE TABLE t (id int);",
+            Environment::Development,
+        ))
+        .await;
 
         // An unreadable history must never be treated as "nothing applied".
         assert!(!resp.success);
-        assert!(!executed(&driver).iter().any(|q| q.contains("CREATE TABLE t (id int)")));
+        assert!(resp
+            .error
+            .as_deref()
+            .is_some_and(|e| e.contains("Failed to read migration history")));
+        assert!(!executed(&driver)
+            .iter()
+            .any(|q| q.contains("CREATE TABLE t (id int)")));
     }
 
     #[tokio::test]
@@ -1357,7 +1666,14 @@ mod tests {
         driver.set_default(empty_result());
 
         let d = Arc::clone(&driver);
-        let resp = run_migration(run(&harness(), d, true, "CREATE TABLE t (id int);", Environment::Development)).await;
+        let resp = run_migration(run(
+            &harness(),
+            d,
+            true,
+            "CREATE TABLE t (id int);",
+            Environment::Development,
+        ))
+        .await;
         assert!(resp.success);
 
         let update = executed(&driver)
@@ -1378,7 +1694,14 @@ mod tests {
         driver.set_default(empty_result());
 
         let d = Arc::clone(&driver);
-        run_migration(run(&harness(), d, true, "CREATE TABLE t (id int);", Environment::Development)).await;
+        run_migration(run(
+            &harness(),
+            d,
+            true,
+            "CREATE TABLE t (id int);",
+            Environment::Development,
+        ))
+        .await;
 
         let insert = executed(&driver)
             .into_iter()
@@ -1395,7 +1718,14 @@ mod tests {
         driver.set_default(empty_result());
 
         let d = Arc::clone(&driver);
-        run_migration(run(&harness(), d, true, "CREATE TABLE t (id int);", Environment::Development)).await;
+        run_migration(run(
+            &harness(),
+            d,
+            true,
+            "CREATE TABLE t (id int);",
+            Environment::Development,
+        ))
+        .await;
 
         let insert = executed(&driver)
             .into_iter()
@@ -1427,7 +1757,10 @@ mod tests {
             .get_audit_entries(100, 0, None, None, None, None, None, None);
         // Two script statements audited; history bookkeeping is not user SQL.
         assert_eq!(
-            audit.iter().filter(|e| e.query.contains("CREATE TABLE")).count(),
+            audit
+                .iter()
+                .filter(|e| e.query.contains("CREATE TABLE"))
+                .count(),
             2
         );
         assert!(
@@ -1470,13 +1803,15 @@ mod tests {
 
     #[test]
     fn checksum_covers_up_script_only() {
-        let edited_down = "-- migrate:up\nCREATE TABLE t (id int);\n\n-- migrate:down\nDROP TABLE t CASCADE;\n";
+        let edited_down =
+            "-- migrate:up\nCREATE TABLE t (id int);\n\n-- migrate:down\nDROP TABLE t CASCADE;\n";
         assert_eq!(checksum_v2(FILE), checksum_v2(edited_down));
     }
 
     #[test]
     fn checksum_changes_when_up_edited() {
-        let edited_up = "-- migrate:up\nCREATE TABLE t (id bigint);\n\n-- migrate:down\nDROP TABLE t;\n";
+        let edited_up =
+            "-- migrate:up\nCREATE TABLE t (id bigint);\n\n-- migrate:down\nDROP TABLE t;\n";
         assert_ne!(checksum_v2(FILE), checksum_v2(edited_up));
     }
 
@@ -1500,7 +1835,8 @@ mod tests {
     fn legacy_row_tolerates_down_edit_only_via_v2() {
         // A legacy row still reports a down-only edit as drift; that's expected
         // and self-heals once the row is rewritten in v2 form.
-        let edited_down = "-- migrate:up\nCREATE TABLE t (id int);\n\n-- migrate:down\nDROP TABLE t CASCADE;\n";
+        let edited_down =
+            "-- migrate:up\nCREATE TABLE t (id int);\n\n-- migrate:down\nDROP TABLE t CASCADE;\n";
         assert!(!checksum_matches(&checksum(FILE), edited_down));
         assert!(checksum_matches(&checksum_v2(FILE), edited_down));
     }
@@ -1513,7 +1849,9 @@ mod tests {
     #[test]
     fn guard_refuses_up_when_already_applied() {
         let r = row("c", None);
-        let e = check_guard(true, Some(&r), true, false).err().expect("refused");
+        let e = check_guard(true, Some(&r), true, false)
+            .err()
+            .expect("refused");
         assert_eq!(e.reason, MigrationBlockReason::AlreadyApplied);
         assert!(!e.overridable);
     }
@@ -1526,7 +1864,9 @@ mod tests {
 
     #[test]
     fn guard_refuses_down_when_never_applied() {
-        let e = check_guard(false, None, true, false).err().expect("refused");
+        let e = check_guard(false, None, true, false)
+            .err()
+            .expect("refused");
         assert_eq!(e.reason, MigrationBlockReason::NotApplied);
         assert!(!e.overridable);
     }
@@ -1534,14 +1874,18 @@ mod tests {
     #[test]
     fn guard_refuses_down_when_already_rolled_back() {
         let r = row("c", Some("2026-01-02T00:00:00Z"));
-        let e = check_guard(false, Some(&r), true, false).err().expect("refused");
+        let e = check_guard(false, Some(&r), true, false)
+            .err()
+            .expect("refused");
         assert_eq!(e.reason, MigrationBlockReason::AlreadyRolledBack);
     }
 
     #[test]
     fn guard_refuses_applied_up_on_checksum_drift_without_override() {
         let r = row("c", None);
-        let e = check_guard(true, Some(&r), false, false).err().expect("refused");
+        let e = check_guard(true, Some(&r), false, false)
+            .err()
+            .expect("refused");
         assert_eq!(e.reason, MigrationBlockReason::ChecksumMismatch);
         // Re-running an edited up over a schema it no longer describes is never right.
         assert!(!e.overridable);
@@ -1556,7 +1900,9 @@ mod tests {
     #[test]
     fn guard_down_on_drift_is_overridable() {
         let r = row("c", None);
-        let e = check_guard(false, Some(&r), false, false).err().expect("refused");
+        let e = check_guard(false, Some(&r), false, false)
+            .err()
+            .expect("refused");
         assert_eq!(e.reason, MigrationBlockReason::ChecksumMismatch);
         assert!(e.overridable);
         assert!(check_guard(false, Some(&r), false, true).is_ok());
@@ -1565,7 +1911,9 @@ mod tests {
     #[test]
     fn guard_reapply_on_drift_is_overridable() {
         let r = row("c", Some("2026-01-02T00:00:00Z"));
-        let e = check_guard(true, Some(&r), false, false).err().expect("refused");
+        let e = check_guard(true, Some(&r), false, false)
+            .err()
+            .expect("refused");
         assert!(e.overridable);
         assert!(check_guard(true, Some(&r), false, true).is_ok());
     }
@@ -1573,7 +1921,9 @@ mod tests {
     #[test]
     fn guard_force_does_not_bypass_already_applied() {
         let r = row("c", None);
-        let e = check_guard(true, Some(&r), true, true).err().expect("refused");
+        let e = check_guard(true, Some(&r), true, true)
+            .err()
+            .expect("refused");
         assert_eq!(e.reason, MigrationBlockReason::AlreadyApplied);
     }
 
@@ -1587,7 +1937,9 @@ mod tests {
     fn guard_refuses_both_directions_on_a_failed_row() {
         let r = failed_row(&checksum_v2(FILE));
         for is_up in [true, false] {
-            let e = check_guard(is_up, Some(&r), true, false).err().expect("refused");
+            let e = check_guard(is_up, Some(&r), true, false)
+                .err()
+                .expect("refused");
             assert_eq!(e.reason, MigrationBlockReason::PartiallyApplied);
             assert!(e.overridable);
         }
@@ -1609,21 +1961,39 @@ mod tests {
             ..failed_row("c")
         };
         assert_eq!(r.state(), HistoryState::Failed);
+        assert_eq!(r.failed_direction(), Some("down"));
+        assert_eq!(failed_row("c").failed_direction(), Some("up"));
+        assert_eq!(row("c", None).failed_direction(), None);
     }
 
     #[test]
-    fn ddl_transactionality_is_not_transaction_support() {
-        assert!(!has_transactional_ddl("mysql"));
-        assert!(!has_transactional_ddl("mariadb"));
-        assert!(has_transactional_ddl("postgres"));
-        assert!(has_transactional_ddl("sqlite"));
-        assert!(has_transactional_ddl("sqlserver"));
+    fn mysql_transaction_safety_uses_a_positive_list() {
+        assert!(mysql_statement_is_transaction_safe(
+            QueryOperationType::Insert,
+            "INSERT INTO t VALUES (1)"
+        ));
+        assert!(mysql_statement_is_transaction_safe(
+            QueryOperationType::Other,
+            "REPLACE INTO t VALUES (1)"
+        ));
+        assert!(!mysql_statement_is_transaction_safe(
+            QueryOperationType::Other,
+            "RENAME TABLE t TO old_t"
+        ));
+        assert!(!mysql_statement_is_transaction_safe(
+            QueryOperationType::Other,
+            "LOCK TABLES t WRITE"
+        ));
     }
 
     #[test]
     fn history_ddl_differs_for_sqlserver() {
         assert!(history_table_ddl("sqlserver").contains("sys.tables"));
         assert!(history_table_ddl("postgres").contains("IF NOT EXISTS"));
+        assert_eq!(
+            history_add_failed_column_ddl("sqlserver"),
+            "ALTER TABLE qoredb_migrations ADD failed_at NVARCHAR(64) NULL"
+        );
     }
 
     #[test]

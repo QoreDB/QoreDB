@@ -13,6 +13,8 @@ export interface MigrationStatusEntry {
   filename: string;
   status: MigrationRunStatus;
   applied_at: string | null;
+  /** Direction of the non-transactional run that failed. */
+  failed_direction: MigrationDirection | null;
   checksum_mismatch: boolean;
   duplicate_version: boolean;
   malformed: boolean;

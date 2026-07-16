@@ -39,6 +39,7 @@ import {
 } from '@/lib/migrations/parse';
 import { compareSnapshots, type SchemaDelta } from '@/lib/migrations/schemaCompare';
 import { captureSnapshot, generateMigration } from '@/lib/migrations/schemaDiff';
+import { nextMigrationDirection } from '@/lib/migrations/status';
 import { notify } from '@/lib/notify';
 import { confirmDialog } from '@/lib/stores/confirmStore';
 import {
@@ -259,21 +260,27 @@ export function MigrationsPanel({
               : t('migrations.checksumForceWarning'),
             confirmLabel: t('migrations.forceApply'),
           });
-          if (!forced) return;
+          if (!forced) {
+            await refreshStatus();
+            return;
+          }
           res = await applyMigration(sessionId, filename, direction, database ?? '', true, true);
         }
 
         if (res.success) {
           notify.success(isUp ? t('migrations.applied') : t('migrations.rolledBack'));
-          await refreshStatus();
         } else {
           notify.error(res.error ?? t('common.unknownError'));
-          // A refusal can mean our cached status is stale (someone else applied it).
-          if (res.blocked_reason) await refreshStatus();
         }
+        // A script error can mark a non-transactional run as `failed` without a
+        // blocked_reason. Always refresh so the badge and next direction reflect
+        // the database history rather than the pre-run cache.
+        await refreshStatus();
       } catch (err) {
         notify.error(t('common.unknownError'));
         console.error('Failed to apply migration:', err);
+        // The backend may have completed even if the response transport failed.
+        await refreshStatus();
       } finally {
         setApplying(null);
       }
@@ -527,7 +534,8 @@ export function MigrationsPanel({
           ) : (
             list.map(m => {
               const status = statusByVersion[m.version];
-              const applied = status?.status === 'applied';
+              const direction = nextMigrationDirection(status);
+              const rollingBack = direction === 'down';
               const busy = applying === m.filename;
               return (
                 <div
@@ -569,14 +577,14 @@ export function MigrationsPanel({
                   {canApply && (
                     <button
                       type="button"
-                      onClick={() => void handleApply(m.filename, applied ? 'down' : 'up')}
+                      onClick={() => void handleApply(m.filename, direction)}
                       disabled={applying !== null}
-                      title={applied ? t('migrations.rollback') : t('migrations.apply')}
+                      title={rollingBack ? t('migrations.rollback') : t('migrations.apply')}
                       className="px-2 py-2 text-muted-foreground hover:text-foreground disabled:opacity-50"
                     >
                       {busy ? (
                         <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      ) : applied ? (
+                      ) : rollingBack ? (
                         <Undo2 className="w-3.5 h-3.5" />
                       ) : (
                         <Play className="w-3.5 h-3.5" />

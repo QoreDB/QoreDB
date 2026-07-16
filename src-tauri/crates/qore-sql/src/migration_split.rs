@@ -317,9 +317,13 @@ fn match_go(bytes: &[u8], i: usize) -> Result<Option<usize>, SplitError> {
         return Ok(None);
     }
     let mut k = j;
-    while k < len && (bytes[k] == b' ' || bytes[k] == b'\t' || bytes[k] == b'\r') {
-        k += 1;
-    }
+    let skip_horizontal = |mut at: usize| {
+        while at < len && (bytes[at] == b' ' || bytes[at] == b'\t' || bytes[at] == b'\r') {
+            at += 1;
+        }
+        at
+    };
+    k = skip_horizontal(k);
     if k < len && bytes[k].is_ascii_digit() {
         return Err(SplitError::new(
             SplitErrorCode::UnsupportedGoCount,
@@ -328,12 +332,23 @@ fn match_go(bytes: &[u8], i: usize) -> Result<Option<usize>, SplitError> {
              silently differ from the script. Repeat the statements explicitly.",
         ));
     }
-    // Anything else on the line means this isn't a batch separator. Leave it in
-    // the statement rather than swallowing the rest of the line.
-    if k < len && bytes[k] != b'\n' {
+    // SQL Server tooling permits comments on a GO line. Consume comment-only
+    // suffixes, but leave any other text in the statement so `GO garbage` is
+    // rejected by the server rather than silently losing `garbage`.
+    loop {
+        if k >= len || bytes[k] == b'\n' {
+            return Ok(Some(k));
+        }
+        if bytes[k] == b'-' && bytes.get(k + 1) == Some(&b'-') {
+            return Ok(Some(skip_to_eol(bytes, k)));
+        }
+        if bytes[k] == b'/' && bytes.get(k + 1) == Some(&b'*') {
+            k = skip_block_comment(bytes, k, dialect_for("sqlserver"))?;
+            k = skip_horizontal(k);
+            continue;
+        }
         return Ok(None);
     }
-    Ok(Some(k))
 }
 
 fn scan_go_batches(sql: &str, d: SplitDialect) -> Result<Vec<Range<usize>>, SplitError> {
@@ -681,10 +696,7 @@ mod tests {
 
     #[test]
     fn sqlserver_go_only_at_line_start() {
-        assert_eq!(
-            split("sqlserver", "SELECT 'GO';"),
-            vec!["SELECT 'GO'"]
-        );
+        assert_eq!(split("sqlserver", "SELECT 'GO';"), vec!["SELECT 'GO'"]);
     }
 
     #[test]
@@ -708,6 +720,25 @@ mod tests {
         assert_eq!(
             split("sqlserver", "SELECT 1\nGO garbage\n"),
             vec!["SELECT 1\nGO garbage"]
+        );
+    }
+
+    #[test]
+    fn sqlserver_go_with_line_comment_is_a_separator() {
+        assert_eq!(
+            split(
+                "sqlserver",
+                "SELECT 1\nGO -- the first batch ends here\nSELECT 2;",
+            ),
+            vec!["SELECT 1", "SELECT 2"]
+        );
+    }
+
+    #[test]
+    fn sqlserver_go_with_block_comment_is_a_separator() {
+        assert_eq!(
+            split("sqlserver", "SELECT 1\nGO /* batch */\nSELECT 2;"),
+            vec!["SELECT 1", "SELECT 2"]
         );
     }
 
@@ -766,7 +797,10 @@ mod tests {
     #[test]
     fn postgres_dash_dash_without_space_is_a_comment() {
         // Postgres has no such rule; the dialects genuinely differ.
-        assert_eq!(split("postgres", "SELECT 1--2;\nSELECT 3;"), vec!["SELECT 1--2;\nSELECT 3"]);
+        assert_eq!(
+            split("postgres", "SELECT 1--2;\nSELECT 3;"),
+            vec!["SELECT 1--2;\nSELECT 3"]
+        );
     }
 
     #[test]
@@ -783,7 +817,10 @@ mod tests {
 
     #[test]
     fn mysql_delimiter_is_rejected() {
-        let e = err("mysql", "DELIMITER //\nCREATE PROCEDURE p() BEGIN SELECT 1; END //\n");
+        let e = err(
+            "mysql",
+            "DELIMITER //\nCREATE PROCEDURE p() BEGIN SELECT 1; END //\n",
+        );
         assert_eq!(e.code, SplitErrorCode::UnsupportedDelimiter);
         assert!(e.message.contains("DELIMITER"));
     }
@@ -873,7 +910,10 @@ mod tests {
             ("postgres", "SELECT 1; SELECT 'a;b'; DO $$ SELECT 1; $$;"),
             ("mysql", "SELECT `a;b`; # c\nSELECT 2;"),
             ("sqlserver", "SELECT [a;b]\nGO\nSELECT 2;"),
-            ("sqlite", "CREATE TABLE t (id int); INSERT INTO t VALUES (1);"),
+            (
+                "sqlite",
+                "CREATE TABLE t (id int); INSERT INTO t VALUES (1);",
+            ),
             ("duckdb", "SELECT 1; /* x; */ SELECT 2;"),
         ];
         for (driver, sql) in cases {

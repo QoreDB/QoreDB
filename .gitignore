@@ -39,3 +39,5 @@ checksums-sbom.sha256
 
 .perf/
 contracts/*
+
+dev/

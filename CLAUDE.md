@@ -221,7 +221,7 @@ The following files are currently marked Premium (`BUSL-1.1`), grouped by module
 
 #### Schema Diff (Migrations generation, drift, Prod↔Staging)
 
-- `src/lib/migrations/schemaDiff.ts`
+- `src/lib/migrations/schemaDiff.ts` (+ `schemaDiff.test.ts`)
 - `src/lib/migrations/schemaCompare.ts`
 - `src/lib/migrations/baselineStore.ts`
 - `src/components/Migrations/SchemaDeltaView.tsx`

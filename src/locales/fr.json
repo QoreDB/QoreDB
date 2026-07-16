@@ -2665,7 +2665,19 @@
     "delete": "Supprimer",
     "deleteConfirm": "Supprimer la migration « {{name}} » ? Le fichier sera retiré du disque.",
     "created": "Migration créée",
-    "deleted": "Migration supprimée"
+    "deleted": "Migration supprimée",
+    "saved": "Migration enregistrée",
+    "unsavedChanges": "Modifications non enregistrées",
+    "upPlaceholder": "SQL appliqué par la migration…",
+    "downPlaceholder": "SQL qui annule la migration…",
+    "generateUnexpressed": "Le schéma a changé, mais ce driver ne sait pas exprimer {{count}} de ces modifications. Voir les avertissements ; aucune migration générée.",
+    "deleteAppliedWarning": "Cette migration est appliquée. Supprimer son fichier rend son rollback impossible.",
+    "checksumForceConfirm": "Le fichier « {{name}} » a changé depuis son application.",
+    "checksumForceWarning": "Le script sur disque ne correspond peut-être plus à ce qui a été exécuté.",
+    "forceApply": "Forcer",
+    "duplicateVersion": "Version en double",
+    "malformed": "Nom de fichier invalide",
+    "pkLabel": "PK"
   },
   "snapshots": {
     "title": "Snapshots",
@@ -3067,6 +3079,11 @@
     },
     "alter": {
       "driverUnsupported": "ALTER TABLE n'est pas pris en charge par le driver : {{driver}}"
+    },
+    "pk": {
+      "alterUnsupported": "Ce driver ({{driver}}) ne peut pas modifier la clé primaire via ALTER TABLE — recréation de la table requise.",
+      "dropRequiresName": "Impossible de supprimer la clé primaire de « {{table}} » : le nom de la contrainte est inconnu.",
+      "uniqueNotDiffed": "L'unicité de colonne n'est pas comparée : l'introspection la remonte comme un index."
     }
   },
   "backup": {

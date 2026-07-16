@@ -2626,7 +2626,19 @@
     "delete": "删除",
     "deleteConfirm": "删除迁移“{{name}}”？这会从磁盘中移除该文件。",
     "created": "迁移已创建",
-    "deleted": "迁移已删除"
+    "deleted": "迁移已删除",
+    "saved": "迁移已保存",
+    "unsavedChanges": "未保存的更改",
+    "upPlaceholder": "迁移应用的 SQL…",
+    "downPlaceholder": "撤销迁移的 SQL…",
+    "generateUnexpressed": "架构已更改，但此驱动无法表达其中 {{count}} 项更改。请查看警告；未生成迁移。",
+    "deleteAppliedWarning": "此迁移已应用。删除其文件将无法回滚。",
+    "checksumForceConfirm": "文件“{{name}}”自应用以来已更改。",
+    "checksumForceWarning": "磁盘上的脚本可能已与实际执行的内容不符。",
+    "forceApply": "强制执行",
+    "duplicateVersion": "版本重复",
+    "malformed": "文件名无效",
+    "pkLabel": "主键"
   },
   "snapshots": {
     "title": "快照",
@@ -3028,6 +3040,11 @@
     },
     "alter": {
       "driverUnsupported": "驱动程序不支持 ALTER TABLE：{{driver}}"
+    },
+    "pk": {
+      "alterUnsupported": "此驱动（{{driver}}）无法通过 ALTER TABLE 更改主键 — 需要重建表。",
+      "dropRequiresName": "无法删除“{{table}}”的主键：约束名称未知。",
+      "uniqueNotDiffed": "不比较列唯一性：内省将其报告为索引。"
     }
   },
   "backup": {

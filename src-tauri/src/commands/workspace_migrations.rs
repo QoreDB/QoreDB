@@ -58,6 +58,138 @@ pub(crate) fn validate_migration_filename(filename: &str) -> Result<(), String> 
     Ok(())
 }
 
+/// Upper bound on the version prefix: enough for a `YYYYMMDDHHMMSS` stamp.
+const MAX_VERSION_DIGITS: usize = 14;
+
+/// Validates a filename for creation.
+pub(crate) fn validate_new_migration_filename(filename: &str) -> Result<(), String> {
+    validate_migration_filename(filename)?;
+    parse_version(filename)?;
+    let stem = filename.strip_suffix(".sql").unwrap_or(filename);
+    let slug = stem.split_once('_').map(|(_, rest)| rest).unwrap_or("");
+    if slug.is_empty() {
+        return Err(EngineError::internal(
+            "Migration name must be `<version>_<name>.sql`, e.g. 0001_create_users.sql",
+        )
+        .to_string());
+    }
+    Ok(())
+}
+
+/// Parses the numeric version prefix. This is the history table's primary key,
+/// so it must exist and parse.
+pub(crate) fn parse_version(filename: &str) -> Result<u64, String> {
+    let stem = filename.strip_suffix(".sql").unwrap_or(filename);
+    let digits = stem.split('_').next().unwrap_or("");
+    let invalid = || {
+        EngineError::internal(format!(
+            "Migration `{filename}` must start with a numeric version, e.g. 0001_create_users.sql"
+        ))
+        .to_string()
+    };
+    if digits.is_empty()
+        || digits.len() > MAX_VERSION_DIGITS
+        || !digits.bytes().all(|b| b.is_ascii_digit())
+    {
+        return Err(invalid());
+    }
+    digits.parse::<u64>().map_err(|_| invalid())
+}
+
+/// A problem found across a set of migration filenames.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MigrationLintIssue {
+    /// Two files claim one version — they would share a single history row,
+    /// so neither one's state can be tracked.
+    DuplicateVersion {
+        version: u64,
+        files: Vec<String>,
+    },
+    MalformedVersion {
+        file: String,
+        reason: String,
+    },
+    /// Informational: a merged branch can legitimately land out of order.
+    NonMonotonic {
+        file: String,
+        previous: String,
+    },
+}
+
+impl MigrationLintIssue {
+    pub(crate) fn affects_duplicate(&self, filename: &str) -> bool {
+        matches!(self, Self::DuplicateVersion { files, .. } if files.iter().any(|f| f == filename))
+    }
+
+    pub(crate) fn affects_malformed(&self, filename: &str) -> bool {
+        matches!(self, Self::MalformedVersion { file, .. } if file == filename)
+    }
+}
+
+/// Lints a set of migration filenames. Pure.
+pub(crate) fn lint_migrations(filenames: &[String]) -> Vec<MigrationLintIssue> {
+    let mut issues = Vec::new();
+    let mut by_version: std::collections::BTreeMap<u64, Vec<String>> = Default::default();
+
+    for filename in filenames {
+        match parse_version(filename) {
+            Ok(v) => by_version.entry(v).or_default().push(filename.clone()),
+            Err(reason) => issues.push(MigrationLintIssue::MalformedVersion {
+                file: filename.clone(),
+                reason,
+            }),
+        }
+    }
+
+    for (version, files) in &by_version {
+        if files.len() > 1 {
+            issues.push(MigrationLintIssue::DuplicateVersion {
+                version: *version,
+                files: files.clone(),
+            });
+        }
+    }
+
+    // Sorting is lexicographic on disk, so `10_x` precedes `9_x`. Report when the
+    // on-disk order disagrees with the numeric one.
+    let mut previous: Option<(u64, &String)> = None;
+    for filename in filenames {
+        let Ok(v) = parse_version(filename) else {
+            continue;
+        };
+        if let Some((pv, pf)) = previous {
+            if v < pv {
+                issues.push(MigrationLintIssue::NonMonotonic {
+                    file: filename.clone(),
+                    previous: pf.clone(),
+                });
+            }
+        }
+        previous = Some((v, filename));
+    }
+
+    issues
+}
+
+/// Lists the `.sql` filenames of a workspace's migrations directory, sorted.
+pub(crate) fn list_migration_filenames(ws_path: &Path) -> Result<Vec<String>, String> {
+    let dir = ws_path.join("migrations");
+    if !dir.exists() {
+        return Ok(Vec::new());
+    }
+    let mut names: Vec<String> = fs::read_dir(&dir)
+        .map_err(|e| {
+            EngineError::internal(format!("Failed to read migrations: {}", e)).to_string()
+        })?
+        .filter_map(|entry| entry.ok())
+        .filter_map(|entry| entry.file_name().into_string().ok())
+        .filter(|name| Path::new(name).extension().and_then(|e| e.to_str()) == Some("sql"))
+        .collect();
+    names.sort();
+    Ok(names)
+}
+
 /// Splits `<version>_<slug>.sql` into its version prefix and human name.
 pub(crate) fn summarize(filename: &str) -> MigrationSummary {
     let stem = filename.strip_suffix(".sql").unwrap_or(filename);
@@ -119,21 +251,7 @@ pub async fn ws_list_migrations(
         return Ok(None);
     }
 
-    let dir = ws.path.join("migrations");
-    if !dir.exists() {
-        return Ok(Some(Vec::new()));
-    }
-
-    let mut filenames: Vec<String> = fs::read_dir(&dir)
-        .map_err(|e| {
-            EngineError::internal(format!("Failed to read migrations: {}", e)).to_string()
-        })?
-        .filter_map(|entry| entry.ok())
-        .filter_map(|entry| entry.file_name().into_string().ok())
-        .filter(|name| Path::new(name).extension().and_then(|e| e.to_str()) == Some("sql"))
-        .collect();
-    filenames.sort();
-
+    let filenames = list_migration_filenames(&ws.path)?;
     Ok(Some(filenames.iter().map(|f| summarize(f)).collect()))
 }
 
@@ -171,7 +289,21 @@ pub async fn ws_write_migration(
         return Ok(false);
     }
 
-    validate_migration_filename(&filename)?;
+    validate_new_migration_filename(&filename)?;
+
+    // The version prefix is the history table's primary key: two files sharing
+    // one would share a single row. Overwriting the same file stays allowed.
+    let version = parse_version(&filename)?;
+    if let Some(other) = list_migration_filenames(&ws.path)?
+        .into_iter()
+        .find(|f| f != &filename && parse_version(f).is_ok_and(|v| v == version))
+    {
+        return Err(
+            EngineError::internal(format!("Version {version} is already used by {other}"))
+                .to_string(),
+        );
+    }
+
     let dir = ws.path.join("migrations");
     fs::create_dir_all(&dir).map_err(|e| {
         EngineError::internal(format!("Failed to create migrations dir: {}", e)).to_string()
@@ -248,5 +380,77 @@ mod tests {
         let (up_only, down_empty) = split_up_down("SELECT 1;");
         assert_eq!(up_only, "SELECT 1;");
         assert!(down_empty.is_empty());
+    }
+
+    fn files(names: &[&str]) -> Vec<String> {
+        names.iter().map(|s| s.to_string()).collect()
+    }
+
+    #[test]
+    fn parses_padded_and_timestamp_versions() {
+        assert_eq!(parse_version("0001_create_users.sql").unwrap(), 1);
+        assert_eq!(
+            parse_version("20260716120000_x.sql").unwrap(),
+            20260716120000
+        );
+    }
+
+    #[test]
+    fn rejects_missing_or_non_numeric_version() {
+        assert!(parse_version("create_users.sql").is_err());
+        assert!(parse_version("v1_x.sql").is_err());
+        assert!(parse_version("_x.sql").is_err());
+        // Beyond MAX_VERSION_DIGITS.
+        assert!(parse_version("123456789012345_x.sql").is_err());
+    }
+
+    #[test]
+    fn new_filenames_must_carry_version_and_slug() {
+        assert!(validate_new_migration_filename("0001_create_users.sql").is_ok());
+        assert!(validate_new_migration_filename("create_users.sql").is_err());
+        assert!(validate_new_migration_filename("0001_.sql").is_err());
+        assert!(validate_new_migration_filename("0001.sql").is_err());
+    }
+
+    #[test]
+    fn legacy_filenames_stay_readable_and_deletable() {
+        // The permissive validator still gates read/delete, so files already on
+        // disk never become unreachable.
+        assert!(validate_migration_filename("legacy_no_version.sql").is_ok());
+        assert!(validate_new_migration_filename("legacy_no_version.sql").is_err());
+    }
+
+    #[test]
+    fn lint_detects_duplicate_version_across_padding() {
+        let issues = lint_migrations(&files(&["0001_a.sql", "1_b.sql"]));
+        let dup = issues
+            .iter()
+            .find(|i| matches!(i, MigrationLintIssue::DuplicateVersion { .. }))
+            .expect("duplicate reported");
+        assert!(dup.affects_duplicate("0001_a.sql"));
+        assert!(dup.affects_duplicate("1_b.sql"));
+    }
+
+    #[test]
+    fn lint_flags_malformed_version() {
+        let issues = lint_migrations(&files(&["oops.sql"]));
+        assert!(issues.iter().any(|i| i.affects_malformed("oops.sql")));
+    }
+
+    #[test]
+    fn lint_flags_non_monotonic_as_warning_not_error() {
+        // Lexicographic order puts 10 before 9; that is reported, not refused.
+        let issues = lint_migrations(&files(&["0010_b.sql", "0009_a.sql"]));
+        assert!(issues
+            .iter()
+            .any(|i| matches!(i, MigrationLintIssue::NonMonotonic { .. })));
+        assert!(!issues
+            .iter()
+            .any(|i| matches!(i, MigrationLintIssue::DuplicateVersion { .. })));
+    }
+
+    #[test]
+    fn lint_clean_set_has_no_issues() {
+        assert!(lint_migrations(&files(&["0001_a.sql", "0002_b.sql"])).is_empty());
     }
 }

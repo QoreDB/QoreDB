@@ -2626,7 +2626,19 @@
     "delete": "Excluir",
     "deleteConfirm": "Excluir a migração \"{{name}}\"? Isso remove o arquivo do disco.",
     "created": "Migração criada",
-    "deleted": "Migração excluída"
+    "deleted": "Migração excluída",
+    "saved": "Migração salva",
+    "unsavedChanges": "Alterações não salvas",
+    "upPlaceholder": "SQL que a migração aplica…",
+    "downPlaceholder": "SQL que desfaz a migração…",
+    "generateUnexpressed": "O esquema mudou, mas este driver não consegue expressar {{count}} dessas alterações. Veja os avisos; nenhuma migração foi gerada.",
+    "deleteAppliedWarning": "Esta migração está aplicada. Excluir o arquivo torna o rollback impossível.",
+    "checksumForceConfirm": "O arquivo \"{{name}}\" mudou desde que foi aplicado.",
+    "checksumForceWarning": "O script em disco pode não corresponder mais ao que foi executado.",
+    "forceApply": "Forçar",
+    "duplicateVersion": "Versão duplicada",
+    "malformed": "Nome de arquivo inválido",
+    "pkLabel": "PK"
   },
   "snapshots": {
     "title": "Snapshots",
@@ -3028,6 +3040,11 @@
     },
     "alter": {
       "driverUnsupported": "ALTER TABLE não é suportado pelo driver: {{driver}}"
+    },
+    "pk": {
+      "alterUnsupported": "Este driver ({{driver}}) não pode alterar a chave primária via ALTER TABLE — a tabela precisa ser recriada.",
+      "dropRequiresName": "Não é possível remover a chave primária de \"{{table}}\": o nome da restrição é desconhecido.",
+      "uniqueNotDiffed": "A unicidade de coluna não é comparada: a introspecção a reporta como um índice."
     }
   },
   "backup": {

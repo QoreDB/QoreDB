@@ -17,7 +17,10 @@ export type DdlWarningCode =
   | 'sqlserver.defaultsManual'
   | 'sqlserver.commentsManual'
   | 'internal.columnNotFound'
-  | 'alter.driverUnsupported';
+  | 'alter.driverUnsupported'
+  | 'pk.alterUnsupported'
+  | 'pk.dropRequiresName'
+  | 'pk.uniqueNotDiffed';
 
 export type DdlWarningParams = Record<string, string | number | undefined>;
 

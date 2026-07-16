@@ -93,3 +93,54 @@ export function dropIndexStmt(name: string, ctx: BuilderContext): string {
 export function alterPrefix(ctx: BuilderContext): string {
   return `ALTER TABLE ${ctx.fullName}`;
 }
+
+/**
+ * `ALTER TABLE … ADD PRIMARY KEY (…)`, named when the dialect wants a constraint
+ * name. Returns null (with a warning) when the driver can't alter a primary key.
+ */
+export function addPrimaryKeyStmt(
+  columns: string[],
+  ctx: BuilderContext,
+  options: { named?: boolean } = {}
+): string | null {
+  if (!getDdlCapabilities(ctx.driver).supportsAlterPrimaryKey) {
+    ctx.warnings.push(warn('pk.alterUnsupported', { driver: ctx.driver }));
+    return null;
+  }
+  const cols = columns.map(c => quoteIdentifier(c, ctx.driver)).join(', ');
+  const name = options.named
+    ? `CONSTRAINT ${quoteIdentifier(`PK_${ctx.table.tableName}`, ctx.driver)} `
+    : '';
+  return `${alterPrefix(ctx)} ADD ${name}PRIMARY KEY (${cols});`;
+}
+
+/**
+ * Drops the primary key. Postgres and SQL Server need the constraint name, which
+ * only introspection can supply; MySQL has dedicated syntax and needs none.
+ */
+export function dropPrimaryKeyStmt(
+  name: string | undefined,
+  ctx: BuilderContext,
+  options: { byName: boolean }
+): string | null {
+  if (!getDdlCapabilities(ctx.driver).supportsAlterPrimaryKey) {
+    ctx.warnings.push(warn('pk.alterUnsupported', { driver: ctx.driver }));
+    return null;
+  }
+  if (!options.byName) {
+    return `${alterPrefix(ctx)} DROP PRIMARY KEY;`;
+  }
+  if (!name) {
+    ctx.warnings.push(warn('pk.dropRequiresName', { table: ctx.table.tableName }));
+    return null;
+  }
+  return `${alterPrefix(ctx)} DROP CONSTRAINT ${quoteIdentifier(name, ctx.driver)};`;
+}
+
+/**
+ * Compile-time guard: every builder must handle every `AlterOp`. Without it a
+ * new op silently produces no SQL — the exact failure this engine had.
+ */
+export function assertNever(op: never): never {
+  throw new Error(`Unhandled AlterOp: ${JSON.stringify(op)}`);
+}

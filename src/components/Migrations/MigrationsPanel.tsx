@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import type { TFunction } from 'i18next';
 import {
   AlertTriangle,
   Camera,
@@ -8,6 +9,7 @@ import {
   Play,
   Plus,
   RefreshCw,
+  Save,
   ScanSearch,
   Trash2,
   Undo2,
@@ -16,10 +18,14 @@ import {
 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { SQLEditor } from '@/components/Editor/SQLEditor';
 import { UpgradePrompt } from '@/components/License/UpgradePrompt';
+import { translateDdlWarning } from '@/components/Table/translateDdlWarning';
+import { WarningsBanner } from '@/components/Table/WarningsBanner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import type { Driver } from '@/lib/connection/drivers';
+import type { DdlWarning } from '@/lib/ddl';
 import { loadBaselineFile, saveBaseline, useBaseline } from '@/lib/migrations/baselineStore';
 import { NON_TX_DDL_DRIVERS, SCHEMA_MIGRATION_DRIVERS } from '@/lib/migrations/drivers';
 import { loadMigrations, useMigrationsStore } from '@/lib/migrations/migrationsStore';
@@ -29,6 +35,7 @@ import {
   parseMigration,
   serializeMigration,
   slugify,
+  summarize,
 } from '@/lib/migrations/parse';
 import { compareSnapshots, type SchemaDelta } from '@/lib/migrations/schemaCompare';
 import { captureSnapshot, generateMigration } from '@/lib/migrations/schemaDiff';
@@ -47,6 +54,12 @@ import { cn } from '@/lib/utils';
 import { useLicense } from '@/providers/LicenseProvider';
 import { useWorkspace } from '@/providers/WorkspaceProvider';
 import { SchemaDeltaView } from './SchemaDeltaView';
+
+function prependWarnings(up: string, warnings: DdlWarning[], t: TFunction): string {
+  if (warnings.length === 0) return up;
+  const lines = warnings.map(w => `-- WARNING: ${translateDdlWarning(t, w)}`);
+  return `${lines.join('\n')}\n${up}`;
+}
 
 interface MigrationsPanelProps {
   sessionId?: string;
@@ -81,12 +94,14 @@ export function MigrationsPanel({
   const [generating, setGenerating] = useState(false);
   const [checkingDrift, setCheckingDrift] = useState(false);
   const [driftReport, setDriftReport] = useState<SchemaDelta | null>(null);
+  const [generateWarnings, setGenerateWarnings] = useState<DdlWarning[]>([]);
+  const [draft, setDraft] = useState<{ up: string; down: string } | null>(null);
+  const [saving, setSaving] = useState(false);
 
   const isDefault = activeWorkspace == null || activeWorkspace.source === 'default';
   const driverSupported = driver != null && SCHEMA_MIGRATION_DRIVERS.has(driver);
   const canApply = !!sessionId && driverSupported && !readOnly;
-  // Schema-diff generation only writes migration files, so read-only is fine.
-  // Baselines/drift need a workspace-stable connection id to persist under.
+
   const schemaDiffAvailable = !!sessionId && !!connectionId && driverSupported;
   const hasSchemaDiff = isFeatureEnabled('schema_diff');
   const canGenerate = schemaDiffAvailable && hasSchemaDiff;
@@ -123,20 +138,48 @@ export function MigrationsPanel({
   useEffect(() => {
     if (!selected) {
       setDetail(null);
+      setDraft(null);
       return;
     }
     let cancelled = false;
     wsReadMigration(selected)
       .then(content => {
-        if (!cancelled) setDetail(content == null ? null : parseMigration(content));
+        if (cancelled) return;
+        const parsed = content == null ? null : parseMigration(content);
+        setDetail(parsed);
+        setDraft(parsed);
       })
       .catch(() => {
-        if (!cancelled) setDetail(null);
+        if (cancelled) return;
+        setDetail(null);
+        setDraft(null);
       });
     return () => {
       cancelled = true;
     };
   }, [selected, migrations]);
+
+  const isDirty =
+    draft != null && detail != null && (draft.up !== detail.up || draft.down !== detail.down);
+
+  const handleSave = useCallback(async () => {
+    if (!selected || !draft) return;
+    setSaving(true);
+    try {
+      const ok = await wsWriteMigration(selected, serializeMigration(draft.up, draft.down));
+      if (!ok) {
+        notify.error(t('migrations.requiresWorkspace'));
+        return;
+      }
+      setDetail(draft);
+      await refreshStatus();
+      notify.success(t('migrations.saved'));
+    } catch (err) {
+      notify.error(t('common.unknownError'), err);
+    } finally {
+      setSaving(false);
+    }
+  }, [selected, draft, refreshStatus, t]);
 
   const handleCreate = useCallback(async () => {
     const name = newName.trim();
@@ -163,9 +206,13 @@ export function MigrationsPanel({
 
   const handleDelete = useCallback(
     async (filename: string) => {
+      const version = summarize(filename).version;
+
+      const applied = statusByVersion[version]?.status === 'applied';
       const confirmed = await confirmDialog({
         title: t('migrations.delete'),
         description: t('migrations.deleteConfirm', { name: filename }),
+        warningInfo: applied ? t('migrations.deleteAppliedWarning') : undefined,
         confirmLabel: t('migrations.delete'),
       });
       if (!confirmed) return;
@@ -179,7 +226,7 @@ export function MigrationsPanel({
         console.error('Failed to delete migration:', err);
       }
     },
-    [selected, t]
+    [selected, statusByVersion, t]
   );
 
   const handleApply = useCallback(
@@ -197,12 +244,28 @@ export function MigrationsPanel({
       if (!confirmed) return;
       setApplying(filename);
       try {
-        const res = await applyMigration(sessionId, filename, direction, database ?? '', true);
+        let res = await applyMigration(sessionId, filename, direction, database ?? '', true);
+
+        // The backend refused because the file drifted since it was applied.
+        // That's a judgement call, so surface it and let the user decide.
+        if (!res.success && res.blocked_reason === 'checksum_mismatch' && res.overridable) {
+          const forced = await confirmDialog({
+            title: t('migrations.checksumMismatch'),
+            description: res.error ?? t('migrations.checksumForceConfirm', { name: filename }),
+            warningInfo: t('migrations.checksumForceWarning'),
+            confirmLabel: t('migrations.forceApply'),
+          });
+          if (!forced) return;
+          res = await applyMigration(sessionId, filename, direction, database ?? '', true, true);
+        }
+
         if (res.success) {
           notify.success(isUp ? t('migrations.applied') : t('migrations.rolledBack'));
           await refreshStatus();
         } else {
           notify.error(res.error ?? t('common.unknownError'));
+          // A refusal can mean our cached status is stale (someone else applied it).
+          if (res.blocked_reason) await refreshStatus();
         }
       } catch (err) {
         notify.error(t('common.unknownError'));
@@ -252,15 +315,27 @@ export function MigrationsPanel({
         return;
       }
       const result = generateMigration(baseline, live, driver as Driver);
+      setGenerateWarnings(result.warnings);
       if (result.isEmpty) {
         notify.info(t('migrations.noChanges'));
+        return;
+      }
+      // The schemas differ but this dialect can't express the change. Emitting
+      // the empty script would read as "no changes" — refuse and say why.
+      if (result.unexpressed.length > 0) {
+        notify.error(
+          t('migrations.generateUnexpressed', {
+            count: result.unexpressed.length,
+          })
+        );
         return;
       }
       const filename = buildMigrationFilename(
         nextVersion(migrations ?? []),
         slugify('schema_changes')
       );
-      const ok = await wsWriteMigration(filename, serializeMigration(result.up, result.down));
+      const body = serializeMigration(prependWarnings(result.up, result.warnings, t), result.down);
+      const ok = await wsWriteMigration(filename, body);
       if (!ok) {
         notify.error(t('migrations.requiresWorkspace'));
         return;
@@ -295,7 +370,9 @@ export function MigrationsPanel({
         notify.warning(t('migrations.captureIncomplete', { count: failedTables.length }));
       }
       // Skip tables that failed to describe so a transient failure isn't reported as a drop.
-      const delta = compareSnapshots(baseline, live, { ignoreKeys: new Set(failedTables) });
+      const delta = compareSnapshots(baseline, live, {
+        ignoreKeys: new Set(failedTables),
+      });
       setSelected(null);
       setDriftReport(delta);
       if (!delta.hasChanges) notify.success(t('migrations.driftNone'));
@@ -472,6 +549,18 @@ export function MigrationsPanel({
                         <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
                       </span>
                     )}
+                    {(status?.duplicate_version || status?.malformed) && (
+                      <span
+                        title={
+                          status.duplicate_version
+                            ? t('migrations.duplicateVersion')
+                            : t('migrations.malformed')
+                        }
+                        className="shrink-0"
+                      >
+                        <AlertTriangle className="w-3.5 h-3.5 text-destructive" />
+                      </span>
+                    )}
                   </button>
                   {canApply && (
                     <button
@@ -505,6 +594,11 @@ export function MigrationsPanel({
         </div>
 
         <div className="flex-1 min-w-0 overflow-y-auto p-4">
+          {generateWarnings.length > 0 && (
+            <div className="mb-3">
+              <WarningsBanner warnings={generateWarnings} defaultOpen />
+            </div>
+          )}
           {driftReport ? (
             <div className="flex flex-col gap-3">
               <div className="flex items-center justify-between">
@@ -520,27 +614,63 @@ export function MigrationsPanel({
               </div>
               <SchemaDeltaView delta={driftReport} />
             </div>
-          ) : detail == null ? (
+          ) : draft == null ? (
             <div className="h-full flex items-center justify-center text-sm text-muted-foreground">
               {t('migrations.selectHint')}
             </div>
           ) : (
             <div className="flex flex-col gap-4">
+              <div className="flex items-center justify-end gap-2">
+                {isDirty && (
+                  <span className="text-xs text-muted-foreground">
+                    {t('migrations.unsavedChanges')}
+                  </span>
+                )}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => void handleSave()}
+                  disabled={!isDirty || saving || readOnly}
+                >
+                  {saving ? (
+                    <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+                  ) : (
+                    <Save className="w-3.5 h-3.5 mr-1.5" />
+                  )}
+                  {t('common.save')}
+                </Button>
+              </div>
               <section>
                 <div className="text-xs font-semibold uppercase text-muted-foreground mb-1">
                   {t('migrations.upLabel')}
                 </div>
-                <pre className="text-xs font-mono bg-muted/40 rounded p-3 whitespace-pre-wrap break-words min-h-16">
-                  {detail.up || '—'}
-                </pre>
+                <div className="h-56 rounded border border-border overflow-hidden">
+                  <SQLEditor
+                    value={draft.up}
+                    onChange={up => setDraft(d => (d ? { ...d, up } : d))}
+                    dialect={driver as Driver}
+                    sessionId={sessionId}
+                    connectionDatabase={database}
+                    readOnly={readOnly}
+                    placeholder={t('migrations.upPlaceholder')}
+                  />
+                </div>
               </section>
               <section>
                 <div className="text-xs font-semibold uppercase text-muted-foreground mb-1">
                   {t('migrations.downLabel')}
                 </div>
-                <pre className="text-xs font-mono bg-muted/40 rounded p-3 whitespace-pre-wrap break-words min-h-16">
-                  {detail.down || '—'}
-                </pre>
+                <div className="h-56 rounded border border-border overflow-hidden">
+                  <SQLEditor
+                    value={draft.down}
+                    onChange={down => setDraft(d => (d ? { ...d, down } : d))}
+                    dialect={driver as Driver}
+                    sessionId={sessionId}
+                    connectionDatabase={database}
+                    readOnly={readOnly}
+                    placeholder={t('migrations.downPlaceholder')}
+                  />
+                </div>
               </section>
             </div>
           )}

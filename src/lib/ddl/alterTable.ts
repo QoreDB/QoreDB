@@ -3,7 +3,7 @@
 import type { Driver } from '../connection/drivers';
 import { buildAlterTableStatements } from './alterTableBuilders';
 import type { BuildResult } from './createTable';
-import type { AlterOp, ColumnDef, TableDefinition } from './types';
+import type { AlterOp, ColumnDef, ForeignKeyDef, IndexDef, TableDefinition } from './types';
 
 export interface DiffOptions {
   columnRenames?: Array<{ from: string; to: string }>;
@@ -16,6 +16,26 @@ function colSizeKey(c: ColumnDef): string {
 
 function differs<T>(a: T | undefined | null, b: T | undefined | null): boolean {
   return (a ?? null) !== (b ?? null);
+}
+
+export function primaryKeyColumns(t: TableDefinition): string[] {
+  return t.columns.filter(c => c.isPrimaryKey).map(c => c.name);
+}
+
+/** Everything that makes two same-named indexes actually different. */
+function indexShape(i: IndexDef): string {
+  return [i.columns.join(','), i.unique ? 'u' : '', i.method ?? '', i.where ?? ''].join('|');
+}
+
+function fkShape(fk: ForeignKeyDef): string {
+  return [
+    fk.columns.join(','),
+    fk.refSchema ?? '',
+    fk.refTable,
+    fk.refColumns.join(','),
+    fk.onDelete ?? '',
+    fk.onUpdate ?? '',
+  ].join('|');
 }
 
 export function diffTableDefinitions(
@@ -89,36 +109,50 @@ export function diffTableDefinitions(
     ops.push({ kind: 'set_table_comment', comment: after.comment ?? '' });
   }
 
-  const fkKey = (fk: {
-    name?: string;
-    columns: string[];
-    refTable: string;
-    refColumns: string[];
-  }) =>
-    fk.name
-      ? `name:${fk.name}`
-      : `cols:${fk.columns.join(',')}->${fk.refTable}(${fk.refColumns.join(',')})`;
+  const beforePk = primaryKeyColumns(before);
+  const afterPk = primaryKeyColumns(after);
+  if (beforePk.join(',') !== afterPk.join(',')) {
+    if (beforePk.length > 0) {
+      ops.push({ kind: 'drop_primary_key', name: before.primaryKeyName });
+    }
+    if (afterPk.length > 0) {
+      ops.push({ kind: 'add_primary_key', columns: afterPk });
+    }
+  }
 
-  const beforeFks = new Map((before.foreignKeys ?? []).map(fk => [fkKey(fk), fk]));
-  const afterFks = new Map((after.foreignKeys ?? []).map(fk => [fkKey(fk), fk]));
+  // Identity is the name when there is one, but a same-named key whose
+  // definition changed still has to be replaced — so compare the shape too.
+  const fkIdentity = (fk: ForeignKeyDef) => (fk.name ? `name:${fk.name}` : `cols:${fkShape(fk)}`);
+
+  const beforeFks = new Map((before.foreignKeys ?? []).map(fk => [fkIdentity(fk), fk]));
+  const afterFks = new Map((after.foreignKeys ?? []).map(fk => [fkIdentity(fk), fk]));
+  // Drops precede adds: re-adding under a name still taken would fail.
   for (const [key, fk] of beforeFks) {
-    if (!afterFks.has(key)) {
+    const next = afterFks.get(key);
+    if (!next || fkShape(next) !== fkShape(fk)) {
       ops.push({ kind: 'drop_foreign_key', name: fk.name ?? key });
     }
   }
   for (const [key, fk] of afterFks) {
-    if (!beforeFks.has(key)) {
+    const prev = beforeFks.get(key);
+    if (!prev || fkShape(prev) !== fkShape(fk)) {
       ops.push({ kind: 'add_foreign_key', foreignKey: fk });
     }
   }
 
   const beforeIdx = new Map((before.indexes ?? []).map(i => [i.name, i]));
   const afterIdx = new Map((after.indexes ?? []).map(i => [i.name, i]));
-  for (const [name] of beforeIdx) {
-    if (!afterIdx.has(name)) ops.push({ kind: 'drop_index', name });
+  for (const [name, idx] of beforeIdx) {
+    const next = afterIdx.get(name);
+    if (!next || indexShape(next) !== indexShape(idx)) {
+      ops.push({ kind: 'drop_index', name });
+    }
   }
   for (const [name, idx] of afterIdx) {
-    if (!beforeIdx.has(name)) ops.push({ kind: 'add_index', index: idx });
+    const prev = beforeIdx.get(name);
+    if (!prev || indexShape(prev) !== indexShape(idx)) {
+      ops.push({ kind: 'add_index', index: idx });
+    }
   }
 
   const checkKey = (c: { name?: string; expression: string }) =>

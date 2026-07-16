@@ -5,4 +5,5 @@
 pub mod clickhouse_safety;
 pub mod connection_url;
 pub mod generator;
+pub mod migration_split;
 pub mod safety;

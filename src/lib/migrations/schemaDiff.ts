@@ -86,7 +86,14 @@ export interface GeneratedMigration {
   warnings: DdlWarning[];
   /** True when the `down` contains commented-out, data-lossy statements. */
   hasIrreversible: boolean;
+  /** True when the schemas are genuinely identical — no operations at all. */
   isEmpty: boolean;
+  /**
+   * Operations the driver's dialect cannot express (e.g. SQLite column type
+   * changes). Non-empty means the schemas DO differ but the generated `up`
+   * doesn't say so — the caller must refuse rather than report "no changes".
+   */
+  unexpressed: AlterOp[];
 }
 
 // The DDL builders only switch on the 5 canonical dialects; Postgres-compatible
@@ -97,6 +104,8 @@ function ddlDriver(driver: Driver): Driver {
     case Driver.Neon:
     case Driver.Timescaledb:
       return Driver.Postgres;
+    case Driver.Motherduck:
+      return Driver.Duckdb;
     default:
       return driver;
   }
@@ -155,7 +164,14 @@ export function schemaToDefinition(
       method: idx.index_type ?? undefined,
     }));
 
-  return { namespace, tableName, columns, foreignKeys, indexes };
+  return {
+    namespace,
+    tableName,
+    columns,
+    foreignKeys,
+    indexes,
+    primaryKeyName: schema.indexes.find(idx => idx.is_primary)?.name,
+  };
 }
 
 /**
@@ -228,6 +244,8 @@ export function generateMigration(
   const downReversible: string[] = [];
   const downIrreversible: string[] = [];
   const warnings: DdlWarning[] = [];
+  const unexpressed: AlterOp[] = [];
+  let anyOps = false;
 
   const keys = Array.from(
     new Set([...Object.keys(before.tables), ...Object.keys(after.tables)])
@@ -238,6 +256,7 @@ export function generateMigration(
     const b = before.tables[key];
     const a = after.tables[key];
     if (b || !a) continue;
+    anyOps = true;
     const res = buildCreateTableStatements(a, d);
     up.push(joinStatements(res.statements));
     warnings.push(...res.warnings);
@@ -251,9 +270,15 @@ export function generateMigration(
     if (!b || !a) continue;
     const ops = diffTableDefinitions(b, a);
     if (ops.length === 0) continue;
+    anyOps = true;
     const upSql = buildAlterTableSQL(a, ops, d);
     up.push(joinStatements(upSql.statements));
     warnings.push(...upSql.warnings);
+    // Real differences the dialect can't express. Without this the migration
+    // would come out empty and read as "no changes".
+    if (upSql.statements.length === 0) {
+      unexpressed.push(...ops);
+    }
 
     const { reversible, irreversible } = invertOps(b, a);
     if (reversible.length > 0) {
@@ -264,6 +289,7 @@ export function generateMigration(
     if (irreversible.length > 0) {
       const dn = buildAlterTableSQL(b, irreversible, d);
       downIrreversible.push(joinStatements(dn.statements));
+      warnings.push(...dn.warnings);
     }
   }
 
@@ -272,9 +298,11 @@ export function generateMigration(
     const b = before.tables[key];
     const a = after.tables[key];
     if (!b || a) continue;
+    anyOps = true;
     up.push(buildDropTableSQL(b.namespace, b.tableName, d));
     const res = buildCreateTableStatements(b, d);
     downIrreversible.push(joinStatements(res.statements));
+    warnings.push(...res.warnings);
   }
 
   const hasIrreversible = downIrreversible.length > 0;
@@ -295,6 +323,8 @@ export function generateMigration(
     down: downBlocks.join('\n\n').trim(),
     warnings,
     hasIrreversible,
-    isEmpty: upScript.length === 0,
+    // Empty means "the schemas match", not merely "we produced no SQL".
+    isEmpty: !anyOps,
+    unexpressed,
   };
 }

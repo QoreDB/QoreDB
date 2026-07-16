@@ -2665,7 +2665,19 @@
     "delete": "Delete",
     "deleteConfirm": "Delete the migration \"{{name}}\"? This removes the file from disk.",
     "created": "Migration created",
-    "deleted": "Migration deleted"
+    "deleted": "Migration deleted",
+    "saved": "Migration saved",
+    "unsavedChanges": "Unsaved changes",
+    "upPlaceholder": "SQL the migration applies…",
+    "downPlaceholder": "SQL that undoes the migration…",
+    "generateUnexpressed": "The schema changed, but this driver cannot express {{count}} of those changes. See the warnings; no migration was generated.",
+    "deleteAppliedWarning": "This migration is applied. Deleting its file makes rolling it back impossible.",
+    "checksumForceConfirm": "The file \"{{name}}\" changed since it was applied.",
+    "checksumForceWarning": "The script on disk may no longer match what actually ran.",
+    "forceApply": "Force",
+    "duplicateVersion": "Duplicate version",
+    "malformed": "Invalid filename",
+    "pkLabel": "PK"
   },
   "snapshots": {
     "title": "Snapshots",
@@ -3067,6 +3079,11 @@
     },
     "alter": {
       "driverUnsupported": "ALTER TABLE is not supported on driver: {{driver}}"
+    },
+    "pk": {
+      "alterUnsupported": "This driver ({{driver}}) cannot change the primary key via ALTER TABLE — the table must be rebuilt.",
+      "dropRequiresName": "Cannot drop the primary key of \"{{table}}\": the constraint name is unknown.",
+      "uniqueNotDiffed": "Column uniqueness is not compared: introspection reports it as an index."
     }
   },
   "backup": {

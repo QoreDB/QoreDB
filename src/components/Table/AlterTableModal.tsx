@@ -24,6 +24,7 @@ import {
   getDdlCapabilities,
   type IndexDef,
   type TableDefinition,
+  warn,
 } from '@/lib/ddl';
 import { notify } from '@/lib/notify';
 import { describeTable, executeQuery, type Namespace, type TableSchema } from '@/lib/tauri';
@@ -42,6 +43,7 @@ import { ForeignKeysEditor } from './ForeignKeysEditor';
 import { IndexesEditor } from './IndexesEditor';
 import {
   buildAlterSnapshot,
+  tableSchemaPrimaryKeyName,
   tableSchemaToColumns,
   tableSchemaToForeignKeys,
   tableSchemaToIndexes,
@@ -91,6 +93,7 @@ export function AlterTableModal({
   const [indexes, setIndexes] = useState<EditableIndex[]>([]);
   const [checks, setChecks] = useState<EditableCheck[]>([]);
   const [originalSnapshot, setOriginalSnapshot] = useState<TableDefinition | null>(null);
+  const [primaryKeyName, setPrimaryKeyName] = useState<string | undefined>(undefined);
   const [activeSection, setActiveSection] = useState<CreateTableSection>('columns');
   const [applying, setApplying] = useState(false);
 
@@ -102,7 +105,10 @@ export function AlterTableModal({
     setForeignKeys(fks);
     setIndexes(idx);
     setChecks([]);
-    setOriginalSnapshot(buildAlterSnapshot(namespace, tableName, cols, fks, idx));
+    setPrimaryKeyName(tableSchemaPrimaryKeyName(schema));
+    setOriginalSnapshot(
+      buildAlterSnapshot(namespace, tableName, cols, fks, idx, tableSchemaPrimaryKeyName(schema))
+    );
   }
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: re-run only when the modal context changes
@@ -137,6 +143,7 @@ export function AlterTableModal({
       namespace,
       tableName: editTableName.trim() || tableName,
       comment: tableComment.trim() || undefined,
+      primaryKeyName,
       columns: columns
         .filter(c => c.name.trim())
         .map(c => {
@@ -167,7 +174,17 @@ export function AlterTableModal({
           return rest as CheckConstraintDef;
         }),
     };
-  }, [namespace, editTableName, tableName, tableComment, columns, foreignKeys, indexes, checks]);
+  }, [
+    namespace,
+    editTableName,
+    tableName,
+    tableComment,
+    columns,
+    foreignKeys,
+    indexes,
+    checks,
+    primaryKeyName,
+  ]);
 
   const buildResult = useMemo(() => {
     if (!originalSnapshot) return { statements: [], warnings: [] };
@@ -181,7 +198,14 @@ export function AlterTableModal({
           ? { from: originalTableName, to: afterDefinition.tableName }
           : undefined,
     });
-    return buildAlterTableSQL(originalSnapshot, ops, driver);
+    const res = buildAlterTableSQL(originalSnapshot, ops, driver);
+    // Introspection reports uniqueness as an index, so `isUnique` is always
+    // false on load and the checkbox can't be diffed. Say so rather than
+    // silently ignoring a ticked box.
+    if (columns.some(c => c.isUnique)) {
+      return { ...res, warnings: [...res.warnings, warn('pk.uniqueNotDiffed')] };
+    }
+    return res;
   }, [originalSnapshot, afterDefinition, columns, originalTableName, driver]);
 
   const generatedSQL = useMemo(() => buildResult.statements.join('\n\n'), [buildResult]);

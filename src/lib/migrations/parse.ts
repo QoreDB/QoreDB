@@ -54,3 +54,12 @@ export function nextVersion(existing: MigrationSummary[]): string {
 export function buildMigrationFilename(version: string, slug: string): string {
   return `${version}_${slug}.sql`;
 }
+
+/** Splits `<version>_<slug>.sql` into its parts. Mirrors the Rust `summarize`. */
+export function summarize(filename: string): MigrationSummary {
+  const stem = filename.endsWith('.sql') ? filename.slice(0, -4) : filename;
+  const sep = stem.indexOf('_');
+  const version = sep === -1 ? stem : stem.slice(0, sep);
+  const name = sep === -1 ? stem : stem.slice(sep + 1);
+  return { version, name, filename };
+}

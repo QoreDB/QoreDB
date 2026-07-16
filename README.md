@@ -114,6 +114,7 @@ DBeaver, pgAdmin, phpMyAdmin do the job — but they feel slow, dated, and full 
 - **Export pipeline** — CSV, JSON, SQL, HTML, self-contained HTML (+ XLSX/Parquet in Pro)
 - **Cross-database federation** — Query and join across active connections via DuckDB
 - **Sandbox mode** — Isolated local changes with migration generation
+- **Migrations Manager** — Versioned `.sql` schema migrations in `.qoredb/migrations/`, shared through Git, applied and rolled back transactionally with per-statement safety checks and an applied-state history table in the target database (+ schema-diff generation, drift detection and Prod↔Staging schema diff in Pro)
 - **Backup &amp; restore** — Visual wrappers around `pg_dump`, `mysqldump`, `mongodump` and `sqlite3 .dump`, with streaming logs, cancel mid-run and tool-path overrides
 - **Query result cache** — Recent table navigation served instantly from a local cache, auto-invalidated when you change data through QoreDB
 - **Plugin system** — Install declarative plugins contributing SQL snippet packs, connection templates and color themes — no code execution
@@ -203,6 +204,7 @@ DBeaver, pgAdmin, phpMyAdmin do the job — but they feel slow, dated, and full 
 | Encrypted credential vault | ✅ Argon2 | ⚪ Basic | ✅ Keychain | ❌ No |
 | Production safety guards | ✅ Yes | ❌ No | ⚪ Partial | ❌ No |
 | Sandbox mode + migrations | ✅ Pro | ❌ No | ❌ No | ❌ No |
+| Versioned schema migrations | ✅ Yes | ❌ No | ❌ No | ❌ No |
 | Full-text search (all tables) | ✅ Yes | ❌ No | ❌ No | ❌ No |
 | Interactive ER diagram | ✅ Yes | ✅ Yes | ❌ No | ⚪ Partial |
 | Cross-database federation | ✅ Pro | ❌ No | ❌ No | ❌ No |

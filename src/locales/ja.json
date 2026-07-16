@@ -2626,7 +2626,19 @@
     "delete": "削除",
     "deleteConfirm": "マイグレーション「{{name}}」を削除しますか？ファイルがディスクから削除されます。",
     "created": "マイグレーションを作成しました",
-    "deleted": "マイグレーションを削除しました"
+    "deleted": "マイグレーションを削除しました",
+    "saved": "マイグレーションを保存しました",
+    "unsavedChanges": "未保存の変更",
+    "upPlaceholder": "マイグレーションが適用する SQL…",
+    "downPlaceholder": "マイグレーションを取り消す SQL…",
+    "generateUnexpressed": "スキーマは変更されましたが、このドライバーは {{count}} 件の変更を表現できません。警告を確認してください。マイグレーションは生成されていません。",
+    "deleteAppliedWarning": "このマイグレーションは適用済みです。ファイルを削除するとロールバックできなくなります。",
+    "checksumForceConfirm": "ファイル「{{name}}」は適用後に変更されています。",
+    "checksumForceWarning": "ディスク上のスクリプトは実際に実行された内容と一致しない可能性があります。",
+    "forceApply": "強制実行",
+    "duplicateVersion": "バージョンの重複",
+    "malformed": "無効なファイル名",
+    "pkLabel": "主キー"
   },
   "snapshots": {
     "title": "スナップショット",
@@ -3028,6 +3040,11 @@
     },
     "alter": {
       "driverUnsupported": "ドライバーでは ALTER TABLE はサポートされていません: {{driver}}"
+    },
+    "pk": {
+      "alterUnsupported": "このドライバー ({{driver}}) は ALTER TABLE で主キーを変更できません — テーブルの再作成が必要です。",
+      "dropRequiresName": "「{{table}}」の主キーを削除できません: 制約名が不明です。",
+      "uniqueNotDiffed": "列の一意性は比較されません: イントロスペクションではインデックスとして報告されます。"
     }
   },
   "backup": {

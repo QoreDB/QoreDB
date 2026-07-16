@@ -145,6 +145,13 @@ function TableChangeRow({
               {fk.name}
             </div>
           ))}
+          {change.primaryKey.map(pk => (
+            <div key={`pk-${pk.kind}-${pk.name}`} className={objectTone(pk.kind)}>
+              <span className="mr-1">{objectSymbol(pk.kind)}</span>
+              <span className="text-muted-foreground mr-1">{t('migrations.pkLabel')}</span>
+              {pk.name}
+            </div>
+          ))}
         </div>
       )}
     </div>

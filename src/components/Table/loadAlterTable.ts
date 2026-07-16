@@ -46,16 +46,22 @@ export function tableSchemaToIndexes(schema: TableSchema, idGen: IdGen): Editabl
     }));
 }
 
+export function tableSchemaPrimaryKeyName(schema: TableSchema): string | undefined {
+  return schema.indexes.find(idx => idx.is_primary)?.name;
+}
+
 export function buildAlterSnapshot(
   namespace: NamespaceLike,
   tableName: string,
   columns: EditableColumn[],
   foreignKeys: EditableForeignKey[],
-  indexes: EditableIndex[]
+  indexes: EditableIndex[],
+  primaryKeyName?: string
 ): TableDefinition {
   return {
     namespace,
     tableName,
+    primaryKeyName,
     columns: columns.map(c => {
       const { _id, _originalName, ...rest } = c;
       void _id;

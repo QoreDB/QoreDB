@@ -5,7 +5,12 @@
 //! diff (two connections, matching tables by schema-qualified name). Column-level
 //! changes are derived from the single source of truth `diffTableDefinitions`.
 
-import { type AlterOp, diffTableDefinitions, type TableDefinition } from '@/lib/ddl';
+import {
+  type AlterOp,
+  diffTableDefinitions,
+  primaryKeyColumns,
+  type TableDefinition,
+} from '@/lib/ddl';
 import type { SchemaSnapshot } from './schemaDiff';
 
 export type TableStatus = 'added' | 'removed' | 'modified';
@@ -37,6 +42,7 @@ export interface TableChange {
   columns: ColumnChange[];
   indexes: ObjectChange[];
   foreignKeys: ObjectChange[];
+  primaryKey: ObjectChange[];
   /** Raw left→right delta, for callers that want to generate reconciling SQL. */
   ops: AlterOp[];
 }
@@ -82,10 +88,16 @@ function nullability(nullable: boolean): string {
 function opsToChanges(
   ops: AlterOp[],
   before: TableDefinition
-): { columns: ColumnChange[]; indexes: ObjectChange[]; foreignKeys: ObjectChange[] } {
+): {
+  columns: ColumnChange[];
+  indexes: ObjectChange[];
+  foreignKeys: ObjectChange[];
+  primaryKey: ObjectChange[];
+} {
   const columns: ColumnChange[] = [];
   const indexes: ObjectChange[] = [];
   const foreignKeys: ObjectChange[] = [];
+  const primaryKey: ObjectChange[] = [];
   const beforeCol = (name: string) => before.columns.find(c => c.name === name);
 
   for (const op of ops) {
@@ -138,12 +150,18 @@ function opsToChanges(
       case 'drop_foreign_key':
         foreignKeys.push({ kind: 'removed', name: op.name });
         break;
+      case 'add_primary_key':
+        primaryKey.push({ kind: 'added', name: op.columns.join(', ') });
+        break;
+      case 'drop_primary_key':
+        primaryKey.push({ kind: 'removed', name: op.name ?? primaryKeyColumns(before).join(', ') });
+        break;
       // Table-level and check ops carry no per-column drift signal in v1.
       default:
         break;
     }
   }
-  return { columns, indexes, foreignKeys };
+  return { columns, indexes, foreignKeys, primaryKey };
 }
 
 /** Compares two snapshots into a structured, display-ready delta (left = reference, right = current). */
@@ -173,6 +191,7 @@ export function compareSnapshots(
         columns: [],
         indexes: [],
         foreignKeys: [],
+        primaryKey: [],
         ops: [],
       });
       continue;
@@ -186,6 +205,7 @@ export function compareSnapshots(
         columns: [],
         indexes: [],
         foreignKeys: [],
+        primaryKey: [],
         ops: [],
       });
       continue;
@@ -193,7 +213,7 @@ export function compareSnapshots(
     if (l && r) {
       const ops = diffTableDefinitions(l, r);
       if (ops.length === 0) continue;
-      const { columns, indexes, foreignKeys } = opsToChanges(ops, l);
+      const { columns, indexes, foreignKeys, primaryKey } = opsToChanges(ops, l);
       changes.push({
         key,
         table: r.tableName,
@@ -202,6 +222,7 @@ export function compareSnapshots(
         columns,
         indexes,
         foreignKeys,
+        primaryKey,
         ops,
       });
     }

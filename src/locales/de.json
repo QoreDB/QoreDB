@@ -2626,7 +2626,19 @@
     "delete": "Löschen",
     "deleteConfirm": "Migration „{{name}}“ löschen? Die Datei wird von der Festplatte entfernt.",
     "created": "Migration erstellt",
-    "deleted": "Migration gelöscht"
+    "deleted": "Migration gelöscht",
+    "saved": "Migration gespeichert",
+    "unsavedChanges": "Nicht gespeicherte Änderungen",
+    "upPlaceholder": "SQL, das die Migration anwendet…",
+    "downPlaceholder": "SQL, das die Migration rückgängig macht…",
+    "generateUnexpressed": "Das Schema hat sich geändert, aber dieser Treiber kann {{count}} dieser Änderungen nicht ausdrücken. Siehe Warnungen; es wurde keine Migration erzeugt.",
+    "deleteAppliedWarning": "Diese Migration ist angewendet. Das Löschen ihrer Datei macht ein Rollback unmöglich.",
+    "checksumForceConfirm": "Die Datei „{{name}}“ hat sich seit der Anwendung geändert.",
+    "checksumForceWarning": "Das Skript auf der Festplatte entspricht möglicherweise nicht mehr dem, was ausgeführt wurde.",
+    "forceApply": "Erzwingen",
+    "duplicateVersion": "Doppelte Version",
+    "malformed": "Ungültiger Dateiname",
+    "pkLabel": "PK"
   },
   "snapshots": {
     "title": "Snapshots",
@@ -3028,6 +3040,11 @@
     },
     "alter": {
       "driverUnsupported": "ALTER TABLE wird vom Treiber nicht unterstützt: {{driver}}"
+    },
+    "pk": {
+      "alterUnsupported": "Dieser Treiber ({{driver}}) kann den Primärschlüssel nicht per ALTER TABLE ändern — die Tabelle muss neu erstellt werden.",
+      "dropRequiresName": "Primärschlüssel von „{{table}}“ kann nicht entfernt werden: Der Constraint-Name ist unbekannt.",
+      "uniqueNotDiffed": "Spalten-Eindeutigkeit wird nicht verglichen: Die Introspektion meldet sie als Index."
     }
   },
   "backup": {

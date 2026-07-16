@@ -6,11 +6,14 @@ import { quoteIdentifier } from '../identifiers';
 import type { AlterOp, ColumnDef } from '../types';
 import { warn } from '../warnings';
 import {
+  addPrimaryKeyStmt,
   alterPrefix,
+  assertNever,
   type BuilderContext,
   buildIndexStmt,
   checkSnippet,
   dropIndexStmt,
+  dropPrimaryKeyStmt,
   fkSnippet,
   newColumnSnippet,
 } from './helpers';
@@ -106,6 +109,19 @@ export function buildMysqlAlter(ctx: BuilderContext, ops: AlterOp[]): string[] {
       case 'drop_index':
         stmts.push(dropIndexStmt(op.name, ctx));
         break;
+      case 'add_primary_key': {
+        const s = addPrimaryKeyStmt(op.columns, ctx);
+        if (s) stmts.push(s);
+        break;
+      }
+      case 'drop_primary_key': {
+        // MySQL has dedicated syntax and never needs the constraint name.
+        const s = dropPrimaryKeyStmt(op.name, ctx, { byName: false });
+        if (s) stmts.push(s);
+        break;
+      }
+      default:
+        assertNever(op);
     }
   }
   return stmts;

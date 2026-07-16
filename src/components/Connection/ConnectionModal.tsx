@@ -292,7 +292,7 @@ export function ConnectionModal({
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="contents">
-            <ScrollArea className="max-h-[75vh]">
+            <ScrollArea className="max-h-[75vh]" hideScrollbar>
               <div className="grid gap-4 py-4">
                 {/* Driver Header with URL toggle */}
                 <div className="flex items-center justify-between p-3 rounded-md bg-muted/30 border border-border">

@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { invoke } from "@tauri-apps/api/core";
-import { useEffect } from "react";
+import { invoke } from '@tauri-apps/api/core';
+import { useEffect } from 'react';
 
 const signal = (ready: boolean) => {
-  invoke("set_frontend_ready", { ready }).catch(() => {
+  invoke('set_frontend_ready', { ready }).catch(() => {
     // Non-Tauri context (browser dev) or teardown mid-flight: nothing to do.
   });
 };
@@ -19,11 +19,11 @@ export function useFrontendReady(): void {
     signal(true);
 
     const onHide = () => signal(false);
-    window.addEventListener("beforeunload", onHide);
-    window.addEventListener("pagehide", onHide);
+    window.addEventListener('beforeunload', onHide);
+    window.addEventListener('pagehide', onHide);
     return () => {
-      window.removeEventListener("beforeunload", onHide);
-      window.removeEventListener("pagehide", onHide);
+      window.removeEventListener('beforeunload', onHide);
+      window.removeEventListener('pagehide', onHide);
     };
   }, []);
 }

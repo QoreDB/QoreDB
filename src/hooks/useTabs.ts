@@ -130,12 +130,13 @@ export function useTabs(options: UseTabsOptions = {}) {
   }, []);
 
   const closeTab = useCallback(
-    async (tabId: string) => {
+    async (tabId: string): Promise<boolean> => {
       if (beforeCloseTabRef.current) {
         const allowed = await beforeCloseTabRef.current(tabId);
-        if (!allowed) return;
+        if (!allowed) return false;
       }
       doCloseTab(tabId);
+      return true;
     },
     [doCloseTab]
   );

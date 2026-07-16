@@ -9,9 +9,7 @@ export interface TableVisitInsight {
   database: string;
   schema?: string;
   tableName: string;
-  visitCount: number;
   lastVisitedAt: number;
-  lastCountedAt: number;
 }
 
 interface RecordTableVisitParams {
@@ -22,7 +20,6 @@ interface RecordTableVisitParams {
 
 const STORAGE_KEY_PREFIX = 'qoredb_table_insights';
 const MAX_ENTRIES = 500;
-const VISIT_COOLDOWN_MS = 30_000;
 
 let inMemoryInsights: TableVisitInsight[] = [];
 
@@ -71,24 +68,13 @@ function normalizeInsights(value: unknown): TableVisitInsight[] {
       typeof candidate.lastVisitedAt === 'number' && Number.isFinite(candidate.lastVisitedAt)
         ? candidate.lastVisitedAt
         : 0;
-    const lastCountedAt =
-      typeof candidate.lastCountedAt === 'number' && Number.isFinite(candidate.lastCountedAt)
-        ? candidate.lastCountedAt
-        : lastVisitedAt;
-    const visitCount =
-      typeof candidate.visitCount === 'number' && Number.isFinite(candidate.visitCount)
-        ? Math.max(1, Math.floor(candidate.visitCount))
-        : 1;
-
     normalized.push({
       key,
       connectionId,
       database,
       schema,
       tableName,
-      visitCount,
       lastVisitedAt,
-      lastCountedAt,
     });
   }
 
@@ -153,12 +139,9 @@ export function recordTableVisit({
 
   if (existingIndex >= 0) {
     const existing = insights[existingIndex];
-    const shouldIncrement = now - existing.lastCountedAt >= VISIT_COOLDOWN_MS;
     const updated: TableVisitInsight = {
       ...existing,
       lastVisitedAt: now,
-      lastCountedAt: shouldIncrement ? now : existing.lastCountedAt,
-      visitCount: shouldIncrement ? existing.visitCount + 1 : existing.visitCount,
     };
     insights[existingIndex] = updated;
     persistInsights(insights);
@@ -171,9 +154,7 @@ export function recordTableVisit({
     database: namespace.database,
     schema: namespace.schema,
     tableName,
-    visitCount: 1,
     lastVisitedAt: now,
-    lastCountedAt: now,
   };
 
   insights.unshift(created);
@@ -188,11 +169,7 @@ export function getNamespaceTableVisits(
 ): TableVisitInsight[] {
   return getStoredInsights()
     .filter(entry => matchesNamespace(entry, namespace, connectionId))
-    .sort((a, b) => {
-      if (b.visitCount !== a.visitCount) return b.visitCount - a.visitCount;
-      if (b.lastVisitedAt !== a.lastVisitedAt) return b.lastVisitedAt - a.lastVisitedAt;
-      return a.tableName.localeCompare(b.tableName);
-    })
+    .sort((a, b) => b.lastVisitedAt - a.lastVisitedAt || a.tableName.localeCompare(b.tableName))
     .slice(0, limit);
 }
 

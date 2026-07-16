@@ -10,7 +10,8 @@ export interface RecoveryTab {
     | 'federation'
     | 'snapshots'
     | 'notebook'
-    | 'time-travel';
+    | 'time-travel'
+    | 'migrations';
   title: string;
   namespace?: {
     database: string;

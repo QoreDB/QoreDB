@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { invoke } from '@/lib/transport';
+import { logError } from './errorLog';
 
 export interface LogEntry {
   level: 'info' | 'warn' | 'error' | 'debug';
@@ -39,6 +40,7 @@ export const logger = {
       stack = error.stack;
     }
 
+    logError('Frontend', message, stack);
     sendLog({ level: 'error', message, stack });
   },
   debug: (message: string) => {

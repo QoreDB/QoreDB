@@ -4,6 +4,7 @@ import {
   BookOpen,
   Copy,
   Loader2,
+  LogOut,
   MoreVertical,
   Pencil,
   Star,
@@ -40,6 +41,7 @@ interface ConnectionMenuProps {
   onNewQuery?: () => void;
   onNewNotebook?: () => void;
   isConnected?: boolean;
+  onDisconnect?: () => void;
 }
 
 export function ConnectionMenu({
@@ -51,6 +53,7 @@ export function ConnectionMenu({
   onNewQuery,
   onNewNotebook,
   isConnected,
+  onDisconnect,
 }: ConnectionMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -86,7 +89,7 @@ export function ConnectionMenu({
           className="whitespace-nowrap"
           onClick={e => e.stopPropagation()}
         >
-          {isConnected && (onNewQuery || onNewNotebook) && (
+          {isConnected && (onNewQuery || onNewNotebook || onDisconnect) && (
             <>
               {onNewQuery && (
                 <DropdownMenuItem onSelect={onNewQuery}>
@@ -98,6 +101,12 @@ export function ConnectionMenu({
                 <DropdownMenuItem onSelect={onNewNotebook}>
                   <BookOpen size={14} />
                   {t('connection.menu.newNotebook')}
+                </DropdownMenuItem>
+              )}
+              {onDisconnect && (
+                <DropdownMenuItem onSelect={onDisconnect}>
+                  <LogOut size={14} />
+                  {t('connection.menu.disconnect')}
                 </DropdownMenuItem>
               )}
               <DropdownMenuSeparator />

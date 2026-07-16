@@ -3,6 +3,7 @@
 import { AppLayout } from './AppLayout';
 import { AuthGate } from './components/Auth/AuthGate';
 import { ConfirmHost } from './components/Guard/ConfirmHost';
+import { useFrontendReady } from './hooks/useFrontendReady';
 import { AiPreferencesProvider } from './providers/AiPreferencesProvider';
 import { LicenseProvider } from './providers/LicenseProvider';
 import { ModalProvider } from './providers/ModalProvider';
@@ -16,6 +17,8 @@ import { WorkspaceProvider } from './providers/WorkspaceProvider';
 import './index.css';
 
 function App() {
+  useFrontendReady();
+
   return (
     <AuthGate>
       <LicenseProvider>

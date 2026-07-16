@@ -20,9 +20,9 @@ use serde::Deserialize;
 use tokio::sync::Mutex;
 
 use qore_core::{CollectionListOptions, Namespace, SessionId};
+use qore_service::paths::{config_dir, PROJECT_ID, QUERY_TIMEOUT_MS};
 use qore_service::vault::backend::KeyringProvider;
 use qore_service::vault::VaultStorage;
-use qore_service::paths::{config_dir, PROJECT_ID, QUERY_TIMEOUT_MS};
 use qore_service::ServiceContext;
 
 #[derive(Clone)]

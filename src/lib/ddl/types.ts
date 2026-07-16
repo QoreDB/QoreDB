@@ -71,6 +71,11 @@ export interface TableDefinition {
   indexes?: IndexDef[];
   checks?: CheckConstraintDef[];
   comment?: string;
+  /**
+   * Name of the primary key constraint, when introspection reported one.
+   * Postgres and SQL Server need it to drop the key; MySQL does not.
+   */
+  primaryKeyName?: string;
 }
 
 export type AlterOp =
@@ -95,4 +100,7 @@ export type AlterOp =
   | { kind: 'add_check'; check: CheckConstraintDef }
   | { kind: 'drop_check'; name: string }
   | { kind: 'rename_table'; newName: string }
-  | { kind: 'set_table_comment'; comment: string };
+  | { kind: 'set_table_comment'; comment: string }
+  | { kind: 'add_primary_key'; columns: string[] }
+  /** `name` is the constraint to drop, when introspection knew it. */
+  | { kind: 'drop_primary_key'; name?: string };

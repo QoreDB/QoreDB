@@ -11,6 +11,7 @@ const DIALECT_MAP: Record<Driver, SqlLanguage> = {
   [Driver.Sqlite]: 'sqlite',
   [Driver.SqlServer]: 'tsql',
   [Driver.Duckdb]: 'sql',
+  [Driver.Motherduck]: 'sql',
   [Driver.Cockroachdb]: 'postgresql',
   [Driver.Mariadb]: 'mysql',
   [Driver.Supabase]: 'postgresql',

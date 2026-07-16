@@ -4,11 +4,14 @@ import { quoteSqlString } from '../driverCapabilities';
 import { quoteIdentifier } from '../identifiers';
 import type { AlterOp } from '../types';
 import {
+  addPrimaryKeyStmt,
   alterPrefix,
+  assertNever,
   type BuilderContext,
   buildIndexStmt,
   checkSnippet,
   dropIndexStmt,
+  dropPrimaryKeyStmt,
   fkSnippet,
   newColumnSnippet,
 } from './helpers';
@@ -87,6 +90,18 @@ export function buildPostgresAlter(ctx: BuilderContext, ops: AlterOp[]): string[
       case 'drop_index':
         stmts.push(dropIndexStmt(op.name, ctx));
         break;
+      case 'add_primary_key': {
+        const s = addPrimaryKeyStmt(op.columns, ctx);
+        if (s) stmts.push(s);
+        break;
+      }
+      case 'drop_primary_key': {
+        const s = dropPrimaryKeyStmt(op.name, ctx, { byName: true });
+        if (s) stmts.push(s);
+        break;
+      }
+      default:
+        assertNever(op);
     }
   }
   return stmts;

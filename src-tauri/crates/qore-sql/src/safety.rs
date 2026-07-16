@@ -176,8 +176,11 @@ fn returns_rows_uncached(driver_id: &str, trimmed: &str) -> Result<bool, String>
     let dialect = dialect_for_driver(driver_id);
     let statements = Parser::parse_sql(&*dialect, trimmed).map_err(|err| err.to_string())?;
 
-    let first = statements.first().ok_or_else(|| "Empty SQL".to_string())?;
-    Ok(statement_returns_rows(first))
+    let last = statements.last().ok_or_else(|| "Empty SQL".to_string())?;
+    let is_duckdb_dialect =
+        driver_id.eq_ignore_ascii_case("duckdb") || driver_id.eq_ignore_ascii_case("motherduck");
+    Ok(statement_returns_rows(last)
+        || (is_duckdb_dialect && matches!(last, Statement::Call(_) | Statement::Pragma { .. })))
 }
 
 pub fn split_sql_statements(driver_id: &str, sql: &str) -> Result<Vec<String>, String> {
@@ -312,7 +315,9 @@ fn dialect_for_driver(driver_id: &str) -> Box<dyn Dialect> {
         Box::new(PostgreSqlDialect {})
     } else if driver_id.eq_ignore_ascii_case("mysql") {
         Box::new(MySqlDialect {})
-    } else if driver_id.eq_ignore_ascii_case("duckdb") {
+    } else if driver_id.eq_ignore_ascii_case("duckdb")
+        || driver_id.eq_ignore_ascii_case("motherduck")
+    {
         Box::new(DuckDbDialect {})
     } else if driver_id.eq_ignore_ascii_case("sqlserver") || driver_id.eq_ignore_ascii_case("mssql")
     {
@@ -360,25 +365,37 @@ fn is_mutation_statement(statement: &Statement) -> bool {
 }
 
 fn statement_returns_rows(statement: &Statement) -> bool {
-    matches!(
-        statement,
+    match statement {
+        Statement::Insert(insert) => insert
+            .returning
+            .as_ref()
+            .is_some_and(|items| !items.is_empty()),
+        Statement::Update(update) => update
+            .returning
+            .as_ref()
+            .is_some_and(|items| !items.is_empty()),
+        Statement::Delete(delete) => delete
+            .returning
+            .as_ref()
+            .is_some_and(|items| !items.is_empty()),
         Statement::Query(_)
-            | Statement::Explain { .. }
-            | Statement::ExplainTable { .. }
-            | Statement::ShowFunctions { .. }
-            | Statement::ShowVariable { .. }
-            | Statement::ShowStatus { .. }
-            | Statement::ShowVariables { .. }
-            | Statement::ShowCreate { .. }
-            | Statement::ShowColumns { .. }
-            | Statement::ShowDatabases { .. }
-            | Statement::ShowSchemas { .. }
-            | Statement::ShowCharset(_)
-            | Statement::ShowObjects(_)
-            | Statement::ShowTables { .. }
-            | Statement::ShowViews { .. }
-            | Statement::ShowCollation { .. }
-    )
+        | Statement::Explain { .. }
+        | Statement::ExplainTable { .. }
+        | Statement::ShowFunctions { .. }
+        | Statement::ShowVariable { .. }
+        | Statement::ShowStatus { .. }
+        | Statement::ShowVariables { .. }
+        | Statement::ShowCreate { .. }
+        | Statement::ShowColumns { .. }
+        | Statement::ShowDatabases { .. }
+        | Statement::ShowSchemas { .. }
+        | Statement::ShowCharset(_)
+        | Statement::ShowObjects(_)
+        | Statement::ShowTables { .. }
+        | Statement::ShowViews { .. }
+        | Statement::ShowCollation { .. } => true,
+        _ => false,
+    }
 }
 
 fn is_dangerous_statement(statement: &Statement) -> bool {
@@ -508,6 +525,16 @@ pub fn classify_duckdb_dangerous(sql: &str) -> Option<DuckDbDanger> {
     }
 
     None
+}
+
+/// Classifies every statement in a DuckDB SQL script. DuckDB's native
+/// `prepare` API executes all statements before the final one, so checking
+/// only the leading statement would allow `SELECT 1; INSTALL ...` to bypass
+/// the single-statement guard.
+pub fn classify_duckdb_script_dangerous(sql: &str) -> Option<DuckDbDanger> {
+    split_ch_statements(sql)
+        .iter()
+        .find_map(|statement| classify_duckdb_dangerous(statement))
 }
 
 fn strip_leading_sql_noise(sql: &str) -> &str {
@@ -842,6 +869,37 @@ mod tests {
     }
 
     #[test]
+    fn dml_returning_and_duckdb_table_calls_return_rows() {
+        assert_eq!(
+            returns_rows("duckdb", "INSERT INTO t VALUES (1) RETURNING *"),
+            Ok(true)
+        );
+        assert_eq!(
+            returns_rows("duckdb", "UPDATE t SET value = 2 RETURNING value"),
+            Ok(true)
+        );
+        assert_eq!(
+            returns_rows("duckdb", "DELETE FROM t RETURNING id"),
+            Ok(true)
+        );
+        assert_eq!(returns_rows("duckdb", "CALL pragma_version()"), Ok(true));
+        assert_eq!(returns_rows("duckdb", "PRAGMA database_size"), Ok(true));
+        assert_eq!(
+            returns_rows("duckdb", "INSERT INTO t VALUES (1)"),
+            Ok(false)
+        );
+        assert_eq!(
+            returns_rows("motherduck", "CALL pragma_version()"),
+            Ok(true)
+        );
+        assert_eq!(returns_rows("motherduck", "PRAGMA database_size"), Ok(true));
+        assert_eq!(
+            returns_rows("motherduck", "INSERT INTO t VALUES (1); SELECT * FROM t"),
+            Ok(true)
+        );
+    }
+
+    #[test]
     fn clickhouse_split_respects_string_literals() {
         let stmts =
             split_sql_statements("clickhouse", "INSERT INTO t VALUES ('a;b', 'c'); SELECT 1;")
@@ -919,6 +977,18 @@ mod tests {
         // Comment-only or empty input must not crash.
         assert_eq!(classify_duckdb_dangerous(""), None);
         assert_eq!(classify_duckdb_dangerous("-- INSTALL httpfs"), None);
+    }
+
+    #[test]
+    fn duckdb_dangerous_statement_is_detected_anywhere_in_script() {
+        assert_eq!(
+            classify_duckdb_script_dangerous("SELECT ';' AS safe; INSTALL httpfs"),
+            Some(DuckDbDanger::Install)
+        );
+        assert_eq!(
+            classify_duckdb_script_dangerous("SELECT 1; COPY (SELECT 'a;b') TO '/tmp/leak.csv'"),
+            Some(DuckDbDanger::CopyTo)
+        );
     }
 
     #[test]

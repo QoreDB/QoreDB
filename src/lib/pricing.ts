@@ -33,6 +33,7 @@ const FEATURE_ANCHORS: Record<ProFeature, string> = {
   instant_api: 'instant-api',
   data_generator: 'data-generator',
   index_suggestions: 'index-suggestions',
+  schema_diff: 'migrations',
 };
 
 function getSiteLocale(): string {

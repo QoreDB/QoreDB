@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Input } from '@/components/ui/input';
+import { getConnectionUrlPlaceholder } from '@/lib/connection/connectionUrls';
 import { type PartialConnectionConfig, parseConnectionUrl } from '@/lib/tauri';
 import { cn } from '@/lib/utils';
 
@@ -118,7 +119,7 @@ export function UrlInput({
       {/* URL Input */}
       <div className="relative">
         <Input
-          placeholder="postgres://user:password@localhost:5432/mydb"
+          placeholder={getConnectionUrlPlaceholder(formData.driver)}
           value={formData.connectionUrl}
           onChange={e => handleUrlChange(e.target.value)}
           className={cn(

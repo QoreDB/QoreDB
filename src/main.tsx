@@ -8,8 +8,19 @@ import './index.css';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { AnalyticsService } from './components/Onboarding/AnalyticsService';
+import { logger } from './lib/diagnostics/logger';
 
 AnalyticsService.init();
+
+window.addEventListener('error', event => {
+  const error = event.error instanceof Error ? event.error : new Error(event.message);
+  logger.error(`Unhandled renderer error: ${error.message}`, error);
+});
+
+window.addEventListener('unhandledrejection', event => {
+  const error = event.reason instanceof Error ? event.reason : new Error(String(event.reason));
+  logger.error(`Unhandled promise rejection: ${error.message}`, error);
+});
 
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
   <React.StrictMode>

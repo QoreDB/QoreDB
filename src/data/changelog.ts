@@ -20,6 +20,79 @@ export interface ChangelogEntry {
  */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.1.33',
+    date: '2026-07-02',
+    items: [
+      {
+        title: 'SQL import workflow',
+        description:
+          'Import SQL files directly from a connection, with progress feedback and safer error handling.',
+        type: 'feature',
+      },
+      {
+        title: 'Database maintenance tools',
+        description:
+          'Run supported maintenance operations from the database tree across PostgreSQL-compatible drivers.',
+        type: 'feature',
+      },
+      {
+        title: 'Faster database navigation',
+        description:
+          'Tabs, the database tree, and large result views use less work while navigating and rendering.',
+        type: 'improvement',
+      },
+    ],
+  },
+  {
+    version: '0.1.32',
+    date: '2026-06-29',
+    items: [
+      {
+        title: 'Index suggestions',
+        description:
+          'Query plans can now surface actionable index suggestions with ready-to-copy SQL.',
+        type: 'feature',
+        proOnly: true,
+      },
+      {
+        title: 'Cross-environment comparison',
+        description:
+          'Compare matching tables across development, staging, and production connections.',
+        type: 'feature',
+      },
+      {
+        title: 'Execution timing and driver polish',
+        description:
+          'Result grids expose clearer timing information alongside stability and compatibility fixes.',
+        type: 'improvement',
+      },
+    ],
+  },
+  {
+    version: '0.1.31',
+    date: '2026-06-17',
+    items: [
+      {
+        title: 'Natural-language filters',
+        description:
+          'Describe the rows you need and turn the request into structured table filters.',
+        type: 'feature',
+        proOnly: true,
+      },
+      {
+        title: 'Test data generator',
+        description: 'Generate realistic seed data while keeping schema constraints in view.',
+        type: 'feature',
+        proOnly: true,
+      },
+      {
+        title: 'Parameterized notebooks',
+        description: 'Reuse variables across notebook cells for repeatable database workflows.',
+        type: 'improvement',
+      },
+    ],
+  },
+  {
     version: '0.1.30',
     date: '2026-06-08',
     items: [

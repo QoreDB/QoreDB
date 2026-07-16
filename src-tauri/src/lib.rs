@@ -11,6 +11,7 @@ pub mod backup;
 pub mod commands;
 #[cfg(feature = "pro")]
 pub mod contracts;
+pub mod emit_gate;
 pub mod engine;
 pub mod export;
 #[cfg(feature = "pro")]
@@ -167,7 +168,6 @@ pub fn run() {
             session_manager.start_health_monitor(app.handle().clone());
 
             {
-                use tauri::Emitter;
                 let (tx, mut rx) =
                     tokio::sync::mpsc::unbounded_channel::<plugins::runtime::NotifyEvent>();
                 plugin_host.set_notify_sender(tx);
@@ -180,23 +180,13 @@ pub fn run() {
                 let app_handle = app.handle().clone();
                 tauri::async_runtime::spawn(async move {
                     while let Some(event) = rx.recv().await {
-                        if let Err(e) = app_handle.emit("plugin-notify", &event) {
-                            tracing::warn!(
-                                error = %e,
-                                "failed to emit plugin notify event"
-                            );
-                        }
+                        emit_gate::emit_gated(&app_handle, "plugin-notify", &event);
                     }
                 });
                 let log_handle = app.handle().clone();
                 tauri::async_runtime::spawn(async move {
                     while let Some(event) = log_rx.recv().await {
-                        if let Err(e) = log_handle.emit("plugin-log", &event) {
-                            tracing::warn!(
-                                error = %e,
-                                "failed to emit plugin log event"
-                            );
-                        }
+                        emit_gate::emit_gated(&log_handle, "plugin-log", &event);
                     }
                 });
             }
@@ -217,7 +207,8 @@ pub fn run() {
         .manage(state)
         .manage(snapshot_store)
         .manage(write_registry)
-        .manage(watcher_path_sender);
+        .manage(watcher_path_sender)
+        .manage(emit_gate::EmitGate::new());
 
     #[cfg(feature = "pro")]
     let builder = builder.manage(instant_api);
@@ -282,6 +273,7 @@ pub fn run() {
             commands::sequences::drop_sequence,
             // Logs
             commands::logs::export_logs,
+            commands::logs::get_logs_directory,
             commands::logs::log_frontend_message,
             // Export
             commands::export::start_export,
@@ -427,6 +419,18 @@ pub fn run() {
             // Workspace query library commands
             commands::workspace_queries::ws_get_query_library,
             commands::workspace_queries::ws_save_query_library,
+            // Workspace migration file commands
+            commands::workspace_migrations::ws_list_migrations,
+            commands::workspace_migrations::ws_read_migration,
+            commands::workspace_migrations::ws_write_migration,
+            commands::workspace_migrations::ws_delete_migration,
+            // Migration runner commands
+            commands::migrations::apply_migration,
+            commands::migrations::get_migration_status,
+            // Schema baseline commands (drift reference)
+            commands::workspace_baselines::ws_read_baseline,
+            commands::workspace_baselines::ws_write_baseline,
+            commands::workspace_baselines::ws_delete_baseline,
             // Plugin system commands
             commands::plugins::list_plugins,
             commands::plugins::install_plugin,
@@ -454,7 +458,14 @@ pub fn run() {
             commands::time_travel::clear_table_changelog,
             commands::time_travel::clear_all_changelog,
             commands::time_travel::export_changelog,
+            // Webview emit gate
+            emit_gate::set_frontend_ready,
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|_app_handle, event| {
+            if matches!(event, tauri::RunEvent::Exit) {
+                observability::mark_clean_shutdown();
+            }
+        });
 }

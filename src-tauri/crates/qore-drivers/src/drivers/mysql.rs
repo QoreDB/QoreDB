@@ -27,12 +27,12 @@ use qore_core::types::{
     CollectionType, ColumnInfo, ConnectionConfig, CreationOptions, DatabaseEvent, EventDefinition,
     EventList, EventListOptions, EventOperationResult, EventStatus, FilterOperator, ForeignKey,
     MaintenanceMessage, MaintenanceMessageLevel, MaintenanceOperationInfo,
-    MaintenanceOperationType, MaintenanceRequest, MaintenanceResult, Namespace, TruncateAllResult,
+    MaintenanceOperationType, MaintenanceRequest, MaintenanceResult, Namespace,
     PaginatedQueryResult, QueryId, QueryResult, Routine, RoutineDefinition, RoutineList,
     RoutineListOptions, RoutineOperationResult, RoutineType, Row as QRow, RowData, SessionId,
     SortDirection, TableColumn, TableIndex, TableQueryOptions, TableSchema, Trigger,
     TriggerDefinition, TriggerEvent, TriggerList, TriggerListOptions, TriggerOperationResult,
-    TriggerTiming, Value,
+    TriggerTiming, TruncateAllResult, Value,
 };
 use qore_sql::safety;
 
@@ -2731,7 +2731,9 @@ impl DataEngine for MySqlDriver {
                 Self::quote_ident(table)
             );
             if let Err(e) = conn.execute(sqlx::raw_sql(&stmt)).await {
-                let _ = conn.execute(sqlx::raw_sql("SET FOREIGN_KEY_CHECKS=1")).await;
+                let _ = conn
+                    .execute(sqlx::raw_sql("SET FOREIGN_KEY_CHECKS=1"))
+                    .await;
                 return Err(EngineError::execution_error(e.to_string()));
             }
             executed.push(stmt);

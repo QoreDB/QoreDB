@@ -7,6 +7,7 @@ import {
   FileCode,
   GitCompare,
   History,
+  ListRestart,
   Network,
   Puzzle,
   Settings,
@@ -34,6 +35,8 @@ export function getTabIcon(type: TabKind) {
       return <BookOpen size={14} />;
     case 'time-travel':
       return <History size={14} />;
+    case 'migrations':
+      return <ListRestart size={14} />;
     case 'plugin-output':
       return <Puzzle size={14} />;
   }

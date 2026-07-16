@@ -56,6 +56,8 @@ pub mod session_manager {
 pub mod ssh_tunnel {
     pub use qore_drivers::ssh_tunnel::*;
 }
+#[cfg(test)]
+pub mod testing;
 
 pub use qore_core::error::EngineError;
 pub use qore_core::registry::DriverRegistry;

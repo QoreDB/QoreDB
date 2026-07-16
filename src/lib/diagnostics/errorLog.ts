@@ -29,10 +29,10 @@ export function getErrorLogs(): ErrorLogEntry[] {
   }
   try {
     const data = localStorage.getItem(STORAGE_KEY);
-    if (!data) return [];
+    if (!data) return inMemoryLogs;
     return JSON.parse(data) as ErrorLogEntry[];
   } catch {
-    return [];
+    return inMemoryLogs;
   }
 }
 
@@ -61,7 +61,11 @@ export function logError(
     if (logs.length > MAX_ENTRIES) {
       logs.splice(MAX_ENTRIES);
     }
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(logs));
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(logs));
+    } catch {
+      inMemoryLogs = logs;
+    }
   } else {
     if (logs.length > MAX_IN_MEMORY) {
       logs.splice(MAX_IN_MEMORY);
@@ -82,7 +86,11 @@ export function logInfo(source: string, message: string, details?: string, sessi
 
 export function clearErrorLogs(): void {
   inMemoryLogs = [];
-  localStorage.removeItem(STORAGE_KEY);
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+  } catch {
+    // The in-memory copy has still been cleared.
+  }
 }
 
 export function getLogsByLevel(level: 'error' | 'warn' | 'info'): ErrorLogEntry[] {

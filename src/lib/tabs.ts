@@ -7,10 +7,12 @@ export type TabType =
   | 'table'
   | 'database'
   | 'diff'
+  | 'schema-diff'
   | 'federation'
   | 'snapshots'
   | 'notebook'
   | 'time-travel'
+  | 'migrations'
   | 'plugin-output';
 
 export interface DiffSource {
@@ -40,6 +42,9 @@ export interface OpenTab {
   // Diff-specific
   diffLeftSource?: DiffSource;
   diffRightSource?: DiffSource;
+  // Schema-diff-specific (two connections compared structurally)
+  schemaDiffLeftConnectionId?: string;
+  schemaDiffRightConnectionId?: string;
   // AI-specific
   showAiPanel?: boolean;
   aiTableContext?: string;
@@ -108,6 +113,23 @@ export function createDiffTab(
   };
 }
 
+export function createSchemaDiffTab(
+  leftConnectionId: string,
+  rightConnectionId: string,
+  namespace?: Namespace,
+  title?: string
+): OpenTab {
+  return {
+    id: generateTabId(),
+    type: 'schema-diff',
+    title: title ?? 'Schema Diff',
+    namespace,
+    connectionId: leftConnectionId,
+    schemaDiffLeftConnectionId: leftConnectionId,
+    schemaDiffRightConnectionId: rightConnectionId,
+  };
+}
+
 export function createFederationTab(initialQuery?: string): OpenTab {
   return {
     id: generateTabId(),
@@ -143,6 +165,15 @@ export function createPluginOutputTab(title: string): OpenTab {
     id: generateTabId(),
     type: 'plugin-output',
     title,
+  };
+}
+
+export function createMigrationsTab(namespace?: Namespace): OpenTab {
+  return {
+    id: generateTabId(),
+    type: 'migrations',
+    title: 'Migrations',
+    namespace,
   };
 }
 

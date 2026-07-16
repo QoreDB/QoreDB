@@ -23,6 +23,7 @@ pub mod license;
 pub mod logs;
 pub mod maintenance;
 pub mod metrics;
+pub mod migrations;
 pub mod mutation;
 pub mod plugins;
 pub mod policy;
@@ -39,6 +40,8 @@ pub mod triggers;
 pub mod vault;
 pub mod virtual_relations;
 pub mod workspace;
+pub mod workspace_baselines;
+pub mod workspace_migrations;
 pub mod workspace_queries;
 
 use std::sync::Arc;

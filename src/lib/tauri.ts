@@ -4,6 +4,7 @@ export * from './tauri/connection';
 export * from './tauri/data-io';
 export * from './tauri/logs';
 export * from './tauri/maintenance';
+export * from './tauri/migrations';
 export * from './tauri/mutations';
 export * from './tauri/query';
 export * from './tauri/sandbox';

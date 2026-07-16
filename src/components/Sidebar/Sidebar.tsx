@@ -69,6 +69,7 @@ interface SidebarProps {
   ) => void;
   onDatabaseSelect?: (namespace: Namespace) => void;
   onCompareTable?: (collection: Collection) => void;
+  onSchemaDiff?: (collection: Collection, targetConnectionId: string) => void;
   onAiGenerateForTable?: (collection: Collection) => void;
   onNewQueryForTable?: (collection: Collection) => void;
   onOpenRoutineSource?: (routine: Routine, namespace: Namespace) => void;
@@ -81,6 +82,7 @@ interface SidebarProps {
   onEditConnection: (connection: SavedConnection, password: string) => void;
   onNewQuery?: () => void;
   onNewNotebook?: () => void;
+  onDisconnect?: () => void;
   schemaRefreshTrigger?: number;
   activeNamespace?: Namespace | null;
   style?: React.CSSProperties;
@@ -95,6 +97,7 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(function Sidebar(
     onTableSelect,
     onDatabaseSelect,
     onCompareTable,
+    onSchemaDiff,
     onAiGenerateForTable,
     onNewQueryForTable,
     onOpenRoutineSource,
@@ -107,6 +110,7 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(function Sidebar(
     onEditConnection,
     onNewQuery,
     onNewNotebook,
+    onDisconnect,
     schemaRefreshTrigger,
     activeNamespace,
     style,
@@ -290,6 +294,7 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(function Sidebar(
           onDeleted={loadConnections}
           onNewQuery={connectedConnectionId === connection.id ? onNewQuery : undefined}
           onNewNotebook={connectedConnectionId === connection.id ? onNewNotebook : undefined}
+          onDisconnect={connectedConnectionId === connection.id ? onDisconnect : undefined}
         />
         {connecting === connection.id && (
           <div className="pl-4 border-l-2 border-accent/30 ml-4 mt-1 bg-muted/20 rounded-r-md py-2 px-3 space-y-2">
@@ -307,6 +312,7 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(function Sidebar(
               onTableSelect={onTableSelect}
               onDatabaseSelect={onDatabaseSelect}
               onCompareTable={onCompareTable}
+              onSchemaDiff={onSchemaDiff}
               onAiGenerateForTable={onAiGenerateForTable}
               onNewQueryForTable={onNewQueryForTable}
               onOpenRoutineSource={onOpenRoutineSource}

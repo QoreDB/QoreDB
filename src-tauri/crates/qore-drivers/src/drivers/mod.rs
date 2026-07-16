@@ -6,6 +6,7 @@ pub mod duckdb;
 pub mod elasticsearch;
 pub mod mariadb;
 pub mod mongodb;
+pub mod motherduck;
 pub mod mysql;
 pub mod neon;
 pub mod opensearch;

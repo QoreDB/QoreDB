@@ -15,10 +15,10 @@ use qore_core::traits::{DataEngine, StreamSender};
 use qore_core::types::{
     CancelSupport, Collection, CollectionList, CollectionListOptions, CollectionType,
     ConnectionConfig, ForeignKey, MaintenanceOperationInfo, MaintenanceRequest, MaintenanceResult,
-    TruncateAllResult,
     Namespace, PaginatedQueryResult, QueryId, QueryResult, RoutineDefinition, RoutineList,
     RoutineListOptions, RoutineOperationResult, RoutineType, RowData, SessionId, TableQueryOptions,
-    TableSchema, TriggerDefinition, TriggerList, TriggerListOptions, TriggerOperationResult, Value,
+    TableSchema, TriggerDefinition, TriggerList, TriggerListOptions, TriggerOperationResult,
+    TruncateAllResult, Value,
 };
 
 pub struct PostgresDriver {

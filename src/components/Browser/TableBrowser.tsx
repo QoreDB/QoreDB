@@ -189,6 +189,15 @@ export function TableBrowser({
   const [activeTab, setActiveTab] = useState<TableBrowserTab>(initialTab ?? 'data');
   const [schema, setSchema] = useState<TableSchema | null>(null);
 
+  // The database overview can reopen an existing table directly on a specific
+  // tab (for example Structure). Keep the mounted browser in sync with that
+  // explicit navigation request.
+  useEffect(() => {
+    if (initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [initialTab]);
+
   // Sort state
   const [sortColumn, setSortColumn] = useState<string | undefined>(undefined);
   const [sortDirection, setSortDirection] = useState<SortDirection | undefined>(undefined);

@@ -33,7 +33,7 @@ DBeaver, pgAdmin, phpMyAdmin do the job — but they feel slow, dated, and full 
 |---|---|
 | ⚡ **Native performance** | Rust + Tauri. No Electron tax — small binary, instant startup, low memory. ~25% faster on real workloads than the previous baseline (Apple Silicon). |
 | 🔒 **Local-first & secure** | Credentials in your OS keychain (Argon2). Dev/Staging/Prod guards, dangerous query detection, read-only mode. Nothing leaves your machine by default. |
-| 🧩 **SQL + NoSQL, unified** | One UI for PostgreSQL, MySQL, MariaDB, SQL Server, SQLite, DuckDB, CockroachDB, ClickHouse, MongoDB, Redis, Elasticsearch and OpenSearch — plus first-class support for Supabase, Neon and TimescaleDB. |
+| 🧩 **SQL + NoSQL, unified** | One UI for PostgreSQL, MySQL, MariaDB, SQL Server, SQLite, DuckDB, CockroachDB, ClickHouse, MongoDB, Redis, Elasticsearch and OpenSearch — plus first-class support for Supabase, Neon, MotherDuck and TimescaleDB. |
 | 📓 **Notebooks built-in** | Executable SQL/Mongo + Markdown documents with parameters, charts and Git-diffable `.qnb` files. |
 | 🛡️ **Safety-first** | Universal Query Interceptor, audit logging, sandbox mode with migration generation. Production damage is harder to do by accident. |
 | 🤝 **Open core** | Apache 2.0 core, readable and auditable. Premium add-ons under BUSL-1.1 — never at the expense of the open-source experience. |
@@ -49,6 +49,7 @@ DBeaver, pgAdmin, phpMyAdmin do the job — but they feel slow, dated, and full 
   <img src="public/databases/sqlserver.png" alt="SQL Server" height="40" />&nbsp;&nbsp;
   <img src="public/databases/sqlite.png" alt="SQLite" height="40" />&nbsp;&nbsp;
   <img src="public/databases/duckdb.png" alt="DuckDB" height="40" />&nbsp;&nbsp;
+  <img src="public/databases/motherduck.png" alt="MotherDuck" height="40" />&nbsp;&nbsp;
   <img src="public/databases/cockroachdb.png" alt="CockroachDB" height="40" />&nbsp;&nbsp;
   <img src="public/databases/mongodb.png" alt="MongoDB" height="40" />&nbsp;&nbsp;
   <img src="public/databases/redis.png" alt="Redis" height="40" />&nbsp;&nbsp;
@@ -113,6 +114,7 @@ DBeaver, pgAdmin, phpMyAdmin do the job — but they feel slow, dated, and full 
 - **Export pipeline** — CSV, JSON, SQL, HTML, self-contained HTML (+ XLSX/Parquet in Pro)
 - **Cross-database federation** — Query and join across active connections via DuckDB
 - **Sandbox mode** — Isolated local changes with migration generation
+- **Migrations Manager** — Versioned `.sql` schema migrations in `.qoredb/migrations/`, shared through Git, applied and rolled back transactionally with per-statement safety checks and an applied-state history table in the target database (+ schema-diff generation, drift detection and Prod↔Staging schema diff in Pro)
 - **Backup &amp; restore** — Visual wrappers around `pg_dump`, `mysqldump`, `mongodump` and `sqlite3 .dump`, with streaming logs, cancel mid-run and tool-path overrides
 - **Query result cache** — Recent table navigation served instantly from a local cache, auto-invalidated when you change data through QoreDB
 - **Plugin system** — Install declarative plugins contributing SQL snippet packs, connection templates and color themes — no code execution
@@ -202,6 +204,7 @@ DBeaver, pgAdmin, phpMyAdmin do the job — but they feel slow, dated, and full 
 | Encrypted credential vault | ✅ Argon2 | ⚪ Basic | ✅ Keychain | ❌ No |
 | Production safety guards | ✅ Yes | ❌ No | ⚪ Partial | ❌ No |
 | Sandbox mode + migrations | ✅ Pro | ❌ No | ❌ No | ❌ No |
+| Versioned schema migrations | ✅ Yes | ❌ No | ❌ No | ❌ No |
 | Full-text search (all tables) | ✅ Yes | ❌ No | ❌ No | ❌ No |
 | Interactive ER diagram | ✅ Yes | ✅ Yes | ❌ No | ⚪ Partial |
 | Cross-database federation | ✅ Pro | ❌ No | ❌ No | ❌ No |

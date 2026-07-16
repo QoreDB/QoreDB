@@ -29,7 +29,7 @@ export interface TabStateValue {
  */
 export interface TabActionsValue {
   openTab: (tab: OpenTab) => void;
-  closeTab: (tabId: string) => Promise<void> | void;
+  closeTab: (tabId: string) => Promise<boolean>;
   setActiveTabId: (id: string | null) => void;
   updateQueryDraft: (tabId: string, value: string) => void;
   updateTabNamespace: (tabId: string, namespace: Namespace) => void;

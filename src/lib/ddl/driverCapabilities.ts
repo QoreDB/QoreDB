@@ -8,6 +8,8 @@ export interface DdlCapabilities {
   supportsForeignKeys: boolean;
   supportsCheckConstraints: boolean;
   supportsUniqueConstraint: boolean;
+  /** Whether the primary key can be added/dropped through ALTER TABLE. */
+  supportsAlterPrimaryKey: boolean;
 
   inlineColumnComments: boolean;
   separateColumnComments: boolean;
@@ -25,6 +27,7 @@ const NO_DDL: DdlCapabilities = {
   supportsForeignKeys: false,
   supportsCheckConstraints: false,
   supportsUniqueConstraint: false,
+  supportsAlterPrimaryKey: false,
   inlineColumnComments: false,
   separateColumnComments: false,
   inlineTableComment: false,
@@ -40,6 +43,7 @@ const POSTGRES_CAPS: DdlCapabilities = {
   supportsForeignKeys: true,
   supportsCheckConstraints: true,
   supportsUniqueConstraint: true,
+  supportsAlterPrimaryKey: true,
   inlineColumnComments: false,
   separateColumnComments: true,
   inlineTableComment: false,
@@ -55,6 +59,7 @@ const MYSQL_CAPS: DdlCapabilities = {
   supportsForeignKeys: true,
   supportsCheckConstraints: true,
   supportsUniqueConstraint: true,
+  supportsAlterPrimaryKey: true,
   inlineColumnComments: true,
   separateColumnComments: false,
   inlineTableComment: true,
@@ -70,6 +75,8 @@ const SQLITE_CAPS: DdlCapabilities = {
   supportsForeignKeys: true,
   supportsCheckConstraints: true,
   supportsUniqueConstraint: true,
+  // SQLite can only change a primary key by rebuilding the table.
+  supportsAlterPrimaryKey: false,
   inlineColumnComments: false,
   separateColumnComments: false,
   inlineTableComment: false,
@@ -85,6 +92,8 @@ const DUCKDB_CAPS: DdlCapabilities = {
   supportsForeignKeys: true,
   supportsCheckConstraints: true,
   supportsUniqueConstraint: true,
+  // DuckDB's ALTER TABLE cannot add or drop constraints.
+  supportsAlterPrimaryKey: false,
   inlineColumnComments: false,
   separateColumnComments: true,
   inlineTableComment: false,
@@ -100,6 +109,7 @@ const CLICKHOUSE_CAPS: DdlCapabilities = {
   supportsForeignKeys: false, // ClickHouse has no FK enforcement.
   supportsCheckConstraints: true, // CONSTRAINT … CHECK is supported on MergeTree.
   supportsUniqueConstraint: false,
+  supportsAlterPrimaryKey: false, // The sorting key is fixed at table creation.
   inlineColumnComments: true,
   separateColumnComments: false,
   inlineTableComment: true,
@@ -115,6 +125,7 @@ const SQLSERVER_CAPS: DdlCapabilities = {
   supportsForeignKeys: true,
   supportsCheckConstraints: true,
   supportsUniqueConstraint: true,
+  supportsAlterPrimaryKey: true,
   inlineColumnComments: false,
   separateColumnComments: false,
   inlineTableComment: false,
@@ -133,6 +144,7 @@ const CAPABILITIES: Record<Driver, DdlCapabilities> = {
   [Driver.Mariadb]: MYSQL_CAPS,
   [Driver.Sqlite]: SQLITE_CAPS,
   [Driver.Duckdb]: DUCKDB_CAPS,
+  [Driver.Motherduck]: DUCKDB_CAPS,
   [Driver.SqlServer]: SQLSERVER_CAPS,
   [Driver.Mongodb]: NO_DDL,
   [Driver.Redis]: NO_DDL,

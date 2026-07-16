@@ -927,8 +927,11 @@ impl FulltextSearchStrategy for SqliteSearchStrategy {
                 if !pattern_cols.is_empty() {
                     let term = Self::escape_sql_literal(&options.search_term);
                     for col in &pattern_cols {
-                        let col_ref =
-                            format!("{}.{}", base_alias, quote_identifier_double_quote(&col.name));
+                        let col_ref = format!(
+                            "{}.{}",
+                            base_alias,
+                            quote_identifier_double_quote(&col.name)
+                        );
                         let clause = if options.case_sensitive {
                             format!("instr(CAST({} AS TEXT), '{}') > 0", col_ref, term)
                         } else {

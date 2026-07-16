@@ -8,10 +8,12 @@ export type TabKind =
   | 'database'
   | 'settings'
   | 'diff'
+  | 'schema-diff'
   | 'federation'
   | 'snapshots'
   | 'notebook'
   | 'time-travel'
+  | 'migrations'
   | 'plugin-output';
 
 export interface TabItem {

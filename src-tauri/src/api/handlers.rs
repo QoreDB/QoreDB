@@ -58,6 +58,10 @@ pub struct ApiState {
     pub project_id: String,
     /// Vault storage directory captured at server start.
     pub storage_dir: PathBuf,
+    /// Connections directory of the active file-based workspace, if any.
+    /// When set, saved connections are read from the workspace store instead
+    /// of the flat vault. `None` for the default workspace.
+    pub workspace_connections_dir: Option<PathBuf>,
     /// Server start instant — read by `/health` to compute uptime.
     pub started_at: Arc<Instant>,
 }
@@ -116,10 +120,22 @@ pub async fn handle_endpoint(
         return Err(ApiError::TooManyRequests);
     }
 
-    let final_sql = substitute_params(&endpoint, &params)?;
+    let session_id = resolve_session(&state, &endpoint.connection_id).await?;
+    let driver = state
+        .session_manager
+        .get_driver(session_id)
+        .await
+        .map_err(|e| ApiError::BadGateway(e.sanitized_message()))?;
+    let dialect = ParamDialect::from_driver_id(driver.driver_id()).ok_or_else(|| {
+        ApiError::BadRequest(format!(
+            "driver {} is not supported by Instant Data API",
+            driver.driver_id()
+        ))
+    })?;
 
-    let analysis = sql_safety::analyze_sql("postgres", &final_sql)
-        .or_else(|_| sql_safety::analyze_sql("mysql", &final_sql))
+    let final_sql = substitute_params(&endpoint, &params, dialect)?;
+
+    let analysis = sql_safety::analyze_sql(dialect.safety_driver_id(), &final_sql)
         .map_err(|e| ApiError::BadRequest(format!("query rejected: {e}")))?;
     if analysis.is_mutation {
         return Err(ApiError::BadRequest(
@@ -127,8 +143,10 @@ pub async fn handle_endpoint(
         ));
     }
 
-    let session_id = resolve_session(&state, &endpoint.connection_id).await?;
-    let result = execute_query(&state.session_manager, session_id, &final_sql).await?;
+    let result = driver
+        .execute(session_id, &final_sql, QueryId::new())
+        .await
+        .map_err(|e| ApiError::Internal(e.sanitized_message()))?;
 
     let rows = rows_to_json(&result.columns, &result.rows);
     Ok(build_response(&endpoint, rows))
@@ -150,6 +168,7 @@ fn authenticate(endpoint: &Endpoint, headers: &HeaderMap) -> Result<(), ApiError
 fn substitute_params(
     endpoint: &Endpoint,
     values: &HashMap<String, String>,
+    dialect: ParamDialect,
 ) -> Result<String, ApiError> {
     let mut out = endpoint.query_source.clone();
     for p in &endpoint.params {
@@ -168,43 +187,132 @@ fn substitute_params(
                 }
             },
         };
-        let literal = type_param(p, &raw)?;
+        let literal = type_param(p, &raw, dialect)?;
         let placeholder = format!("{{{{{}}}}}", p.name);
         out = out.replace(&placeholder, &literal);
     }
     Ok(out)
 }
 
-fn type_param(param: &EndpointParam, raw: &str) -> Result<String, ApiError> {
-    match param.kind {
-        EndpointParamType::String => {
-            // SQL-standard literal: double single quotes. Combined with
-            // `standard_conforming_strings = on` (default since PG 9.1) and
-            // MySQL's default backslash-escape, this is safe for all
-            // currently-supported SQL drivers.
-            let escaped = raw.replace('\'', "''");
-            Ok(format!("'{}'", escaped))
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ParamDialect {
+    Postgres,
+    MySql,
+    Sqlite,
+    DuckDb,
+    SqlServer,
+    ClickHouse,
+}
+
+impl ParamDialect {
+    fn from_driver_id(driver_id: &str) -> Option<Self> {
+        match driver_id.to_ascii_lowercase().as_str() {
+            "postgres" | "postgresql" | "cockroachdb" | "neon" | "supabase" | "timescaledb" => {
+                Some(Self::Postgres)
+            }
+            "mysql" | "mariadb" => Some(Self::MySql),
+            "sqlite" => Some(Self::Sqlite),
+            "duckdb" | "motherduck" => Some(Self::DuckDb),
+            "sqlserver" | "mssql" => Some(Self::SqlServer),
+            "clickhouse" => Some(Self::ClickHouse),
+            _ => None,
         }
+    }
+
+    fn safety_driver_id(self) -> &'static str {
+        match self {
+            Self::Postgres => "postgres",
+            Self::MySql => "mysql",
+            Self::Sqlite => "sqlite",
+            Self::DuckDb => "duckdb",
+            Self::SqlServer => "sqlserver",
+            Self::ClickHouse => "clickhouse",
+        }
+    }
+}
+
+fn type_param(param: &EndpointParam, raw: &str, dialect: ParamDialect) -> Result<String, ApiError> {
+    match param.kind {
+        EndpointParamType::String => string_literal(raw, dialect),
         EndpointParamType::Integer => raw.parse::<i64>().map(|n| n.to_string()).map_err(|_| {
             ApiError::BadRequest(format!(
                 "parameter {} must be an integer (got {:?})",
                 param.name, raw
             ))
         }),
-        EndpointParamType::Float => raw.parse::<f64>().map(|n| n.to_string()).map_err(|_| {
-            ApiError::BadRequest(format!(
-                "parameter {} must be a float (got {:?})",
-                param.name, raw
-            ))
-        }),
+        EndpointParamType::Float => raw
+            .parse::<f64>()
+            .ok()
+            .filter(|n| n.is_finite())
+            .map(|n| n.to_string())
+            .ok_or_else(|| {
+                ApiError::BadRequest(format!(
+                    "parameter {} must be a finite float (got {:?})",
+                    param.name, raw
+                ))
+            }),
         EndpointParamType::Bool => match raw.to_ascii_lowercase().as_str() {
-            "true" | "1" | "yes" => Ok("TRUE".to_string()),
-            "false" | "0" | "no" => Ok("FALSE".to_string()),
+            "true" | "1" | "yes" => Ok(bool_literal(true, dialect).to_string()),
+            "false" | "0" | "no" => Ok(bool_literal(false, dialect).to_string()),
             _ => Err(ApiError::BadRequest(format!(
                 "parameter {} must be a boolean (got {:?})",
                 param.name, raw
             ))),
         },
+    }
+}
+
+fn string_literal(raw: &str, dialect: ParamDialect) -> Result<String, ApiError> {
+    if raw.contains('\0') {
+        return Err(ApiError::BadRequest(
+            "string parameters cannot contain NUL bytes".to_string(),
+        ));
+    }
+
+    Ok(match dialect {
+        // Explicit E-strings make backslash behavior independent from the
+        // session's `standard_conforming_strings` setting.
+        ParamDialect::Postgres => {
+            let escaped = raw.replace('\\', "\\\\").replace('\'', "\\'");
+            format!("E'{escaped}'")
+        }
+        // A UTF-8 hex expression avoids both quote and backslash ambiguity,
+        // including sessions using NO_BACKSLASH_ESCAPES.
+        ParamDialect::MySql => {
+            let hex = raw
+                .as_bytes()
+                .iter()
+                .map(|byte| format!("{byte:02x}"))
+                .collect::<String>();
+            format!("CONVERT(X'{hex}' USING utf8mb4)")
+        }
+        ParamDialect::ClickHouse => {
+            let escaped = raw.replace('\\', "\\\\").replace('\'', "\\'");
+            format!("'{escaped}'")
+        }
+        ParamDialect::SqlServer => format!("N'{}'", raw.replace('\'', "''")),
+        ParamDialect::Sqlite | ParamDialect::DuckDb => {
+            format!("'{}'", raw.replace('\'', "''"))
+        }
+    })
+}
+
+fn bool_literal(value: bool, dialect: ParamDialect) -> &'static str {
+    match dialect {
+        ParamDialect::SqlServer | ParamDialect::ClickHouse => {
+            if value {
+                "1"
+            } else {
+                "0"
+            }
+        }
+        _ => {
+            if value {
+                "TRUE"
+            } else {
+                "FALSE"
+            }
+        }
     }
 }
 
@@ -218,14 +326,27 @@ async fn resolve_session(state: &ApiState, connection_id: &str) -> Result<Sessio
         state.sessions.lock().await.remove(connection_id);
     }
 
-    let config = load_saved_config(&state.project_id, connection_id, &state.storage_dir)
-        .map_err(ApiError::BadGateway)?;
+    let config = load_saved_config(
+        &state.project_id,
+        state.workspace_connections_dir.as_deref(),
+        connection_id,
+        &state.storage_dir,
+    )
+    .map_err(ApiError::BadGateway)?;
 
     let session_id = state
         .session_manager
         .connect(config)
         .await
         .map_err(|e| ApiError::BadGateway(e.sanitized_message()))?;
+    state
+        .session_manager
+        .set_saved_connection_identity(
+            session_id,
+            connection_id.to_string(),
+            connection_id.to_string(),
+        )
+        .await;
 
     state
         .sessions
@@ -237,10 +358,33 @@ async fn resolve_session(state: &ApiState, connection_id: &str) -> Result<Sessio
 
 fn load_saved_config(
     project_id: &str,
+    workspace_connections_dir: Option<&std::path::Path>,
     connection_id: &str,
     storage_dir: &PathBuf,
 ) -> Result<qore_core::types::ConnectionConfig, String> {
     use crate::vault::backend::KeyringProvider;
+
+    // File-based workspaces keep connections in their own directory; isolation
+    // is by directory, so the flat-vault project_id guard does not apply.
+    if let Some(dir) = workspace_connections_dir {
+        use crate::workspace::connection_store::WorkspaceConnectionStore;
+
+        let store = WorkspaceConnectionStore::new(
+            dir.to_path_buf(),
+            format!("qoredb_{}", project_id),
+            Box::new(KeyringProvider::new()),
+        );
+        let saved = store
+            .get_connection(connection_id)
+            .map_err(|e| e.sanitized_message())?;
+        let creds = store
+            .get_credentials(connection_id)
+            .map_err(|e| e.sanitized_message())?;
+        return saved
+            .to_connection_config(&creds)
+            .map_err(|e| e.sanitized_message());
+    }
+
     use crate::vault::VaultStorage;
 
     let storage = VaultStorage::new(
@@ -260,21 +404,6 @@ fn load_saved_config(
     saved
         .to_connection_config(&creds)
         .map_err(|e| e.sanitized_message())
-}
-
-async fn execute_query(
-    session_manager: &Arc<SessionManager>,
-    session_id: SessionId,
-    sql: &str,
-) -> Result<qore_core::types::QueryResult, ApiError> {
-    let driver = session_manager
-        .get_driver(session_id)
-        .await
-        .map_err(|e| ApiError::BadGateway(e.sanitized_message()))?;
-    driver
-        .execute(session_id, sql, QueryId::new())
-        .await
-        .map_err(|e| ApiError::Internal(e.sanitized_message()))
 }
 
 fn rows_to_json(
@@ -338,7 +467,7 @@ mod tests {
     }
 
     #[test]
-    fn substitutes_string_param_with_escaped_quotes() {
+    fn substitutes_postgres_string_with_explicit_escape_literal() {
         let p = EndpointParam {
             name: "city".into(),
             kind: EndpointParamType::String,
@@ -348,8 +477,31 @@ mod tests {
         let e = ep("SELECT * FROM t WHERE city = {{city}}", vec![p]);
         let mut vals = HashMap::new();
         vals.insert("city".into(), "O'Hara".into());
-        let sql = substitute_params(&e, &vals).unwrap();
-        assert_eq!(sql, "SELECT * FROM t WHERE city = 'O''Hara'");
+        let sql = substitute_params(&e, &vals, ParamDialect::Postgres).unwrap();
+        assert_eq!(sql, "SELECT * FROM t WHERE city = E'O\\'Hara'");
+    }
+
+    #[test]
+    fn mysql_string_param_cannot_escape_the_literal() {
+        let p = EndpointParam {
+            name: "name".into(),
+            kind: EndpointParamType::String,
+            required: true,
+            default: None,
+        };
+        let e = ep("SELECT * FROM users WHERE name = {{name}}", vec![p]);
+        let mut vals = HashMap::new();
+        vals.insert("name".into(), "\\' OR 1=1 -- ".into());
+
+        let sql = substitute_params(&e, &vals, ParamDialect::MySql).unwrap();
+
+        assert_eq!(
+            sql,
+            "SELECT * FROM users WHERE name = CONVERT(X'5c27204f5220313d31202d2d20' USING utf8mb4)"
+        );
+        assert!(!sql.contains("OR 1=1 --"));
+        let analysis = sql_safety::analyze_sql("mysql", &sql).expect("valid MySQL query");
+        assert!(!analysis.is_mutation);
     }
 
     #[test]
@@ -361,7 +513,7 @@ mod tests {
             default: None,
         };
         let e = ep("SELECT * FROM t WHERE id = {{id}}", vec![p]);
-        let err = substitute_params(&e, &HashMap::new()).unwrap_err();
+        let err = substitute_params(&e, &HashMap::new(), ParamDialect::Postgres).unwrap_err();
         assert!(matches!(err, ApiError::BadRequest(_)));
     }
 
@@ -374,7 +526,7 @@ mod tests {
             default: Some("50".into()),
         };
         let e = ep("SELECT * FROM t LIMIT {{limit}}", vec![p]);
-        let sql = substitute_params(&e, &HashMap::new()).unwrap();
+        let sql = substitute_params(&e, &HashMap::new(), ParamDialect::Postgres).unwrap();
         assert_eq!(sql, "SELECT * FROM t LIMIT 50");
     }
 
@@ -390,7 +542,7 @@ mod tests {
         let mut vals = HashMap::new();
         vals.insert("n".into(), "not-a-number".into());
         assert!(matches!(
-            substitute_params(&e, &vals).unwrap_err(),
+            substitute_params(&e, &vals, ParamDialect::Postgres).unwrap_err(),
             ApiError::BadRequest(_)
         ));
     }
@@ -406,7 +558,58 @@ mod tests {
         let e = ep("SELECT * WHERE active = {{flag}}", vec![p]);
         let mut vals = HashMap::new();
         vals.insert("flag".into(), "yes".into());
-        let sql = substitute_params(&e, &vals).unwrap();
+        let sql = substitute_params(&e, &vals, ParamDialect::Postgres).unwrap();
         assert!(sql.contains("TRUE"));
+    }
+
+    #[test]
+    fn sqlserver_bool_uses_bit_literal() {
+        let p = EndpointParam {
+            name: "flag".into(),
+            kind: EndpointParamType::Bool,
+            required: true,
+            default: None,
+        };
+        let e = ep("SELECT * FROM t WHERE active = {{flag}}", vec![p]);
+        let mut vals = HashMap::new();
+        vals.insert("flag".into(), "true".into());
+        let sql = substitute_params(&e, &vals, ParamDialect::SqlServer).unwrap();
+        assert_eq!(sql, "SELECT * FROM t WHERE active = 1");
+    }
+
+    #[test]
+    fn rejects_non_finite_float() {
+        let p = EndpointParam {
+            name: "value".into(),
+            kind: EndpointParamType::Float,
+            required: true,
+            default: None,
+        };
+        let e = ep("SELECT {{value}}", vec![p]);
+        let mut vals = HashMap::new();
+        vals.insert("value".into(), "NaN".into());
+        assert!(matches!(
+            substitute_params(&e, &vals, ParamDialect::Postgres).unwrap_err(),
+            ApiError::BadRequest(_)
+        ));
+    }
+
+    #[test]
+    fn maps_supported_driver_families_to_their_real_safety_dialect() {
+        assert_eq!(
+            ParamDialect::from_driver_id("timescaledb"),
+            Some(ParamDialect::Postgres)
+        );
+        assert_eq!(
+            ParamDialect::from_driver_id("mariadb"),
+            Some(ParamDialect::MySql)
+        );
+        assert_eq!(
+            ParamDialect::from_driver_id("sqlserver")
+                .unwrap()
+                .safety_driver_id(),
+            "sqlserver"
+        );
+        assert_eq!(ParamDialect::from_driver_id("mongodb"), None);
     }
 }

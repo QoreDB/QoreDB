@@ -53,12 +53,20 @@ const DRIVER_SCHEMA_OBJECT_CAPABILITIES: Record<Driver, DriverSchemaObjectCapabi
     sequences: false,
   },
   duckdb: {
-    routines: false,
-    functions: false,
+    routines: true,
+    functions: true,
     procedures: false,
     triggers: false,
     events: false,
-    sequences: false,
+    sequences: true,
+  },
+  motherduck: {
+    routines: true,
+    functions: true,
+    procedures: false,
+    triggers: false,
+    events: false,
+    sequences: true,
   },
   sqlserver: {
     routines: true,

@@ -57,6 +57,7 @@ const FEATURE_ICONS: Record<ProFeature, LucideIcon> = {
   instant_api: Layers,
   data_generator: Wand2,
   index_suggestions: Lightbulb,
+  schema_diff: GitCompare,
 };
 
 const FEATURE_FALLBACK_ICON: LucideIcon = Bug;

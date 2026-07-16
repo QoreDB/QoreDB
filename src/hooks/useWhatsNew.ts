@@ -1,12 +1,19 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { useEffect } from 'react';
+import { useEffect, useSyncExternalStore } from 'react';
 import { AnalyticsService } from '@/components/Onboarding/AnalyticsService';
 import { CHANGELOG, type ChangelogEntry } from '@/data/changelog';
 import { setWhatsNewOpen } from '@/lib/stores/modalStore';
 import { APP_VERSION } from '@/lib/version';
 
 const LAST_SEEN_KEY = 'qoredb_last_seen_version';
+const listeners = new Set<() => void>();
+
+function notifyListeners(): void {
+  listeners.forEach(listener => {
+    listener();
+  });
+}
 
 function compareVersions(a: string, b: string): number {
   const pa = a.split('.').map(n => Number.parseInt(n, 10) || 0);
@@ -25,6 +32,7 @@ export function getChangelogFor(version: string): ChangelogEntry | null {
 export function markVersionSeen(version: string): void {
   try {
     localStorage.setItem(LAST_SEEN_KEY, version);
+    notifyListeners();
   } catch {
     // ignore
   }
@@ -36,6 +44,24 @@ function readLastSeen(): string | null {
   } catch {
     return null;
   }
+}
+
+export function getUnseenChangelog(): ChangelogEntry | null {
+  if (readLastSeen() === APP_VERSION) return null;
+  return getChangelogFor(APP_VERSION);
+}
+
+function subscribe(listener: () => void): () => void {
+  listeners.add(listener);
+  return () => listeners.delete(listener);
+}
+
+export function useUnseenChangelog(): ChangelogEntry | null {
+  return useSyncExternalStore(subscribe, getUnseenChangelog, getUnseenChangelog);
+}
+
+export function useHasUnseenChangelog(): boolean {
+  return useUnseenChangelog() !== null;
 }
 
 /**

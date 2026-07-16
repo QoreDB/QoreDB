@@ -44,6 +44,7 @@ import { useTabContext } from './TabProvider';
 import { useWorkspace } from './WorkspaceProvider';
 
 const RECOVERY_SAVE_DEBOUNCE_MS = 600;
+const SESSION_IDLE_TIMEOUT_MS = 30 * 60 * 1000;
 const STARTUP_PREFS_KEY = 'qoredb_startup_preferences';
 
 function shouldCheckUpdatesOnStartup(): boolean {
@@ -110,6 +111,7 @@ export interface SessionContextValue {
   handleRestoreSession: () => Promise<void>;
   handleConnectionSaved: (connection: SavedConnection) => void;
   switchToConnection: (connectionId: string, targetTabId?: string) => Promise<boolean>;
+  disconnectActiveConnection: () => Promise<boolean>;
   refreshSidebar: () => void;
   triggerSchemaRefresh: () => void;
   scheduleRecoverySave: () => void;
@@ -139,6 +141,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [connectionHealth, setConnectionHealth] = useState<ConnectionHealth>('healthy');
   const [sidebarRefreshTrigger, setSidebarRefreshTrigger] = useState(0);
   const [schemaRefreshTrigger, setSchemaRefreshTrigger] = useState(0);
+  const sessionIdRef = useRef<string | null>(null);
 
   const recoverySaveHandleRef = useRef<number | null>(null);
   const reconnectAttemptRef = useRef(0);
@@ -179,6 +182,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
           console.warn('Failed to disconnect on workspace switch:', err)
         );
       }
+      sessionIdRef.current = null;
       setSessionId(null);
       setActiveConnection(null);
       setDriverCapabilities(null);
@@ -282,7 +286,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       connectionId: activeConnection.id,
       activeTabId,
       tabs: tabs.flatMap(tab => {
-        if (tab.type === 'plugin-output') return [];
+        // schema-diff tabs hold two connection ids that aren't persisted here, so
+        // they can't be meaningfully restored — treat them as transient like plugin-output.
+        if (tab.type === 'plugin-output' || tab.type === 'schema-diff') return [];
         return [
           {
             id: tab.id,
@@ -332,6 +338,62 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     setSchemaRefreshTrigger(prev => prev + 1);
   }, []);
 
+  const disconnectActiveConnection = useCallback(async (): Promise<boolean> => {
+    if (!sessionId) return true;
+
+    const currentSessionId = sessionId;
+    reconnectAttemptRef.current += 1;
+    pendingReconnectRef.current = null;
+
+    try {
+      const result = await disconnect(currentSessionId);
+      if (!result.success) {
+        console.warn('Failed to disconnect active session:', result.error);
+        return false;
+      }
+    } catch (err) {
+      console.warn('Failed to disconnect active session:', err);
+      return false;
+    }
+
+    if (sessionIdRef.current !== currentSessionId) return false;
+
+    sessionIdRef.current = null;
+    setSessionId(null);
+    setActiveConnection(null);
+    setDriverCapabilities(null);
+    setConnectionHealth('healthy');
+    setCurrentConnectionId(null);
+    return true;
+  }, [sessionId, setCurrentConnectionId]);
+
+  useEffect(() => {
+    if (!sessionId) return;
+
+    let timeoutId: number;
+    const scheduleDisconnect = () => {
+      window.clearTimeout(timeoutId);
+      timeoutId = window.setTimeout(() => {
+        void disconnectActiveConnection().then(disconnected => {
+          if (disconnected) notify.info(t('status.disconnectedAfterIdle'));
+        });
+      }, SESSION_IDLE_TIMEOUT_MS);
+    };
+
+    const activityEvents: Array<keyof WindowEventMap> = ['keydown', 'pointerdown', 'wheel'];
+    activityEvents.forEach(event => {
+      window.addEventListener(event, scheduleDisconnect);
+    });
+    scheduleDisconnect();
+
+    return () => {
+      window.clearTimeout(timeoutId);
+      activityEvents.forEach(event => {
+        window.removeEventListener(event, scheduleDisconnect);
+      });
+    };
+  }, [disconnectActiveConnection, sessionId, t]);
+
   const handleConnected = useCallback(
     (
       newSessionId: string,
@@ -346,6 +408,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     ) => {
       reconnectAttemptRef.current += 1;
       pendingReconnectRef.current = null;
+      sessionIdRef.current = newSessionId;
       setSessionId(newSessionId);
       setDriver(connection.driver as Driver);
       setActiveConnection(connection);
@@ -521,6 +584,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       handleRestoreSession,
       handleConnectionSaved,
       switchToConnection,
+      disconnectActiveConnection,
       refreshSidebar,
       triggerSchemaRefresh,
       scheduleRecoverySave,
@@ -540,6 +604,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       handleRestoreSession,
       handleConnectionSaved,
       switchToConnection,
+      disconnectActiveConnection,
       refreshSidebar,
       triggerSchemaRefresh,
       scheduleRecoverySave,

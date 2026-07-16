@@ -32,7 +32,8 @@ export type ProFeature =
   | 'data_contracts'
   | 'instant_api'
   | 'data_generator'
-  | 'index_suggestions';
+  | 'index_suggestions'
+  | 'schema_diff';
 
 const TIER_LEVELS: Record<LicenseTier, number> = {
   core: 0,
@@ -59,6 +60,7 @@ const FEATURE_REQUIRED_TIER: Record<ProFeature, LicenseTier> = {
   instant_api: 'pro',
   data_generator: 'pro',
   index_suggestions: 'pro',
+  schema_diff: 'pro',
 };
 
 export function tierIncludes(current: LicenseTier, required: LicenseTier): boolean {

@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Switch } from '@/components/ui/switch';
+import { supportsConnectionUrl } from '@/lib/connection/connectionUrls';
 import { DRIVER_ICONS, DRIVER_LABELS } from '@/lib/connection/drivers';
 import { emitUiEvent, UI_EVENT_CONNECTIONS_CHANGED } from '@/lib/events/uiEvents';
 import {
@@ -90,6 +91,7 @@ export function ConnectionModal({
 
   function handleDriverSelect(nextDriver: Parameters<typeof handleDriverChange>[0]) {
     handleDriverChange(nextDriver);
+    setUrlParsed(false);
     setTestResult(null);
     setError(null);
     setStep('form');
@@ -290,7 +292,7 @@ export function ConnectionModal({
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="contents">
-            <ScrollArea className="max-h-[75vh]">
+            <ScrollArea className="max-h-[75vh]" hideScrollbar>
               <div className="grid gap-4 py-4">
                 {/* Driver Header with URL toggle */}
                 <div className="flex items-center justify-between p-3 rounded-md bg-muted/30 border border-border">
@@ -307,7 +309,7 @@ export function ConnectionModal({
 
                   <div className="flex items-center gap-3">
                     {/* URL Mode Toggle */}
-                    {!isEditMode && (
+                    {!isEditMode && supportsConnectionUrl(formData.driver) && (
                       <div className="flex items-center gap-2">
                         <Link2
                           size={14}
@@ -334,7 +336,9 @@ export function ConnectionModal({
                       </div>
                     )}
 
-                    {!isEditMode && <div className="w-px h-6 bg-border" />}
+                    {!isEditMode && supportsConnectionUrl(formData.driver) && (
+                      <div className="w-px h-6 bg-border" />
+                    )}
 
                     {!isEditMode && (
                       <Button variant="ghost" size="sm" onClick={handleBackToDriver}>
@@ -345,7 +349,7 @@ export function ConnectionModal({
                 </div>
 
                 {/* URL Input */}
-                {formData.useUrl && !isEditMode && (
+                {formData.useUrl && !isEditMode && supportsConnectionUrl(formData.driver) && (
                   <div className="rounded-md border border-border bg-background p-4">
                     <UrlInput
                       formData={formData}
@@ -356,7 +360,7 @@ export function ConnectionModal({
                   </div>
                 )}
 
-                {!isEditMode && !formData.useUrl && (
+                {!isEditMode && (!formData.useUrl || !supportsConnectionUrl(formData.driver)) && (
                   <ConnectionTemplatePicker driver={formData.driver} onApply={handleChange} />
                 )}
 

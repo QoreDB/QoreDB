@@ -22,6 +22,7 @@ interface ConnectionItemProps {
   onDeleted: () => void;
   onNewQuery?: () => void;
   onNewNotebook?: () => void;
+  onDisconnect?: () => void;
 }
 
 export function ConnectionItem({
@@ -38,6 +39,7 @@ export function ConnectionItem({
   onDeleted,
   onNewQuery,
   onNewNotebook,
+  onDisconnect,
 }: ConnectionItemProps) {
   const driver = connection.driver as Driver;
   const iconSrc = `/databases/${DRIVER_ICONS[driver]}`;
@@ -55,10 +57,11 @@ export function ConnectionItem({
       onNewQuery={onNewQuery}
       onNewNotebook={onNewNotebook}
       isConnected={isConnected}
+      onDisconnect={onDisconnect}
     >
       <div
         className={cn(
-          'group relative flex items-center transition-all rounded-md',
+          'group relative flex items-center min-w-0 transition-all rounded-md',
           // État: Sélectionné mais pas connecté
           isSelected && !isConnected && 'bg-muted text-foreground',
           // État: Connecté (actif)
@@ -75,7 +78,7 @@ export function ConnectionItem({
           type="button"
           aria-expanded={isExpanded}
           className={cn(
-            'flex-1 flex items-center gap-2 px-2 py-1.5 text-sm select-none text-inherit rounded-l-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--q-accent)] focus-visible:ring-inset'
+            'flex-1 min-w-0 flex items-center gap-2 px-2 py-1.5 text-sm select-none text-inherit rounded-l-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--q-accent)] focus-visible:ring-inset'
           )}
           onClick={onSelect}
           disabled={isConnecting}
@@ -131,6 +134,7 @@ export function ConnectionItem({
             onNewQuery={onNewQuery}
             onNewNotebook={onNewNotebook}
             isConnected={isConnected}
+            onDisconnect={onDisconnect}
           />
         </div>
       </div>

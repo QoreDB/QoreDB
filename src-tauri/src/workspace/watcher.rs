@@ -11,7 +11,6 @@ use serde::Serialize;
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
-use tauri::Emitter;
 use tokio::sync::{mpsc, watch};
 use tokio::time::Instant;
 
@@ -21,6 +20,7 @@ use super::write_registry::WriteRegistry;
 pub const EVENT_WS_FS_CONNECTIONS: &str = "workspace_fs:connections";
 pub const EVENT_WS_FS_QUERIES: &str = "workspace_fs:queries";
 pub const EVENT_WS_FS_NOTEBOOKS: &str = "workspace_fs:notebooks";
+pub const EVENT_WS_FS_MIGRATIONS: &str = "workspace_fs:migrations";
 pub const EVENT_WS_FS_MANIFEST: &str = "workspace_fs:manifest";
 
 const DEBOUNCE_DURATION: Duration = Duration::from_millis(500);
@@ -41,6 +41,7 @@ fn classify_path(path: &Path, workspace_root: &Path) -> Option<&'static str> {
         "connections" => Some("connections"),
         "queries" => Some("queries"),
         "notebooks" => Some("notebooks"),
+        "migrations" => Some("migrations"),
         _ => {
             // Check if it's workspace.json at the root
             if relative.file_name()?.to_str()? == "workspace.json"
@@ -59,6 +60,7 @@ fn category_event_name(category: &str) -> &'static str {
         "connections" => EVENT_WS_FS_CONNECTIONS,
         "queries" => EVENT_WS_FS_QUERIES,
         "notebooks" => EVENT_WS_FS_NOTEBOOKS,
+        "migrations" => EVENT_WS_FS_MIGRATIONS,
         "manifest" => EVENT_WS_FS_MANIFEST,
         _ => EVENT_WS_FS_MANIFEST,
     }
@@ -72,9 +74,13 @@ fn is_relevant_event(kind: &EventKind) -> bool {
     )
 }
 
-/// Check if a path is a JSON file (our workspace data format).
-fn is_json_file(path: &Path) -> bool {
-    path.extension().and_then(|e| e.to_str()) == Some("json")
+/// Check if a path holds workspace data we track. JSON is the format for most
+/// categories; migrations are stored as portable `.sql` files.
+fn is_watched_file(path: &Path) -> bool {
+    matches!(
+        path.extension().and_then(|e| e.to_str()),
+        Some("json") | Some("sql")
+    )
 }
 
 /// Start the workspace file watcher background task.
@@ -201,7 +207,7 @@ pub fn start_workspace_watcher(
                     };
 
                     for path in &event.paths {
-                        if !is_json_file(path) {
+                        if !is_watched_file(path) {
                             continue;
                         }
 
@@ -255,7 +261,7 @@ pub fn start_workspace_watcher(
                             category: category.clone(),
                             changed_files: files.into_iter().collect(),
                         };
-                        let _ = app_handle.emit(event_name, &payload);
+                        crate::emit_gate::emit_gated(&app_handle, event_name, &payload);
                         tracing::debug!("Emitted {} with {} files", event_name, payload.changed_files.len());
                     }
                 }
@@ -308,6 +314,18 @@ mod tests {
     }
 
     #[test]
+    fn classify_migrations() {
+        let root = PathBuf::from("/project/.qoredb");
+        assert_eq!(
+            classify_path(
+                &PathBuf::from("/project/.qoredb/migrations/0001_create_users.sql"),
+                &root
+            ),
+            Some("migrations")
+        );
+    }
+
+    #[test]
     fn classify_manifest() {
         let root = PathBuf::from("/project/.qoredb");
         assert_eq!(
@@ -333,9 +351,10 @@ mod tests {
     }
 
     #[test]
-    fn json_file_detection() {
-        assert!(is_json_file(Path::new("conn_abc.json")));
-        assert!(!is_json_file(Path::new(".gitignore")));
-        assert!(!is_json_file(Path::new("README.md")));
+    fn watched_file_detection() {
+        assert!(is_watched_file(Path::new("conn_abc.json")));
+        assert!(is_watched_file(Path::new("0001_create_users.sql")));
+        assert!(!is_watched_file(Path::new(".gitignore")));
+        assert!(!is_watched_file(Path::new("README.md")));
     }
 }

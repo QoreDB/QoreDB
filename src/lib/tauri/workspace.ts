@@ -85,3 +85,44 @@ export async function wsSaveQueryLibrary(library: WorkspaceQueryLibrary): Promis
 export async function importDefaultConnections(): Promise<number> {
   return invoke('import_default_connections');
 }
+
+export interface MigrationSummary {
+  version: string;
+  name: string;
+  filename: string;
+}
+
+/** Lists the migrations of the active workspace. Null if the workspace is the default. */
+export async function wsListMigrations(): Promise<MigrationSummary[] | null> {
+  return invoke('ws_list_migrations');
+}
+
+/** Reads a migration file's raw content. Null if the workspace is the default. */
+export async function wsReadMigration(filename: string): Promise<string | null> {
+  return invoke('ws_read_migration', { filename });
+}
+
+/** Writes (creates or overwrites) a migration file. False if the workspace is the default. */
+export async function wsWriteMigration(filename: string, content: string): Promise<boolean> {
+  return invoke('ws_write_migration', { filename, content });
+}
+
+/** Deletes a migration file. False if the workspace is the default or the file is absent. */
+export async function wsDeleteMigration(filename: string): Promise<boolean> {
+  return invoke('ws_delete_migration', { filename });
+}
+
+/** Reads a connection's raw baseline file. Null if the workspace is the default or none exists. */
+export async function wsReadBaseline(connectionId: string): Promise<string | null> {
+  return invoke('ws_read_baseline', { connectionId });
+}
+
+/** Writes a connection's baseline file. False if the workspace is the default. */
+export async function wsWriteBaseline(connectionId: string, content: string): Promise<boolean> {
+  return invoke('ws_write_baseline', { connectionId, content });
+}
+
+/** Deletes a connection's baseline file. False if the workspace is the default or absent. */
+export async function wsDeleteBaseline(connectionId: string): Promise<boolean> {
+  return invoke('ws_delete_baseline', { connectionId });
+}

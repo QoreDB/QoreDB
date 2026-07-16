@@ -6,14 +6,10 @@ import type { NamespaceLike } from './types';
 export function quoteIdentifier(identifier: string, driver: Driver): string {
   const driverMeta = getDriverMetadata(driver);
   const { quoteStart, quoteEnd } = driverMeta.identifier;
-  let escaped = identifier;
-  if (quoteStart === quoteEnd) {
-    escaped = identifier.replace(new RegExp(quoteStart, 'g'), `${quoteStart}${quoteStart}`);
-  } else {
-    escaped = identifier
-      .replace(new RegExp(quoteStart, 'g'), `${quoteStart}${quoteStart}`)
-      .replace(new RegExp(quoteEnd, 'g'), `${quoteEnd}${quoteEnd}`);
-  }
+  // Only the closing delimiter can end the identifier, so only it needs
+  // doubling. `split`/`join` rather than a RegExp: the delimiters are regex
+  // metacharacters on SQL Server (`[`, `]`).
+  const escaped = identifier.split(quoteEnd).join(quoteEnd + quoteEnd);
   return `${quoteStart}${escaped}${quoteEnd}`;
 }
 

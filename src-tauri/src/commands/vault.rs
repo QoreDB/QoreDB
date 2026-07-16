@@ -19,7 +19,7 @@ use crate::SharedState;
 
 /// Determines if the active workspace is file-based and returns its connection store.
 /// Returns None if the default workspace is active (use VaultStorage instead).
-async fn get_workspace_store(
+pub(crate) async fn get_workspace_store(
     ws_manager: &State<'_, SharedWorkspaceManager>,
 ) -> Option<WorkspaceConnectionStore> {
     let mgr = ws_manager.lock().await;

@@ -54,6 +54,7 @@ interface CustomTitlebarProps {
   onOpenSettings?: () => void;
   onOpenLogs?: () => void;
   onOpenHistory?: () => void;
+  onOpenMigrations?: () => void;
   onToggleSidebar?: () => void;
   onRefreshData?: () => void;
   onImportData?: () => void;
@@ -76,6 +77,7 @@ export const CustomTitlebar = ({
   onOpenSettings,
   onOpenLogs,
   onOpenHistory,
+  onOpenMigrations,
   onToggleSidebar,
   onRefreshData,
   onImportData,
@@ -192,6 +194,7 @@ export const CustomTitlebar = ({
             onOpenChange={open => handleMenuOpenChange('tools', open)}
             onMouseEnter={() => handleMenuHover('tools')}
             onOpenHistory={onOpenHistory}
+            onOpenMigrations={onOpenMigrations}
             onOpenSchemaGenerator={onOpenSchemaGenerator}
             onToggleSandbox={onToggleSandbox}
           />
@@ -464,6 +467,7 @@ const MenuData = ({
 
 interface MenuToolsProps extends TitlebarMenuProps {
   onOpenHistory?: () => void;
+  onOpenMigrations?: () => void;
   onOpenSchemaGenerator?: () => void;
   onToggleSandbox?: () => void;
 }
@@ -474,6 +478,7 @@ const MenuTools = ({
   onOpenChange,
   onMouseEnter,
   onOpenHistory,
+  onOpenMigrations,
   onOpenSchemaGenerator,
   onToggleSandbox,
 }: MenuToolsProps) => (
@@ -495,6 +500,9 @@ const MenuTools = ({
     >
       <DropdownMenuItem onClick={onOpenHistory} disabled={!onOpenHistory}>
         <span>{t('titlebar.menu.tools.history')}</span>
+      </DropdownMenuItem>
+      <DropdownMenuItem onClick={onOpenMigrations} disabled={!onOpenMigrations}>
+        <span>{t('migrations.openManager')}</span>
       </DropdownMenuItem>
       <DropdownMenuItem onClick={onOpenSchemaGenerator} disabled={!onOpenSchemaGenerator}>
         <span>{t('titlebar.menu.tools.schemaGenerator')}</span>

@@ -31,6 +31,7 @@ pub struct MockDriver {
     driver_id: &'static str,
     responses: Mutex<HashMap<String, EngineResult<QueryResult>>>,
     calls: Mutex<Vec<String>>,
+    namespaces: Mutex<Vec<Option<Namespace>>>,
     log: Mutex<Vec<DriverCall>>,
     default: Mutex<Option<QueryResult>>,
     /// (0-based execute index, message) to fail on.
@@ -45,6 +46,7 @@ impl MockDriver {
             driver_id,
             responses: Mutex::new(HashMap::new()),
             calls: Mutex::new(Vec::new()),
+            namespaces: Mutex::new(Vec::new()),
             log: Mutex::new(Vec::new()),
             default: Mutex::new(None),
             fail_nth: Mutex::new(None),
@@ -70,6 +72,11 @@ impl MockDriver {
     /// Executed queries, in order. Excludes transaction control.
     pub fn calls(&self) -> Vec<String> {
         self.calls.lock().unwrap().clone()
+    }
+
+    /// Namespace supplied for each `execute_in_namespace` call.
+    pub fn namespace_calls(&self) -> Vec<Option<Namespace>> {
+        self.namespaces.lock().unwrap().clone()
     }
 
     /// Every interaction in order, transaction control included.
@@ -192,6 +199,16 @@ impl DataEngine for MockDriver {
             return Ok(d.clone());
         }
         Err(EngineError::internal(format!("no mock for: {query}")))
+    }
+    async fn execute_in_namespace(
+        &self,
+        session: SessionId,
+        namespace: Option<Namespace>,
+        query: &str,
+        query_id: QueryId,
+    ) -> EngineResult<QueryResult> {
+        self.namespaces.lock().unwrap().push(namespace);
+        self.execute(session, query, query_id).await
     }
     async fn begin_transaction(&self, _session: SessionId) -> EngineResult<()> {
         self.log.lock().unwrap().push(DriverCall::Begin);

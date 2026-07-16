@@ -63,7 +63,8 @@ export async function applyMigration(
 
 /** Per-connection applied/pending status. Null if the workspace is the default. */
 export async function getMigrationStatus(
-  sessionId: string
+  sessionId: string,
+  database?: string
 ): Promise<MigrationStatusEntry[] | null> {
-  return invoke('get_migration_status', { sessionId });
+  return invoke('get_migration_status', { sessionId, database });
 }

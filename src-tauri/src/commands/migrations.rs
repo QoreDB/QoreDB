@@ -7,7 +7,7 @@
 use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex, OnceLock};
 
-use qore_core::{DataEngine, SessionId};
+use qore_core::{DataEngine, Namespace, SessionId};
 use qore_service::interceptor::{
     map_environment, Environment, InterceptorPipeline, QueryContext, QueryExecutionResult,
     QueryOperationType, SafetyAction,
@@ -141,6 +141,25 @@ fn is_mysql_family(driver_id: &str) -> bool {
     matches!(driver_id, "mysql" | "mariadb")
 }
 
+fn migration_namespace(database: &str) -> Option<Namespace> {
+    let database = database.trim();
+    (!database.is_empty()).then(|| Namespace {
+        database: database.to_string(),
+        schema: None,
+    })
+}
+
+async fn execute_in_migration_database(
+    driver: &Arc<dyn DataEngine>,
+    session: SessionId,
+    database: &str,
+    sql: &str,
+) -> qore_core::EngineResult<qore_core::QueryResult> {
+    driver
+        .execute_in_namespace(session, migration_namespace(database), sql, QueryId::new())
+        .await
+}
+
 /// MySQL has more implicit-commit statements than the generic operation enum can
 /// express (`RENAME TABLE`, `LOCK TABLES`, account-management statements, ...).
 /// Use a positive list instead: only statements known to remain inside an
@@ -201,9 +220,9 @@ async fn prepare_history(
     driver: &Arc<dyn DataEngine>,
     session: SessionId,
     driver_id: &str,
+    database: &str,
 ) -> Result<(), String> {
-    driver
-        .execute(session, &history_table_ddl(driver_id), QueryId::new())
+    execute_in_migration_database(driver, session, database, &history_table_ddl(driver_id))
         .await
         .map_err(|e| {
             format!(
@@ -213,8 +232,7 @@ async fn prepare_history(
         })?;
 
     let probe = history_failed_column_probe();
-    if driver
-        .execute(session, &probe, QueryId::new())
+    if execute_in_migration_database(driver, session, database, &probe)
         .await
         .is_ok()
     {
@@ -222,12 +240,11 @@ async fn prepare_history(
     }
 
     let alter = history_add_failed_column_ddl(driver_id);
-    match driver.execute(session, &alter, QueryId::new()).await {
+    match execute_in_migration_database(driver, session, database, &alter).await {
         Ok(_) => Ok(()),
         Err(alter_error) => {
             // Another app process may have added the column after our probe.
-            if driver
-                .execute(session, &probe, QueryId::new())
+            if execute_in_migration_database(driver, session, database, &probe)
                 .await
                 .is_ok()
             {
@@ -433,14 +450,14 @@ fn exec_result(
 async fn read_history_row(
     driver: &Arc<dyn DataEngine>,
     session: SessionId,
+    database: &str,
     version: &str,
 ) -> Result<Option<HistoryRow>, String> {
     let sql = format!(
         "SELECT checksum, applied_at, rolled_back_at, failed_at FROM {HISTORY_TABLE} WHERE version = {}",
         sql_str(version)
     );
-    let result = driver
-        .execute(session, &sql, QueryId::new())
+    let result = execute_in_migration_database(driver, session, database, &sql)
         .await
         .map_err(|e| {
             format!(
@@ -474,6 +491,13 @@ pub(crate) async fn run_migration(run: MigrationRun<'_>) -> ApplyMigrationRespon
     let driver = &run.driver;
     let driver_id = driver.driver_id().to_string();
     let is_production = matches!(run.environment, Environment::Production);
+
+    if is_mysql_family(&driver_id) && migration_namespace(run.database).is_none() {
+        return fail(
+            "Select a target database before applying or rolling back a MySQL migration."
+                .to_string(),
+        );
+    }
 
     let statements =
         match qore_sql::migration_split::split_migration_statements(&driver_id, run.script) {
@@ -592,11 +616,11 @@ pub(crate) async fn run_migration(run: MigrationRun<'_>) -> ApplyMigrationRespon
     // History preparation stays outside the migration transaction so it
     // persists on rollback. It also upgrades tables created before `failed_at`
     // existed, before any guard attempts to read that column.
-    if let Err(msg) = prepare_history(driver, run.session, &driver_id).await {
+    if let Err(msg) = prepare_history(driver, run.session, &driver_id, run.database).await {
         return fail(msg);
     }
 
-    let row = match read_history_row(driver, run.session, run.version).await {
+    let row = match read_history_row(driver, run.session, run.database, run.version).await {
         Ok(r) => r,
         Err(msg) => return fail(msg),
     };
@@ -640,7 +664,7 @@ pub(crate) async fn run_migration(run: MigrationRun<'_>) -> ApplyMigrationRespon
     let started = std::time::Instant::now();
     for (index, sql, ctx, warn) in &planned {
         let t0 = std::time::Instant::now();
-        let res = driver.execute(run.session, sql, QueryId::new()).await;
+        let res = execute_in_migration_database(driver, run.session, run.database, sql).await;
         let ms = t0.elapsed().as_micros() as f64 / 1000.0;
         match res {
             Ok(r) => run.interceptor.post_execute(
@@ -666,7 +690,7 @@ pub(crate) async fn run_migration(run: MigrationRun<'_>) -> ApplyMigrationRespon
                     // report "pending" over a half-migrated schema, so record the
                     // failure instead and let a human resolve it.
                     let failed_at = chrono::Utc::now().to_rfc3339();
-                    mark_failed(driver, run.session, run.version, &failed_at)
+                    mark_failed(driver, run.session, run.database, run.version, &failed_at)
                         .await
                         .err()
                 };
@@ -704,7 +728,8 @@ pub(crate) async fn run_migration(run: MigrationRun<'_>) -> ApplyMigrationRespon
             "UPDATE {HISTORY_TABLE} SET execution_ms = {elapsed_ms} WHERE version = {}",
             sql_str(run.version)
         );
-        if let Err(e) = driver.execute(run.session, &sql, QueryId::new()).await {
+        if let Err(e) = execute_in_migration_database(driver, run.session, run.database, &sql).await
+        {
             if supports_tx {
                 let _ = driver.rollback(run.session).await;
             }
@@ -744,13 +769,14 @@ fn mark_failed_sql(version: &str, now: &str) -> String {
 async fn mark_failed(
     driver: &Arc<dyn DataEngine>,
     session: SessionId,
+    database: &str,
     version: &str,
     now: &str,
 ) -> Result<(), String> {
-    let result = driver
-        .execute(session, &mark_failed_sql(version, now), QueryId::new())
-        .await
-        .map_err(|e| e.sanitized_message())?;
+    let result =
+        execute_in_migration_database(driver, session, database, &mark_failed_sql(version, now))
+            .await
+            .map_err(|e| e.sanitized_message())?;
     if result.affected_rows == Some(0) {
         return Err("the history claim no longer exists".to_string());
     }
@@ -780,7 +806,8 @@ async fn claim(
              AND (rolled_back_at IS NOT NULL OR failed_at IS NOT NULL)",
             sql_str(run.version)
         );
-        if let Err(e) = driver.execute(run.session, &del, QueryId::new()).await {
+        if let Err(e) = execute_in_migration_database(driver, run.session, run.database, &del).await
+        {
             return abort(fail(format!(
                 "Failed to record migration history: {}",
                 e.sanitized_message()
@@ -797,8 +824,7 @@ async fn claim(
             sql_str(now),
             sql_str(run.applied_by),
         );
-        if driver
-            .execute(run.session, &ins, QueryId::new())
+        if execute_in_migration_database(driver, run.session, run.database, &ins)
             .await
             .is_err()
         {
@@ -819,7 +845,7 @@ async fn claim(
         sql_str(now),
         sql_str(run.version)
     );
-    match driver.execute(run.session, &upd, QueryId::new()).await {
+    match execute_in_migration_database(driver, run.session, run.database, &upd).await {
         Ok(r) => {
             if r.affected_rows == Some(0) {
                 return abort(blocked(
@@ -987,6 +1013,7 @@ pub async fn get_migration_status(
     state: State<'_, crate::SharedState>,
     ws_manager: State<'_, SharedWorkspaceManager>,
     session_id: String,
+    database: Option<String>,
 ) -> Result<Option<Vec<MigrationStatusEntry>>, String> {
     let files: Vec<(String, String)> = {
         let mgr = ws_manager.lock().await;
@@ -1026,6 +1053,7 @@ pub async fn get_migration_status(
         .get_driver(session)
         .await
         .map_err(|e| e.sanitized_message())?;
+    let database = database.unwrap_or_default();
 
     // Reading status must remain compatible with history tables created before
     // `failed_at`. Applying a migration upgrades the table; until then, fall
@@ -1036,15 +1064,17 @@ pub async fn get_migration_status(
         );
         let legacy =
             format!("SELECT version, checksum, applied_at, rolled_back_at FROM {HISTORY_TABLE}");
-        let (result, has_failed_at) = match driver.execute(session, &current, QueryId::new()).await
-        {
-            Ok(result) => (Some(result), true),
-            Err(_) => match driver.execute(session, &legacy, QueryId::new()).await {
-                Ok(result) => (Some(result), false),
-                // An absent history table still means nothing has been applied.
-                Err(_) => (None, false),
-            },
-        };
+        let (result, has_failed_at) =
+            match execute_in_migration_database(&driver, session, &database, &current).await {
+                Ok(result) => (Some(result), true),
+                Err(_) => match execute_in_migration_database(&driver, session, &database, &legacy)
+                    .await
+                {
+                    Ok(result) => (Some(result), false),
+                    // An absent history table still means nothing has been applied.
+                    Err(_) => (None, false),
+                },
+            };
 
         result
             .map(|result| {
@@ -1249,6 +1279,15 @@ mod tests {
             .collect()
     }
 
+    #[test]
+    fn migration_namespace_rejects_blank_database_names() {
+        assert_eq!(migration_namespace("  "), None);
+        assert_eq!(
+            migration_namespace(" app ").map(|ns| ns.database),
+            Some("app".into())
+        );
+    }
+
     #[tokio::test]
     async fn down_on_unapplied_migration_never_executes_the_script() {
         let driver = Arc::new(MockDriver::new("postgres").with_transactions(true));
@@ -1272,6 +1311,30 @@ mod tests {
             !executed(&driver).iter().any(|q| q.contains("DROP TABLE t")),
             "rollback script ran despite the migration never being applied"
         );
+    }
+
+    #[tokio::test]
+    async fn mysql_requires_a_target_database_before_touching_history() {
+        let driver = Arc::new(MockDriver::new("mysql").with_transactions(true));
+        driver.set_default(empty_result());
+        let h = harness();
+        let d = Arc::clone(&driver);
+        let mut migration = run(
+            &h,
+            d,
+            true,
+            "CREATE TABLE t (id int);",
+            Environment::Development,
+        );
+        migration.database = "";
+
+        let response = run_migration(migration).await;
+
+        assert!(!response.success);
+        assert!(response
+            .error
+            .is_some_and(|error| error.contains("target database")));
+        assert!(driver.calls().is_empty());
     }
 
     #[tokio::test]
@@ -1319,6 +1382,11 @@ mod tests {
         ))
         .await;
         assert!(resp.success, "{:?}", resp.error);
+        assert!(driver.namespace_calls().iter().all(|namespace| {
+            namespace
+                .as_ref()
+                .is_some_and(|namespace| namespace.database == "app")
+        }));
 
         let log = driver.call_log();
         let pos = |needle: &str| {

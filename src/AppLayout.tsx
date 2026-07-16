@@ -288,6 +288,10 @@ export function AppLayout() {
     if (sessionId) openTab(createQueryTab(undefined, activeTab?.namespace));
   }, [sessionId, openTab, activeTab?.namespace]);
 
+  const handleOpenMigrations = useCallback(() => {
+    openTab(createMigrationsTab(activeTab?.namespace));
+  }, [activeTab?.namespace, openTab]);
+
   const handleTabSelect = useCallback(
     (tabId: string) => {
       const target = tabs.find(t => t.id === tabId);
@@ -709,7 +713,7 @@ export function AppLayout() {
             openTab(createSnapshotsTab());
             return;
           case 'cmd_open_migrations':
-            openTab(createMigrationsTab());
+            openTab(createMigrationsTab(activeTab?.namespace));
             return;
           case 'cmd_open_federation':
             if (sessionId) openTab(createFederationTab());
@@ -844,6 +848,7 @@ export function AppLayout() {
             settingsOpen={settingsOpen}
             onOpenLogs={() => emitUiEvent(UI_EVENT_OPEN_LOGS)}
             onOpenHistory={sessionId ? handleOpenHistory : undefined}
+            onOpenMigrations={handleOpenMigrations}
             onToggleSidebar={toggleSidebar}
             onRefreshData={canRefreshData ? () => emitUiEvent(UI_EVENT_REFRESH_TABLE) : undefined}
             onExportData={
@@ -1232,7 +1237,7 @@ function AppContent({
           key={activeTab.id}
           sessionId={sessionId ?? undefined}
           connectionId={activeConnection?.id}
-          database={activeConnection?.database}
+          database={activeTab.namespace?.database ?? activeConnection?.database}
           driver={driver}
           environment={activeConnection?.environment}
           readOnly={activeConnection?.read_only}

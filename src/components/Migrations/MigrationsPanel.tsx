@@ -4,6 +4,7 @@ import type { TFunction } from 'i18next';
 import {
   AlertTriangle,
   Camera,
+  Database,
   FileCode,
   Loader2,
   Play,
@@ -24,6 +25,13 @@ import { translateDdlWarning } from '@/components/Table/translateDdlWarning';
 import { WarningsBanner } from '@/components/Table/WarningsBanner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import type { Driver } from '@/lib/connection/drivers';
 import type { DdlWarning } from '@/lib/ddl';
 import { loadBaselineFile, saveBaseline, useBaseline } from '@/lib/migrations/baselineStore';
@@ -45,6 +53,7 @@ import { confirmDialog } from '@/lib/stores/confirmStore';
 import {
   applyMigration,
   getMigrationStatus,
+  listNamespaces,
   type MigrationDirection,
   type MigrationStatusEntry,
   wsDeleteMigration,
@@ -98,15 +107,47 @@ export function MigrationsPanel({
   const [generateWarnings, setGenerateWarnings] = useState<DdlWarning[]>([]);
   const [draft, setDraft] = useState<{ up: string; down: string } | null>(null);
   const [saving, setSaving] = useState(false);
+  const [targetDatabase, setTargetDatabase] = useState(database?.trim() ?? '');
+  const [databaseOptions, setDatabaseOptions] = useState<string[]>([]);
+  const [mysqlWarningVisible, setMysqlWarningVisible] = useState(true);
 
   const isDefault = activeWorkspace == null || activeWorkspace.source === 'default';
   const driverSupported = driver != null && SCHEMA_MIGRATION_DRIVERS.has(driver);
-  const canApply = !!sessionId && driverSupported && !readOnly;
+  const requiresTargetDatabase = driver === 'mysql' || driver === 'mariadb';
+  const databaseReady = !requiresTargetDatabase || targetDatabase.length > 0;
+  const canApply = !!sessionId && driverSupported && !readOnly && databaseReady;
 
-  const schemaDiffAvailable = !!sessionId && !!connectionId && driverSupported;
+  const schemaDiffAvailable = !!sessionId && !!connectionId && driverSupported && databaseReady;
   const hasSchemaDiff = isFeatureEnabled('schema_diff');
   const canGenerate = schemaDiffAvailable && hasSchemaDiff;
-  const baseline = useBaseline(connectionId ?? null, database);
+  const baseline = useBaseline(connectionId ?? null, targetDatabase || undefined);
+
+  useEffect(() => {
+    setTargetDatabase(database?.trim() ?? '');
+  }, [database]);
+
+  useEffect(() => {
+    if (!sessionId || !driverSupported) {
+      setDatabaseOptions([]);
+      return;
+    }
+    let cancelled = false;
+    void listNamespaces(sessionId)
+      .then(result => {
+        if (cancelled || !result.success) return;
+        const databases = Array.from(
+          new Set((result.namespaces ?? []).map(namespace => namespace.database).filter(Boolean))
+        ).sort((a, b) => a.localeCompare(b));
+        setDatabaseOptions(databases);
+        if (databases.length === 1) setTargetDatabase(current => current || databases[0]);
+      })
+      .catch(() => {
+        if (!cancelled) setDatabaseOptions([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [driverSupported, sessionId]);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: `projectId` is intentional — reload migrations when switching between file-based workspaces (isDefault stays false)
   useEffect(() => {
@@ -123,12 +164,16 @@ export function MigrationsPanel({
       return;
     }
     try {
-      const entries = await getMigrationStatus(sessionId);
+      if (requiresTargetDatabase && !targetDatabase) {
+        setStatusByVersion({});
+        return;
+      }
+      const entries = await getMigrationStatus(sessionId, targetDatabase || undefined);
       setStatusByVersion(entries ? Object.fromEntries(entries.map(e => [e.version, e])) : {});
     } catch {
       setStatusByVersion({});
     }
-  }, [sessionId]);
+  }, [requiresTargetDatabase, sessionId, targetDatabase]);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: `migrations` is intentional — refresh applied status (and checksum drift) when the file list reloads
   useEffect(() => {
@@ -245,7 +290,7 @@ export function MigrationsPanel({
       if (!confirmed) return;
       setApplying(filename);
       try {
-        let res = await applyMigration(sessionId, filename, direction, database ?? '', true);
+        let res = await applyMigration(sessionId, filename, direction, targetDatabase, true);
 
         // Some refusals are judgement calls rather than errors: the file drifted,
         // or a previous run died and left the schema in an unknown state. Surface
@@ -264,7 +309,7 @@ export function MigrationsPanel({
             await refreshStatus();
             return;
           }
-          res = await applyMigration(sessionId, filename, direction, database ?? '', true, true);
+          res = await applyMigration(sessionId, filename, direction, targetDatabase, true, true);
         }
 
         if (res.success) {
@@ -285,7 +330,7 @@ export function MigrationsPanel({
         setApplying(null);
       }
     },
-    [sessionId, database, environment, refreshStatus, t]
+    [sessionId, targetDatabase, environment, refreshStatus, t]
   );
 
   const handleCaptureBaseline = useCallback(async () => {
@@ -295,9 +340,9 @@ export function MigrationsPanel({
       const { snapshot, failedTables } = await captureSnapshot(
         sessionId,
         driver as Driver,
-        database
+        targetDatabase || undefined
       );
-      await saveBaseline(connectionId, database, snapshot);
+      await saveBaseline(connectionId, targetDatabase || undefined, snapshot);
       if (failedTables.length > 0) {
         notify.warning(t('migrations.captureIncomplete', { count: failedTables.length }));
       } else {
@@ -308,7 +353,7 @@ export function MigrationsPanel({
     } finally {
       setCapturing(false);
     }
-  }, [sessionId, connectionId, driverSupported, driver, database, t]);
+  }, [sessionId, connectionId, driverSupported, driver, targetDatabase, t]);
 
   const handleGenerate = useCallback(async () => {
     if (!sessionId || !connectionId || !driverSupported || !baseline) return;
@@ -317,7 +362,7 @@ export function MigrationsPanel({
       const { snapshot: live, failedTables } = await captureSnapshot(
         sessionId,
         driver as Driver,
-        database
+        targetDatabase || undefined
       );
       // An incomplete capture would make missing tables look dropped and emit
       // destructive DROP statements — refuse to generate from a partial snapshot.
@@ -355,7 +400,7 @@ export function MigrationsPanel({
       setSelected(filename);
       setDriftReport(null);
       // Adopt the live schema as the new baseline so the same delta isn't re-emitted.
-      await saveBaseline(connectionId, database, live);
+      await saveBaseline(connectionId, targetDatabase || undefined, live);
       if (result.hasIrreversible) {
         notify.warning(t('migrations.generatedIrreversible'));
       } else {
@@ -366,7 +411,7 @@ export function MigrationsPanel({
     } finally {
       setGenerating(false);
     }
-  }, [sessionId, connectionId, driverSupported, driver, database, baseline, migrations, t]);
+  }, [sessionId, connectionId, driverSupported, driver, targetDatabase, baseline, migrations, t]);
 
   const handleCheckDrift = useCallback(async () => {
     if (!sessionId || !driverSupported || !baseline) return;
@@ -375,7 +420,7 @@ export function MigrationsPanel({
       const { snapshot: live, failedTables } = await captureSnapshot(
         sessionId,
         driver as Driver,
-        database
+        targetDatabase || undefined
       );
       if (failedTables.length > 0) {
         notify.warning(t('migrations.captureIncomplete', { count: failedTables.length }));
@@ -392,7 +437,7 @@ export function MigrationsPanel({
     } finally {
       setCheckingDrift(false);
     }
-  }, [sessionId, driverSupported, driver, database, baseline, t]);
+  }, [sessionId, driverSupported, driver, targetDatabase, baseline, t]);
 
   if (isDefault) {
     return (
@@ -407,284 +452,401 @@ export function MigrationsPanel({
   }
 
   const list = migrations ?? [];
+  const selectedMigration = list.find(migration => migration.filename === selected);
+  const selectedStatus = selectedMigration ? statusByVersion[selectedMigration.version] : undefined;
+  const selectedDirection = nextMigrationDirection(selectedStatus);
 
   return (
-    <div className="flex-1 min-h-0 flex flex-col">
-      <div className="flex items-center gap-2 px-4 py-3 border-b border-border">
-        <div className="flex-1 min-w-0">
-          <h2 className="text-sm font-semibold">{t('migrations.title')}</h2>
-          <p className="text-xs text-muted-foreground truncate">
-            {!sessionId
-              ? t('migrations.connectHint')
-              : !driverSupported
-                ? t('migrations.driverUnsupported')
-                : t('migrations.description')}
-          </p>
+    <div className="flex-1 min-h-0 flex flex-col p-3">
+      <div className="flex-1 min-h-0 flex flex-col overflow-hidden rounded-xl border border-border bg-background shadow-sm">
+        <div className="flex flex-wrap items-center gap-2 px-4 py-3 border-b border-border">
+          <div className="flex-1 min-w-0">
+            <h2 className="text-sm font-semibold">{t('migrations.title')}</h2>
+            <p className="text-xs text-muted-foreground truncate">
+              {!sessionId
+                ? t('migrations.connectHint')
+                : !driverSupported
+                  ? t('migrations.driverUnsupported')
+                  : t('migrations.description')}
+            </p>
+          </div>
+          {sessionId && driverSupported && databaseOptions.length > 0 && (
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground">
+                {t('migrations.targetDatabase')}
+              </span>
+              <Select value={targetDatabase || undefined} onValueChange={setTargetDatabase}>
+                <SelectTrigger
+                  size="sm"
+                  className="w-48"
+                  aria-label={t('migrations.targetDatabase')}
+                >
+                  <Database className="size-3.5" />
+                  <SelectValue placeholder={t('migrations.selectDatabase')} />
+                </SelectTrigger>
+                <SelectContent>
+                  {databaseOptions.map(option => (
+                    <SelectItem key={option} value={option}>
+                      {option}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+          {list.length > 0 && (
+            <div className="flex items-center gap-2">
+              <Input
+                value={newName}
+                onChange={e => setNewName(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') void handleCreate();
+                }}
+                placeholder={t('migrations.newPlaceholder')}
+                className="w-56 h-8"
+              />
+              <Button
+                onClick={() => void handleCreate()}
+                disabled={creating || !newName.trim()}
+                size="sm"
+              >
+                {creating ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Plus className="w-4 h-4" />
+                )}
+                {t('migrations.create')}
+              </Button>
+            </div>
+          )}
+          {canGenerate && (
+            <div className="flex items-center gap-1 pl-1 ml-1 border-l border-border">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => void handleCaptureBaseline()}
+                disabled={capturing}
+                title={t('migrations.captureBaselineHint')}
+              >
+                {capturing ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Camera className="w-4 h-4" />
+                )}
+                {baseline ? t('migrations.recaptureBaseline') : t('migrations.captureBaseline')}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => void handleGenerate()}
+                disabled={!baseline || generating}
+                title={t('migrations.generateHint')}
+              >
+                {generating ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Wand2 className="w-4 h-4" />
+                )}
+                {t('migrations.generate')}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => void handleCheckDrift()}
+                disabled={!baseline || checkingDrift}
+                title={t('migrations.driftCheckHint')}
+              >
+                {checkingDrift ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <ScanSearch className="w-4 h-4" />
+                )}
+                {t('migrations.driftCheck')}
+              </Button>
+            </div>
+          )}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              void loadMigrations();
+              void refreshStatus();
+            }}
+            title={t('migrations.refresh')}
+          >
+            <RefreshCw className={cn('w-4 h-4', isLoading && 'animate-spin')} />
+          </Button>
         </div>
-        <Input
-          value={newName}
-          onChange={e => setNewName(e.target.value)}
-          onKeyDown={e => {
-            if (e.key === 'Enter') void handleCreate();
-          }}
-          placeholder={t('migrations.newPlaceholder')}
-          className="w-56"
-        />
-        <Button
-          onClick={() => void handleCreate()}
-          disabled={creating || !newName.trim()}
-          size="sm"
-        >
-          {creating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-          {t('migrations.create')}
-        </Button>
-        {canGenerate && (
-          <div className="flex items-center gap-1 pl-1 ml-1 border-l border-border">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => void handleCaptureBaseline()}
-              disabled={capturing}
-              title={t('migrations.captureBaselineHint')}
-            >
-              {capturing ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Camera className="w-4 h-4" />
-              )}
-              {baseline ? t('migrations.recaptureBaseline') : t('migrations.captureBaseline')}
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => void handleGenerate()}
-              disabled={!baseline || generating}
-              title={t('migrations.generateHint')}
-            >
-              {generating ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Wand2 className="w-4 h-4" />
-              )}
-              {t('migrations.generate')}
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => void handleCheckDrift()}
-              disabled={!baseline || checkingDrift}
-              title={t('migrations.driftCheckHint')}
-            >
-              {checkingDrift ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <ScanSearch className="w-4 h-4" />
-              )}
-              {t('migrations.driftCheck')}
-            </Button>
+
+        {schemaDiffAvailable && !hasSchemaDiff && (
+          <div className="px-4 py-2 border-b border-border">
+            <UpgradePrompt
+              feature="schema_diff"
+              variant="compact"
+              source="migrations"
+              hideIfDismissed
+            />
           </div>
         )}
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => {
-            void loadMigrations();
-            void refreshStatus();
-          }}
-          title={t('migrations.refresh')}
-        >
-          <RefreshCw className={cn('w-4 h-4', isLoading && 'animate-spin')} />
-        </Button>
-      </div>
 
-      {schemaDiffAvailable && !hasSchemaDiff && (
-        <div className="px-4 py-2 border-b border-border">
-          <UpgradePrompt
-            feature="schema_diff"
-            variant="compact"
-            source="migrations"
-            hideIfDismissed
-          />
-        </div>
-      )}
+        {canGenerate && baseline && (
+          <div className="flex items-center gap-2 px-4 py-2 text-xs bg-muted/40 text-muted-foreground border-b border-border">
+            <Camera className="w-3.5 h-3.5 shrink-0" />
+            {t('migrations.baselineInfo', {
+              time: new Date(baseline.capturedAt).toLocaleTimeString(),
+              count: Object.keys(baseline.tables).length,
+            })}
+          </div>
+        )}
 
-      {canGenerate && baseline && (
-        <div className="flex items-center gap-2 px-4 py-2 text-xs bg-muted/40 text-muted-foreground border-b border-border">
-          <Camera className="w-3.5 h-3.5 shrink-0" />
-          {t('migrations.baselineInfo', {
-            time: new Date(baseline.capturedAt).toLocaleTimeString(),
-            count: Object.keys(baseline.tables).length,
-          })}
-        </div>
-      )}
+        {sessionId && driverSupported && requiresTargetDatabase && !targetDatabase && (
+          <div className="flex items-center gap-2 px-4 py-2 text-xs bg-destructive/10 text-destructive border-b border-border">
+            <Database className="w-3.5 h-3.5 shrink-0" />
+            {t('migrations.databaseRequired')}
+          </div>
+        )}
 
-      {canApply && NON_TX_DDL_DRIVERS.has(driver ?? '') && (
-        <div className="flex items-center gap-2 px-4 py-2 text-xs bg-amber-500/10 text-amber-700 dark:text-amber-400 border-b border-border">
-          <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-          {t('migrations.mysqlCaveat')}
-        </div>
-      )}
+        {sessionId &&
+          driverSupported &&
+          !readOnly &&
+          mysqlWarningVisible &&
+          NON_TX_DDL_DRIVERS.has(driver ?? '') && (
+            <div className="flex items-center gap-2 px-4 py-2 text-xs bg-amber-500/10 text-amber-700 dark:text-amber-400 border-b border-border">
+              <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+              <span className="flex-1">{t('migrations.mysqlCaveat')}</span>
+              <button
+                type="button"
+                onClick={() => setMysqlWarningVisible(false)}
+                aria-label={t('migrations.close')}
+                title={t('migrations.close')}
+                className="rounded-md p-1 text-amber-700/70 transition-colors hover:bg-amber-500/15 hover:text-amber-800 dark:text-amber-400/70 dark:hover:text-amber-300"
+              >
+                <X className="size-3.5" />
+              </button>
+            </div>
+          )}
 
-      <div className="flex-1 min-h-0 flex">
-        <div className="w-80 shrink-0 border-r border-border overflow-y-auto">
+        <div className="flex-1 min-h-0 flex">
           {list.length === 0 ? (
-            <div className="p-6 text-center text-sm text-muted-foreground">
-              {t('migrations.empty')}
-            </div>
-          ) : (
-            list.map(m => {
-              const status = statusByVersion[m.version];
-              const direction = nextMigrationDirection(status);
-              const rollingBack = direction === 'down';
-              const busy = applying === m.filename;
-              return (
-                <div
-                  key={m.filename}
-                  className={cn(
-                    'flex items-center border-b border-border/50',
-                    selected === m.filename && 'bg-muted'
-                  )}
-                >
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSelected(m.filename);
-                      setDriftReport(null);
+            <div className="flex-1 flex items-center justify-center p-8">
+              <div className="w-full max-w-lg rounded-xl border border-border bg-muted/20 p-8 text-center shadow-sm">
+                <div className="mx-auto mb-4 flex size-11 items-center justify-center rounded-xl bg-accent/10 text-accent">
+                  <FileCode className="size-5" />
+                </div>
+                <h3 className="text-base font-semibold">{t('migrations.empty')}</h3>
+                <p className="mt-1 text-sm text-muted-foreground">{t('migrations.emptyHint')}</p>
+                <div className="mx-auto mt-5 flex max-w-md items-center gap-2">
+                  <Input
+                    value={newName}
+                    onChange={event => setNewName(event.target.value)}
+                    onKeyDown={event => {
+                      if (event.key === 'Enter') void handleCreate();
                     }}
-                    className="flex-1 min-w-0 text-left px-3 py-2 flex items-center gap-2 hover:bg-muted/50"
+                    placeholder={t('migrations.newPlaceholder')}
+                    autoFocus
+                  />
+                  <Button
+                    onClick={() => void handleCreate()}
+                    disabled={creating || !newName.trim()}
+                    className="shrink-0"
                   >
-                    <span className="font-mono text-xs text-muted-foreground">{m.version}</span>
-                    <span className="flex-1 min-w-0 truncate text-sm">{m.name}</span>
-                    {status && <StatusBadge status={status.status} />}
-                    {status?.checksum_mismatch && (
-                      <span title={t('migrations.checksumMismatch')} className="shrink-0">
-                        <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
-                      </span>
+                    {creating ? (
+                      <Loader2 className="size-4 animate-spin" />
+                    ) : (
+                      <Plus className="size-4" />
                     )}
-                    {(status?.duplicate_version || status?.malformed) && (
-                      <span
-                        title={
-                          status.duplicate_version
-                            ? t('migrations.duplicateVersion')
-                            : t('migrations.malformed')
-                        }
-                        className="shrink-0"
-                      >
-                        <AlertTriangle className="w-3.5 h-3.5 text-destructive" />
-                      </span>
-                    )}
-                  </button>
-                  {canApply && (
-                    <button
-                      type="button"
-                      onClick={() => void handleApply(m.filename, direction)}
-                      disabled={applying !== null}
-                      title={rollingBack ? t('migrations.rollback') : t('migrations.apply')}
-                      className="px-2 py-2 text-muted-foreground hover:text-foreground disabled:opacity-50"
-                    >
-                      {busy ? (
-                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      ) : rollingBack ? (
-                        <Undo2 className="w-3.5 h-3.5" />
-                      ) : (
-                        <Play className="w-3.5 h-3.5" />
-                      )}
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => void handleDelete(m.filename)}
-                    title={t('migrations.delete')}
-                    className="px-2 py-2 text-muted-foreground hover:text-destructive"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
+                    {t('migrations.create')}
+                  </Button>
                 </div>
-              );
-            })
-          )}
-        </div>
-
-        <div className="flex-1 min-w-0 overflow-y-auto p-4">
-          {generateWarnings.length > 0 && (
-            <div className="mb-3">
-              <WarningsBanner warnings={generateWarnings} defaultOpen />
-            </div>
-          )}
-          {driftReport ? (
-            <div className="flex flex-col gap-3">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-semibold">{t('migrations.driftTitle')}</h3>
-                <button
-                  type="button"
-                  onClick={() => setDriftReport(null)}
-                  title={t('migrations.close')}
-                  className="text-muted-foreground hover:text-foreground"
-                >
-                  <X className="w-4 h-4" />
-                </button>
               </div>
-              <SchemaDeltaView delta={driftReport} />
-            </div>
-          ) : draft == null ? (
-            <div className="h-full flex items-center justify-center text-sm text-muted-foreground">
-              {t('migrations.selectHint')}
             </div>
           ) : (
-            <div className="flex flex-col gap-4">
-              <div className="flex items-center justify-end gap-2">
-                {isDirty && (
-                  <span className="text-xs text-muted-foreground">
-                    {t('migrations.unsavedChanges')}
-                  </span>
-                )}
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => void handleSave()}
-                  disabled={!isDirty || saving}
-                >
-                  {saving ? (
-                    <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
-                  ) : (
-                    <Save className="w-3.5 h-3.5 mr-1.5" />
-                  )}
-                  {t('common.save')}
-                </Button>
+            <>
+              <div className="w-80 shrink-0 border-r border-border overflow-y-auto p-2">
+                {list.map(m => {
+                  const status = statusByVersion[m.version];
+                  const direction = nextMigrationDirection(status);
+                  const rollingBack = direction === 'down';
+                  const busy = applying === m.filename;
+                  return (
+                    <div
+                      key={m.filename}
+                      className={cn(
+                        'flex items-center rounded-lg border border-transparent',
+                        selected === m.filename ? 'border-border bg-muted' : 'hover:bg-muted/50'
+                      )}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelected(m.filename);
+                          setDriftReport(null);
+                        }}
+                        className="flex-1 min-w-0 text-left px-3 py-2 flex items-center gap-2 rounded-l-lg"
+                      >
+                        <span className="font-mono text-xs text-muted-foreground">{m.version}</span>
+                        <span className="flex-1 min-w-0 truncate text-sm">{m.name}</span>
+                        {status && <StatusBadge status={status.status} />}
+                        {status?.checksum_mismatch && (
+                          <span title={t('migrations.checksumMismatch')} className="shrink-0">
+                            <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
+                          </span>
+                        )}
+                        {(status?.duplicate_version || status?.malformed) && (
+                          <span
+                            title={
+                              status.duplicate_version
+                                ? t('migrations.duplicateVersion')
+                                : t('migrations.malformed')
+                            }
+                            className="shrink-0"
+                          >
+                            <AlertTriangle className="w-3.5 h-3.5 text-destructive" />
+                          </span>
+                        )}
+                      </button>
+                      {canApply && (
+                        <button
+                          type="button"
+                          onClick={() => void handleApply(m.filename, direction)}
+                          disabled={applying !== null || (selected === m.filename && isDirty)}
+                          title={rollingBack ? t('migrations.rollback') : t('migrations.apply')}
+                          className="px-2 py-2 rounded-md text-muted-foreground hover:bg-background hover:text-foreground disabled:opacity-50"
+                        >
+                          {busy ? (
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          ) : rollingBack ? (
+                            <Undo2 className="w-3.5 h-3.5" />
+                          ) : (
+                            <Play className="w-3.5 h-3.5" />
+                          )}
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => void handleDelete(m.filename)}
+                        title={t('migrations.delete')}
+                        className="px-2 py-2 rounded-md text-muted-foreground hover:bg-background hover:text-destructive"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  );
+                })}
               </div>
-              <section>
-                <div className="text-xs font-semibold uppercase text-muted-foreground mb-1">
-                  {t('migrations.upLabel')}
-                </div>
-                {/* `readOnly` guards the connection, not the workspace: editing a
+
+              <div className="flex-1 min-w-0 overflow-y-auto p-4">
+                {generateWarnings.length > 0 && (
+                  <div className="mb-3">
+                    <WarningsBanner warnings={generateWarnings} defaultOpen />
+                  </div>
+                )}
+                {driftReport ? (
+                  <div className="flex flex-col gap-3">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-sm font-semibold">{t('migrations.driftTitle')}</h3>
+                      <button
+                        type="button"
+                        onClick={() => setDriftReport(null)}
+                        title={t('migrations.close')}
+                        className="text-muted-foreground hover:text-foreground"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                    <SchemaDeltaView delta={driftReport} />
+                  </div>
+                ) : draft == null ? (
+                  <div className="h-full flex items-center justify-center text-sm text-muted-foreground">
+                    {t('migrations.selectHint')}
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-4">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="min-w-0">
+                        <h3 className="truncate text-sm font-semibold">
+                          {selectedMigration?.name}
+                        </h3>
+                        <p className="truncate font-mono text-xs text-muted-foreground">
+                          {selectedMigration?.filename}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {isDirty && (
+                          <span className="text-xs text-muted-foreground">
+                            {t('migrations.unsavedChanges')}
+                          </span>
+                        )}
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => void handleSave()}
+                          disabled={!isDirty || saving}
+                        >
+                          {saving ? (
+                            <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+                          ) : (
+                            <Save className="w-3.5 h-3.5 mr-1.5" />
+                          )}
+                          {t('common.save')}
+                        </Button>
+                        <Button
+                          size="sm"
+                          onClick={() => {
+                            if (selected) void handleApply(selected, selectedDirection);
+                          }}
+                          disabled={!canApply || !selected || applying !== null || isDirty}
+                          title={isDirty ? t('migrations.saveBeforeApply') : undefined}
+                        >
+                          {applying === selected ? (
+                            <Loader2 className="size-3.5 animate-spin" />
+                          ) : selectedDirection === 'down' ? (
+                            <Undo2 className="size-3.5" />
+                          ) : (
+                            <Play className="size-3.5" />
+                          )}
+                          {selectedDirection === 'down'
+                            ? t('migrations.rollback')
+                            : t('migrations.apply')}
+                        </Button>
+                      </div>
+                    </div>
+                    <section>
+                      <div className="text-xs font-semibold uppercase text-muted-foreground mb-1">
+                        {t('migrations.upLabel')}
+                      </div>
+                      {/* `readOnly` guards the connection, not the workspace: editing a
                     local migration file writes no SQL anywhere. */}
-                <div className="h-56 rounded border border-border overflow-hidden">
-                  <SQLEditor
-                    value={draft.up}
-                    onChange={up => setDraft(d => (d ? { ...d, up } : d))}
-                    dialect={driver as Driver}
-                    sessionId={sessionId}
-                    connectionDatabase={database}
-                    placeholder={t('migrations.upPlaceholder')}
-                  />
-                </div>
-              </section>
-              <section>
-                <div className="text-xs font-semibold uppercase text-muted-foreground mb-1">
-                  {t('migrations.downLabel')}
-                </div>
-                <div className="h-56 rounded border border-border overflow-hidden">
-                  <SQLEditor
-                    value={draft.down}
-                    onChange={down => setDraft(d => (d ? { ...d, down } : d))}
-                    dialect={driver as Driver}
-                    sessionId={sessionId}
-                    connectionDatabase={database}
-                    placeholder={t('migrations.downPlaceholder')}
-                  />
-                </div>
-              </section>
-            </div>
+                      <div className="h-56 rounded-lg border border-border overflow-hidden">
+                        <SQLEditor
+                          value={draft.up}
+                          onChange={up => setDraft(d => (d ? { ...d, up } : d))}
+                          dialect={driver as Driver}
+                          sessionId={sessionId}
+                          connectionDatabase={targetDatabase || undefined}
+                          placeholder={t('migrations.upPlaceholder')}
+                        />
+                      </div>
+                    </section>
+                    <section>
+                      <div className="text-xs font-semibold uppercase text-muted-foreground mb-1">
+                        {t('migrations.downLabel')}
+                      </div>
+                      <div className="h-56 rounded-lg border border-border overflow-hidden">
+                        <SQLEditor
+                          value={draft.down}
+                          onChange={down => setDraft(d => (d ? { ...d, down } : d))}
+                          dialect={driver as Driver}
+                          sessionId={sessionId}
+                          connectionDatabase={targetDatabase || undefined}
+                          placeholder={t('migrations.downPlaceholder')}
+                        />
+                      </div>
+                    </section>
+                  </div>
+                )}
+              </div>
+            </>
           )}
         </div>
       </div>

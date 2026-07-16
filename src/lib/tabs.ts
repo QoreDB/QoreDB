@@ -168,11 +168,12 @@ export function createPluginOutputTab(title: string): OpenTab {
   };
 }
 
-export function createMigrationsTab(): OpenTab {
+export function createMigrationsTab(namespace?: Namespace): OpenTab {
   return {
     id: generateTabId(),
     type: 'migrations',
     title: 'Migrations',
+    namespace,
   };
 }
 

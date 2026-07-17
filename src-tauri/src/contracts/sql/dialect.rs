@@ -235,9 +235,11 @@ mod tests {
     #[test]
     fn regex_predicate_unsupported_on_sqlite_and_mssql() {
         assert!(Dialect::Sqlite.regex_predicate("c", "^a$", false).is_none());
-        assert!(Dialect::SqlServer
-            .regex_predicate("c", "^a$", false)
-            .is_none());
+        assert!(
+            Dialect::SqlServer
+                .regex_predicate("c", "^a$", false)
+                .is_none()
+        );
     }
 
     #[test]

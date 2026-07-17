@@ -5,7 +5,7 @@
 use std::borrow::Cow;
 
 use crate::built::BuiltQuery;
-use crate::compiler::{sql::SqlCompiler, QueryCompiler};
+use crate::compiler::{QueryCompiler, sql::SqlCompiler};
 use crate::dialect::Dialect;
 use crate::error::QueryResult;
 use crate::expr::Expr;

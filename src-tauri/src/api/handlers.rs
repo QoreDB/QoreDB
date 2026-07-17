@@ -24,13 +24,13 @@ use std::sync::{Arc, OnceLock};
 use std::time::Instant;
 
 use axum::{
+    Json,
     extract::{Path, Query, State},
     http::{HeaderMap, StatusCode},
     response::{IntoResponse, Response},
-    Json,
 };
 use serde::Serialize;
-use serde_json::{json, Value as JsonValue};
+use serde_json::{Value as JsonValue, json};
 use tokio::sync::Mutex;
 
 use qore_core::types::{QueryId, SessionId};
@@ -720,9 +720,11 @@ mod tests {
         .unwrap_err();
         assert!(default_error.contains("must be an integer"));
 
-        assert!(validate_endpoint_definition("postgres", "SELECT 1", &[], 0)
-            .unwrap_err()
-            .contains("between 1 and 10000"));
+        assert!(
+            validate_endpoint_definition("postgres", "SELECT 1", &[], 0)
+                .unwrap_err()
+                .contains("between 1 and 10000")
+        );
         assert!(
             validate_endpoint_definition("postgres", "SELECT 1", &[], 10_001)
                 .unwrap_err()

@@ -354,11 +354,7 @@ fn default_known_hosts_path() -> String {
 }
 
 fn null_device_path() -> &'static str {
-    if cfg!(windows) {
-        "NUL"
-    } else {
-        "/dev/null"
-    }
+    if cfg!(windows) { "NUL" } else { "/dev/null" }
 }
 
 /// Validate proxy_jump format: [user@]host[:port], no spaces or shell-dangerous chars.
@@ -459,9 +455,10 @@ mod tests {
 
         assert!(args.contains(&"-N".to_string()));
         assert!(args.iter().any(|a| a == "StrictHostKeyChecking=yes"));
-        assert!(args
-            .iter()
-            .any(|a| a == "UserKnownHostsFile=/tmp/qoredb_known_hosts"));
+        assert!(
+            args.iter()
+                .any(|a| a == "UserKnownHostsFile=/tmp/qoredb_known_hosts")
+        );
         assert!(args.iter().any(|a| a == "-J"));
         assert!(args.iter().any(|a| a == "jumpuser@jump.example.com:22"));
         assert!(args.iter().any(|a| a == "-L"));

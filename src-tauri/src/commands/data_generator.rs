@@ -11,8 +11,8 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use rand::seq::SliceRandom;
 use rand::Rng;
+use rand::seq::SliceRandom;
 use tauri::State;
 use uuid::Uuid;
 
@@ -293,7 +293,7 @@ fn generate_value(col: &TableColumn, index: usize, rng: &mut impl Rng) -> Value 
         return Value::Text(Uuid::new_v4().to_string());
     }
     if dt.contains("bool") {
-        return Value::Bool(rng.gen());
+        return Value::Bool(rng.r#gen());
     }
     if dt.contains("json") {
         return Value::Json(serde_json::json!({ "n": index + 1 }));

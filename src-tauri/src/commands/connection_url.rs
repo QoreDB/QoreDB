@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use tracing::instrument;
 
-use crate::engine::connection_url::{parse_connection_url, ParseErrorCode};
+use crate::engine::connection_url::{ParseErrorCode, parse_connection_url};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ParseConnectionUrlResponse {

@@ -2,11 +2,11 @@
 
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use argon2::password_hash::{
-    rand_core::OsRng, PasswordHash, PasswordHasher, PasswordVerifier, SaltString,
-};
 use argon2::Argon2;
-use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
+use argon2::password_hash::{
+    PasswordHash, PasswordHasher, PasswordVerifier, SaltString, rand_core::OsRng,
+};
+use jsonwebtoken::{DecodingKey, EncodingKey, Header, Validation, decode, encode};
 
 use crate::controlplane::model::Claims;
 

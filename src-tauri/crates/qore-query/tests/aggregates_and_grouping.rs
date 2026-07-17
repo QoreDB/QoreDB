@@ -178,9 +178,10 @@ fn multiple_having_calls_combine_with_and() {
         .having(sum(col("total")).ge(1000i64))
         .build(pg())
         .unwrap();
-    assert!(q
-        .sql
-        .contains("HAVING ((COUNT(*) > $1) AND (SUM(\"total\") >= $2))"));
+    assert!(
+        q.sql
+            .contains("HAVING ((COUNT(*) > $1) AND (SUM(\"total\") >= $2))")
+    );
     assert_eq!(q.params.len(), 2);
 }
 

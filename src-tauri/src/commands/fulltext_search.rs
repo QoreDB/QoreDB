@@ -19,11 +19,11 @@ use tokio::time::timeout;
 use tracing::{debug, instrument, warn};
 
 use crate::engine::fulltext_strategy::{
-    get_capability_cache, get_search_strategy, FulltextIndexInfo, SearchMethod, TableSearchOptions,
+    FulltextIndexInfo, SearchMethod, TableSearchOptions, get_capability_cache, get_search_strategy,
 };
 use crate::engine::types::{CollectionListOptions, CollectionType, Namespace, QueryId, Value};
 
-use super::{parse_session_id, SharedStateExt};
+use super::{SharedStateExt, parse_session_id};
 
 /// Maximum number of tables to search in parallel
 const MAX_PARALLEL_TABLES: usize = 5;

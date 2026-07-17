@@ -31,21 +31,11 @@ fn default_query_rate_limit() -> bool {
     true
 }
 
-fn env_bool_opt(key: &str) -> Option<bool> {
-    std::env::var(key).ok().map(|value| {
-        matches!(
-            value.trim().to_ascii_lowercase().as_str(),
-            "1" | "true" | "yes" | "on"
-        )
-    })
-}
-
-fn env_u64_opt(key: &str) -> Option<u64> {
-    std::env::var(key).ok().and_then(|v| v.trim().parse().ok())
-}
-
-fn env_u32_opt(key: &str) -> Option<u32> {
-    std::env::var(key).ok().and_then(|v| v.trim().parse().ok())
+fn parse_env_bool(value: &str) -> bool {
+    matches!(
+        value.trim().to_ascii_lowercase().as_str(),
+        "1" | "true" | "yes" | "on"
+    )
 }
 
 fn config_path() -> PathBuf {
@@ -71,25 +61,38 @@ impl SafetyPolicy {
         }
     }
 
-    fn apply_env_overrides(&mut self) {
-        if let Some(value) = env_bool_opt("QOREDB_PROD_REQUIRE_CONFIRMATION") {
+    fn apply_env_overrides_from(&mut self, get: impl Fn(&str) -> Option<String>) {
+        if let Some(value) = get("QOREDB_PROD_REQUIRE_CONFIRMATION") {
+            let value = parse_env_bool(&value);
             self.prod_require_confirmation = value;
         }
-        if let Some(value) = env_bool_opt("QOREDB_PROD_BLOCK_DANGEROUS") {
+        if let Some(value) = get("QOREDB_PROD_BLOCK_DANGEROUS") {
+            let value = parse_env_bool(&value);
             self.prod_block_dangerous_sql = value;
         }
-        if let Some(value) = env_u64_opt("QOREDB_MAX_QUERY_DURATION_MS") {
+        if let Some(value) =
+            get("QOREDB_MAX_QUERY_DURATION_MS").and_then(|value| value.trim().parse().ok())
+        {
             self.max_query_duration_ms = Some(value);
         }
-        if let Some(value) = env_u64_opt("QOREDB_MAX_RESULT_ROWS") {
+        if let Some(value) =
+            get("QOREDB_MAX_RESULT_ROWS").and_then(|value| value.trim().parse().ok())
+        {
             self.max_result_rows = Some(value);
         }
-        if let Some(value) = env_u32_opt("QOREDB_MAX_CONCURRENT_QUERIES") {
+        if let Some(value) =
+            get("QOREDB_MAX_CONCURRENT_QUERIES").and_then(|value| value.trim().parse().ok())
+        {
             self.max_concurrent_queries = Some(value);
         }
-        if let Some(value) = env_bool_opt("QOREDB_QUERY_RATE_LIMIT") {
+        if let Some(value) = get("QOREDB_QUERY_RATE_LIMIT") {
+            let value = parse_env_bool(&value);
             self.query_rate_limit_enabled = value;
         }
+    }
+
+    fn apply_env_overrides(&mut self) {
+        self.apply_env_overrides_from(|key| std::env::var(key).ok());
     }
 
     pub fn load() -> Self {
@@ -122,9 +125,7 @@ impl Default for SafetyPolicy {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::Mutex;
-
-    static ENV_LOCK: Mutex<()> = Mutex::new(());
+    use std::collections::HashMap;
 
     #[test]
     fn test_defaults() {
@@ -139,58 +140,35 @@ mod tests {
 
     #[test]
     fn test_env_overrides() {
-        let _guard = ENV_LOCK.lock().unwrap();
-
-        let set_env = |key: &str, val: Option<&str>| {
-            if let Some(v) = val {
-                std::env::set_var(key, v);
-            } else {
-                std::env::remove_var(key);
-            }
-        };
-
-        let orig_confirm = std::env::var("QOREDB_PROD_REQUIRE_CONFIRMATION").ok();
-        let orig_block = std::env::var("QOREDB_PROD_BLOCK_DANGEROUS").ok();
-
-        set_env("QOREDB_PROD_REQUIRE_CONFIRMATION", Some("true"));
-        set_env("QOREDB_PROD_BLOCK_DANGEROUS", Some("1"));
+        let enabled = HashMap::from([
+            ("QOREDB_PROD_REQUIRE_CONFIRMATION", "true"),
+            ("QOREDB_PROD_BLOCK_DANGEROUS", "1"),
+        ]);
 
         let mut policy = SafetyPolicy::defaults();
-        policy.apply_env_overrides();
+        policy.apply_env_overrides_from(|key| enabled.get(key).map(ToString::to_string));
 
         assert!(policy.prod_require_confirmation);
         assert!(policy.prod_block_dangerous_sql);
 
-        set_env("QOREDB_PROD_REQUIRE_CONFIRMATION", Some("false"));
-        set_env("QOREDB_PROD_BLOCK_DANGEROUS", Some("off"));
+        let disabled = HashMap::from([
+            ("QOREDB_PROD_REQUIRE_CONFIRMATION", "false"),
+            ("QOREDB_PROD_BLOCK_DANGEROUS", "off"),
+        ]);
 
         let mut policy = SafetyPolicy::defaults();
-        policy.apply_env_overrides();
+        policy.apply_env_overrides_from(|key| disabled.get(key).map(ToString::to_string));
 
         assert!(!policy.prod_require_confirmation);
         assert!(!policy.prod_block_dangerous_sql);
-
-        set_env("QOREDB_PROD_REQUIRE_CONFIRMATION", orig_confirm.as_deref());
-        set_env("QOREDB_PROD_BLOCK_DANGEROUS", orig_block.as_deref());
     }
 
     #[test]
     fn test_env_bool_parsing() {
-        let _guard = ENV_LOCK.lock().unwrap();
-
-        std::env::set_var("TEST_BOOL_TRUE", "true");
-        assert_eq!(env_bool_opt("TEST_BOOL_TRUE"), Some(true));
-
-        std::env::set_var("TEST_BOOL_1", "1");
-        assert_eq!(env_bool_opt("TEST_BOOL_1"), Some(true));
-
-        std::env::set_var("TEST_BOOL_FALSE", "false");
-        assert_eq!(env_bool_opt("TEST_BOOL_FALSE"), Some(false));
-
-        std::env::remove_var("TEST_BOOL_TRUE");
-        std::env::remove_var("TEST_BOOL_1");
-        std::env::remove_var("TEST_BOOL_FALSE");
-
-        assert_eq!(env_bool_opt("NON_EXISTENT"), None);
+        assert!(parse_env_bool("true"));
+        assert!(parse_env_bool("1"));
+        assert!(parse_env_bool(" YES "));
+        assert!(!parse_env_bool("false"));
+        assert!(!parse_env_bool("off"));
     }
 }

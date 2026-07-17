@@ -8,7 +8,7 @@
 use std::sync::Arc;
 use std::time::Instant;
 
-use tokio::time::{timeout, Duration};
+use tokio::time::{Duration, timeout};
 use tracing::instrument;
 
 use crate::engine::error::{EngineError, EngineResult};

@@ -72,5 +72,5 @@ pub use error::{QueryError, QueryResult};
 pub use expr::{
     avg, cast, coalesce, count, count_all, count_distinct, exists, max, min, not_exists, sum,
 };
-pub use ident::{col, tcol, Column, IntoOperand};
+pub use ident::{Column, IntoOperand, col, tcol};
 pub use sql_type::SqlType;

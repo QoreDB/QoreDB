@@ -13,7 +13,7 @@ use std::time::Duration;
 
 use qore_core::error::{EngineError, EngineResult};
 use qore_core::types::ConnectionConfig;
-use reqwest::header::{HeaderMap, HeaderValue, CONTENT_TYPE};
+use reqwest::header::{CONTENT_TYPE, HeaderMap, HeaderValue};
 use reqwest::{Client as HttpClient, Url};
 use uuid::Uuid;
 
@@ -55,11 +55,7 @@ impl ClickHouseClient {
             config.host.as_str()
         };
         let port = if config.port == 0 {
-            if config.ssl {
-                8443
-            } else {
-                8123
-            }
+            if config.ssl { 8443 } else { 8123 }
         } else {
             config.port
         };

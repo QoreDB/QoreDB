@@ -5,7 +5,7 @@
 
 use crate::sql_type::SqlType;
 
-use super::{write_numeric_placeholder, write_quoted_symmetric, DialectOps};
+use super::{DialectOps, write_numeric_placeholder, write_quoted_symmetric};
 
 pub(crate) struct PostgresOps;
 

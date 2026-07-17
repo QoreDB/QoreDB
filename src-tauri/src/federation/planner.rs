@@ -12,7 +12,7 @@ use crate::engine::sql_generator::SqlDialect;
 
 use super::parser::{build_dotted_name, parse_federation_refs, rewrite_query};
 use super::types::{
-    ConnectionAliasMap, FederatedTableRef, FederationPlan, SourceFetchPlan, DEFAULT_ROW_LIMIT,
+    ConnectionAliasMap, DEFAULT_ROW_LIMIT, FederatedTableRef, FederationPlan, SourceFetchPlan,
 };
 
 /// Builds a `FederationPlan` from a user query: extracts federated refs,

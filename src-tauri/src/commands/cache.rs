@@ -6,8 +6,8 @@ use std::sync::Arc;
 
 use tauri::State;
 
-use crate::cache::{CacheConfig, CacheStats};
 use crate::SharedState;
+use crate::cache::{CacheConfig, CacheStats};
 
 #[tauri::command]
 pub async fn get_cache_config(state: State<'_, SharedState>) -> Result<CacheConfig, String> {

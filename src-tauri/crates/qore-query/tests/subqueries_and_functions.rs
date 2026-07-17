@@ -326,9 +326,10 @@ fn realistic_query_with_subquery_join_cast_coalesce_and_alias() {
     // Smoke-assert the structural pieces — per-piece snapshot tests above
     // cover the exact rendering.
     assert!(q.sql.contains(r#""id" AS "user_id""#));
-    assert!(q
-        .sql
-        .contains(r#"COALESCE("u"."nickname", "u"."email") AS "display""#));
+    assert!(
+        q.sql
+            .contains(r#"COALESCE("u"."nickname", "u"."email") AS "display""#)
+    );
     assert!(q.sql.contains("INNER JOIN"));
     assert!(q.sql.contains(r#"IN (SELECT "id" FROM "active_users")"#));
     // `big_buyers` is built but unused — shows builder values can be

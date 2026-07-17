@@ -209,9 +209,10 @@ mod tests {
         };
         let sql = build_rule_sql(&rule, &target(), Dialect::Postgres, 5).unwrap();
         assert!(sql.metric_query.contains("\"public\".\"customers\""));
-        assert!(sql
-            .metric_query
-            .contains("ref.\"id\" = src.\"customer_id\""));
+        assert!(
+            sql.metric_query
+                .contains("ref.\"id\" = src.\"customer_id\"")
+        );
     }
 
     #[test]

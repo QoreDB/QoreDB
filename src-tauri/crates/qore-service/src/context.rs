@@ -19,8 +19,8 @@ use crate::interceptor::InterceptorPipeline;
 use crate::license::LicenseManager;
 use crate::policy::SafetyPolicy;
 use crate::ratelimit::QueryRateLimiter;
-use crate::vault::backend::default_provider;
 use crate::vault::VaultLock;
+use crate::vault::backend::default_provider;
 use crate::virtual_relations::VirtualRelationStore;
 
 pub struct ServiceContext {

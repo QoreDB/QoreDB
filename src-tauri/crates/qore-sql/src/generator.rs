@@ -426,9 +426,7 @@ pub fn generate_migration_script(driver_id: &str, changes: &[SandboxChangeDto]) 
                 }
             }
             SandboxChangeType::Update => {
-                if let (Some(ref pk), Some(ref new_values)) =
-                    (&change.primary_key, &change.new_values)
-                {
+                if let (Some(pk), Some(new_values)) = (&change.primary_key, &change.new_values) {
                     generate_update(
                         dialect,
                         &change.namespace,

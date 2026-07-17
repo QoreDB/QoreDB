@@ -73,7 +73,7 @@ Strong success criteria let you iterate autonomously. Weak criteria ("make it wo
 | Layer    | Technologies                                         |
 | -------- | ---------------------------------------------------- |
 | Frontend | React 19, TypeScript, Vite 7, Tailwind 4, CodeMirror |
-| Backend  | Rust (edition 2021), Tauri 2, SQLx, tokio            |
+| Backend  | Rust (edition 2024), Tauri 2, SQLx, tokio            |
 | Database | PostgreSQL, MySQL, MongoDB, SQLite                   |
 
 ## Project structure

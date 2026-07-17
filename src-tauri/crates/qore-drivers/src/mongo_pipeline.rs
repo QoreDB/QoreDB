@@ -174,7 +174,9 @@ pub enum PipelineError {
 impl PipelineError {
     pub fn user_message(&self) -> String {
         match self {
-            PipelineError::NotAnArray => "pipeline must be a JSON array of stage objects".to_string(),
+            PipelineError::NotAnArray => {
+                "pipeline must be a JSON array of stage objects".to_string()
+            }
             PipelineError::TooManyStages { got, max } => {
                 format!("pipeline has {got} stages, maximum allowed is {max}")
             }
@@ -187,9 +189,9 @@ impl PipelineError {
             PipelineError::MissingOperatorPrefix { index, key } => format!(
                 "stage {index} key `{key}` is missing the `$` prefix required for aggregation operators"
             ),
-            PipelineError::UnknownOperator { index, operator } => format!(
-                "stage {index} uses unknown aggregation operator `{operator}`"
-            ),
+            PipelineError::UnknownOperator { index, operator } => {
+                format!("stage {index} uses unknown aggregation operator `{operator}`")
+            }
             PipelineError::ForbiddenOperator { index, operator } => match index {
                 Some(i) => format!(
                     "stage {i} uses forbidden operator `{operator}` (executes arbitrary server-side code)"

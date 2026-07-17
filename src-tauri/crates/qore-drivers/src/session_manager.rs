@@ -12,15 +12,15 @@ use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
 use tokio::sync::RwLock;
-use tokio::time::{timeout, Duration};
+use tokio::time::{Duration, timeout};
 use tracing::instrument;
 
 use crate::proxy::ProxyTunnel;
 use crate::ssh_tunnel::SshTunnel;
+use qore_core::DriverRegistry;
 use qore_core::error::{EngineError, EngineResult};
 use qore_core::traits::DataEngine;
 use qore_core::types::{ConnectionConfig, SessionId, SshHostKeyPolicy};
-use qore_core::DriverRegistry;
 
 /// Rejects an insecure SSH host-key policy (`StrictHostKeyChecking=no`) when the
 /// connection targets a production environment.

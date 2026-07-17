@@ -4,7 +4,7 @@ use std::time::Duration;
 
 use async_trait::async_trait;
 use reqwest::Client;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use tokio::sync::mpsc;
 use tracing::debug;
 
@@ -790,11 +790,7 @@ fn collect_code_blocks(response: &str) -> Vec<String> {
                 let is_lang_tag = !first_line.is_empty()
                     && first_line.len() <= 16
                     && first_line.chars().all(|c| c.is_ascii_alphanumeric());
-                if is_lang_tag {
-                    &raw[nl + 1..]
-                } else {
-                    raw
-                }
+                if is_lang_tag { &raw[nl + 1..] } else { raw }
             }
             None => raw,
         };

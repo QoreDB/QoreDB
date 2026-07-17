@@ -1750,7 +1750,7 @@ impl DataEngine for SqlServerDriver {
                     None => {
                         return Err(EngineError::execution_error(
                             "Query not found or already completed".to_string(),
-                        ))
+                        ));
                     }
                 }
             } else {

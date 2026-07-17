@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use base64::{engine::general_purpose::STANDARD, Engine as _};
+use base64::{Engine as _, engine::general_purpose::STANDARD};
 use tokio::fs::File;
 use tokio::io::BufWriter;
 
 use crate::engine::types::{ColumnInfo, Row, Value};
-use crate::export::writers::counting::CountingWriter;
 use crate::export::writers::ExportWriter;
+use crate::export::writers::counting::CountingWriter;
 
 pub struct JsonWriter {
     writer: CountingWriter,

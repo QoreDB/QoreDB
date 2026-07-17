@@ -225,7 +225,7 @@ where
 /// ```
 #[macro_export]
 macro_rules! coalesce {
-    ($($arg:expr),+ $(,)?) => {
+    ($($arg:expr_2021),+ $(,)?) => {
         $crate::expr::Expr::Coalesce(vec![
             $( $crate::ident::IntoOperand::into_operand($arg) ),+
         ])

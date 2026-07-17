@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: BUSL-1.1
 
-use axum::extract::State;
 use axum::Json;
+use axum::extract::State;
 use serde::Deserialize;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 use crate::controlplane::auth::{issue_jwt, verify_password};
 use crate::error::ApiError;

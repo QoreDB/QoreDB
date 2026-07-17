@@ -13,14 +13,14 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use futures::StreamExt;
+use sqlx::Row;
 use sqlx::pool::PoolConnection;
 use sqlx::postgres::{PgPool, PgPoolOptions, PgRow, Postgres};
-use sqlx::Row;
 use tokio::sync::{Mutex, RwLock};
 
 use crate::drivers::postgres_utils::{
-    bind_param, build_decoders, collect_enum_type_oids, columns_and_rows,
-    convert_row_with_decoders, get_column_info, load_enum_labels, EnumLabelMap, PgDecoder,
+    EnumLabelMap, PgDecoder, bind_param, build_decoders, collect_enum_type_oids, columns_and_rows,
+    convert_row_with_decoders, get_column_info, load_enum_labels,
 };
 use qore_core::error::{EngineError, EngineResult};
 use qore_core::traits::{StreamEvent, StreamSender};
@@ -2204,7 +2204,7 @@ fn decode_trigger_events(tg_type: i32) -> Vec<TriggerEvent> {
 // Connection string builder
 
 pub fn build_pg_connection_string(config: &ConnectionConfig, default_db: &str) -> String {
-    use percent_encoding::{utf8_percent_encode, NON_ALPHANUMERIC};
+    use percent_encoding::{NON_ALPHANUMERIC, utf8_percent_encode};
 
     let db = config.database.as_deref().unwrap_or(default_db);
 

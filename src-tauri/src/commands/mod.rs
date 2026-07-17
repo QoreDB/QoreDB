@@ -48,8 +48,8 @@ use std::sync::Arc;
 
 use tauri::State;
 
-use crate::engine::types::SessionId;
 use crate::engine::SessionManager;
+use crate::engine::types::SessionId;
 
 /// Parse l'identifiant de session fourni par le frontend en [`SessionId`].
 /// Helper unique partagé par tous les modules de commandes (cf. dédup D1).

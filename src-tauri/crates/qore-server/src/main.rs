@@ -14,7 +14,7 @@ use axum::extract::State;
 use axum::http::StatusCode;
 use axum::response::{Html, IntoResponse, Response};
 use axum::routing::get;
-use axum::{middleware, Router};
+use axum::{Router, middleware};
 use axum_server::tls_rustls::RustlsConfig;
 use tokio::net::TcpListener;
 use tower_http::cors::CorsLayer;

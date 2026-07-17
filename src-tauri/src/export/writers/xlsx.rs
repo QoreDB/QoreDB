@@ -61,7 +61,7 @@ impl XlsxWriter {
                     .map_err(|e| e.to_string())?;
             }
             Value::Bytes(b) => {
-                use base64::{engine::general_purpose::STANDARD, Engine as _};
+                use base64::{Engine as _, engine::general_purpose::STANDARD};
                 worksheet
                     .write_string(row, col, STANDARD.encode(b))
                     .map_err(|e| e.to_string())?;

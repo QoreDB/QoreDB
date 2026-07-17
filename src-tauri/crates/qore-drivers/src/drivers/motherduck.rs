@@ -1066,10 +1066,12 @@ mod tests {
     fn motherduck_applies_duckdb_security_to_every_statement() {
         assert!(MotherDuckDriver::ensure_safe_query("SELECT 1").is_ok());
         assert!(MotherDuckDriver::ensure_safe_query("SELECT 1; INSTALL httpfs").is_err());
-        assert!(MotherDuckDriver::ensure_safe_query(
-            "SELECT ';' AS harmless; COPY (SELECT 1) TO '/tmp/leak.csv'"
-        )
-        .is_err());
+        assert!(
+            MotherDuckDriver::ensure_safe_query(
+                "SELECT ';' AS harmless; COPY (SELECT 1) TO '/tmp/leak.csv'"
+            )
+            .is_err()
+        );
     }
 
     #[test]

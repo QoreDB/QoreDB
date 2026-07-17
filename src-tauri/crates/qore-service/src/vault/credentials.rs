@@ -158,7 +158,7 @@ impl SavedConnection {
                         return Err(EngineError::internal(format!(
                             "Invalid ssh auth_type: {}",
                             other
-                        )))
+                        )));
                     }
                 };
 
@@ -170,7 +170,7 @@ impl SavedConnection {
                         return Err(EngineError::internal(format!(
                             "Invalid ssh host_key_policy: {}",
                             other
-                        )))
+                        )));
                     }
                 };
 
@@ -202,7 +202,7 @@ impl SavedConnection {
                         return Err(EngineError::internal(format!(
                             "Invalid proxy_type: {}",
                             other
-                        )))
+                        )));
                     }
                 };
 

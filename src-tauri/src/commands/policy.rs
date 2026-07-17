@@ -5,8 +5,8 @@
 use serde::Serialize;
 use tauri::State;
 
-use crate::policy::SafetyPolicy;
 use crate::SharedState;
+use crate::policy::SafetyPolicy;
 
 #[derive(Debug, Serialize)]
 pub struct SafetyPolicyResponse {

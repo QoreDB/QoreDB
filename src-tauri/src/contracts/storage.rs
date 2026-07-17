@@ -18,7 +18,7 @@ use std::path::{Path, PathBuf};
 
 use thiserror::Error;
 
-use super::parser::{extract_name, parse_contract, ContractError, Format};
+use super::parser::{ContractError, Format, extract_name, parse_contract};
 use super::{Contract, ContractMeta, ContractRun};
 
 const CONTRACTS_DIR: &str = "contracts";
@@ -108,7 +108,7 @@ pub fn list_contracts(workspace_root: &Path) -> Result<Vec<ContractMeta>, Storag
             return Err(StorageError::Io {
                 path: dir,
                 source: err,
-            })
+            });
         }
     };
 
@@ -264,7 +264,7 @@ fn rotate_if_needed(path: &Path) -> Result<(), StorageError> {
                 return Err(StorageError::Io {
                     path: path.into(),
                     source: err,
-                })
+                });
             }
         };
         BufReader::new(f).lines().count()

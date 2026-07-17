@@ -8,8 +8,8 @@
 //! - Constant-time verification via `argon2::PasswordVerifier`.
 
 use argon2::{
-    password_hash::{rand_core::OsRng, PasswordHash, PasswordHasher, PasswordVerifier, SaltString},
     Argon2,
+    password_hash::{PasswordHash, PasswordHasher, PasswordVerifier, SaltString, rand_core::OsRng},
 };
 use base64::Engine as _;
 use rand::RngCore;
@@ -69,11 +69,7 @@ pub fn parse_bearer(header_value: &str) -> Option<&str> {
         return None;
     }
     let token = rest.trim();
-    if token.is_empty() {
-        None
-    } else {
-        Some(token)
-    }
+    if token.is_empty() { None } else { Some(token) }
 }
 
 #[cfg(test)]

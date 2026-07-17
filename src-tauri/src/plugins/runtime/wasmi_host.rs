@@ -26,8 +26,8 @@ use std::sync::Arc;
 use wasmi::{Engine, Linker, Module, Store, StoreLimits, StoreLimitsBuilder};
 
 use super::{
-    host_fns, Budget, Decision, HookContext, InvocationServices, PluginError, PluginInstance,
-    PluginRuntime, PostExecuteResult, QueryReadPayload,
+    Budget, Decision, HookContext, InvocationServices, PluginError, PluginInstance, PluginRuntime,
+    PostExecuteResult, QueryReadPayload, host_fns,
 };
 
 /// A WASM page is 64 KiB — the unit `Budget::memory_pages` is denominated in.

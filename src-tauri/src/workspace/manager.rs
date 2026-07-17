@@ -8,7 +8,7 @@ use chrono::Utc;
 use crate::engine::error::{EngineError, EngineResult};
 use crate::workspace::discovery;
 use crate::workspace::types::{
-    RecentWorkspace, WorkspaceInfo, WorkspaceManifest, WorkspaceSource, WORKSPACE_SCHEMA_VERSION,
+    RecentWorkspace, WORKSPACE_SCHEMA_VERSION, WorkspaceInfo, WorkspaceManifest, WorkspaceSource,
 };
 
 const WORKSPACE_DIR: &str = ".qoredb";

@@ -7,13 +7,13 @@
 //! displays their contents in type-specific tabular formats.
 
 use std::collections::{BinaryHeap, HashMap};
-use std::sync::atomic::{AtomicU16, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU16, Ordering};
 use std::time::Instant;
 
 use async_trait::async_trait;
 use futures::future::{AbortHandle, Abortable};
-use percent_encoding::{utf8_percent_encode, NON_ALPHANUMERIC};
+use percent_encoding::{NON_ALPHANUMERIC, utf8_percent_encode};
 use tokio::sync::{Mutex, RwLock};
 
 use qore_core::error::{EngineError, EngineResult};
@@ -24,7 +24,7 @@ use qore_core::types::{
     SessionId, TableColumn, TableQueryOptions, TableSchema, Value,
 };
 
-use crate::redis_safety::{classify, RedisQueryClass};
+use crate::redis_safety::{RedisQueryClass, classify};
 
 /// Holds a Redis connection and session metadata
 pub struct RedisSession {

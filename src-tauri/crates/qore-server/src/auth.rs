@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: BUSL-1.1
 
 use axum::extract::{Request, State};
-use axum::http::{header::AUTHORIZATION, StatusCode};
+use axum::http::{StatusCode, header::AUTHORIZATION};
 use axum::middleware::Next;
 use axum::response::Response;
 
-use crate::controlplane::auth::verify_jwt;
 use crate::controlplane::AuthContext;
+use crate::controlplane::auth::verify_jwt;
 use crate::state::AppState;
 
 pub async fn require_token(

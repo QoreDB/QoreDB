@@ -396,9 +396,11 @@ mod tests {
             "id":"acme.x","name":"X","version":"1.0.0",
             "contributes":{"commands":[{"id":"go","label":"Go"}]}
         }"#;
-        assert!(manifest(json)
-            .unwrap_err()
-            .contains("Command contributions require"));
+        assert!(
+            manifest(json)
+                .unwrap_err()
+                .contains("Command contributions require")
+        );
     }
 
     #[test]

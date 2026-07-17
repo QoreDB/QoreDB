@@ -9,8 +9,8 @@ use std::sync::{Arc, Mutex, OnceLock};
 
 use qore_core::{DataEngine, Namespace, SessionId};
 use qore_service::interceptor::{
-    map_environment, Environment, InterceptorPipeline, QueryContext, QueryExecutionResult,
-    QueryOperationType, SafetyAction,
+    Environment, InterceptorPipeline, QueryContext, QueryExecutionResult, QueryOperationType,
+    SafetyAction, map_environment,
 };
 use qore_service::policy::SafetyPolicy;
 use serde::Serialize;
@@ -550,7 +550,7 @@ pub(crate) async fn run_migration(run: MigrationRun<'_>) -> ApplyMigrationRespon
                     MigrationBlockReason::UnsplittableScript,
                     format!("Cannot split this migration safely: {e}"),
                     false,
-                )
+                );
             }
         };
     if statements.is_empty() {
@@ -970,7 +970,7 @@ pub async fn apply_migration(
         _ => {
             return Ok(fail(
                 "Migration direction must be 'up' or 'down'".to_string(),
-            ))
+            ));
         }
     };
     let (up, down) = split_up_down(&content);
@@ -1223,7 +1223,7 @@ pub async fn get_migration_status(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::engine::testing::{affected_result, empty_result, DriverCall, MockDriver};
+    use crate::engine::testing::{DriverCall, MockDriver, affected_result, empty_result};
     use qore_core::types::{ColumnInfo, QueryResult, Row, Value};
 
     const FILE: &str =
@@ -1466,9 +1466,11 @@ mod tests {
         let response = run_migration(migration).await;
 
         assert!(!response.success);
-        assert!(response
-            .error
-            .is_some_and(|error| error.contains("target database")));
+        assert!(
+            response
+                .error
+                .is_some_and(|error| error.contains("target database"))
+        );
         assert!(driver.calls().is_empty());
     }
 
@@ -1495,9 +1497,11 @@ mod tests {
             resp.blocked_reason,
             Some(MigrationBlockReason::AlreadyApplied)
         );
-        assert!(!executed(&driver)
-            .iter()
-            .any(|q| q.contains("CREATE TABLE t")));
+        assert!(
+            !executed(&driver)
+                .iter()
+                .any(|q| q.contains("CREATE TABLE t"))
+        );
         assert!(!driver.call_log().contains(&DriverCall::Begin));
     }
 
@@ -1638,9 +1642,11 @@ mod tests {
 
         assert!(!resp.success);
         assert!(!driver.call_log().contains(&DriverCall::Begin));
-        assert!(executed(&driver)
-            .iter()
-            .any(|q| q.contains("SET failed_at")));
+        assert!(
+            executed(&driver)
+                .iter()
+                .any(|q| q.contains("SET failed_at"))
+        );
     }
 
     #[tokio::test]
@@ -1676,10 +1682,11 @@ mod tests {
                 .any(|q| q.starts_with("DELETE") && !q.contains("failed_at IS NOT NULL")),
             "the claim must not be erased after a failure: {ran:?}"
         );
-        assert!(resp
-            .error
-            .expect("error")
-            .contains("may commit statements implicitly"));
+        assert!(
+            resp.error
+                .expect("error")
+                .contains("may commit statements implicitly")
+        );
     }
 
     #[tokio::test]
@@ -1723,9 +1730,11 @@ mod tests {
         .await;
 
         assert!(resp.success, "{:?}", resp.error);
-        assert!(executed(&driver)
-            .iter()
-            .any(|q| q == "ALTER TABLE qoredb_migrations ADD COLUMN failed_at VARCHAR(64)"));
+        assert!(
+            executed(&driver)
+                .iter()
+                .any(|q| q == "ALTER TABLE qoredb_migrations ADD COLUMN failed_at VARCHAR(64)")
+        );
     }
 
     #[tokio::test]
@@ -1752,9 +1761,11 @@ mod tests {
             Some(MigrationBlockReason::PartiallyApplied)
         );
         assert!(resp.overridable);
-        assert!(!executed(&driver)
-            .iter()
-            .any(|q| q.contains("CREATE TABLE t (id int)")));
+        assert!(
+            !executed(&driver)
+                .iter()
+                .any(|q| q.contains("CREATE TABLE t (id int)"))
+        );
     }
 
     #[tokio::test]
@@ -1853,13 +1864,16 @@ mod tests {
 
         // An unreadable history must never be treated as "nothing applied".
         assert!(!resp.success);
-        assert!(resp
-            .error
-            .as_deref()
-            .is_some_and(|e| e.contains("Failed to read migration history")));
-        assert!(!executed(&driver)
-            .iter()
-            .any(|q| q.contains("CREATE TABLE t (id int)")));
+        assert!(
+            resp.error
+                .as_deref()
+                .is_some_and(|e| e.contains("Failed to read migration history"))
+        );
+        assert!(
+            !executed(&driver)
+                .iter()
+                .any(|q| q.contains("CREATE TABLE t (id int)"))
+        );
     }
 
     #[tokio::test]

@@ -7,9 +7,9 @@ use std::sync::Arc;
 
 use tauri::State;
 
-use crate::plugins::runtime::{capabilities, secrets, CapabilityKind, PluginHost};
-use crate::plugins::{self, InstalledPlugin, PluginContributions};
 use crate::SharedState;
+use crate::plugins::runtime::{CapabilityKind, PluginHost, capabilities, secrets};
+use crate::plugins::{self, InstalledPlugin, PluginContributions};
 
 /// Wraps blocking plugin I/O so it never stalls the Tauri event loop.
 async fn blocking<T, F>(f: F) -> Result<T, String>

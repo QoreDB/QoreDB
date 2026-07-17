@@ -3,10 +3,10 @@
 use uuid::Uuid;
 
 use qore_core::SessionId;
-use qore_service::vault::backend::default_provider;
 use qore_service::vault::VaultStorage;
+use qore_service::vault::backend::default_provider;
 
-use crate::config::{ServerConfig, PROJECT_ID};
+use crate::config::{PROJECT_ID, ServerConfig};
 use crate::state::AppState;
 
 pub fn storage(config: &ServerConfig) -> VaultStorage {

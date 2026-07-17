@@ -22,8 +22,8 @@ pub mod tools;
 
 pub use args::{BackupFormat, BackupMode, BackupOptions, RestoreOptions};
 pub use duckdb_native::{run_duckdb_backup, run_duckdb_restore};
-pub use runner::{run_backup, run_restore, BackupEvent, BackupJob, BackupJobOutcome};
-pub use tools::{detect_tool, BackupTool, BackupToolInfo, BackupToolPaths};
+pub use runner::{BackupEvent, BackupJob, BackupJobOutcome, run_backup, run_restore};
+pub use tools::{BackupTool, BackupToolInfo, BackupToolPaths, detect_tool};
 
 pub(crate) fn path_to_string(path: &std::path::Path) -> Result<String, String> {
     path.to_str()

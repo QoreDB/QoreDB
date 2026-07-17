@@ -5,9 +5,9 @@
 use crate::contracts::AllowedValue;
 
 use super::{
+    RuleSql, RuleSqlKind, SqlBuildError,
     dialect::Dialect,
     literal::{format_allowed_value, format_number},
-    RuleSql, RuleSqlKind, SqlBuildError,
 };
 
 pub fn build_numeric_range(
@@ -231,9 +231,10 @@ mod tests {
             10,
         )
         .unwrap();
-        assert!(r
-            .metric_query
-            .contains("\"status\" NOT IN ('pending', 'paid')"));
+        assert!(
+            r.metric_query
+                .contains("\"status\" NOT IN ('pending', 'paid')")
+        );
         assert!(r.metric_query.contains("\"status\" IS NULL OR"));
     }
 
@@ -247,9 +248,10 @@ mod tests {
             10,
         )
         .unwrap();
-        assert!(r
-            .metric_query
-            .contains("\"status\" IS NOT NULL AND \"status\" NOT IN ('ok')"));
+        assert!(
+            r.metric_query
+                .contains("\"status\" IS NOT NULL AND \"status\" NOT IN ('ok')")
+        );
     }
 
     #[test]

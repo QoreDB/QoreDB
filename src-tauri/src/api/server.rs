@@ -20,19 +20,19 @@ use std::path::PathBuf;
 use std::sync::{Arc, OnceLock};
 use std::time::Instant;
 
-use axum::{routing::get, Router};
+use axum::{Router, routing::get};
 use axum_server::tls_rustls::RustlsConfig;
 use thiserror::Error;
 use tokio::net::TcpListener;
-use tokio::sync::{oneshot, Mutex};
+use tokio::sync::{Mutex, oneshot};
 
 use qore_drivers::session_manager::SessionManager;
 
-use super::handlers::{handle_endpoint, ApiState};
+use super::EndpointStore;
+use super::handlers::{ApiState, handle_endpoint};
 use super::openapi::{handle_health, handle_openapi};
 use super::rate_limit::RateLimiter;
-use super::tls::{generate_self_signed, TlsError};
-use super::EndpointStore;
+use super::tls::{TlsError, generate_self_signed};
 
 /// Default listen port. 4787 spells "QORE" on a phone keypad and lives well
 /// above the ephemeral range — easy to remember, unlikely to collide.

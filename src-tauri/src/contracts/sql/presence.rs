@@ -2,7 +2,7 @@
 
 //! Presence rules: `not_null_pct`, `not_empty`.
 
-use super::{dialect::Dialect, RuleSql, RuleSqlKind, SqlBuildError};
+use super::{RuleSql, RuleSqlKind, SqlBuildError, dialect::Dialect};
 
 /// `metric_value` is the percentage of non-NULL rows.
 pub fn build_not_null_pct(
@@ -57,14 +57,16 @@ mod tests {
     #[test]
     fn not_null_pct_postgres() {
         let r = build_not_null_pct(Dialect::Postgres, "\"orders\"", "\"email\"", 10).unwrap();
-        assert!(r
-            .metric_query
-            .contains("count(\"email\") * 100.0 / count(*)"));
+        assert!(
+            r.metric_query
+                .contains("count(\"email\") * 100.0 / count(*)")
+        );
         assert!(r.metric_query.contains("FROM \"orders\""));
-        assert!(r
-            .samples_query
-            .unwrap()
-            .contains("WHERE \"email\" IS NULL LIMIT 10"));
+        assert!(
+            r.samples_query
+                .unwrap()
+                .contains("WHERE \"email\" IS NULL LIMIT 10")
+        );
     }
 
     #[test]

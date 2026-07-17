@@ -2,7 +2,7 @@
 
 //! Uniqueness rules: `unique`, `distinct_count`.
 
-use super::{dialect::Dialect, RuleSql, RuleSqlKind, SqlBuildError};
+use super::{RuleSql, RuleSqlKind, SqlBuildError, dialect::Dialect};
 
 pub fn build_unique(
     dialect: Dialect,
@@ -91,9 +91,10 @@ mod tests {
         )
         .unwrap();
         assert!(r.metric_query.contains("GROUP BY \"a\", \"b\""));
-        assert!(r
-            .metric_query
-            .contains("\"a\" IS NOT NULL AND \"b\" IS NOT NULL"));
+        assert!(
+            r.metric_query
+                .contains("\"a\" IS NOT NULL AND \"b\" IS NOT NULL")
+        );
     }
 
     #[test]

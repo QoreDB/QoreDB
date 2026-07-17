@@ -13,7 +13,7 @@ use std::sync::Arc;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::Notify;
-use tokio::time::{timeout, Duration};
+use tokio::time::{Duration, timeout};
 
 use qore_core::error::{EngineError, EngineResult};
 use qore_core::types::{ProxyConfig, ProxyType};

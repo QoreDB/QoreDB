@@ -11,7 +11,7 @@ use tracing::instrument;
 use super::parse_session_id;
 use crate::engine::sql_safety::split_sql_statements;
 use crate::engine::types::{Namespace, QueryId, RowData, Value};
-use crate::interceptor::{map_environment, QueryExecutionResult, SafetyAction};
+use crate::interceptor::{QueryExecutionResult, SafetyAction, map_environment};
 
 const READ_ONLY_BLOCKED: &str = "Operation blocked: read-only mode";
 const MUTATIONS_NOT_SUPPORTED: &str = "Mutations are not supported by this driver";

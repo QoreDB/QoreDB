@@ -441,12 +441,16 @@ mod tests {
     fn lint_flags_non_monotonic_as_warning_not_error() {
         // Lexicographic order puts 10 before 9; that is reported, not refused.
         let issues = lint_migrations(&files(&["0010_b.sql", "0009_a.sql"]));
-        assert!(issues
-            .iter()
-            .any(|i| matches!(i, MigrationLintIssue::NonMonotonic { .. })));
-        assert!(!issues
-            .iter()
-            .any(|i| matches!(i, MigrationLintIssue::DuplicateVersion { .. })));
+        assert!(
+            issues
+                .iter()
+                .any(|i| matches!(i, MigrationLintIssue::NonMonotonic { .. }))
+        );
+        assert!(
+            !issues
+                .iter()
+                .any(|i| matches!(i, MigrationLintIssue::DuplicateVersion { .. }))
+        );
     }
 
     #[test]

@@ -8,7 +8,7 @@
 
 use std::time::Instant;
 
-use duckdb::{params_from_iter, types::Value as DuckValue, Connection};
+use duckdb::{Connection, params_from_iter, types::Value as DuckValue};
 
 use crate::engine::error::{EngineError, EngineResult};
 use crate::engine::types::{ColumnInfo, QueryResult, Row, Value};

@@ -27,7 +27,7 @@ use qore_core::types::SessionId;
 use qore_drivers::session_manager::SessionManager;
 
 use super::events::NoopSink;
-use super::runner::{run_contract, RunOptions};
+use super::runner::{RunOptions, run_contract};
 use super::storage;
 use super::{Contract, ContractRun, RuleStatus};
 

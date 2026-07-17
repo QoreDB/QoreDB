@@ -8,19 +8,18 @@ use tauri::State;
 use tracing::{field, instrument};
 use uuid::Uuid;
 
-use super::{parse_session_id, SharedStateExt};
+use super::{SharedStateExt, parse_session_id};
 use crate::commands::stream_msg::StreamDispatcher;
 use crate::engine::{
-    sql_safety,
+    TableSchema, sql_safety,
     types::{
         CollectionList, CollectionListOptions, CreationOptions, EventList, EventListOptions,
         ForeignKey, Namespace, PaginatedQueryResult, QueryId, QueryResult, RoutineList,
         RoutineListOptions, RoutineType, SequenceList, SequenceListOptions, TableQueryOptions,
         TriggerList, TriggerListOptions, Value,
     },
-    TableSchema,
 };
-use crate::interceptor::{map_environment, QueryContext, QueryExecutionResult, SafetyAction};
+use crate::interceptor::{QueryContext, QueryExecutionResult, SafetyAction, map_environment};
 use crate::metrics;
 use crate::plugins::runtime::{
     HookContext as PluginHookContext, PluginHost, PostExecuteResult, QueryReadPayload,

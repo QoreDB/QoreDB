@@ -2,8 +2,8 @@
 
 //! Lightweight in-memory metrics for dev builds.
 
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::OnceLock;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use serde::Serialize;
 

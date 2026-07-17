@@ -1624,7 +1624,7 @@
       "guardsTitle": "프로덕션 안전 규칙",
       "guardsDesc": "위험한 쿼리는 프로덕션에서 두 번 확인을 거쳐 실행됩니다. 토글 하나로 모든 연결을 읽기 전용 모드로 설정하세요.",
       "sandboxTitle": "샌드박스 모드",
-      "sandboxDesc": "실제 데이터에 영향 없이 실제 연결에서 파괴적 쿼리를 테스트합니다. 모든 변경 사항이 자동으로 롤백됩니다.",
+      "sandboxDesc": "데이터 그리드 편집 내용을 로컬에 보관하고 검토한 뒤 데이터베이스에 적용합니다. SQL 편집기 쿼리는 샌드박스 처리되지 않습니다.",
       "localTitle": "내 기기 밖으로 나가지 않음",
       "localDesc": "클라우드 동기화, 데이터 원격 분석, 원격 스키마 인덱싱 없음. 쿼리와 결과는 로컬에 유지됩니다."
     },
@@ -2185,10 +2185,10 @@
         },
         "sandbox": {
           "title": "샌드박스 모드",
-          "description": "실제 데이터에 영향 없이 실제 연결에서 파괴적 쿼리를 실행합니다.",
-          "bullet1": "모든 변경 사항 자동 롤백",
-          "bullet2": "스테이징에서 마이그레이션 안전하게 테스트",
-          "bullet3": "클릭 한 번으로 진입, 한 번으로 종료"
+          "description": "데이터 그리드 편집 내용을 로컬에 보관하고 데이터베이스에 적용하기 전에 검토합니다.",
+          "bullet1": "그리드의 삽입, 수정 및 삭제를 로컬에 기록",
+          "bullet2": "적용 전 생성된 DML 검토 및 내보내기",
+          "bullet3": "SQL 편집기 쿼리는 샌드박스 처리되지 않습니다"
         },
         "visual_diff": {
           "title": "비주얼 데이터 diff",
@@ -3185,7 +3185,7 @@
   },
   "instantApi": {
     "title": "Instant Data API",
-    "description": "저장된 쿼리를 로컬 읽기 전용 REST 엔드포인트로 노출합니다.",
+    "description": "매개변수화된 SQL 쿼리를 로컬 읽기 전용 REST 엔드포인트로 노출합니다.",
     "openPanel": "Instant Data API…",
     "close": "닫기",
     "newEndpoint": "새 엔드포인트",
@@ -3202,7 +3202,7 @@
     },
     "empty": {
       "title": "아직 엔드포인트가 없습니다",
-      "description": "저장된 쿼리를 REST URL 로 노출할 첫 엔드포인트를 만들어 보세요.",
+      "description": "매개변수화된 SQL 쿼리를 REST URL로 노출할 첫 엔드포인트를 만들어 보세요.",
       "createFirst": "엔드포인트 만들기"
     },
     "errors": {
@@ -3218,8 +3218,8 @@
       "serverStopped": "이 URL 을 열기 전에 서버를 시작하세요.",
       "paramsCount_one": "파라미터 {{count}}개",
       "paramsCount_other": "파라미터 {{count}}개",
-      "pageSize_one": "페이지당 {{count}}행",
-      "pageSize_other": "페이지당 {{count}}행"
+      "pageSize_one": "최대 {{count}}행",
+      "pageSize_other": "최대 {{count}}행"
     },
     "endpoint": {
       "newTitle": "새 엔드포인트",
@@ -3235,7 +3235,7 @@
         "rows": "행 목록",
         "object": "단일 객체"
       },
-      "pageSizeLabel": "페이지 크기",
+      "pageSizeLabel": "최대 행 수",
       "paramsLabel": "매개변수",
       "addParam": "추가",
       "noParams": "선언된 매개변수가 없습니다.",
@@ -3248,7 +3248,7 @@
       "invalidName": "잘못된 이름 — 영문자, 숫자, 하이픈, 밑줄 (1–64).",
       "missingConnection": "연결을 선택하세요.",
       "missingQuery": "쿼리가 비어 있습니다.",
-      "invalidPageSize": "페이지 크기는 1 ~ 10000 사이여야 합니다.",
+      "invalidPageSize": "최대 행 수는 1 ~ 10000 사이여야 합니다.",
       "invalidParamName": "잘못된 매개변수 이름: {{name}}",
       "paramNotInQuery": "매개변수 {{name}} 이(가) 쿼리에서 참조되지 않습니다.",
       "loadConnectionsFailed": "연결을 불러오지 못했습니다"

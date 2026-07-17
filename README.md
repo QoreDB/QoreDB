@@ -113,8 +113,8 @@ DBeaver, pgAdmin, phpMyAdmin do the job — but they feel slow, dated, and full 
 - **Transaction management** — Toggle autocommit, explicit Commit/Rollback, active transaction indicator
 - **Export pipeline** — CSV, JSON, SQL, HTML, self-contained HTML (+ XLSX/Parquet in Pro)
 - **Cross-database federation** — Query and join across active connections via DuckDB
-- **Sandbox mode** — Isolated local changes with migration generation
-- **Migrations Manager** — Versioned `.sql` schema migrations in `.qoredb/migrations/`, shared through Git, applied and rolled back transactionally with per-statement safety checks and an applied-state history table in the target database (+ schema-diff generation, drift detection and Prod↔Staging schema diff in Pro)
+- **Sandbox mode** — Stage grid edits locally, review the generated DML, then apply or export it; SQL editor queries are not sandboxed
+- **Migrations Manager** — Versioned `.sql` schema migrations in `.qoredb/migrations/`, shared through Git, applied with per-statement safety checks and transactional rollback when the driver supports it (MySQL/MariaDB DDL is non-transactional), with an applied-state history table (+ schema-diff generation, drift detection and Prod↔Staging schema diff in Pro)
 - **Backup &amp; restore** — Visual wrappers around `pg_dump`, `mysqldump`, `mongodump` and `sqlite3 .dump`, with streaming logs, cancel mid-run and tool-path overrides
 - **Query result cache** — Recent table navigation served instantly from a local cache, auto-invalidated when you change data through QoreDB
 - **Plugin system** — Install declarative plugins contributing SQL snippet packs, connection templates and color themes — no code execution
@@ -124,7 +124,7 @@ DBeaver, pgAdmin, phpMyAdmin do the job — but they feel slow, dated, and full 
 <summary><b>Data quality &amp; integration</b></summary>
 
 - **Data Contracts** — Declarative YAML assertions (12 rule types: NOT NULL %, regex, range, unique, FK integrity, custom SQL) executed as generated SQL, with a health dashboard, notebook cell and post-mutation alert hook _[Pro]_
-- **Instant Data API** — Expose saved queries as read-only REST endpoints on `127.0.0.1`, with Bearer auth, rate limiting, OpenAPI 3.1 generation and one-shot token regeneration _[Pro]_
+- **Instant Data API** — Expose parameterized SQL queries as read-only REST endpoints on `127.0.0.1`, with Bearer auth, rate limiting, OpenAPI 3.1 generation and one-shot token regeneration _[Pro]_
 - **Data Generator** — Schema-aware test/seed data (types, constraints and foreign keys honored), realistic values, configurable volume, SQL preview then direct execution or `.sql` export _[Pro]_
 </details>
 

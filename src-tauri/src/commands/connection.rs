@@ -34,7 +34,7 @@ pub struct SessionListItem {
 /// directory, so isolation is by directory and the flat-vault `project_id` guard
 /// does not apply there. The default workspace shares a single `connections.json`
 /// across projects, so that branch still enforces the guard.
-async fn resolve_saved_connection(
+pub(crate) async fn resolve_saved_connection(
     app: &AppHandle,
     ws_manager: &State<'_, SharedWorkspaceManager>,
     project_id: &str,

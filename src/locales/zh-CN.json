@@ -1624,7 +1624,7 @@
       "guardsTitle": "生产安全规则",
       "guardsDesc": "危险查询在生产环境中会被检测并需要二次确认。任意连接均可一键切换为只读模式。",
       "sandboxTitle": "沙盒模式",
-      "sandboxDesc": "在真实连接上测试破坏性查询而不影响真实数据。所有更改均会回滚。",
+      "sandboxDesc": "在本地暂存并检查数据表格编辑，准备就绪后再应用到数据库。SQL 编辑器中的查询不会被沙盒隔离。",
       "localTitle": "数据不离开本机",
       "localDesc": "无云同步、无数据遥测、无远程 Schema 索引。您的查询和结果始终保留在本地。"
     },
@@ -2185,10 +2185,10 @@
         },
         "sandbox": {
           "title": "沙盒模式",
-          "description": "在真实连接上运行破坏性查询而不影响真实数据。",
-          "bullet1": "自动回滚所有更改",
-          "bullet2": "在预发布环境安全测试迁移",
-          "bullet3": "一键进入，一键退出"
+          "description": "在本地暂存数据表格编辑，并在应用到数据库前进行检查。",
+          "bullet1": "在本地记录表格中的插入、更新和删除",
+          "bullet2": "应用前检查并导出生成的 DML",
+          "bullet3": "SQL 编辑器中的查询不会被沙盒隔离"
         },
         "visual_diff": {
           "title": "可视化数据差异对比",
@@ -3185,7 +3185,7 @@
   },
   "instantApi": {
     "title": "Instant Data API",
-    "description": "将保存的查询作为本地只读 REST 端点公开。",
+    "description": "将参数化 SQL 查询作为本地只读 REST 端点公开。",
     "openPanel": "Instant Data API…",
     "close": "关闭",
     "newEndpoint": "新建端点",
@@ -3202,7 +3202,7 @@
     },
     "empty": {
       "title": "尚无端点",
-      "description": "创建第一个端点，将保存的查询作为 REST URL 公开。",
+      "description": "创建第一个端点，将参数化 SQL 查询作为 REST URL 公开。",
       "createFirst": "创建端点"
     },
     "errors": {
@@ -3218,8 +3218,8 @@
       "serverStopped": "请先启动服务器，再打开此 URL。",
       "paramsCount_one": "{{count}} 个参数",
       "paramsCount_other": "{{count}} 个参数",
-      "pageSize_one": "每页 {{count}} 行",
-      "pageSize_other": "每页 {{count}} 行"
+      "pageSize_one": "最多 {{count}} 行",
+      "pageSize_other": "最多 {{count}} 行"
     },
     "endpoint": {
       "newTitle": "新建端点",
@@ -3235,7 +3235,7 @@
         "rows": "行列表",
         "object": "单个对象"
       },
-      "pageSizeLabel": "每页大小",
+      "pageSizeLabel": "最大行数",
       "paramsLabel": "参数",
       "addParam": "添加",
       "noParams": "未声明参数。",
@@ -3248,7 +3248,7 @@
       "invalidName": "名称无效 — 字母、数字、连字符、下划线 (1–64)。",
       "missingConnection": "请选择连接。",
       "missingQuery": "查询为空。",
-      "invalidPageSize": "每页大小必须介于 1 与 10000 之间。",
+      "invalidPageSize": "最大行数必须介于 1 与 10000 之间。",
       "invalidParamName": "参数名称无效：{{name}}",
       "paramNotInQuery": "查询中未引用参数 {{name}}。",
       "loadConnectionsFailed": "加载连接失败"

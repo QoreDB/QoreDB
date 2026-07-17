@@ -1624,7 +1624,7 @@
       "guardsTitle": "Produktionssicherheitsregeln",
       "guardsDesc": "Gefährliche Abfragen werden erkannt und in der Produktion zweifach bestätigt. Schreibgeschützter Modus für jede Verbindung mit einem Umschalter.",
       "sandboxTitle": "Sandbox-Modus",
-      "sandboxDesc": "Destruktive Abfragen gegen eine echte Verbindung testen, ohne echte Daten zu berühren. Jede Änderung wird zurückgerollt.",
+      "sandboxDesc": "Bearbeitungen im Datenraster lokal vormerken, prüfen und erst dann auf die Datenbank anwenden. Abfragen im SQL-Editor sind nicht isoliert.",
       "localTitle": "Nichts verlässt Ihr Gerät",
       "localDesc": "Keine Cloud-Synchronisierung, keine Telemetrie Ihrer Daten, keine externe Schema-Indizierung. Abfragen und Ergebnisse bleiben lokal."
     },
@@ -2185,10 +2185,10 @@
         },
         "sandbox": {
           "title": "Sandbox-Modus",
-          "description": "Destruktive Abfragen gegen eine echte Verbindung ausführen, ohne echte Daten zu berühren.",
-          "bullet1": "Jede Änderung automatisch zurückrollen",
-          "bullet2": "Migrationen sicher auf Staging testen",
-          "bullet3": "Ein Klick zum Eintreten, einer zum Verlassen"
+          "description": "Bearbeitungen im Datenraster lokal vormerken und vor dem Anwenden auf die Datenbank prüfen.",
+          "bullet1": "Einfügen, Ändern und Löschen im Datenraster lokal erfassen",
+          "bullet2": "Generiertes DML vor dem Anwenden prüfen und exportieren",
+          "bullet3": "Abfragen im SQL-Editor sind nicht isoliert"
         },
         "visual_diff": {
           "title": "Visueller Datenvergleich",
@@ -3185,7 +3185,7 @@
   },
   "instantApi": {
     "title": "Instant Data API",
-    "description": "Stelle gespeicherte Abfragen schreibgeschützt als lokale REST-Endpunkte bereit.",
+    "description": "Stelle parametrisierte SQL-Abfragen schreibgeschützt als lokale REST-Endpunkte bereit.",
     "openPanel": "Instant Data API…",
     "close": "Schließen",
     "newEndpoint": "Neuer Endpunkt",
@@ -3202,7 +3202,7 @@
     },
     "empty": {
       "title": "Noch keine Endpunkte",
-      "description": "Lege deinen ersten Endpunkt an, um eine gespeicherte Abfrage als REST-URL bereitzustellen.",
+      "description": "Lege deinen ersten Endpunkt an, um eine parametrisierte SQL-Abfrage als REST-URL bereitzustellen.",
       "createFirst": "Endpunkt anlegen"
     },
     "errors": {
@@ -3218,8 +3218,8 @@
       "serverStopped": "Starte den Server, bevor du diese URL öffnest.",
       "paramsCount_one": "{{count}} Parameter",
       "paramsCount_other": "{{count}} Parameter",
-      "pageSize_one": "{{count}} Zeile/Seite",
-      "pageSize_other": "{{count}} Zeilen/Seite"
+      "pageSize_one": "Maximal {{count}} Zeile",
+      "pageSize_other": "Maximal {{count}} Zeilen"
     },
     "endpoint": {
       "newTitle": "Neuer Endpunkt",
@@ -3235,7 +3235,7 @@
         "rows": "Liste von Zeilen",
         "object": "Einzelobjekt"
       },
-      "pageSizeLabel": "Seitengröße",
+      "pageSizeLabel": "Maximale Zeilenanzahl",
       "paramsLabel": "Parameter",
       "addParam": "Hinzufügen",
       "noParams": "Keine Parameter deklariert.",
@@ -3248,7 +3248,7 @@
       "invalidName": "Ungültiger Name — Buchstaben, Ziffern, Bindestrich, Unterstrich (1–64).",
       "missingConnection": "Bitte eine Verbindung wählen.",
       "missingQuery": "Die Abfrage ist leer.",
-      "invalidPageSize": "Seitengröße muss zwischen 1 und 10000 liegen.",
+      "invalidPageSize": "Die maximale Zeilenanzahl muss zwischen 1 und 10000 liegen.",
       "invalidParamName": "Ungültiger Parametername: {{name}}",
       "paramNotInQuery": "Parameter {{name}} wird in der Abfrage nicht referenziert.",
       "loadConnectionsFailed": "Verbindungen konnten nicht geladen werden"

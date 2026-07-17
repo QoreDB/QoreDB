@@ -4,8 +4,8 @@
 //!
 //! The document is built from the live [`EndpointStore`] on every request, so
 //! it always reflects the current registry. The generator stays intentionally
-//! minimal: paths, parameters, and a single `bearerAuth` security scheme. No
-//! response schemas — we don't want to assert anything we can't verify.
+//! minimal: paths, parameters, verified response schemas, and a single
+//! `bearerAuth` security scheme.
 
 use std::sync::Arc;
 
@@ -42,7 +42,10 @@ pub async fn handle_openapi(
     if !any_endpoint_accepts(&state.store, token) {
         return Err((StatusCode::FORBIDDEN, "token rejected"));
     }
-    Ok(Json(build_document(&state.store)))
+    Ok(Json(build_document(
+        &state.store,
+        state.openapi_base_url.get().map(String::as_str),
+    )))
 }
 
 /// Returns `true` iff `token` matches the Argon2 hash of at least one
@@ -76,7 +79,7 @@ pub async fn handle_health(State(state): State<ApiState>) -> impl IntoResponse {
 /// Generates the OpenAPI 3.1 document from the current endpoint registry.
 /// Public so the Tauri command layer can serve the preview without going
 /// through the local HTTP server.
-pub fn build_document(store: &Arc<EndpointStore>) -> Value {
+pub fn build_document(store: &Arc<EndpointStore>, base_url: Option<&str>) -> Value {
     let mut paths = Map::new();
 
     // /health is documented but unauthenticated.
@@ -93,17 +96,13 @@ pub fn build_document(store: &Arc<EndpointStore>) -> Value {
         );
     }
 
-    json!({
+    let mut document = json!({
         "openapi": OPENAPI_VERSION,
         "info": {
             "title": DOC_TITLE,
             "version": DOC_VERSION,
-            "description": "Locally-hosted, read-only REST endpoints generated from saved queries. Loopback-only.",
+            "description": "Locally-hosted, read-only REST endpoints generated from parameterized SQL queries. Loopback-only.",
         },
-        "servers": [{
-            "url": "http://127.0.0.1:4787",
-            "description": "Local Instant Data API server",
-        }],
         "components": {
             "securitySchemes": {
                 "bearerAuth": {
@@ -115,7 +114,20 @@ pub fn build_document(store: &Arc<EndpointStore>) -> Value {
         },
         "security": [{ "bearerAuth": [] }],
         "paths": paths,
-    })
+    });
+    if let Some(base_url) = base_url {
+        document
+            .as_object_mut()
+            .expect("OpenAPI document is an object")
+            .insert(
+                "servers".to_string(),
+                json!([{
+                    "url": base_url,
+                    "description": "Running local Instant Data API server",
+                }]),
+            );
+    }
+    document
 }
 
 fn health_path() -> Value {
@@ -145,29 +157,30 @@ fn health_path() -> Value {
 }
 
 fn endpoint_path(name: &str, shape: QueryShape, params: &[EndpointParam]) -> Value {
-    let mut parameters: Vec<Value> = params.iter().map(parameter_object).collect();
-    // Pagination params apply to `rows` shape only.
-    if matches!(shape, QueryShape::Rows) {
-        parameters.push(json!({
-            "name": "page",
-            "in": "query",
-            "schema": { "type": "integer", "minimum": 1, "default": 1 },
-            "required": false,
-            "description": "1-based page index."
-        }));
-    }
+    let parameters: Vec<Value> = params.iter().map(parameter_object).collect();
 
     let response_schema = match shape {
         QueryShape::Rows => json!({
             "type": "object",
             "properties": {
                 "data": { "type": "array", "items": { "type": "object" } },
-                "page": { "type": "integer", "format": "int64" },
-                "total": { "type": "integer", "format": "int64" }
+                "count": { "type": "integer", "format": "int64", "minimum": 0 },
+                "truncated": { "type": "boolean" }
             },
-            "required": ["data", "page"]
+            "required": ["data", "count", "truncated"]
         }),
-        QueryShape::Object => json!({ "type": "object" }),
+        QueryShape::Object => json!({
+            "type": "object",
+            "properties": {
+                "data": {
+                    "oneOf": [
+                        { "type": "object" },
+                        { "type": "null" }
+                    ]
+                }
+            },
+            "required": ["data"]
+        }),
     };
 
     json!({
@@ -249,32 +262,48 @@ mod tests {
             ),
             ("single_user", QueryShape::Object, vec![]),
         ]);
-        let doc = build_document(&store);
+        let doc = build_document(&store, Some("https://127.0.0.1:9443"));
         let paths = doc["paths"].as_object().unwrap();
         assert!(paths.contains_key("/health"));
         assert!(paths.contains_key("/api/orders_top"));
         assert!(paths.contains_key("/api/single_user"));
         assert_eq!(doc["openapi"], OPENAPI_VERSION);
+        assert_eq!(doc["servers"][0]["url"], "https://127.0.0.1:9443");
     }
 
     #[test]
-    fn rows_endpoint_declares_page_parameter() {
+    fn rows_endpoint_has_no_undeclared_pagination_parameter() {
         let store = store_with(vec![("orders_top", QueryShape::Rows, vec![])]);
-        let doc = build_document(&store);
+        let doc = build_document(&store, None);
         let params = doc["paths"]["/api/orders_top"]["get"]["parameters"]
             .as_array()
             .unwrap();
-        assert!(params.iter().any(|p| p["name"] == "page"));
+        assert!(params.iter().all(|p| p["name"] != "page"));
+        assert!(doc.get("servers").is_none());
     }
 
     #[test]
-    fn object_endpoint_has_no_page_parameter() {
-        let store = store_with(vec![("single", QueryShape::Object, vec![])]);
-        let doc = build_document(&store);
-        let params = doc["paths"]["/api/single"]["get"]["parameters"]
-            .as_array()
-            .unwrap();
-        assert!(params.iter().all(|p| p["name"] != "page"));
+    fn response_schemas_match_the_wire_envelopes() {
+        let store = store_with(vec![
+            ("rows", QueryShape::Rows, vec![]),
+            ("single", QueryShape::Object, vec![]),
+        ]);
+        let doc = build_document(&store, None);
+
+        let rows = &doc["paths"]["/api/rows"]["get"]["responses"]["200"]["content"]
+            ["application/json"]["schema"];
+        assert_eq!(rows["required"], json!(["data", "count", "truncated"]));
+        assert_eq!(rows["properties"]["data"]["type"], "array");
+        assert_eq!(rows["properties"]["count"]["type"], "integer");
+        assert_eq!(rows["properties"]["truncated"]["type"], "boolean");
+        assert!(rows["properties"].get("page").is_none());
+        assert!(rows["properties"].get("total").is_none());
+
+        let object = &doc["paths"]["/api/single"]["get"]["responses"]["200"]["content"]
+            ["application/json"]["schema"];
+        assert_eq!(object["required"], json!(["data"]));
+        assert_eq!(object["properties"]["data"]["oneOf"][0]["type"], "object");
+        assert_eq!(object["properties"]["data"]["oneOf"][1]["type"], "null");
     }
 
     #[test]
@@ -309,7 +338,7 @@ mod tests {
                 },
             ],
         )]);
-        let doc = build_document(&store);
+        let doc = build_document(&store, None);
         let params = doc["paths"]["/api/ep"]["get"]["parameters"]
             .as_array()
             .unwrap();

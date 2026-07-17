@@ -18,6 +18,7 @@ and which code baseline was checked.
 | [GDPR_AUDIT.md](GDPR_AUDIT.md) | 2025-02-21 | 2026-07-08 | Reviewed, targeted refresh | Add a user-facing local-data lifecycle view and purge controls. |
 | [OWASP_ALIGNMENT.md](OWASP_ALIGNMENT.md) | 2026-03-23 | 2026-07-08 | Reviewed, targeted refresh | Monitor remaining dependency-health warnings and add export/governance regression tests. |
 | [SOC2_ALIGNMENT.md](SOC2_ALIGNMENT.md) | 2026-03-23 | 2026-07-08 | Reviewed, targeted refresh | Finish local data lifecycle controls and keep dependency-audit evidence current. |
+| [CLAIMS_VS_CODE.md](CLAIMS_VS_CODE.md) | 2026-07-17 | 2026-07-17 | Needs update | Validate SQL Server TLS certificates (A2), then rewrite the Sandbox and Visual Diff discovery-panel strings. Extend the pass to performance claims and the remaining drivers. |
 
 `PLUGIN_TRUST.md` was not present in `doc/audits` during this review pass, so
 it is not indexed here. If it is restored, add it to this table and give it the

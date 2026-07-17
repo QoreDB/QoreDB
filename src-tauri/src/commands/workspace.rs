@@ -12,6 +12,18 @@ use crate::workspace::WorkspaceManager;
 pub type SharedWorkspaceManager = std::sync::Arc<tokio::sync::Mutex<WorkspaceManager>>;
 pub type WatcherPathSender = std::sync::Arc<tokio::sync::watch::Sender<Option<std::path::PathBuf>>>;
 
+/// Stops workspace-bound background services before the active workspace is
+/// changed. This is a no-op in Core builds where Instant Data API is absent.
+async fn prepare_workspace_transition(app: &tauri::AppHandle) -> Result<(), String> {
+    #[cfg(feature = "pro")]
+    if let Some(api_state) = app.try_state::<crate::commands::instant_api::SharedInstantApi>() {
+        crate::commands::instant_api::stop_if_running(api_state.inner()).await?;
+    }
+    #[cfg(not(feature = "pro"))]
+    let _ = app;
+    Ok(())
+}
+
 #[derive(Debug, Serialize)]
 pub struct WorkspaceResponse {
     pub success: bool,
@@ -21,9 +33,11 @@ pub struct WorkspaceResponse {
 
 #[tauri::command]
 pub async fn detect_workspace(
+    app: tauri::AppHandle,
     ws_manager: State<'_, SharedWorkspaceManager>,
     ws_path_tx: State<'_, WatcherPathSender>,
 ) -> Result<Option<WorkspaceInfo>, String> {
+    prepare_workspace_transition(&app).await?;
     let mut mgr = ws_manager.lock().await;
     let result = mgr.detect_and_activate();
     if let Some(ref info) = result {
@@ -50,11 +64,13 @@ pub async fn get_workspace_project_id(
 
 #[tauri::command]
 pub async fn create_workspace(
+    app: tauri::AppHandle,
     ws_manager: State<'_, SharedWorkspaceManager>,
     ws_path_tx: State<'_, WatcherPathSender>,
     project_dir: String,
     name: String,
 ) -> Result<WorkspaceResponse, String> {
+    prepare_workspace_transition(&app).await?;
     let mut mgr = ws_manager.lock().await;
     match mgr.create_workspace(&PathBuf::from(&project_dir), &name) {
         Ok(info) => {
@@ -75,10 +91,12 @@ pub async fn create_workspace(
 
 #[tauri::command]
 pub async fn open_workspace(
+    app: tauri::AppHandle,
     ws_manager: State<'_, SharedWorkspaceManager>,
     ws_path_tx: State<'_, WatcherPathSender>,
     qoredb_path: String,
 ) -> Result<WorkspaceResponse, String> {
+    prepare_workspace_transition(&app).await?;
     let mut mgr = ws_manager.lock().await;
     match mgr.switch_to(&PathBuf::from(&qoredb_path), WorkspaceSource::Manual) {
         Ok(info) => {
@@ -99,10 +117,12 @@ pub async fn open_workspace(
 
 #[tauri::command]
 pub async fn switch_workspace(
+    app: tauri::AppHandle,
     ws_manager: State<'_, SharedWorkspaceManager>,
     ws_path_tx: State<'_, WatcherPathSender>,
     qoredb_path: String,
 ) -> Result<WorkspaceResponse, String> {
+    prepare_workspace_transition(&app).await?;
     let mut mgr = ws_manager.lock().await;
     match mgr.switch_to(&PathBuf::from(&qoredb_path), WorkspaceSource::Manual) {
         Ok(info) => {
@@ -143,9 +163,11 @@ pub async fn rename_workspace(
 
 #[tauri::command]
 pub async fn switch_to_default_workspace(
+    app: tauri::AppHandle,
     ws_manager: State<'_, SharedWorkspaceManager>,
     ws_path_tx: State<'_, WatcherPathSender>,
 ) -> Result<WorkspaceInfo, String> {
+    prepare_workspace_transition(&app).await?;
     let mut mgr = ws_manager.lock().await;
     let _ = ws_path_tx.send(None);
     Ok(mgr.switch_to_default())

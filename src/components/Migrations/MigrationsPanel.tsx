@@ -56,6 +56,7 @@ import {
   listNamespaces,
   type MigrationDirection,
   type MigrationStatusEntry,
+  requestMigrationConfirmationToken,
   wsDeleteMigration,
   wsReadMigration,
   wsWriteMigration,
@@ -286,11 +287,19 @@ export function MigrationsPanel({
         }),
         warningInfo: environment === 'production' ? t('migrations.prodWarning') : undefined,
         confirmLabel: isUp ? t('migrations.apply') : t('migrations.rollback'),
+        confirmationLabel: environment === 'production' ? filename : undefined,
       });
       if (!confirmed) return;
       setApplying(filename);
       try {
-        let res = await applyMigration(sessionId, filename, direction, targetDatabase, true);
+        const confirmationToken = await requestMigrationConfirmationToken();
+        let res = await applyMigration(
+          sessionId,
+          filename,
+          direction,
+          targetDatabase,
+          confirmationToken
+        );
 
         // Some refusals are judgement calls rather than errors: the file drifted,
         // or a previous run died and left the schema in an unknown state. Surface
@@ -304,12 +313,21 @@ export function MigrationsPanel({
               ? t('migrations.partiallyAppliedWarning')
               : t('migrations.checksumForceWarning'),
             confirmLabel: t('migrations.forceApply'),
+            confirmationLabel: environment === 'production' ? filename : undefined,
           });
           if (!forced) {
             await refreshStatus();
             return;
           }
-          res = await applyMigration(sessionId, filename, direction, targetDatabase, true, true);
+          const forceConfirmationToken = await requestMigrationConfirmationToken();
+          res = await applyMigration(
+            sessionId,
+            filename,
+            direction,
+            targetDatabase,
+            forceConfirmationToken,
+            true
+          );
         }
 
         if (res.success) {

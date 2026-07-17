@@ -1651,7 +1651,7 @@
       "guardsTitle": "Règles de sécurité production",
       "guardsDesc": "Les requêtes dangereuses sont détectées et confirmées deux fois en prod. Mode lecture seule activable pour toute connexion.",
       "sandboxTitle": "Mode Sandbox",
-      "sandboxDesc": "Testez des requêtes destructives sur une vraie connexion sans toucher aux données réelles. Chaque changement est rollback.",
+      "sandboxDesc": "Préparez localement les modifications de la grille, vérifiez-les, puis appliquez-les à la base. Les requêtes de l’éditeur SQL ne sont pas isolées.",
       "localTitle": "Rien ne quitte votre machine",
       "localDesc": "Pas de sync cloud, pas de télémétrie de vos données, pas d'indexation distante de schéma. Vos requêtes et résultats restent locaux."
     },
@@ -2224,10 +2224,10 @@
         },
         "sandbox": {
           "title": "Mode Sandbox",
-          "description": "Exécutez des requêtes destructives sur une vraie connexion sans toucher aux données réelles.",
-          "bullet1": "Rollback automatique de chaque changement",
-          "bullet2": "Testez vos migrations sans risque",
-          "bullet3": "Un clic pour entrer, un pour sortir"
+          "description": "Préparez localement les modifications de la grille et vérifiez-les avant de les appliquer à la base.",
+          "bullet1": "Capture locale des ajouts, modifications et suppressions dans la grille",
+          "bullet2": "Vérification et export du DML généré avant application",
+          "bullet3": "Les requêtes de l’éditeur SQL ne sont pas isolées"
         },
         "visual_diff": {
           "title": "Diff visuel de données",
@@ -3224,7 +3224,7 @@
   },
   "instantApi": {
     "title": "Instant Data API",
-    "description": "Expose des requêtes sauvegardées en endpoints REST locaux, en lecture seule.",
+    "description": "Expose des requêtes SQL paramétrées en endpoints REST locaux, en lecture seule.",
     "openPanel": "Instant Data API…",
     "close": "Fermer",
     "newEndpoint": "Nouvel endpoint",
@@ -3241,7 +3241,7 @@
     },
     "empty": {
       "title": "Aucun endpoint pour l'instant",
-      "description": "Créez votre premier endpoint pour exposer une requête comme URL REST.",
+      "description": "Créez votre premier endpoint pour exposer une requête SQL paramétrée comme URL REST.",
       "createFirst": "Créer un endpoint"
     },
     "errors": {
@@ -3257,8 +3257,8 @@
       "serverStopped": "Démarrez le serveur avant d'ouvrir cette URL.",
       "paramsCount_one": "{{count}} param.",
       "paramsCount_other": "{{count}} params.",
-      "pageSize_one": "{{count}} ligne/page",
-      "pageSize_other": "{{count}} lignes/page"
+      "pageSize_one": "{{count}} ligne maximum",
+      "pageSize_other": "{{count}} lignes maximum"
     },
     "endpoint": {
       "newTitle": "Nouvel endpoint",
@@ -3274,7 +3274,7 @@
         "rows": "Liste de lignes",
         "object": "Objet unique"
       },
-      "pageSizeLabel": "Taille de page",
+      "pageSizeLabel": "Nombre maximal de lignes",
       "paramsLabel": "Paramètres",
       "addParam": "Ajouter",
       "noParams": "Aucun paramètre déclaré.",
@@ -3287,7 +3287,7 @@
       "invalidName": "Nom invalide — lettres, chiffres, tiret, underscore (1–64).",
       "missingConnection": "Choisissez une connexion.",
       "missingQuery": "La requête est vide.",
-      "invalidPageSize": "La taille de page doit être entre 1 et 10000.",
+      "invalidPageSize": "Le nombre maximal de lignes doit être compris entre 1 et 10000.",
       "invalidParamName": "Nom de paramètre invalide : {{name}}",
       "paramNotInQuery": "Le paramètre {{name}} n'est pas utilisé dans la requête.",
       "loadConnectionsFailed": "Échec du chargement des connexions"

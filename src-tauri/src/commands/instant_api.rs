@@ -31,8 +31,8 @@ use crate::api::types::{Endpoint, EndpointMeta, EndpointParam, InstantApiStatus,
 use crate::commands::workspace::SharedWorkspaceManager;
 
 /// Pro-only shared state: the API server is created lazily on first
-/// `start_instant_api` and dropped on `stop_instant_api` (so a workspace
-/// switch surfaces with fresh credentials/storage paths).
+/// `start_instant_api` and dropped on explicit stop, vault lock, or workspace
+/// switch so cached sessions and credential paths never cross those boundaries.
 pub type SharedInstantApi = Arc<TokioMutex<InstantApiState>>;
 
 pub struct InstantApiState {
@@ -112,11 +112,26 @@ pub async fn start_instant_api(
 pub async fn stop_instant_api(
     api_state: State<'_, SharedInstantApi>,
 ) -> Result<InstantApiStatus, String> {
+    stop_if_running(api_state.inner()).await?;
+    let guard = api_state.lock().await;
+    build_status(&guard).await
+}
+
+/// Stops the listener and drains all cached upstream sessions, if one exists.
+///
+/// The state mutex stays held through shutdown so a concurrent start cannot
+/// recreate the server while a workspace transition or vault lock is in
+/// progress. The server is restored in state if shutdown fails before taking
+/// effect, allowing the caller to abort the boundary transition safely.
+pub(crate) async fn stop_if_running(api_state: &SharedInstantApi) -> Result<(), String> {
     let mut guard = api_state.lock().await;
     if let Some(server) = guard.server.take() {
-        server.stop().await.map_err(|e| e.to_string())?;
+        if let Err(error) = server.stop().await {
+            guard.server = Some(server);
+            return Err(error.to_string());
+        }
     }
-    build_status(&guard).await
+    Ok(())
 }
 
 #[tauri::command]
@@ -142,13 +157,20 @@ pub async fn get_openapi_document(
     api_state: State<'_, SharedInstantApi>,
 ) -> Result<String, String> {
     let guard = api_state.lock().await;
-    let doc = crate::api::openapi::build_document(&guard.store);
+    let base_url = match guard.server.as_ref() {
+        Some(server) => server.base_url().await,
+        None => None,
+    };
+    let doc = crate::api::openapi::build_document(&guard.store, base_url.as_deref());
     serde_json::to_string_pretty(&doc).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 pub async fn create_endpoint(
+    app: AppHandle,
     api_state: State<'_, SharedInstantApi>,
+    state: State<'_, crate::SharedState>,
+    ws_manager: State<'_, SharedWorkspaceManager>,
     name: String,
     connection_id: String,
     query_source: String,
@@ -156,6 +178,32 @@ pub async fn create_endpoint(
     shape: Option<QueryShape>,
     page_size: Option<u32>,
 ) -> Result<CreateEndpointResponse, String> {
+    {
+        let app_state = state.lock().await;
+        if app_state.vault_lock.is_locked() {
+            return Err("Vault is locked".to_string());
+        }
+    }
+
+    let project_id = ws_manager.lock().await.project_id();
+    let (connection_config, _) = crate::commands::connection::resolve_saved_connection(
+        &app,
+        &ws_manager,
+        &project_id,
+        &connection_id,
+    )
+    .await?;
+    let params = params.unwrap_or_default();
+    let page_size = page_size.unwrap_or(100);
+    crate::api::handlers::validate_endpoint_definition(
+        &connection_config.driver,
+        &query_source,
+        &params,
+        page_size,
+    )?;
+
+    // Token generation is intentionally last: rejected definitions never
+    // receive a credential and never reach persistent storage.
     let token = issue_token().map_err(|e| e.to_string())?;
     let guard = api_state.lock().await;
     let endpoint: Endpoint = guard
@@ -164,9 +212,9 @@ pub async fn create_endpoint(
             name,
             connection_id,
             query_source,
-            params.unwrap_or_default(),
+            params,
             shape.unwrap_or(QueryShape::Rows),
-            page_size.unwrap_or(100),
+            page_size,
             token.hash,
         )
         .map_err(|e| e.to_string())?;
@@ -246,5 +294,41 @@ async fn build_status(state: &InstantApiState) -> Result<InstantApiStatus, Strin
             uptime_s: None,
             tls: false,
         }),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use qore_core::registry::DriverRegistry;
+    use qore_drivers::session_manager::SessionManager;
+    use tempfile::TempDir;
+
+    #[tokio::test]
+    async fn lifecycle_stop_is_idempotent_and_clears_the_server() {
+        let tmp = TempDir::new().unwrap();
+        let store = Arc::new(EndpointStore::new(tmp.path().to_path_buf()).unwrap());
+        let session_manager = Arc::new(SessionManager::new(Arc::new(DriverRegistry::new())));
+        let server = Arc::new(ApiServer::new(
+            Arc::clone(&store),
+            session_manager,
+            "test".into(),
+            tmp.path().to_path_buf(),
+            None,
+        ));
+        server.start(Some(0)).await.unwrap();
+
+        let state = Arc::new(TokioMutex::new(InstantApiState {
+            store,
+            server: Some(Arc::clone(&server)),
+        }));
+
+        stop_if_running(&state).await.unwrap();
+        assert!(!server.is_running().await);
+        assert!(state.lock().await.server.is_none());
+
+        // Workspace/vault lifecycle hooks can safely converge on the same
+        // shutdown helper without racing into a NotRunning error.
+        stop_if_running(&state).await.unwrap();
     }
 }

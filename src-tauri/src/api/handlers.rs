@@ -18,9 +18,9 @@
 //! safety check, this prevents the substitution channel from sneaking a
 //! mutation into a read-only endpoint.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 use std::time::Instant;
 
 use axum::{
@@ -64,6 +64,9 @@ pub struct ApiState {
     pub workspace_connections_dir: Option<PathBuf>,
     /// Server start instant — read by `/health` to compute uptime.
     pub started_at: Arc<Instant>,
+    /// Actual listener URL, including the runtime port and HTTP/HTTPS scheme.
+    /// Set exactly once after binding and used by `/openapi.json`.
+    pub openapi_base_url: Arc<OnceLock<String>>,
 }
 
 /// Error envelope returned to clients. Lives outside `ApiError` so we can
@@ -163,8 +166,7 @@ fn authenticate(endpoint: &Endpoint, headers: &HeaderMap) -> Result<(), ApiError
 
 /// Substitutes `{{name}}` placeholders with typed-and-escaped SQL literals.
 ///
-/// Unknown query-string keys are ignored (so callers can pass `?page=…`
-/// alongside endpoint params). Missing required params return 400.
+/// Unknown query-string keys are ignored. Missing required params return 400.
 fn substitute_params(
     endpoint: &Endpoint,
     values: &HashMap<String, String>,
@@ -172,10 +174,10 @@ fn substitute_params(
 ) -> Result<String, ApiError> {
     let mut out = endpoint.query_source.clone();
     for p in &endpoint.params {
-        let raw = match values.get(&p.name) {
-            Some(v) => v.clone(),
+        let literal = match values.get(&p.name) {
+            Some(value) => type_param(p, value, dialect)?,
             None => match &p.default {
-                Some(d) => d.clone(),
+                Some(default) => type_param(p, default, dialect)?,
                 None => {
                     if p.required {
                         return Err(ApiError::BadRequest(format!(
@@ -183,15 +185,117 @@ fn substitute_params(
                             p.name
                         )));
                     }
-                    continue;
+                    "NULL".to_string()
                 }
             },
         };
-        let literal = type_param(p, &raw, dialect)?;
         let placeholder = format!("{{{{{}}}}}", p.name);
         out = out.replace(&placeholder, &literal);
     }
     Ok(out)
+}
+
+/// Validates a new endpoint with the dialect of its saved connection before
+/// it is persisted or receives a bearer token.
+pub(crate) fn validate_endpoint_definition(
+    driver_id: &str,
+    query_source: &str,
+    params: &[EndpointParam],
+    max_rows: u32,
+) -> Result<(), String> {
+    if !(1..=10_000).contains(&max_rows) {
+        return Err("Maximum rows must be between 1 and 10000".to_string());
+    }
+
+    let dialect = ParamDialect::from_driver_id(driver_id)
+        .ok_or_else(|| format!("driver {driver_id} is not supported by Instant Data API"))?;
+    let placeholders = extract_placeholders(query_source)?;
+    let mut declared = HashSet::with_capacity(params.len());
+    let mut values = HashMap::with_capacity(params.len());
+
+    for param in params {
+        if !valid_param_name(&param.name) {
+            return Err(format!("invalid parameter name: {}", param.name));
+        }
+        if !declared.insert(param.name.as_str()) {
+            return Err(format!("duplicate parameter: {}", param.name));
+        }
+        if !placeholders.iter().any(|name| name == &param.name) {
+            return Err(format!(
+                "parameter {} is not referenced in the query",
+                param.name
+            ));
+        }
+        let sample = param.default.clone().unwrap_or_else(|| match param.kind {
+            EndpointParamType::String => "qoredb_validation".to_string(),
+            EndpointParamType::Integer => "0".to_string(),
+            EndpointParamType::Float => "0.0".to_string(),
+            EndpointParamType::Bool => "false".to_string(),
+        });
+        values.insert(param.name.clone(), sample);
+    }
+
+    for placeholder in &placeholders {
+        if !declared.contains(placeholder.as_str()) {
+            return Err(format!(
+                "query placeholder {placeholder} has no declared parameter"
+            ));
+        }
+    }
+
+    let endpoint = Endpoint {
+        id: String::new(),
+        name: String::new(),
+        connection_id: String::new(),
+        query_source: query_source.to_string(),
+        params: params.to_vec(),
+        shape: QueryShape::Rows,
+        token_hash: String::new(),
+        page_size: max_rows,
+        created_at: String::new(),
+        updated_at: String::new(),
+    };
+    let validation_sql =
+        substitute_params(&endpoint, &values, dialect).map_err(|error| match error {
+            ApiError::BadRequest(message) => message,
+            other => format!("query validation failed: {other:?}"),
+        })?;
+    let safety_driver = dialect.safety_driver_id();
+    let analysis = sql_safety::analyze_sql(safety_driver, &validation_sql)
+        .map_err(|error| format!("invalid query for {driver_id}: {error}"))?;
+    if analysis.is_mutation {
+        return Err("Instant Data API endpoint queries must be read-only".to_string());
+    }
+    if !sql_safety::returns_rows(safety_driver, &validation_sql)
+        .map_err(|error| format!("invalid query for {driver_id}: {error}"))?
+    {
+        return Err("Instant Data API endpoint queries must return rows".to_string());
+    }
+    Ok(())
+}
+
+fn valid_param_name(name: &str) -> bool {
+    let mut chars = name.chars();
+    matches!(chars.next(), Some(first) if first.is_ascii_alphabetic() || first == '_')
+        && chars.all(|ch| ch.is_ascii_alphanumeric() || ch == '_')
+}
+
+fn extract_placeholders(query_source: &str) -> Result<Vec<String>, String> {
+    let mut placeholders = Vec::new();
+    let mut remaining = query_source;
+    while let Some(start) = remaining.find("{{") {
+        let after_start = &remaining[start + 2..];
+        let end = after_start
+            .find("}}")
+            .ok_or_else(|| "unterminated query placeholder".to_string())?;
+        let name = &after_start[..end];
+        if !valid_param_name(name) {
+            return Err(format!("invalid query placeholder: {name:?}"));
+        }
+        placeholders.push(name.to_string());
+        remaining = &after_start[end + 2..];
+    }
+    Ok(placeholders)
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -528,6 +632,102 @@ mod tests {
         let e = ep("SELECT * FROM t LIMIT {{limit}}", vec![p]);
         let sql = substitute_params(&e, &HashMap::new(), ParamDialect::Postgres).unwrap();
         assert_eq!(sql, "SELECT * FROM t LIMIT 50");
+    }
+
+    #[test]
+    fn optional_param_without_default_becomes_null() {
+        let p = EndpointParam {
+            name: "status".into(),
+            kind: EndpointParamType::String,
+            required: false,
+            default: None,
+        };
+        let e = ep("SELECT * FROM t WHERE status = {{status}}", vec![p]);
+        let sql = substitute_params(&e, &HashMap::new(), ParamDialect::Postgres).unwrap();
+        assert_eq!(sql, "SELECT * FROM t WHERE status = NULL");
+    }
+
+    #[test]
+    fn endpoint_definition_accepts_parameterized_read_only_query() {
+        let params = vec![EndpointParam {
+            name: "id".into(),
+            kind: EndpointParamType::Integer,
+            required: true,
+            default: None,
+        }];
+        validate_endpoint_definition(
+            "timescaledb",
+            "SELECT * FROM users WHERE id = {{id}}",
+            &params,
+            100,
+        )
+        .unwrap();
+    }
+
+    #[test]
+    fn endpoint_definition_rejects_mutations_and_non_row_statements() {
+        let mutation =
+            validate_endpoint_definition("postgres", "DELETE FROM users", &[], 100).unwrap_err();
+        assert!(mutation.contains("read-only"));
+
+        let no_rows =
+            validate_endpoint_definition("postgres", "SET search_path = public", &[], 100)
+                .unwrap_err();
+        assert!(no_rows.contains("return rows"));
+    }
+
+    #[test]
+    fn endpoint_definition_rejects_invalid_or_mismatched_placeholders() {
+        let param = EndpointParam {
+            name: "id".into(),
+            kind: EndpointParamType::Integer,
+            required: true,
+            default: None,
+        };
+        let undeclared = validate_endpoint_definition(
+            "postgres",
+            "SELECT * FROM users WHERE id = {{other}}",
+            &[param.clone()],
+            100,
+        )
+        .unwrap_err();
+        assert!(undeclared.contains("not referenced"));
+
+        let unterminated = validate_endpoint_definition(
+            "postgres",
+            "SELECT * FROM users WHERE id = {{id",
+            &[param],
+            100,
+        )
+        .unwrap_err();
+        assert!(unterminated.contains("unterminated"));
+    }
+
+    #[test]
+    fn endpoint_definition_validates_defaults_and_maximum_rows() {
+        let invalid_default = EndpointParam {
+            name: "limit".into(),
+            kind: EndpointParamType::Integer,
+            required: false,
+            default: Some("many".into()),
+        };
+        let default_error = validate_endpoint_definition(
+            "postgres",
+            "SELECT * FROM users LIMIT {{limit}}",
+            &[invalid_default],
+            100,
+        )
+        .unwrap_err();
+        assert!(default_error.contains("must be an integer"));
+
+        assert!(validate_endpoint_definition("postgres", "SELECT 1", &[], 0)
+            .unwrap_err()
+            .contains("between 1 and 10000"));
+        assert!(
+            validate_endpoint_definition("postgres", "SELECT 1", &[], 10_001)
+                .unwrap_err()
+                .contains("between 1 and 10000")
+        );
     }
 
     #[test]

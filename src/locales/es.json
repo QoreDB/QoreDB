@@ -1624,7 +1624,7 @@
       "guardsTitle": "Reglas de seguridad en producción",
       "guardsDesc": "Las consultas peligrosas se detectan y se confirman dos veces en producción. Modo de solo lectura para cualquier conexión con un solo toggle.",
       "sandboxTitle": "Modo Sandbox",
-      "sandboxDesc": "Prueba consultas destructivas contra una conexión real sin tocar datos reales. Cada cambio se revierte.",
+      "sandboxDesc": "Prepara cambios de la cuadrícula localmente, revísalos y aplícalos a la base de datos cuando estén listos. Las consultas del editor SQL no están aisladas.",
       "localTitle": "Nada sale de tu máquina",
       "localDesc": "Sin sincronización en la nube, sin telemetría de tus datos, sin indexación remota del esquema. Tus consultas y resultados permanecen locales."
     },
@@ -2185,10 +2185,10 @@
         },
         "sandbox": {
           "title": "Modo Sandbox",
-          "description": "Ejecuta consultas destructivas contra una conexión real sin tocar datos reales.",
-          "bullet1": "Revierte automáticamente cada cambio",
-          "bullet2": "Prueba migraciones de forma segura en staging",
-          "bullet3": "Un clic para entrar, otro para salir"
+          "description": "Prepara cambios de la cuadrícula localmente y revísalos antes de aplicarlos a la base de datos.",
+          "bullet1": "Captura localmente inserciones, actualizaciones y eliminaciones de la cuadrícula",
+          "bullet2": "Revisa y exporta el DML generado antes de aplicarlo",
+          "bullet3": "Las consultas del editor SQL no están aisladas"
         },
         "visual_diff": {
           "title": "Diff visual de datos",
@@ -3185,7 +3185,7 @@
   },
   "instantApi": {
     "title": "Instant Data API",
-    "description": "Expone consultas guardadas como endpoints REST locales, en solo lectura.",
+    "description": "Expone consultas SQL parametrizadas como endpoints REST locales, en solo lectura.",
     "openPanel": "Instant Data API…",
     "close": "Cerrar",
     "newEndpoint": "Nuevo endpoint",
@@ -3202,7 +3202,7 @@
     },
     "empty": {
       "title": "Aún no hay endpoints",
-      "description": "Crea tu primer endpoint para exponer una consulta como URL REST.",
+      "description": "Crea tu primer endpoint para exponer una consulta SQL parametrizada como URL REST.",
       "createFirst": "Crear un endpoint"
     },
     "errors": {
@@ -3218,8 +3218,8 @@
       "serverStopped": "Inicia el servidor antes de abrir esta URL.",
       "paramsCount_one": "{{count}} parámetro",
       "paramsCount_other": "{{count}} parámetros",
-      "pageSize_one": "{{count}} fila/página",
-      "pageSize_other": "{{count}} filas/página"
+      "pageSize_one": "{{count}} fila como máximo",
+      "pageSize_other": "{{count}} filas como máximo"
     },
     "endpoint": {
       "newTitle": "Nuevo endpoint",
@@ -3235,7 +3235,7 @@
         "rows": "Lista de filas",
         "object": "Objeto único"
       },
-      "pageSizeLabel": "Tamaño de página",
+      "pageSizeLabel": "Máximo de filas",
       "paramsLabel": "Parámetros",
       "addParam": "Añadir",
       "noParams": "Sin parámetros declarados.",
@@ -3248,7 +3248,7 @@
       "invalidName": "Nombre no válido — letras, dígitos, guion, guion bajo (1–64).",
       "missingConnection": "Selecciona una conexión.",
       "missingQuery": "La consulta está vacía.",
-      "invalidPageSize": "El tamaño de página debe estar entre 1 y 10000.",
+      "invalidPageSize": "El máximo de filas debe estar entre 1 y 10000.",
       "invalidParamName": "Nombre de parámetro no válido: {{name}}",
       "paramNotInQuery": "El parámetro {{name}} no se usa en la consulta.",
       "loadConnectionsFailed": "No se pudieron cargar las conexiones"

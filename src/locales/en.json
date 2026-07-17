@@ -1663,7 +1663,7 @@
       "guardsTitle": "Production safety rules",
       "guardsDesc": "Dangerous queries are detected and confirmed twice on prod. Read-only mode for any connection in one toggle.",
       "sandboxTitle": "Sandbox mode",
-      "sandboxDesc": "Test destructive queries against a real connection without touching real data. Every change rolls back.",
+      "sandboxDesc": "Stage grid edits locally, review them, then apply them to the database when ready. SQL editor queries are not sandboxed.",
       "localTitle": "Nothing leaves your machine",
       "localDesc": "No cloud sync, no telemetry of your data, no remote schema indexing. Your queries and results stay local."
     },
@@ -2224,10 +2224,10 @@
         },
         "sandbox": {
           "title": "Sandbox mode",
-          "description": "Run destructive queries against a real connection without touching real data.",
-          "bullet1": "Auto-rollback every change",
-          "bullet2": "Try migrations safely on staging",
-          "bullet3": "One click to enter, one to exit"
+          "description": "Stage grid edits locally and review them before applying them to the database.",
+          "bullet1": "Capture grid inserts, updates, and deletes locally",
+          "bullet2": "Review and export generated DML before applying",
+          "bullet3": "SQL editor queries are not sandboxed"
         },
         "visual_diff": {
           "title": "Visual data diff",
@@ -3224,7 +3224,7 @@
   },
   "instantApi": {
     "title": "Instant Data API",
-    "description": "Expose saved queries as read-only REST endpoints on localhost.",
+    "description": "Expose parameterized SQL queries as read-only REST endpoints on localhost.",
     "openPanel": "Instant Data API…",
     "close": "Close",
     "newEndpoint": "New endpoint",
@@ -3241,7 +3241,7 @@
     },
     "empty": {
       "title": "No endpoints yet",
-      "description": "Create your first endpoint to expose a saved query as a REST URL.",
+      "description": "Create your first endpoint to expose a parameterized SQL query as a REST URL.",
       "createFirst": "Create an endpoint"
     },
     "errors": {
@@ -3257,8 +3257,8 @@
       "serverStopped": "Start the server before opening this URL.",
       "paramsCount_one": "{{count}} param",
       "paramsCount_other": "{{count}} params",
-      "pageSize_one": "{{count}} row/page",
-      "pageSize_other": "{{count}} rows/page"
+      "pageSize_one": "{{count}} row maximum",
+      "pageSize_other": "{{count}} rows maximum"
     },
     "endpoint": {
       "newTitle": "New endpoint",
@@ -3274,7 +3274,7 @@
         "rows": "List of rows",
         "object": "Single object"
       },
-      "pageSizeLabel": "Page size",
+      "pageSizeLabel": "Maximum rows",
       "paramsLabel": "Parameters",
       "addParam": "Add",
       "noParams": "No parameters declared.",
@@ -3287,7 +3287,7 @@
       "invalidName": "Invalid name — use letters, digits, dash, underscore (1–64).",
       "missingConnection": "Pick a connection.",
       "missingQuery": "Query is empty.",
-      "invalidPageSize": "Page size must be between 1 and 10000.",
+      "invalidPageSize": "Maximum rows must be between 1 and 10000.",
       "invalidParamName": "Invalid parameter name: {{name}}",
       "paramNotInQuery": "Parameter {{name}} is not referenced in the query.",
       "loadConnectionsFailed": "Failed to load connections"

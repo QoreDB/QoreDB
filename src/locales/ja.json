@@ -1624,7 +1624,7 @@
       "guardsTitle": "本番環境の安全ルール",
       "guardsDesc": "危険なクエリは本番環境で二重に確認されます。ワントグルでどの接続も読み取り専用モードに切り替え可能。",
       "sandboxTitle": "サンドボックスモード",
-      "sandboxDesc": "実際のデータに触れずに、本物の接続に対して破壊的なクエリをテストできます。すべての変更はロールバックされます。",
+      "sandboxDesc": "データグリッドの編集をローカルで保留し、確認してからデータベースに適用します。SQL エディターのクエリはサンドボックス化されません。",
       "localTitle": "データはあなたのマシンから出ません",
       "localDesc": "クラウド同期なし、データのテレメトリなし、リモートのスキーマインデックスなし。クエリと結果はローカルに留まります。"
     },
@@ -2185,10 +2185,10 @@
         },
         "sandbox": {
           "title": "サンドボックスモード",
-          "description": "実際のデータに触れずに、本物の接続で破壊的なクエリを実行できます。",
-          "bullet1": "すべての変更を自動ロールバック",
-          "bullet2": "ステージング環境でマイグレーションを安全にテスト",
-          "bullet3": "ワンクリックで入退場"
+          "description": "データグリッドの編集をローカルで保留し、データベースへ適用する前に確認できます。",
+          "bullet1": "グリッドでの追加・更新・削除をローカルに記録",
+          "bullet2": "適用前に生成された DML を確認・エクスポート",
+          "bullet3": "SQL エディターのクエリはサンドボックス化されません"
         },
         "visual_diff": {
           "title": "ビジュアルデータ差分",
@@ -3185,7 +3185,7 @@
   },
   "instantApi": {
     "title": "Instant Data API",
-    "description": "保存済みクエリをローカルの読み取り専用 REST エンドポイントとして公開します。",
+    "description": "パラメーター化された SQL クエリをローカルの読み取り専用 REST エンドポイントとして公開します。",
     "openPanel": "Instant Data API…",
     "close": "閉じる",
     "newEndpoint": "新しいエンドポイント",
@@ -3202,7 +3202,7 @@
     },
     "empty": {
       "title": "エンドポイントはまだありません",
-      "description": "最初のエンドポイントを作成して、保存したクエリを REST URL として公開しましょう。",
+      "description": "最初のエンドポイントを作成して、パラメーター化された SQL クエリを REST URL として公開しましょう。",
       "createFirst": "エンドポイントを作成"
     },
     "errors": {
@@ -3218,8 +3218,8 @@
       "serverStopped": "この URL を開く前にサーバーを起動してください。",
       "paramsCount_one": "パラメータ {{count}} 個",
       "paramsCount_other": "パラメータ {{count}} 個",
-      "pageSize_one": "{{count}} 行/ページ",
-      "pageSize_other": "{{count}} 行/ページ"
+      "pageSize_one": "最大 {{count}} 行",
+      "pageSize_other": "最大 {{count}} 行"
     },
     "endpoint": {
       "newTitle": "新しいエンドポイント",
@@ -3235,7 +3235,7 @@
         "rows": "行のリスト",
         "object": "単一オブジェクト"
       },
-      "pageSizeLabel": "ページサイズ",
+      "pageSizeLabel": "最大行数",
       "paramsLabel": "パラメータ",
       "addParam": "追加",
       "noParams": "パラメータは宣言されていません。",
@@ -3248,7 +3248,7 @@
       "invalidName": "無効な名前 — 英数字・ハイフン・アンダースコア（1〜64）。",
       "missingConnection": "接続を選択してください。",
       "missingQuery": "クエリが空です。",
-      "invalidPageSize": "ページサイズは 1〜10000 の範囲で指定してください。",
+      "invalidPageSize": "最大行数は 1〜10000 の範囲で指定してください。",
       "invalidParamName": "無効なパラメータ名: {{name}}",
       "paramNotInQuery": "パラメータ {{name}} はクエリで参照されていません。",
       "loadConnectionsFailed": "接続の読み込みに失敗しました"

@@ -173,7 +173,17 @@ pub async fn unlock_vault(
 }
 
 #[tauri::command]
-pub async fn lock_vault(state: State<'_, SharedState>) -> Result<VaultResponse, String> {
+pub async fn lock_vault(
+    app: AppHandle,
+    state: State<'_, SharedState>,
+) -> Result<VaultResponse, String> {
+    #[cfg(feature = "pro")]
+    if let Some(api_state) = app.try_state::<crate::commands::instant_api::SharedInstantApi>() {
+        crate::commands::instant_api::stop_if_running(api_state.inner()).await?;
+    }
+    #[cfg(not(feature = "pro"))]
+    let _ = app;
+
     let mut state = state.lock().await;
     state.vault_lock.lock();
 

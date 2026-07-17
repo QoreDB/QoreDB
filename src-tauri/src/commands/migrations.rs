@@ -26,6 +26,37 @@ use crate::engine::types::QueryId;
 use crate::workspace::types::WorkspaceSource;
 
 const HISTORY_TABLE: &str = "qoredb_migrations";
+const MIGRATION_CONFIRMATION_ACTION: &str = "apply_migration";
+/// Must stay aligned with `src/lib/migrations/drivers.ts`. These engines expose
+/// raw SQL DDL with semantics understood by the migration splitter/runner.
+const SCHEMA_MIGRATION_DRIVERS: &[&str] = &[
+    "postgres",
+    "cockroachdb",
+    "mysql",
+    "mariadb",
+    "sqlite",
+    "duckdb",
+    "motherduck",
+    "sqlserver",
+    "timescaledb",
+    "supabase",
+    "neon",
+];
+
+fn schema_migration_driver_supported(driver_id: &str) -> bool {
+    SCHEMA_MIGRATION_DRIVERS.contains(&driver_id)
+}
+
+fn consume_migration_confirmation(
+    store: &crate::commands::confirmation::ConfirmationTokenStore,
+    token: Option<&str>,
+) -> Result<bool, String> {
+    let Some(token) = token else {
+        return Ok(false);
+    };
+    store.consume(MIGRATION_CONFIRMATION_ACTION, token)?;
+    Ok(true)
+}
 
 /// Marks a checksum computed over the `up` script alone. Rows written before
 /// this format hashed the whole file; the prefix lets both be verified on their
@@ -46,6 +77,7 @@ pub enum MigrationBlockReason {
     MalformedVersion,
     UnsplittableScript,
     SafetyBlocked,
+    UnsupportedDriver,
     /// A run died part-way and the driver could not undo it.
     PartiallyApplied,
 }
@@ -492,6 +524,17 @@ pub(crate) async fn run_migration(run: MigrationRun<'_>) -> ApplyMigrationRespon
     let driver_id = driver.driver_id().to_string();
     let is_production = matches!(run.environment, Environment::Production);
 
+    // Defense in depth for internal callers: never let an unsupported engine
+    // reach dialect selection or migration history, even if command preflight
+    // is bypassed in a future code path.
+    if !schema_migration_driver_supported(&driver_id) {
+        return blocked(
+            MigrationBlockReason::UnsupportedDriver,
+            format!("Driver '{driver_id}' is not supported by the Migrations Manager"),
+            false,
+        );
+    }
+
     if is_mysql_family(&driver_id) && migration_namespace(run.database).is_none() {
         return fail(
             "Select a target database before applying or rolling back a MySQL migration."
@@ -878,7 +921,7 @@ pub async fn apply_migration(
     filename: String,
     direction: String,
     database: String,
-    acknowledged: Option<bool>,
+    confirmation_token: Option<String>,
     force: Option<bool>,
 ) -> Result<ApplyMigrationResponse, String> {
     let (content, siblings) = {
@@ -921,22 +964,51 @@ pub async fn apply_migration(
         ));
     }
 
-    let is_up = direction != "down";
+    let is_up = match direction.as_str() {
+        "up" => true,
+        "down" => false,
+        _ => {
+            return Ok(fail(
+                "Migration direction must be 'up' or 'down'".to_string(),
+            ))
+        }
+    };
     let (up, down) = split_up_down(&content);
     let script = if is_up { up } else { down };
     if script.trim().is_empty() {
         return Ok(fail(format!("Migration has no {} script", direction)));
     }
 
-    let (session_manager, interceptor, policy) = {
+    let (session_manager, interceptor, policy, confirmation_tokens) = {
         let guard = state.lock().await;
         (
             Arc::clone(&guard.session_manager),
             Arc::clone(&guard.interceptor),
             guard.policy.clone(),
+            Arc::clone(&guard.confirmation_tokens),
         )
     };
     let session = parse_session_id(&session_id)?;
+    let session_driver = session_manager
+        .get_driver(session)
+        .await
+        .map_err(|error| error.sanitized_message())?;
+    let driver_id = session_driver.driver_id();
+    if !schema_migration_driver_supported(driver_id) {
+        return Ok(blocked(
+            MigrationBlockReason::UnsupportedDriver,
+            format!("Driver '{driver_id}' is not supported by the Migrations Manager"),
+            false,
+        ));
+    }
+
+    let acknowledged = match consume_migration_confirmation(
+        confirmation_tokens.as_ref(),
+        confirmation_token.as_deref(),
+    ) {
+        Ok(acknowledged) => acknowledged,
+        Err(error) => return Ok(blocked(MigrationBlockReason::SafetyBlocked, error, false)),
+    };
 
     // Session-level gate: read-only, driver capabilities, and the driver handle.
     // Its context is deliberately discarded — it hardcodes `sql_analysis: None`,
@@ -948,7 +1020,7 @@ pub async fn apply_migration(
         &session_id,
         &script,
         &database,
-        acknowledged.unwrap_or(false),
+        acknowledged,
     )
     .await
     {
@@ -987,7 +1059,7 @@ pub async fn apply_migration(
         file_content: &content,
         script: &script,
         is_up,
-        acknowledged: acknowledged.unwrap_or(false),
+        acknowledged,
         force: force.unwrap_or(false),
     })
     .await;
@@ -1157,6 +1229,19 @@ mod tests {
     const FILE: &str =
         "-- migrate:up\nCREATE TABLE t (id int);\n\n-- migrate:down\nDROP TABLE t;\n";
 
+    #[test]
+    fn migration_confirmation_requires_a_matching_single_use_token() {
+        let store = crate::commands::confirmation::ConfirmationTokenStore::new();
+        assert!(!consume_migration_confirmation(&store, None).unwrap());
+
+        let (wrong_action, _) = store.issue("clear_audit_log");
+        assert!(consume_migration_confirmation(&store, Some(&wrong_action)).is_err());
+
+        let (token, _) = store.issue(MIGRATION_CONFIRMATION_ACTION);
+        assert!(consume_migration_confirmation(&store, Some(&token)).unwrap());
+        assert!(consume_migration_confirmation(&store, Some(&token)).is_err());
+    }
+
     fn row(checksum: &str, rolled_back: Option<&str>) -> HistoryRow {
         HistoryRow {
             checksum: checksum.to_string(),
@@ -1277,6 +1362,56 @@ mod tests {
                 _ => None,
             })
             .collect()
+    }
+
+    #[test]
+    fn schema_migration_driver_allowlist_matches_the_frontend_contract() {
+        assert_eq!(
+            SCHEMA_MIGRATION_DRIVERS,
+            &[
+                "postgres",
+                "cockroachdb",
+                "mysql",
+                "mariadb",
+                "sqlite",
+                "duckdb",
+                "motherduck",
+                "sqlserver",
+                "timescaledb",
+                "supabase",
+                "neon",
+            ]
+        );
+        for unsupported in [
+            "clickhouse",
+            "mongodb",
+            "redis",
+            "elasticsearch",
+            "opensearch",
+        ] {
+            assert!(!schema_migration_driver_supported(unsupported));
+        }
+    }
+
+    #[tokio::test]
+    async fn unsupported_driver_is_refused_before_any_database_call() {
+        let h = harness();
+        let driver = Arc::new(MockDriver::new("clickhouse"));
+        let response = run_migration(run(
+            &h,
+            driver.clone(),
+            true,
+            "CREATE TABLE t (id Int64)",
+            Environment::Development,
+        ))
+        .await;
+
+        assert!(!response.success);
+        assert_eq!(
+            response.blocked_reason,
+            Some(MigrationBlockReason::UnsupportedDriver)
+        );
+        assert!(driver.call_log().is_empty());
     }
 
     #[test]

@@ -29,8 +29,8 @@ pub struct EndpointParam {
     pub default: Option<String>,
 }
 
-/// Shape hint used by [`super::handlers`] to decide pagination defaults.
-/// `Rows` = paginated `{ data, page, total }`, `Object` = single object.
+/// Shape hint used by [`super::handlers`] to select the response envelope.
+/// `Rows` = `{ data, count, truncated }`, `Object` = `{ data: object | null }`.
 /// Defaults to `Rows`.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
 #[serde(rename_all = "snake_case")]
@@ -63,7 +63,7 @@ pub struct Endpoint {
     /// Argon2id hash of the issued token. The raw token is shown to the user
     /// only once at creation time.
     pub token_hash: String,
-    /// Max rows returned per page when `shape = rows`. Defaults to 100.
+    /// Max rows included in the response when `shape = rows`. Defaults to 100.
     #[serde(default = "default_page_size")]
     pub page_size: u32,
     pub created_at: String,

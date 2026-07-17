@@ -31,6 +31,7 @@ export type MigrationBlockReason =
   | 'malformed_version'
   | 'unsplittable_script'
   | 'safety_blocked'
+  | 'unsupported_driver'
   | 'partially_applied';
 
 export interface ApplyMigrationResponse {
@@ -43,12 +44,26 @@ export interface ApplyMigrationResponse {
   overridable: boolean;
 }
 
+const MIGRATION_CONFIRMATION_ACTION = 'apply_migration';
+
+/**
+ * Acquires a short-lived, single-use backend acknowledgement. Call this only
+ * after the user has accepted the migration confirmation dialog.
+ */
+export async function requestMigrationConfirmationToken(): Promise<string> {
+  const { token } = await invoke<{ token: string; expires_in_secs: number }>(
+    'request_confirmation_token',
+    { action: MIGRATION_CONFIRMATION_ACTION }
+  );
+  return token;
+}
+
 export async function applyMigration(
   sessionId: string,
   filename: string,
   direction: MigrationDirection,
   database: string,
-  acknowledged = false,
+  confirmationToken?: string,
   force = false
 ): Promise<ApplyMigrationResponse> {
   return invoke('apply_migration', {
@@ -56,7 +71,7 @@ export async function applyMigration(
     filename,
     direction,
     database,
-    acknowledged,
+    confirmationToken: confirmationToken ?? null,
     force,
   });
 }

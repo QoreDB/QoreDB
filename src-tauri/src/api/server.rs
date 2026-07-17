@@ -17,7 +17,7 @@
 use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::path::PathBuf;
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 use std::time::Instant;
 
 use axum::{routing::get, Router};
@@ -123,6 +123,15 @@ impl ApiServer {
             .unwrap_or(false)
     }
 
+    /// Returns the exact URL clients can use for the currently running
+    /// listener, including its runtime-assigned port and TLS scheme.
+    pub async fn base_url(&self) -> Option<String> {
+        self.inner.lock().await.as_ref().map(|running| {
+            let scheme = if running.tls { "https" } else { "http" };
+            format!("{scheme}://{}", running.addr)
+        })
+    }
+
     /// Binds the listener and spawns the axum task. Returns the actual
     /// `SocketAddr` (useful when `port == 0` for OS-assigned).
     pub async fn start(&self, port: Option<u16>) -> Result<SocketAddr, ServerError> {
@@ -146,6 +155,14 @@ impl ApiServer {
         let addr: SocketAddr = ([127, 0, 0, 1], requested).into();
 
         let started_at = Arc::new(Instant::now());
+        let openapi_base_url = Arc::new(OnceLock::new());
+        // Normal launches use a fixed port, so publish the exact URL before
+        // the listener starts accepting requests. Port 0 is test-only and is
+        // populated with the OS-assigned port immediately after binding.
+        if requested != 0 {
+            let scheme = if tls { "https" } else { "http" };
+            let _ = openapi_base_url.set(format!("{scheme}://{addr}"));
+        }
         let state = ApiState {
             store: Arc::clone(&self.store),
             limiter: Arc::clone(&self.limiter),
@@ -155,6 +172,7 @@ impl ApiServer {
             storage_dir: self.storage_dir.clone(),
             workspace_connections_dir: self.workspace_connections_dir.clone(),
             started_at: Arc::clone(&started_at),
+            openapi_base_url: Arc::clone(&openapi_base_url),
         };
 
         let app: Router = Router::new()
@@ -169,6 +187,8 @@ impl ApiServer {
         } else {
             spawn_http(addr, app, rx).await?
         };
+        let scheme = if tls { "https" } else { "http" };
+        let _ = openapi_base_url.set(format!("{scheme}://{local_addr}"));
 
         *guard = Some(RunningServer {
             addr: local_addr,
@@ -320,8 +340,10 @@ mod tests {
         assert!(addr.ip().is_loopback());
         assert!(server.is_running().await);
         assert!(server.current_addr().await.is_some());
+        assert_eq!(server.base_url().await, Some(format!("http://{addr}")));
         server.stop().await.unwrap();
         assert!(!server.is_running().await);
+        assert!(server.base_url().await.is_none());
     }
 
     #[tokio::test]

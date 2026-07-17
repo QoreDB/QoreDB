@@ -12,8 +12,8 @@
 //! until a truly divergent feature requires its own variant.
 
 use crate::compiler::{
-    duckdb::DuckDbOps, mssql::SqlServerOps, mysql::MySqlOps, postgres::PostgresOps,
-    sqlite::SqliteOps, DialectOps,
+    DialectOps, duckdb::DuckDbOps, mssql::SqlServerOps, mysql::MySqlOps, postgres::PostgresOps,
+    sqlite::SqliteOps,
 };
 
 /// Target SQL dialect for a compiled query.

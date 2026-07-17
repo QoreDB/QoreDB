@@ -7,7 +7,7 @@ pub mod registry;
 pub mod traits;
 pub mod types;
 
-pub use error::{sanitize_error_message, EngineError, EngineResult};
+pub use error::{EngineError, EngineResult, sanitize_error_message};
 pub use registry::DriverRegistry;
 pub use traits::{DataEngine, StreamEvent, StreamSender};
 pub use types::*;

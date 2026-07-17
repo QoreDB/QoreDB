@@ -14,7 +14,7 @@ use qoredb_lib::engine::{
 };
 use serde_json::json;
 use std::sync::Arc;
-use tokio::time::{sleep, timeout, Duration};
+use tokio::time::{Duration, sleep, timeout};
 use uuid::Uuid;
 
 const DEFAULT_DB: &str = "testdb";
@@ -314,9 +314,11 @@ async fn postgres_e2e() -> EngineResult<()> {
         .database
         .clone()
         .unwrap_or_else(|| "postgres".to_string());
-    assert!(namespaces
-        .iter()
-        .any(|ns| { ns.database == db_name && ns.schema.as_deref() == Some("public") }));
+    assert!(
+        namespaces
+            .iter()
+            .any(|ns| { ns.database == db_name && ns.schema.as_deref() == Some("public") })
+    );
 
     let namespace = namespaces
         .into_iter()

@@ -3,8 +3,8 @@
 use serde::Deserialize;
 use tauri::State;
 
-use crate::license::status::{LicenseStatus, LicenseTier};
 use crate::SharedState;
+use crate::license::status::{LicenseStatus, LicenseTier};
 
 /// Marketing site base URL. The webview cannot reach it directly (CSP
 /// `connect-src` is locked down), so license refresh and billing portal

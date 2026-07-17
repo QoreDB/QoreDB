@@ -2,7 +2,7 @@
 
 //! Format rules: `regex_match`, `length_range`.
 
-use super::{dialect::Dialect, RuleSql, RuleSqlKind, SqlBuildError};
+use super::{RuleSql, RuleSqlKind, SqlBuildError, dialect::Dialect};
 
 pub fn build_regex_match(
     dialect: Dialect,

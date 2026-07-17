@@ -6,7 +6,7 @@ use qore_core::{DataEngine, SessionId};
 use qore_drivers::session_manager::SessionManager;
 
 use crate::interceptor::{
-    map_environment, InterceptorPipeline, QueryContext, QueryExecutionResult, SafetyAction,
+    InterceptorPipeline, QueryContext, QueryExecutionResult, SafetyAction, map_environment,
 };
 
 const READ_ONLY_BLOCKED: &str = "Operation blocked: read-only mode";

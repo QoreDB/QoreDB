@@ -10,7 +10,7 @@ use std::time::Instant;
 
 use async_trait::async_trait;
 use futures::future::{AbortHandle, Abortable};
-use mongodb::bson::{doc, Bson, Document};
+use mongodb::bson::{Bson, Document, doc};
 use mongodb::options::{
     ClientOptions, DeleteManyModel, DeleteOneModel, IndexOptions, InsertOneModel, ReplaceOneModel,
     ReturnDocument, UpdateManyModel, UpdateOneModel, WriteModel,
@@ -117,7 +117,7 @@ impl MongoDriver {
     }
 
     fn build_connection_string(config: &ConnectionConfig) -> String {
-        use percent_encoding::{utf8_percent_encode, NON_ALPHANUMERIC};
+        use percent_encoding::{NON_ALPHANUMERIC, utf8_percent_encode};
 
         let db = config.database.as_deref().unwrap_or("admin");
         let tls = if config.ssl { "true" } else { "false" };
@@ -2500,7 +2500,7 @@ impl DataEngine for MongoDriver {
 
         if !mongo_session.supports_transactions {
             return Err(EngineError::not_supported(
-                "MongoDB transactions require a replica set or sharded cluster. Standalone instances do not support transactions."
+                "MongoDB transactions require a replica set or sharded cluster. Standalone instances do not support transactions.",
             ));
         }
 

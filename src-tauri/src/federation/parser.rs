@@ -283,7 +283,7 @@ fn rewrite_table_with_joins(twj: &mut TableWithJoins, mappings: &HashMap<String,
             | sqlparser::ast::JoinOperator::LeftOuter(constraint)
             | sqlparser::ast::JoinOperator::RightOuter(constraint)
             | sqlparser::ast::JoinOperator::FullOuter(constraint) => {
-                if let sqlparser::ast::JoinConstraint::On(ref mut expr) = constraint {
+                if let sqlparser::ast::JoinConstraint::On(expr) = constraint {
                     rewrite_expr(expr, mappings);
                 }
             }
@@ -356,7 +356,7 @@ fn rewrite_expr(expr: &mut Expr, mappings: &HashMap<String, String>) {
             if let FunctionArguments::List(ref mut arg_list) = func.args {
                 for arg in &mut arg_list.args {
                     if let sqlparser::ast::FunctionArg::Unnamed(
-                        sqlparser::ast::FunctionArgExpr::Expr(ref mut e),
+                        sqlparser::ast::FunctionArgExpr::Expr(e),
                     ) = arg
                     {
                         rewrite_expr(e, mappings);

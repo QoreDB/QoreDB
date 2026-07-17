@@ -6,4 +6,4 @@
 //! safety pipeline without taking a driver dep. This module is kept for
 //! backward compatibility with existing imports.
 
-pub use qore_sql::clickhouse_safety::{classify, ClickHouseQueryClass};
+pub use qore_sql::clickhouse_safety::{ClickHouseQueryClass, classify};

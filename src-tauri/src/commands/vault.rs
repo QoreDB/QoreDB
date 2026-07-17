@@ -5,6 +5,7 @@
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Manager, State};
 
+use crate::SharedState;
 use crate::commands::workspace::SharedWorkspaceManager;
 use crate::engine::types::MssqlAuthMode;
 use crate::observability::Sensitive;
@@ -15,7 +16,6 @@ use crate::vault::credentials::{
 use crate::vault::storage::VaultStorage;
 use crate::workspace::connection_store::WorkspaceConnectionStore;
 use crate::workspace::types::WorkspaceSource;
-use crate::SharedState;
 
 /// Determines if the active workspace is file-based and returns its connection store.
 /// Returns None if the default workspace is active (use VaultStorage instead).
@@ -272,19 +272,20 @@ pub async fn save_connection(
             .and_then(|p| p.password.clone().map(Sensitive::new)),
     };
 
-    let result = if let Some(ws_store) = get_workspace_store(&ws_manager).await {
-        ws_store.save_connection(&connection, &credentials)
-    } else {
-        let storage_dir = app
-            .path()
-            .app_config_dir()
-            .map_err(|e: tauri::Error| e.to_string())?;
-        let storage = VaultStorage::new(
-            &input_project_id,
-            storage_dir,
-            Box::new(KeyringProvider::new()),
-        );
-        storage.save_connection(&connection, &credentials)
+    let result = match get_workspace_store(&ws_manager).await {
+        Some(ws_store) => ws_store.save_connection(&connection, &credentials),
+        None => {
+            let storage_dir = app
+                .path()
+                .app_config_dir()
+                .map_err(|e: tauri::Error| e.to_string())?;
+            let storage = VaultStorage::new(
+                &input_project_id,
+                storage_dir,
+                Box::new(KeyringProvider::new()),
+            );
+            storage.save_connection(&connection, &credentials)
+        }
     };
 
     match result {
@@ -346,15 +347,17 @@ pub async fn delete_saved_connection(
     }
     drop(app_state);
 
-    let result = if let Some(ws_store) = get_workspace_store(&ws_manager).await {
-        ws_store.delete_connection(&connection_id)
-    } else {
-        let storage_dir = app
-            .path()
-            .app_config_dir()
-            .map_err(|e: tauri::Error| e.to_string())?;
-        let storage = VaultStorage::new(&project_id, storage_dir, Box::new(KeyringProvider::new()));
-        storage.delete_connection(&connection_id)
+    let result = match get_workspace_store(&ws_manager).await {
+        Some(ws_store) => ws_store.delete_connection(&connection_id),
+        None => {
+            let storage_dir = app
+                .path()
+                .app_config_dir()
+                .map_err(|e: tauri::Error| e.to_string())?;
+            let storage =
+                VaultStorage::new(&project_id, storage_dir, Box::new(KeyringProvider::new()));
+            storage.delete_connection(&connection_id)
+        }
     };
 
     match result {
@@ -389,15 +392,17 @@ pub async fn duplicate_saved_connection(
     }
     drop(app_state);
 
-    let result = if let Some(ws_store) = get_workspace_store(&ws_manager).await {
-        ws_store.duplicate_connection(&connection_id)
-    } else {
-        let storage_dir = app
-            .path()
-            .app_config_dir()
-            .map_err(|e: tauri::Error| e.to_string())?;
-        let storage = VaultStorage::new(&project_id, storage_dir, Box::new(KeyringProvider::new()));
-        storage.duplicate_connection(&connection_id)
+    let result = match get_workspace_store(&ws_manager).await {
+        Some(ws_store) => ws_store.duplicate_connection(&connection_id),
+        None => {
+            let storage_dir = app
+                .path()
+                .app_config_dir()
+                .map_err(|e: tauri::Error| e.to_string())?;
+            let storage =
+                VaultStorage::new(&project_id, storage_dir, Box::new(KeyringProvider::new()));
+            storage.duplicate_connection(&connection_id)
+        }
     };
 
     match result {
@@ -456,15 +461,17 @@ pub async fn get_connection_credentials(
     );
     drop(app_state);
 
-    let result = if let Some(ws_store) = get_workspace_store(&ws_manager).await {
-        ws_store.get_credentials(&connection_id)
-    } else {
-        let storage_dir = app
-            .path()
-            .app_config_dir()
-            .map_err(|e: tauri::Error| e.to_string())?;
-        let storage = VaultStorage::new(&project_id, storage_dir, Box::new(KeyringProvider::new()));
-        storage.get_credentials(&connection_id)
+    let result = match get_workspace_store(&ws_manager).await {
+        Some(ws_store) => ws_store.get_credentials(&connection_id),
+        None => {
+            let storage_dir = app
+                .path()
+                .app_config_dir()
+                .map_err(|e: tauri::Error| e.to_string())?;
+            let storage =
+                VaultStorage::new(&project_id, storage_dir, Box::new(KeyringProvider::new()));
+            storage.get_credentials(&connection_id)
+        }
     };
 
     match result {

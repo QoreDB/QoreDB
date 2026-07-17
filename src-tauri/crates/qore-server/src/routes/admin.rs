@@ -3,10 +3,10 @@
 use axum::extract::State;
 use axum::{Extension, Json};
 use serde::Deserialize;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
-use crate::controlplane::model::GrantLevel;
 use crate::controlplane::AuthContext;
+use crate::controlplane::model::GrantLevel;
 use crate::error::ApiError;
 use crate::state::AppState;
 

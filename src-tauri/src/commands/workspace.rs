@@ -6,8 +6,8 @@ use serde::Serialize;
 use std::path::PathBuf;
 use tauri::{Manager, State};
 
-use crate::workspace::types::{RecentWorkspace, WorkspaceInfo, WorkspaceSource};
 use crate::workspace::WorkspaceManager;
+use crate::workspace::types::{RecentWorkspace, WorkspaceInfo, WorkspaceSource};
 
 pub type SharedWorkspaceManager = std::sync::Arc<tokio::sync::Mutex<WorkspaceManager>>;
 pub type WatcherPathSender = std::sync::Arc<tokio::sync::watch::Sender<Option<std::path::PathBuf>>>;

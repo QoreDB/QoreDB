@@ -20,9 +20,9 @@ use std::sync::Arc;
 use tauri::{AppHandle, Emitter, State};
 
 use crate::commands::workspace::SharedWorkspaceManager;
-use crate::contracts::events::{ContractEventSink, ContractRunEvent, CONTRACT_RUN_EVENT};
-use crate::contracts::parser::{parse_contract, Format};
-use crate::contracts::runner::{run_contract as run_contract_inner, RunOptions, RunnerError};
+use crate::contracts::events::{CONTRACT_RUN_EVENT, ContractEventSink, ContractRunEvent};
+use crate::contracts::parser::{Format, parse_contract};
+use crate::contracts::runner::{RunOptions, RunnerError, run_contract as run_contract_inner};
 use crate::contracts::storage;
 use crate::contracts::{ContractMeta, ContractRun};
 

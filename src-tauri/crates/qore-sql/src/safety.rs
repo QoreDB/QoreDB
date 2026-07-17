@@ -114,7 +114,7 @@ fn analyze_sql_uncached(driver_id: &str, trimmed: &str) -> Result<SqlSafetyAnaly
 }
 
 fn analyze_clickhouse(trimmed: &str) -> SqlSafetyAnalysis {
-    use crate::clickhouse_safety::{classify, ClickHouseQueryClass};
+    use crate::clickhouse_safety::{ClickHouseQueryClass, classify};
     // Multi-statement scripts on the HTTP wire are rare for CH; classify
     // each segment split on `;` and OR the results so a `DROP TABLE; SELECT 1`
     // still flags as dangerous.
@@ -169,7 +169,7 @@ pub fn returns_rows(driver_id: &str, sql: &str) -> Result<bool, String> {
 
 fn returns_rows_uncached(driver_id: &str, trimmed: &str) -> Result<bool, String> {
     if driver_id.eq_ignore_ascii_case("clickhouse") {
-        use crate::clickhouse_safety::{classify, ClickHouseQueryClass};
+        use crate::clickhouse_safety::{ClickHouseQueryClass, classify};
         return Ok(matches!(classify(trimmed), ClickHouseQueryClass::Read));
     }
 
@@ -802,12 +802,16 @@ mod tests {
         .expect("should parse");
 
         assert_eq!(statements.len(), 2);
-        assert!(statements[0]
-            .to_ascii_uppercase()
-            .starts_with("CREATE TABLE"));
-        assert!(statements[1]
-            .to_ascii_uppercase()
-            .starts_with("CREATE TABLE"));
+        assert!(
+            statements[0]
+                .to_ascii_uppercase()
+                .starts_with("CREATE TABLE")
+        );
+        assert!(
+            statements[1]
+                .to_ascii_uppercase()
+                .starts_with("CREATE TABLE")
+        );
     }
 
     #[test]

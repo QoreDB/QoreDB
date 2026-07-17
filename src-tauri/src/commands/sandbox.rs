@@ -53,10 +53,10 @@ async fn license_allows_unlimited_sandbox(state: &State<'_, crate::SharedState>)
 
 mod sandbox_impl {
     use super::*;
-    use crate::engine::sql_generator::{generate_migration_script, SandboxChangeType};
+    use crate::engine::sql_generator::{SandboxChangeType, generate_migration_script};
     use crate::engine::types::{RowData, SessionId};
-    use crate::time_travel::capture::{build_changelog_entry, value_to_json_pub};
     use crate::time_travel::ChangeOperation;
+    use crate::time_travel::capture::{build_changelog_entry, value_to_json_pub};
     use std::sync::Arc;
     use tracing::instrument;
 

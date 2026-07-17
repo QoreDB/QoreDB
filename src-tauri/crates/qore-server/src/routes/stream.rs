@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: BUSL-1.1
 
+use axum::Json;
 use axum::extract::State;
 use axum::response::sse::{Event, Sse};
 use axum::response::{IntoResponse, Response};
-use axum::Json;
 use serde::Deserialize;
 use serde_json::json;
-use tokio_stream::wrappers::ReceiverStream;
 use tokio_stream::StreamExt;
+use tokio_stream::wrappers::ReceiverStream;
 
 use qore_core::{Namespace, StreamEvent};
 

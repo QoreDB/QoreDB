@@ -4,13 +4,13 @@ use std::sync::Arc;
 
 use tauri::State;
 
+use crate::SharedState;
 use crate::commands::snapshots::SharedSnapshotStore;
 use crate::share::types::{
     ShareCleanupResponse, SharePrepareResponse, ShareProviderConfig, ShareProviderStatus,
     ShareSnapshotRequest, ShareUploadResponse,
 };
 use crate::share::write_query_result_to_file;
-use crate::SharedState;
 
 fn extension_for_format(format: &crate::export::types::ExportFormat) -> &'static str {
     match format {

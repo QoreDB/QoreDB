@@ -29,11 +29,11 @@ use std::time::Duration;
 use tokio::sync::Semaphore;
 
 use super::{
-    capabilities, storage, Budget, CapabilityKind, Decision, HookContext, InvocationServices,
-    LogEvent, LogSender, NotifyEvent, NotifyLevel, NotifySender, PluginInstance, PluginRuntime,
-    PluginStorage, PostExecuteResult, QueryReadPayload, WasmiRuntime,
+    Budget, CapabilityKind, Decision, HookContext, InvocationServices, LogEvent, LogSender,
+    NotifyEvent, NotifyLevel, NotifySender, PluginInstance, PluginRuntime, PluginStorage,
+    PostExecuteResult, QueryReadPayload, WasmiRuntime, capabilities, storage,
 };
-use crate::plugins::{plugins_dir, registry, PluginContributions};
+use crate::plugins::{PluginContributions, plugins_dir, registry};
 
 /// Locks a `Mutex`, recovering from poisoning. A panicked hook must not
 /// lock the host out for the rest of the session.
@@ -568,8 +568,8 @@ where
 mod tests {
     use super::*;
     use crate::plugins::runtime::PluginError;
-    use std::sync::atomic::{AtomicU32, Ordering};
     use std::sync::Arc as StdArc;
+    use std::sync::atomic::{AtomicU32, Ordering};
     use tokio::sync::mpsc;
 
     /// Stub plugin that returns the queued decisions / results in order. The

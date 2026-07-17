@@ -194,7 +194,7 @@ impl ParquetExportWriter {
             Value::Float(f) => f.to_string(),
             Value::Text(s) => s.clone(),
             Value::Bytes(b) => {
-                use base64::{engine::general_purpose::STANDARD, Engine as _};
+                use base64::{Engine as _, engine::general_purpose::STANDARD};
                 STANDARD.encode(b)
             }
             Value::Json(j) => j.to_string(),

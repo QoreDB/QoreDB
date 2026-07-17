@@ -10,7 +10,7 @@
 use qore_core::Value;
 
 use crate::built::BuiltQuery;
-use crate::compiler::{DialectOps, LimitStyle, QueryCompiler, MAX_AST_DEPTH, MAX_PARAMS};
+use crate::compiler::{DialectOps, LimitStyle, MAX_AST_DEPTH, MAX_PARAMS, QueryCompiler};
 use crate::dialect::Dialect;
 use crate::error::{QueryError, QueryResult};
 use crate::expr::{AggFn, BinOp, Expr, UnOp};

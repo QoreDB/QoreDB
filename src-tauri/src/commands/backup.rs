@@ -18,11 +18,11 @@ use tauri::{AppHandle, Emitter, Manager, State};
 
 use crate::backup::runner::{ActiveBackups, EventSink};
 use crate::backup::{
-    detect_tool, run_backup, run_duckdb_backup, run_duckdb_restore, run_restore, BackupEvent,
-    BackupFormat, BackupJobOutcome, BackupOptions, BackupTool, BackupToolInfo, RestoreOptions,
+    BackupEvent, BackupFormat, BackupJobOutcome, BackupOptions, BackupTool, BackupToolInfo,
+    RestoreOptions, detect_tool, run_backup, run_duckdb_backup, run_duckdb_restore, run_restore,
 };
-use crate::vault::backend::KeyringProvider;
 use crate::vault::VaultStorage;
+use crate::vault::backend::KeyringProvider;
 
 /// Event topic emitted on every line of stdout/stderr and on completion.
 const BACKUP_EVENT: &str = "backup-progress";

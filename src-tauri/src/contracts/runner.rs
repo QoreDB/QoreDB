@@ -20,7 +20,7 @@ use qore_core::types::{QueryId, QueryResult, Row, SessionId, Value};
 
 use super::events::{ContractEventSink, ContractRunEvent};
 use super::sql::dialect::Dialect;
-use super::sql::{build_rule_sql, RuleSql, RuleSqlKind, SqlBuildError, DEFAULT_SAMPLE_LIMIT};
+use super::sql::{DEFAULT_SAMPLE_LIMIT, RuleSql, RuleSqlKind, SqlBuildError, build_rule_sql};
 use super::{Contract, ContractRun, Rule, RuleResult, RuleStatus};
 
 /// Configuration knobs surfaced through the Tauri command. Sensible defaults
@@ -629,11 +629,13 @@ mod tests {
         .unwrap();
 
         assert_eq!(run.results[0].status, RuleStatus::Skipped);
-        assert!(run.results[0]
-            .error
-            .as_deref()
-            .unwrap()
-            .contains("regex_match"));
+        assert!(
+            run.results[0]
+                .error
+                .as_deref()
+                .unwrap()
+                .contains("regex_match")
+        );
         // No execute call should have happened.
         assert!(driver.calls().is_empty());
     }

@@ -12,7 +12,9 @@ fn main() {
     // Disable it before any WebKitGTK initialization.
     #[cfg(target_os = "linux")]
     {
-        std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
+        // SAFETY: this is the first operation in `main`, before QoreDB starts
+        // any worker threads that could concurrently access the environment.
+        unsafe { std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1") };
     }
 
     qoredb_lib::run()

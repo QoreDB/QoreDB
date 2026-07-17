@@ -4,7 +4,7 @@ pub mod key;
 pub mod status;
 
 use crate::vault::backend::CredentialProvider;
-use key::{decode_license, verify_license, LicenseError};
+use key::{LicenseError, decode_license, verify_license};
 use status::{LicenseStatus, LicenseTier};
 
 const LICENSE_SERVICE: &str = "com.qoredb.license";

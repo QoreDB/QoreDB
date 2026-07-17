@@ -2,7 +2,7 @@
 
 //! Cardinality rule: `row_count`.
 
-use super::{dialect::Dialect, RuleSql, RuleSqlKind, SqlBuildError};
+use super::{RuleSql, RuleSqlKind, SqlBuildError, dialect::Dialect};
 
 pub fn build_row_count(_dialect: Dialect, table_sql: &str) -> Result<RuleSql, SqlBuildError> {
     let metric_query = format!("SELECT count(*) AS metric_value FROM {table_sql}");

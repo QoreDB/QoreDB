@@ -8,7 +8,7 @@ use std::path::{Path, PathBuf};
 use tauri::State;
 use tracing::instrument;
 
-use super::{parse_session_id, SharedStateExt};
+use super::{SharedStateExt, parse_session_id};
 use crate::engine::schema_export::generate_create_table_ddl;
 use crate::engine::sql_generator::SqlDialect;
 use crate::engine::types::{

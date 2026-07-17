@@ -7,9 +7,9 @@ use std::sync::Arc;
 use tauri::State;
 use tracing::instrument;
 
-use super::{parse_session_id, SharedStateExt};
+use super::{SharedStateExt, parse_session_id};
 use crate::engine::types::{Namespace, SequenceDefinition, SequenceOperationResult};
-use crate::interceptor::{map_environment, QueryExecutionResult, SafetyAction};
+use crate::interceptor::{QueryExecutionResult, SafetyAction, map_environment};
 
 const READ_ONLY_BLOCKED: &str = "Operation blocked: read-only mode";
 const SEQUENCES_NOT_SUPPORTED: &str = "Sequence operations are not supported by this driver";

@@ -4,7 +4,7 @@
 
 use crate::sql_type::SqlType;
 
-use super::{write_numeric_placeholder, write_quoted_mssql, DialectOps, LimitStyle};
+use super::{DialectOps, LimitStyle, write_numeric_placeholder, write_quoted_mssql};
 
 pub(crate) struct SqlServerOps;
 

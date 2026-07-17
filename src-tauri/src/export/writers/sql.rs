@@ -5,8 +5,8 @@ use tokio::io::BufWriter;
 
 use crate::engine::sql_generator::SqlDialect;
 use crate::engine::types::{ColumnInfo, Namespace, Row, Value};
-use crate::export::writers::counting::CountingWriter;
 use crate::export::writers::ExportWriter;
+use crate::export::writers::counting::CountingWriter;
 
 pub struct SqlInsertWriter {
     writer: CountingWriter,

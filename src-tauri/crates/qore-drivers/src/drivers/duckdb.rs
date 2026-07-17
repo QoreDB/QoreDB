@@ -24,15 +24,15 @@
 //! the same connection (via Mutex), transactions are serialized naturally.
 
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Instant;
 
 use ::duckdb::{
+    AccessMode, Config, Connection, InterruptHandle, Statement,
     core::{LogicalTypeHandle, LogicalTypeId},
     params_from_iter,
     types::{TimeUnit, Value as DuckValue},
-    AccessMode, Config, Connection, InterruptHandle, Statement,
 };
 use async_trait::async_trait;
 use chrono::{DateTime, Duration, NaiveDate, NaiveTime, SecondsFormat, Utc};
@@ -2976,14 +2976,16 @@ mod tests {
             .await
             .unwrap();
         assert!(matches!(result.rows[0].values[0], Value::Int(42)));
-        assert!(driver
-            .execute(
-                read_session,
-                "INSERT INTO values_table VALUES (43)",
-                QueryId::new(),
-            )
-            .await
-            .is_err());
+        assert!(
+            driver
+                .execute(
+                    read_session,
+                    "INSERT INTO values_table VALUES (43)",
+                    QueryId::new(),
+                )
+                .await
+                .is_err()
+        );
     }
 
     #[tokio::test]
@@ -3033,10 +3035,12 @@ mod tests {
             )
             .await
             .unwrap();
-        assert!(counts.rows[0]
-            .values
-            .iter()
-            .all(|value| matches!(value, Value::Int(0))));
+        assert!(
+            counts.rows[0]
+                .values
+                .iter()
+                .all(|value| matches!(value, Value::Int(0)))
+        );
     }
 
     #[tokio::test]

@@ -15,8 +15,8 @@ use crate::cache::QueryCache;
 use crate::error::ServiceError;
 use crate::governance;
 use crate::interceptor::{
-    map_environment, Environment, InterceptorPipeline, QueryContext, QueryExecutionResult,
-    SafetyAction,
+    Environment, InterceptorPipeline, QueryContext, QueryExecutionResult, SafetyAction,
+    map_environment,
 };
 use crate::policy::SafetyPolicy;
 use crate::ratelimit::QueryRateLimiter;
@@ -466,7 +466,7 @@ pub async fn execute(
     stream_sender: Option<StreamSender>,
     mut on_complete: impl FnMut(&QueryExecutionResult, Option<&QueryResult>),
 ) -> ExecuteOutcome {
-    use tokio::time::{timeout, Duration};
+    use tokio::time::{Duration, timeout};
 
     if let Some(sender) = stream_sender {
         let error_sender = sender.clone();

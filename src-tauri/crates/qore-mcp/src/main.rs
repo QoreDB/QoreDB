@@ -13,17 +13,17 @@ use rmcp::model::{
 use rmcp::service::RequestContext;
 use rmcp::transport::stdio;
 use rmcp::{
-    tool, tool_handler, tool_router, ErrorData as McpError, RoleServer, ServerHandler, ServiceExt,
+    ErrorData as McpError, RoleServer, ServerHandler, ServiceExt, tool, tool_handler, tool_router,
 };
 use schemars::JsonSchema;
 use serde::Deserialize;
 use tokio::sync::Mutex;
 
 use qore_core::{CollectionListOptions, Namespace, SessionId};
-use qore_service::paths::{config_dir, PROJECT_ID, QUERY_TIMEOUT_MS};
-use qore_service::vault::backend::KeyringProvider;
-use qore_service::vault::VaultStorage;
 use qore_service::ServiceContext;
+use qore_service::paths::{PROJECT_ID, QUERY_TIMEOUT_MS, config_dir};
+use qore_service::vault::VaultStorage;
+use qore_service::vault::backend::KeyringProvider;
 
 #[derive(Clone)]
 struct QoreMcp {

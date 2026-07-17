@@ -471,7 +471,7 @@ fn build_pk_predicate(pk_keys: &[&String], primary_key: &RowData) -> EngineResul
 /// Whether a statement returns a result set (vs. a side-effecting mutation).
 /// Keep in lock-step with `clickhouse_safety::ClickHouseQueryClass::Read`.
 fn is_result_query(query: &str) -> bool {
-    use crate::clickhouse_safety::{classify, ClickHouseQueryClass};
+    use crate::clickhouse_safety::{ClickHouseQueryClass, classify};
     matches!(classify(query), ClickHouseQueryClass::Read)
 }
 

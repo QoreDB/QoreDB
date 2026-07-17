@@ -20,7 +20,7 @@ pub mod safety;
 pub mod types;
 
 pub use audit::{AuditStats, AuditStore};
-pub use export::{export_entries, AuditExportFormat};
+pub use export::{AuditExportFormat, export_entries};
 pub use fingerprint::fingerprint_query;
 pub use pipeline::InterceptorPipeline;
 pub use profiling::ProfilingStore;

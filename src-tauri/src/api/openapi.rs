@@ -9,12 +9,12 @@
 
 use std::sync::Arc;
 
+use axum::Json;
 use axum::extract::State;
 use axum::http::{HeaderMap, StatusCode};
 use axum::response::IntoResponse;
-use axum::Json;
 use serde::Serialize;
-use serde_json::{json, Map, Value};
+use serde_json::{Map, Value, json};
 
 use super::auth::{parse_bearer, verify_token};
 use super::endpoints::EndpointStore;
@@ -290,8 +290,8 @@ mod tests {
         ]);
         let doc = build_document(&store, None);
 
-        let rows = &doc["paths"]["/api/rows"]["get"]["responses"]["200"]["content"]
-            ["application/json"]["schema"];
+        let rows = &doc["paths"]["/api/rows"]["get"]["responses"]["200"]["content"]["application/json"]
+            ["schema"];
         assert_eq!(rows["required"], json!(["data", "count", "truncated"]));
         assert_eq!(rows["properties"]["data"]["type"], "array");
         assert_eq!(rows["properties"]["count"]["type"], "integer");
@@ -299,8 +299,8 @@ mod tests {
         assert!(rows["properties"].get("page").is_none());
         assert!(rows["properties"].get("total").is_none());
 
-        let object = &doc["paths"]["/api/single"]["get"]["responses"]["200"]["content"]
-            ["application/json"]["schema"];
+        let object = &doc["paths"]["/api/single"]["get"]["responses"]["200"]["content"]["application/json"]
+            ["schema"];
         assert_eq!(object["required"], json!(["data"]));
         assert_eq!(object["properties"]["data"]["oneOf"][0]["type"], "object");
         assert_eq!(object["properties"]["data"]["oneOf"][1]["type"], "null");

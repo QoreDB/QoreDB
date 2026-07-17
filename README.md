@@ -287,7 +287,7 @@ sudo apt-get install -y \
 ## Development
 
 **Frontend:** React 19 · TypeScript 5.9 · Vite 8 · Tailwind CSS 4 · Radix UI · CodeMirror 6 · TanStack Table · i18next
-**Backend:** Rust 2021 · Tauri 2.10 · Tokio · SQLx (PostgreSQL, MySQL, SQLite) · Tiberius + bb8 (SQL Server) · MongoDB &amp; Redis native drivers · DuckDB (embedded analytics + federation)
+**Backend:** Rust 2024 · Tauri 2.10 · Tokio · SQLx (PostgreSQL, MySQL, SQLite) · Tiberius + bb8 (SQL Server) · MongoDB &amp; Redis native drivers · DuckDB (embedded analytics + federation)
 
 ```bash
 pnpm tauri dev              # run app in dev mode (hot reload)

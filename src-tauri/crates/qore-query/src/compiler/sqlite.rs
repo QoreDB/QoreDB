@@ -4,7 +4,7 @@
 
 use crate::sql_type::SqlType;
 
-use super::{write_quoted_symmetric, DialectOps};
+use super::{DialectOps, write_quoted_symmetric};
 
 pub(crate) struct SqliteOps;
 

@@ -7,7 +7,7 @@
 //! referential violation per SQL semantics — use `not_null_pct` if you
 //! want to require presence).
 
-use super::{dialect::Dialect, RuleSql, RuleSqlKind, SqlBuildError};
+use super::{RuleSql, RuleSqlKind, SqlBuildError, dialect::Dialect};
 
 pub fn build_foreign_key_integrity(
     dialect: Dialect,

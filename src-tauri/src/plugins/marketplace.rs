@@ -15,7 +15,7 @@ use std::time::Duration;
 
 use sha2::{Digest, Sha256};
 
-use super::{install_plugin, InstalledPlugin};
+use super::{InstalledPlugin, install_plugin};
 
 /// Caps every marketplace download against. They mirror the host's
 /// install-time budget so the existing `install_plugin` would refuse

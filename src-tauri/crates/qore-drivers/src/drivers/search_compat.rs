@@ -15,7 +15,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use base64::{engine::general_purpose::STANDARD, Engine};
+use base64::{Engine, engine::general_purpose::STANDARD};
 use qore_core::error::{EngineError, EngineResult};
 use qore_core::traits::{StreamEvent, StreamSender};
 use qore_core::types::{
@@ -23,9 +23,9 @@ use qore_core::types::{
     ConnectionConfig, Namespace, PaginatedQueryResult, QueryId, QueryResult, Row, RowData,
     SessionId, SortDirection, TableColumn, TableQueryOptions, TableSchema, Value,
 };
-use reqwest::header::{HeaderMap, HeaderName, HeaderValue, AUTHORIZATION, CONTENT_TYPE};
+use reqwest::header::{AUTHORIZATION, CONTENT_TYPE, HeaderMap, HeaderName, HeaderValue};
 use reqwest::{Client as HttpClient, Method, Url};
-use serde_json::{json, Map as JsonMap, Value as Json};
+use serde_json::{Map as JsonMap, Value as Json, json};
 use tokio::sync::RwLock;
 
 /// Document meta fields produced by the search hit mapping. They are never sent
@@ -1277,7 +1277,7 @@ pub fn parse_console(input: &str) -> EngineResult<(Method, String, Option<String
         other => {
             return Err(EngineError::syntax_error(format!(
                 "Unsupported HTTP method: {other}"
-            )))
+            )));
         }
     };
 
@@ -1322,7 +1322,7 @@ fn build_auth_header(config: &ConnectionConfig) -> EngineResult<Option<HeaderVal
         other => {
             return Err(EngineError::validation(format!(
                 "Unknown search auth mode: {other}"
-            )))
+            )));
         }
     };
     HeaderValue::from_str(&value)
@@ -1652,11 +1652,13 @@ mod tests {
         // bare _search (all indices), msearch, aggregations are not streamed
         assert!(streamable_search("/_search", Some("{\"size\":50000}")).is_none());
         assert!(streamable_search("/books/_msearch", Some("{\"size\":50000}")).is_none());
-        assert!(streamable_search(
-            "/books/_search",
-            Some("{\"size\":50000,\"aggs\":{\"x\":{}}}")
-        )
-        .is_none());
+        assert!(
+            streamable_search(
+                "/books/_search",
+                Some("{\"size\":50000,\"aggs\":{\"x\":{}}}")
+            )
+            .is_none()
+        );
     }
 
     #[test]

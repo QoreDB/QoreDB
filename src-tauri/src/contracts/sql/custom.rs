@@ -18,7 +18,7 @@ use sqlparser::dialect::{
 };
 use sqlparser::parser::Parser;
 
-use super::{dialect::Dialect, RuleSql, RuleSqlKind, SqlBuildError};
+use super::{RuleSql, RuleSqlKind, SqlBuildError, dialect::Dialect};
 
 pub fn build_custom_sql(
     dialect: Dialect,
@@ -98,12 +98,14 @@ mod tests {
             10,
         )
         .unwrap();
-        assert!(r
-            .metric_query
-            .contains("SELECT count(*) AS violations FROM ("));
-        assert!(r
-            .metric_query
-            .contains("SELECT id FROM orders WHERE amount < 0"));
+        assert!(
+            r.metric_query
+                .contains("SELECT count(*) AS violations FROM (")
+        );
+        assert!(
+            r.metric_query
+                .contains("SELECT id FROM orders WHERE amount < 0")
+        );
         assert!(r.samples_query.unwrap().contains("LIMIT 10"));
     }
 

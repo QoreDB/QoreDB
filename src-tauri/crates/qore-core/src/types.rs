@@ -607,7 +607,7 @@ macro_rules! impl_from_ref_copy {
 impl_from_ref_copy!(bool, i8, i16, i32, i64, u8, u16, u32, f32, f64);
 
 mod base64_bytes {
-    use base64::{engine::general_purpose::STANDARD, Engine};
+    use base64::{Engine, engine::general_purpose::STANDARD};
     use serde::{Deserialize, Deserializer, Serializer};
 
     pub fn serialize<S>(bytes: &Vec<u8>, serializer: S) -> Result<S::Ok, S::Error>

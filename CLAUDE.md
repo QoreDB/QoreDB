@@ -1,6 +1,6 @@
 # QoreDB
 
-Modern desktop database client built with **Tauri 2 + React 19 + Rust**.
+Modern desktop database client built with Tauri 2 + React 19 + Rust.
 A lightweight, fast alternative to DBeaver/pgAdmin for developers.
 
 ## Collaboration principles (read first)
@@ -162,12 +162,17 @@ The following files are currently marked Premium (`BUSL-1.1`), grouped by module
 #### AI Assistant
 
 - `src/components/AI/*`
+- `src/components/Chat/*`
 - `src/components/Settings/sections/AiSection.tsx`
 - `src/hooks/useAiAssistant.ts`
+- `src/hooks/useAgentChat.ts`
 - `src/lib/ai.ts`
+- `src/lib/agent.ts`
 - `src/providers/AiPreferencesProvider.tsx`
 - `src-tauri/src/ai/*`
 - `src-tauri/src/commands/ai.rs`
+- `src-tauri/src/commands/agent.rs`
+- `src-tauri/src/commands/chat.rs`
 
 #### Data Contracts
 
@@ -240,23 +245,23 @@ Everything else is Core by default (`Apache-2.0`), unless explicitly decided oth
 
 Consult these files depending on your task's context:
 
-| Topic                    | File                                           |
-| ------------------------ | ---------------------------------------------- |
-| Docs index               | `doc/README.md`                                |
-| Product vision           | `doc/PROJECT.md`                               |
-| Features (list)          | `doc/FEATURES.csv`                             |
-| Design (tokens, UX)      | `doc/rules/DESIGN.md`                          |
-| Database driver specifics| `doc/todo/DATABASES.md`                        |
-| Security / threats       | `doc/security/THREAT_MODEL.md`                 |
-| Security / prod          | `doc/security/PRODUCTION_SAFETY.md`            |
-| Security audits          | `doc/audits/SECURITY_AUDIT.md`                 |
-| GDPR audits              | `doc/audits/GDPR_AUDIT.md`                     |
-| SSH tests                | `doc/tests/TESTING_SSH.md`                     |
-| Driver limitations       | `doc/tests/DRIVER_LIMITATIONS.md`              |
-| Release process          | `doc/release/RELEASE.md`                       |
-| Release events           | `doc/release/EVENTS.md`                        |
-| Roadmap v2               | `doc/todo/v2.md`                               |
-| Open-core roadmap (priv) | `doc/private/OPEN_CORE_ROADMAP_1.md`           |
+| Topic                     | File                                 |
+| ------------------------- | ------------------------------------ |
+| Docs index                | `doc/README.md`                      |
+| Product vision            | `doc/PROJECT.md`                     |
+| Features (list)           | `doc/FEATURES.csv`                   |
+| Design (tokens, UX)       | `doc/rules/DESIGN.md`                |
+| Database driver specifics | `doc/todo/DATABASES.md`              |
+| Security / threats        | `doc/security/THREAT_MODEL.md`       |
+| Security / prod           | `doc/security/PRODUCTION_SAFETY.md`  |
+| Security audits           | `doc/audits/SECURITY_AUDIT.md`       |
+| GDPR audits               | `doc/audits/GDPR_AUDIT.md`           |
+| SSH tests                 | `doc/tests/TESTING_SSH.md`           |
+| Driver limitations        | `doc/tests/DRIVER_LIMITATIONS.md`    |
+| Release process           | `doc/release/RELEASE.md`             |
+| Release events            | `doc/release/EVENTS.md`              |
+| Roadmap v2                | `doc/todo/v2.md`                     |
+| Open-core roadmap (priv)  | `doc/private/OPEN_CORE_ROADMAP_1.md` |
 
 ## General rules
 

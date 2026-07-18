@@ -83,6 +83,16 @@ pub async fn ai_get_provider_status(
 
 #[cfg(not(feature = "pro"))]
 #[tauri::command]
+pub async fn ai_list_models(
+    _state: State<'_, SharedState>,
+    _provider: String,
+    _base_url: Option<String>,
+) -> Result<Vec<serde_json::Value>, String> {
+    Err(PRO_REQUIRED.to_string())
+}
+
+#[cfg(not(feature = "pro"))]
+#[tauri::command]
 pub async fn ai_generate_filters(
     _state: State<'_, SharedState>,
     _session_id: String,
@@ -113,7 +123,7 @@ use crate::ai::provider::extract_query_from_response;
 use crate::ai::safety::validate_generated_query;
 #[cfg(feature = "pro")]
 use crate::ai::types::{
-    AiAction, AiConfig, AiMessage, AiProvider, AiRequest, AiResponse, AiStreamChunk,
+    AiAction, AiConfig, AiError, AiMessage, AiProvider, AiRequest, AiResponse, AiStreamChunk,
 };
 #[cfg(feature = "pro")]
 use crate::engine::types::{ColumnFilter, Namespace};
@@ -183,7 +193,7 @@ pub async fn ai_explain_result(
         query, result_summary
     );
 
-    let content = collect_streamed_response(
+    let (content, tokens_used) = collect_streamed_response(
         &ai_manager,
         &config,
         &schema_ctx.system_prompt,
@@ -197,7 +207,7 @@ pub async fn ai_explain_result(
         generated_query: None,
         safety_analysis: None,
         provider_used: config.provider,
-        tokens_used: None,
+        tokens_used,
     })
 }
 
@@ -241,7 +251,7 @@ pub async fn ai_summarize_schema(
 
     let user_prompt = "Summarize this database schema in a clear and concise way. Describe the main tables, their purposes, and the relationships between them.";
 
-    let content =
+    let (content, tokens_used) =
         collect_streamed_response(&ai_manager, &config, &schema_ctx.system_prompt, user_prompt)
             .await?;
 
@@ -251,7 +261,7 @@ pub async fn ai_summarize_schema(
         generated_query: None,
         safety_analysis: None,
         provider_used: config.provider,
-        tokens_used: None,
+        tokens_used,
     })
 }
 
@@ -318,7 +328,8 @@ Rules:\n\
         today = today,
     );
 
-    let content = collect_streamed_response(&ai_manager, &config, &system_prompt, &prompt).await?;
+    let (content, _) =
+        collect_streamed_response(&ai_manager, &config, &system_prompt, &prompt).await?;
 
     let json = extract_json_array(&content)
         .ok_or_else(|| "AI did not return a JSON array of filters".to_string())?;
@@ -417,14 +428,50 @@ pub async fn ai_get_provider_status(
     Ok(ai_manager.list_configured_providers())
 }
 
+/// Live model list from the provider API (session cache), with a silent
+/// fallback to the curated list when the endpoint or key is unavailable.
+#[cfg(feature = "pro")]
+#[tauri::command]
+pub async fn ai_list_models(
+    state: State<'_, SharedState>,
+    provider: AiProvider,
+    base_url: Option<String>,
+) -> Result<Vec<crate::ai::types::AiModelInfoOwned>, String> {
+    let ai_manager = {
+        let s = state.lock().await;
+        Arc::clone(&s.ai_manager)
+    };
+
+    if let Some(models) = ai_manager.cached_models(&provider) {
+        return Ok(models);
+    }
+
+    let api_key = if provider.requires_api_key() {
+        match ai_manager.get_api_key(&provider) {
+            Ok(key) => key,
+            Err(_) => return Ok(provider.available_models_owned()),
+        }
+    } else {
+        String::new()
+    };
+
+    match crate::ai::provider::fetch_models(&provider, &api_key, base_url).await {
+        Ok(models) if !models.is_empty() => {
+            ai_manager.cache_models(provider.clone(), models.clone());
+            Ok(models)
+        }
+        _ => Ok(provider.available_models_owned()),
+    }
+}
+
 /// Collect the full response from a streamed AI request (used for non-streaming commands)
 #[cfg(feature = "pro")]
-async fn collect_streamed_response(
+pub(crate) async fn collect_streamed_response(
     ai_manager: &Arc<crate::ai::manager::AiManager>,
     config: &AiConfig,
     system_prompt: &str,
     user_prompt: &str,
-) -> Result<String, String> {
+) -> Result<(String, Option<u32>), String> {
     let provider = ai_manager
         .get_provider(&config.provider)
         .ok_or_else(|| format!("Provider {:?} not available", config.provider))?;
@@ -446,32 +493,39 @@ async fn collect_streamed_response(
     let rid = request_id.clone();
 
     tokio::spawn(async move {
-        if let Err(e) = provider
+        let outcome = provider
             .stream(&api_key, &messages, &config_clone, tx.clone(), rid.clone())
-            .await
-        {
-            let _ = tx
-                .send(AiStreamChunk {
-                    request_id: rid,
-                    delta: String::new(),
-                    done: true,
-                    error: Some(e),
-                    generated_query: None,
-                    safety_analysis: None,
-                })
-                .await;
-        }
+            .await;
+        let (error, tokens_used) = match outcome {
+            Ok(usage) => (None, usage.total()),
+            Err(e) => (Some(e), None),
+        };
+        let _ = tx
+            .send(AiStreamChunk {
+                request_id: rid,
+                delta: String::new(),
+                done: true,
+                error,
+                generated_query: None,
+                safety_analysis: None,
+                tokens_used,
+            })
+            .await;
     });
 
     let mut content = String::new();
+    let mut tokens_used = None;
     while let Some(chunk) = rx.recv().await {
         if let Some(e) = chunk.error {
-            return Err(e);
+            return Err(e.message);
+        }
+        if chunk.done {
+            tokens_used = chunk.tokens_used;
         }
         content.push_str(&chunk.delta);
     }
 
-    Ok(content)
+    Ok((content, tokens_used))
 }
 
 /// Stream an AI request and emit chunks to the frontend via window events
@@ -557,10 +611,13 @@ async fn stream_ai_request(
         }
 
         let stream_result = provider_handle.await;
-        let error = match stream_result {
-            Ok(Ok(())) => None,
-            Ok(Err(e)) => Some(e),
-            Err(e) => Some(format!("Stream task panicked: {}", e)),
+        let (error, tokens_used) = match stream_result {
+            Ok(Ok(usage)) => (None, usage.total()),
+            Ok(Err(e)) => (Some(e), None),
+            Err(e) => (
+                Some(AiError::provider(format!("Stream task panicked: {}", e))),
+                None,
+            ),
         };
 
         let generated_query = extract_query_from_response(&full_response, &driver_id);
@@ -575,6 +632,7 @@ async fn stream_ai_request(
             error,
             generated_query,
             safety_analysis,
+            tokens_used,
         };
         let _ = window.emit(&event_name, &final_chunk);
     });

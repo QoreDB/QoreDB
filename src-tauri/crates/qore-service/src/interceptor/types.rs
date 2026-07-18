@@ -30,6 +30,17 @@ pub fn map_environment(env: &str) -> Environment {
     }
 }
 
+/// Origin of a query, for audit attribution: issued by the user, by the
+/// in-app AI agent, or by an external client via the MCP server.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum QuerySource {
+    #[default]
+    User,
+    Ai,
+    Mcp,
+}
+
 /// Query operation type for classification
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -185,6 +196,10 @@ pub struct AuditLogEntry {
     /// `None` for entries persisted before fingerprinting was introduced.
     #[serde(default)]
     pub fingerprint: Option<String>,
+    /// Origin of the query; `User` for entries persisted before sources
+    /// were introduced.
+    #[serde(default)]
+    pub source: QuerySource,
 }
 
 impl AuditLogEntry {
@@ -223,6 +238,7 @@ impl AuditLogEntry {
             safety_rule: None,
             driver_id,
             fingerprint: Some(fingerprint),
+            source: QuerySource::default(),
         }
     }
 }
@@ -360,6 +376,7 @@ pub struct QueryContext {
     /// Whether user has acknowledged dangerous query
     pub acknowledged: bool,
     pub read_only: bool,
+    pub source: QuerySource,
 }
 
 /// Result of query execution for post-processing

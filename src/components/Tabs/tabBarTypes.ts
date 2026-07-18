@@ -14,7 +14,8 @@ export type TabKind =
   | 'notebook'
   | 'time-travel'
   | 'migrations'
-  | 'plugin-output';
+  | 'plugin-output'
+  | 'chat';
 
 export interface TabItem {
   id: string;

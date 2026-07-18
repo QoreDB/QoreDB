@@ -11,10 +11,13 @@ import {
 
 const STORAGE_KEY = 'qoredb_ai_provider';
 const SAMPLE_ROWS_STORAGE_KEY = 'qoredb_ai_sample_rows';
+const MODELS_STORAGE_KEY = 'qoredb_ai_models';
 
 export interface AiPreferencesContextValue {
   preferredProvider: AiProvider;
   setPreferredProvider: (p: AiProvider) => void;
+  preferredModels: Partial<Record<AiProvider, string>>;
+  setPreferredModel: (provider: AiProvider, model: string) => void;
   providerStatuses: AiProviderStatus[];
   isReady: boolean;
   refreshStatuses: () => Promise<void>;
@@ -45,8 +48,20 @@ function loadSampleRowsPreference(): boolean {
   }
 }
 
+function loadSavedModels(): Partial<Record<AiProvider, string>> {
+  try {
+    const saved = localStorage.getItem(MODELS_STORAGE_KEY);
+    if (saved) return JSON.parse(saved) as Partial<Record<AiProvider, string>>;
+  } catch {
+    // ignore
+  }
+  return {};
+}
+
 export function AiPreferencesProvider({ children }: { children: ReactNode }) {
   const [preferredProvider, setPreferredProviderState] = useState<AiProvider>(loadSavedProvider);
+  const [preferredModels, setPreferredModelsState] =
+    useState<Partial<Record<AiProvider, string>>>(loadSavedModels);
   const [providerStatuses, setProviderStatuses] = useState<AiProviderStatus[]>([]);
   const [includeSampleRows, setIncludeSampleRowsState] =
     useState<boolean>(loadSampleRowsPreference);
@@ -69,6 +84,14 @@ export function AiPreferencesProvider({ children }: { children: ReactNode }) {
     localStorage.setItem(STORAGE_KEY, p);
   }, []);
 
+  const setPreferredModel = useCallback((provider: AiProvider, model: string) => {
+    setPreferredModelsState(prev => {
+      const next = { ...prev, [provider]: model };
+      localStorage.setItem(MODELS_STORAGE_KEY, JSON.stringify(next));
+      return next;
+    });
+  }, []);
+
   const setIncludeSampleRows = useCallback((enabled: boolean) => {
     setIncludeSampleRowsState(enabled);
     localStorage.setItem(SAMPLE_ROWS_STORAGE_KEY, String(enabled));
@@ -80,8 +103,11 @@ export function AiPreferencesProvider({ children }: { children: ReactNode }) {
     (providerStatuses.find(s => s.provider === preferredProvider)?.has_key ?? false);
 
   const getConfig = useCallback(
-    (): AiConfig => ({ provider: preferredProvider }),
-    [preferredProvider]
+    (): AiConfig => ({
+      provider: preferredProvider,
+      model: preferredModels[preferredProvider],
+    }),
+    [preferredProvider, preferredModels]
   );
 
   return (
@@ -89,6 +115,8 @@ export function AiPreferencesProvider({ children }: { children: ReactNode }) {
       value={{
         preferredProvider,
         setPreferredProvider,
+        preferredModels,
+        setPreferredModel,
         providerStatuses,
         isReady,
         refreshStatuses,

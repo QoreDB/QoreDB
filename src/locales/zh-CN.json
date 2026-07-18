@@ -429,6 +429,7 @@
     "footerHint": "点击结果打开对应表"
   },
   "tabs": {
+    "newTab": "新建标签页",
     "new": "新建标签页",
     "newQuery": "新建查询（{{modifier}}+T）",
     "newNotebook": "新建笔记本",
@@ -2397,6 +2398,35 @@
       "enterKey": "输入 API 密钥…",
       "deleteKey": "删除 API 密钥",
       "ollamaHint": "Ollama 在本地运行 — 无需 API 密钥。请确保 Ollama 正在您的机器上运行。"
+    }
+  },
+  "agentChat": {
+    "model": "模型",
+    "title": "聊天",
+    "openChat": "AI 聊天",
+    "conversations": "会话",
+    "newConversation": "新建会话",
+    "noConversations": "暂无会话",
+    "untitled": "未命名",
+    "rename": "重命名",
+    "delete": "删除",
+    "promptPlaceholder": "向您的数据库提问…",
+    "send": "发送",
+    "cancel": "停止",
+    "thinking": "思考中…",
+    "emptyState": "数据库智能体",
+    "emptyHint": "用自然语言提问——智能体会探索数据库结构、执行只读查询并基于真实数据回答。写入操作始终需要您的确认。",
+    "noConnection": "请先连接数据库。",
+    "noApiKey": "请在设置中配置 AI 服务商的 API 密钥以使用智能体。",
+    "permission": {
+      "allow": "允许",
+      "allowAlways": "始终允许",
+      "deny": "拒绝",
+      "approved": "已允许",
+      "denied": "已拒绝"
+    },
+    "tool": {
+      "truncated": "共 {{count}} 行，仅显示前若干行"
     }
   },
   "federation": {

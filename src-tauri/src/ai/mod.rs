@@ -5,6 +5,7 @@
 //! Provides LLM-powered query generation, explanation, and schema summarization
 //! using the user's own API keys (OpenAI, Anthropic, Mistral, Gemini, DeepSeek, Ollama).
 
+pub mod agent;
 pub mod context;
 pub mod manager;
 pub mod provider;

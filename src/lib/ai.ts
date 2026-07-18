@@ -61,13 +61,27 @@ export interface SafetyInfo {
   warnings: string[];
 }
 
+export type AiErrorKind =
+  | 'invalid_key'
+  | 'rate_limited'
+  | 'context_too_large'
+  | 'network'
+  | 'provider';
+
+export interface AiError {
+  kind: AiErrorKind;
+  message: string;
+  retry_after_secs?: number;
+}
+
 export interface AiStreamChunk {
   request_id: string;
   delta: string;
   done: boolean;
-  error?: string;
+  error?: AiError;
   generated_query?: string;
   safety_analysis?: SafetyInfo;
+  tokens_used?: number;
 }
 
 export interface AiResponse {
@@ -99,17 +113,18 @@ export interface AiProviderInfo {
   requiresKey: boolean;
 }
 
+// Curated fallback lists (mirrors src-tauri/src/ai/types.rs) — the live list
+// comes from aiListModels(). Verified against provider docs 2026-07-18.
 export const AI_PROVIDERS: AiProviderInfo[] = [
   {
     id: 'open_ai',
     label: 'OpenAI',
     requiresKey: true,
     models: [
-      { id: 'gpt-4.1', label: 'GPT-4.1' },
-      { id: 'gpt-4.1-mini', label: 'GPT-4.1 Mini' },
-      { id: 'gpt-4.1-nano', label: 'GPT-4.1 Nano' },
-      { id: 'o4-mini', label: 'o4-mini' },
-      { id: 'o3-mini', label: 'o3-mini' },
+      { id: 'gpt-5.6-terra', label: 'GPT-5.6 Terra' },
+      { id: 'gpt-5.6-sol', label: 'GPT-5.6 Sol' },
+      { id: 'gpt-5.6-luna', label: 'GPT-5.6 Luna' },
+      { id: 'gpt-5.5', label: 'GPT-5.5' },
     ],
   },
   {
@@ -117,9 +132,9 @@ export const AI_PROVIDERS: AiProviderInfo[] = [
     label: 'Anthropic',
     requiresKey: true,
     models: [
-      { id: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6' },
-      { id: 'claude-sonnet-4-20250514', label: 'Claude Sonnet 4' },
-      { id: 'claude-haiku-4-5-20251001', label: 'Claude Haiku 4.5' },
+      { id: 'claude-sonnet-5', label: 'Claude Sonnet 5' },
+      { id: 'claude-opus-4-8', label: 'Claude Opus 4.8' },
+      { id: 'claude-haiku-4-5', label: 'Claude Haiku 4.5' },
     ],
   },
   {
@@ -127,11 +142,9 @@ export const AI_PROVIDERS: AiProviderInfo[] = [
     label: 'Mistral AI',
     requiresKey: true,
     models: [
-      { id: 'mistral-large-latest', label: 'Mistral Large' },
       { id: 'mistral-medium-latest', label: 'Mistral Medium' },
+      { id: 'mistral-large-latest', label: 'Mistral Large' },
       { id: 'mistral-small-latest', label: 'Mistral Small' },
-      { id: 'codestral-latest', label: 'Codestral' },
-      { id: 'pixtral-large-latest', label: 'Pixtral Large' },
     ],
   },
   {
@@ -139,9 +152,9 @@ export const AI_PROVIDERS: AiProviderInfo[] = [
     label: 'Google Gemini',
     requiresKey: true,
     models: [
-      { id: 'gemini-2.5-pro-preview-05-06', label: 'Gemini 2.5 Pro' },
-      { id: 'gemini-2.5-flash-preview-05-20', label: 'Gemini 2.5 Flash' },
-      { id: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash' },
+      { id: 'gemini-3.5-flash', label: 'Gemini 3.5 Flash' },
+      { id: 'gemini-3.1-pro-preview', label: 'Gemini 3.1 Pro' },
+      { id: 'gemini-3.1-flash-lite', label: 'Gemini 3.1 Flash Lite' },
     ],
   },
   {
@@ -149,8 +162,8 @@ export const AI_PROVIDERS: AiProviderInfo[] = [
     label: 'DeepSeek',
     requiresKey: true,
     models: [
-      { id: 'deepseek-chat', label: 'DeepSeek V3' },
-      { id: 'deepseek-reasoner', label: 'DeepSeek R1' },
+      { id: 'deepseek-v4-flash', label: 'DeepSeek V4 Flash' },
+      { id: 'deepseek-v4-pro', label: 'DeepSeek V4 Pro' },
     ],
   },
   {
@@ -158,11 +171,9 @@ export const AI_PROVIDERS: AiProviderInfo[] = [
     label: 'Ollama',
     requiresKey: false,
     models: [
+      { id: 'qwen3', label: 'Qwen 3' },
       { id: 'llama3.3', label: 'Llama 3.3' },
-      { id: 'llama3.1', label: 'Llama 3.1' },
-      { id: 'qwen2.5-coder', label: 'Qwen 2.5 Coder' },
       { id: 'deepseek-r1', label: 'DeepSeek R1' },
-      { id: 'codellama', label: 'Code Llama' },
       { id: 'mistral', label: 'Mistral' },
     ],
   },
@@ -204,6 +215,12 @@ export async function aiDeleteApiKey(provider: AiProvider): Promise<void> {
 
 export async function aiGetProviderStatus(): Promise<AiProviderStatus[]> {
   return invoke('ai_get_provider_status');
+}
+
+/** Live model list from the provider API (cached per session backend-side);
+ *  falls back to the curated list when the endpoint or key is unavailable. */
+export async function aiListModels(provider: AiProvider, baseUrl?: string): Promise<AiModelInfo[]> {
+  return invoke('ai_list_models', { provider, baseUrl });
 }
 
 /**

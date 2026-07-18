@@ -13,7 +13,8 @@ export type TabType =
   | 'notebook'
   | 'time-travel'
   | 'migrations'
-  | 'plugin-output';
+  | 'plugin-output'
+  | 'chat';
 
 export interface DiffSource {
   type: 'query' | 'table' | 'snapshot';
@@ -174,6 +175,14 @@ export function createMigrationsTab(namespace?: Namespace): OpenTab {
     type: 'migrations',
     title: 'Migrations',
     namespace,
+  };
+}
+
+export function createChatTab(): OpenTab {
+  return {
+    id: generateTabId(),
+    type: 'chat',
+    title: 'Chat',
   };
 }
 

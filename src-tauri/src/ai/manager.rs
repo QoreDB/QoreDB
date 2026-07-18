@@ -5,6 +5,8 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use parking_lot::Mutex;
+
 use super::provider::{
     AIProvider, AnthropicProvider, DeepSeekProvider, GoogleGeminiProvider, MistralAiProvider,
     OllamaProvider, OpenAiProvider,
@@ -17,6 +19,8 @@ const KEYRING_SERVICE: &str = "qoredb_ai";
 pub struct AiManager {
     credential_provider: Box<dyn CredentialProvider>,
     providers: HashMap<String, Arc<dyn AIProvider>>,
+    /// Per-provider model lists fetched from the provider API (session TTL).
+    models_cache: Mutex<HashMap<AiProvider, Vec<AiModelInfoOwned>>>,
 }
 
 impl AiManager {
@@ -35,7 +39,16 @@ impl AiManager {
         Self {
             credential_provider,
             providers,
+            models_cache: Mutex::new(HashMap::new()),
         }
+    }
+
+    pub fn cached_models(&self, provider: &AiProvider) -> Option<Vec<AiModelInfoOwned>> {
+        self.models_cache.lock().get(provider).cloned()
+    }
+
+    pub fn cache_models(&self, provider: AiProvider, models: Vec<AiModelInfoOwned>) {
+        self.models_cache.lock().insert(provider, models);
     }
 
     /// Store an API key for a provider in the OS keyring

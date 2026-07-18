@@ -17,8 +17,8 @@ use super::profiling::ProfilingStore;
 use super::safety::SafetyEngine;
 use super::types::{
     AuditLogEntry, BuiltinRuleOverride, Environment, InterceptorConfig, ProfilingMetrics,
-    QueryContext, QueryExecutionResult, QueryOperationType, SafetyCheckResult, SafetyRule,
-    SlowQueryEntry,
+    QueryContext, QueryExecutionResult, QueryOperationType, QuerySource, SafetyCheckResult,
+    SafetyRule, SlowQueryEntry,
 };
 use qore_sql::safety::SqlSafetyAnalysis;
 
@@ -121,6 +121,7 @@ impl InterceptorPipeline {
     }
 
     /// Build query context from execution parameters
+    #[allow(clippy::too_many_arguments)]
     pub fn build_context(
         &self,
         session_id: &str,
@@ -132,6 +133,36 @@ impl InterceptorPipeline {
         database: Option<&str>,
         sql_analysis: Option<&SqlSafetyAnalysis>,
         is_mongo_mutation: bool,
+    ) -> QueryContext {
+        self.build_context_with_source(
+            session_id,
+            query,
+            driver_id,
+            environment,
+            read_only,
+            acknowledged,
+            database,
+            sql_analysis,
+            is_mongo_mutation,
+            QuerySource::User,
+        )
+    }
+
+    /// Same as [`build_context`](Self::build_context) with an explicit query
+    /// source (AI agent, MCP) for audit attribution.
+    #[allow(clippy::too_many_arguments)]
+    pub fn build_context_with_source(
+        &self,
+        session_id: &str,
+        query: &str,
+        driver_id: &str,
+        environment: Environment,
+        read_only: bool,
+        acknowledged: bool,
+        database: Option<&str>,
+        sql_analysis: Option<&SqlSafetyAnalysis>,
+        is_mongo_mutation: bool,
+        source: QuerySource,
     ) -> QueryContext {
         let (operation_type, is_mutation, is_dangerous) = if let Some(analysis) = sql_analysis {
             let op = self.classify_sql_operation(query);
@@ -153,6 +184,7 @@ impl InterceptorPipeline {
             is_dangerous,
             acknowledged,
             read_only,
+            source,
         }
     }
 
@@ -234,6 +266,7 @@ impl InterceptorPipeline {
         entry.row_count = result.row_count;
         entry.blocked = blocked;
         entry.safety_rule = safety_rule.map(|s| s.to_string());
+        entry.source = context.source;
 
         self.audit.log(entry);
     }

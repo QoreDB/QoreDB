@@ -181,6 +181,7 @@ DBeaver, pgAdmin, phpMyAdmin do the job — but they feel slow, dated, and full 
 - Contextual query generation and error correction
 - Schema-aware suggestions
 - Natural-language DataGrid filters — describe a filter in plain language, preview the generated `WHERE` clause before applying
+- Database Agent chat — ask in natural language; the agent explores the schema, runs read-only queries and answers with real data. Writes require explicit approval and are always blocked in production; conversations persist without storing query results
 - Bring your own key (OpenAI, Anthropic, …)
 </details>
 

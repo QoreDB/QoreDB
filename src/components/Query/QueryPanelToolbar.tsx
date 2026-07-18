@@ -4,6 +4,7 @@ import {
   AlertCircle,
   BookmarkPlus,
   BookOpen,
+  Bot,
   Braces,
   Check,
   Database,
@@ -45,7 +46,7 @@ import {
 } from '@/components/ui/select';
 import { Tooltip } from '@/components/ui/tooltip';
 import { splitContributionId } from '@/lib/plugins';
-import { createFederationTab } from '@/lib/tabs';
+import { createChatTab, createFederationTab } from '@/lib/tabs';
 import { cn } from '@/lib/utils';
 import { usePlugins } from '@/providers/PluginProvider';
 import { useTabActions } from '@/providers/TabProvider';
@@ -487,6 +488,10 @@ export function QueryPanelToolbar({
               {t('federation.badge')}
             </DropdownMenuItem>
           )}
+          <DropdownMenuItem onClick={() => openTab(createChatTab())}>
+            <Bot size={14} />
+            {t('agentChat.openChat')}
+          </DropdownMenuItem>
           {onConvertToNotebook && (
             <DropdownMenuItem onClick={onConvertToNotebook}>
               <BookOpen size={14} />

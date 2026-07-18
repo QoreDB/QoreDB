@@ -429,6 +429,7 @@
     "footerHint": "Clique em um resultado para abrir a tabela"
   },
   "tabs": {
+    "newTab": "Nova aba",
     "new": "Nova aba",
     "newQuery": "Nova Consulta ({{modifier}}+T)",
     "newNotebook": "Novo Notebook",
@@ -2397,6 +2398,35 @@
       "enterKey": "Insira a chave de API...",
       "deleteKey": "Excluir chave de API",
       "ollamaHint": "O Ollama roda localmente — nenhuma chave de API é necessária. Certifique-se de que o Ollama esteja rodando na sua máquina."
+    }
+  },
+  "agentChat": {
+    "model": "Modelo",
+    "title": "Chat",
+    "openChat": "Chat de IA",
+    "conversations": "Conversas",
+    "newConversation": "Nova conversa",
+    "noConversations": "Nenhuma conversa ainda",
+    "untitled": "Sem título",
+    "rename": "Renomear",
+    "delete": "Excluir",
+    "promptPlaceholder": "Faça uma pergunta sobre seu banco de dados…",
+    "send": "Enviar",
+    "cancel": "Parar",
+    "thinking": "Pensando…",
+    "emptyState": "Agente de banco de dados",
+    "emptyHint": "Faça uma pergunta em linguagem natural — o agente explora o esquema, executa consultas somente leitura e responde com dados reais. Gravações sempre exigem sua aprovação.",
+    "noConnection": "Conecte-se a um banco de dados para começar.",
+    "noApiKey": "Configure uma chave de API de um provedor de IA nas configurações para usar o agente.",
+    "permission": {
+      "allow": "Permitir",
+      "allowAlways": "Sempre permitir",
+      "deny": "Negar",
+      "approved": "Permitido",
+      "denied": "Negado"
+    },
+    "tool": {
+      "truncated": "Exibindo as primeiras linhas de {{count}}"
     }
   },
   "federation": {

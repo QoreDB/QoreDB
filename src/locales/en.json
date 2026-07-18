@@ -458,6 +458,7 @@
     "footerHint": "Click a result to open the table"
   },
   "tabs": {
+    "newTab": "New tab",
     "new": "New tab",
     "newQuery": "New Query ({{modifier}}+T)",
     "newNotebook": "New Notebook",
@@ -2436,6 +2437,35 @@
       "enterKey": "Enter API key...",
       "deleteKey": "Delete API key",
       "ollamaHint": "Ollama runs locally — no API key required. Make sure Ollama is running on your machine."
+    }
+  },
+  "agentChat": {
+    "model": "Model",
+    "title": "Chat",
+    "openChat": "AI Chat",
+    "conversations": "Conversations",
+    "newConversation": "New conversation",
+    "noConversations": "No conversations yet",
+    "untitled": "Untitled",
+    "rename": "Rename",
+    "delete": "Delete",
+    "promptPlaceholder": "Ask anything about your database…",
+    "send": "Send",
+    "cancel": "Stop",
+    "thinking": "Thinking…",
+    "emptyState": "Database Agent",
+    "emptyHint": "Ask a question in natural language — the agent explores the schema, runs read-only queries and answers with real data. Writes always require your approval.",
+    "noConnection": "Connect to a database to start chatting.",
+    "noApiKey": "Configure an AI provider API key in Settings to use the agent.",
+    "permission": {
+      "allow": "Allow",
+      "allowAlways": "Always allow",
+      "deny": "Deny",
+      "approved": "Approved",
+      "denied": "Denied"
+    },
+    "tool": {
+      "truncated": "Showing first rows of {{count}}"
     }
   },
   "federation": {

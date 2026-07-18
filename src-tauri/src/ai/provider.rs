@@ -8,7 +8,12 @@ use serde_json::{Value, json};
 use tokio::sync::mpsc;
 use tracing::debug;
 
-use super::types::{AiConfig, AiMessage, AiRole, AiStreamChunk};
+use super::agent::types::{AgentMessage, AgentTool, AgentTurn, ToolCall};
+use super::agent::wire;
+use super::types::{
+    AiConfig, AiError, AiErrorKind, AiMessage, AiModelInfoOwned, AiProvider, AiRole, AiStreamChunk,
+    AiUsage,
+};
 
 /// Per-request timeout applied to every LLM HTTP client. Streaming SSE
 /// completions can legitimately take ~60 s for long answers, so we pick
@@ -17,6 +22,13 @@ use super::types::{AiConfig, AiMessage, AiRole, AiStreamChunk};
 /// indefinitely (cf. audit B7-A1).
 const PROVIDER_HTTP_TIMEOUT: Duration = Duration::from_secs(120);
 const PROVIDER_CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
+
+/// Backoff before each of the two retries on transient failures
+/// (429/5xx/transport). Retries never apply once a stream has started.
+#[cfg(not(test))]
+const RETRY_BACKOFFS: [Duration; 2] = [Duration::from_secs(1), Duration::from_secs(3)];
+#[cfg(test)]
+const RETRY_BACKOFFS: [Duration; 2] = [Duration::from_millis(10), Duration::from_millis(20)];
 
 fn build_provider_client() -> Client {
     Client::builder()
@@ -36,7 +48,8 @@ fn build_provider_client() -> Client {
 pub trait AIProvider: Send + Sync {
     fn provider_id(&self) -> &'static str;
 
-    /// Streaming completion — sends chunks via channel
+    /// Streaming completion — sends chunks via channel.
+    /// Returns the token usage reported by the provider, when available.
     async fn stream(
         &self,
         api_key: &str,
@@ -44,7 +57,105 @@ pub trait AIProvider: Send + Sync {
         config: &AiConfig,
         sender: mpsc::Sender<AiStreamChunk>,
         request_id: String,
-    ) -> Result<(), String>;
+    ) -> Result<AiUsage, AiError>;
+
+    /// Agent-mode streaming completion with tool calling. Text deltas are
+    /// sent through `sender`; completed tool calls come back in the turn.
+    /// The default refuses, so a provider without tool support degrades
+    /// gracefully instead of silently dropping tools.
+    async fn stream_agent(
+        &self,
+        _api_key: &str,
+        _messages: &[AgentMessage],
+        _tools: &[AgentTool],
+        _config: &AiConfig,
+        _sender: mpsc::Sender<AiStreamChunk>,
+        _request_id: String,
+    ) -> Result<AgentTurn, AiError> {
+        Err(AiError::provider(format!(
+            "{} does not support tool calling",
+            self.provider_id()
+        )))
+    }
+}
+
+/// Send the initial request, retrying up to twice on transient failures.
+/// Wraps only the send + status check: once a response body is being
+/// streamed, an error is terminal.
+async fn send_with_retry(
+    builder: reqwest::RequestBuilder,
+    provider_name: &str,
+) -> Result<reqwest::Response, AiError> {
+    let mut current = builder;
+    let mut attempt = 0;
+    loop {
+        let next = current.try_clone();
+        let error = match current.send().await {
+            Ok(response) if response.status().is_success() => return Ok(response),
+            Ok(response) => map_error_response(response, provider_name).await,
+            Err(e) => AiError::network(format!("{provider_name} request failed: {e}")),
+        };
+        match next {
+            Some(retry) if error.is_retryable() && attempt < RETRY_BACKOFFS.len() => {
+                tokio::time::sleep(RETRY_BACKOFFS[attempt]).await;
+                attempt += 1;
+                current = retry;
+            }
+            _ => return Err(error),
+        }
+    }
+}
+
+async fn map_error_response(response: reqwest::Response, provider_name: &str) -> AiError {
+    let status = response.status();
+    let retry_after = response
+        .headers()
+        .get("retry-after")
+        .and_then(|v| v.to_str().ok())
+        .and_then(|s| s.trim().parse::<u64>().ok());
+    let body = response.text().await.unwrap_or_default();
+    let message =
+        extract_api_error(&body).unwrap_or_else(|| format!("{provider_name} HTTP {status}: {body}"));
+
+    match status.as_u16() {
+        401 | 403 => AiError::invalid_key(message),
+        429 => AiError::rate_limited(message, retry_after),
+        400 | 413 if looks_context_too_large(&message) => AiError::context_too_large(message),
+        code if code >= 500 => AiError::network(message),
+        _ => AiError::provider(message),
+    }
+}
+
+/// Providers report an oversized prompt as a 400 with wording of their own;
+/// there is no standard error code across vendors.
+fn looks_context_too_large(message: &str) -> bool {
+    let m = message.to_ascii_lowercase();
+    [
+        "context length",
+        "context_length",
+        "too long",
+        "maximum context",
+        "token limit",
+        "tokens exceed",
+    ]
+    .iter()
+    .any(|needle| m.contains(needle))
+}
+
+fn stream_error(e: impl std::fmt::Display) -> AiError {
+    AiError::network(format!("Stream error: {e}"))
+}
+
+/// OpenAI-style `usage` object, present on the final chunk when
+/// `stream_options.include_usage` is set (native on Mistral/DeepSeek).
+fn merge_openai_usage(usage: &mut AiUsage, parsed: &Value) {
+    let u = &parsed["usage"];
+    if let Some(v) = u["prompt_tokens"].as_u64() {
+        usage.input_tokens = Some(v as u32);
+    }
+    if let Some(v) = u["completion_tokens"].as_u64() {
+        usage.output_tokens = Some(v as u32);
+    }
 }
 
 fn role_str(role: AiRole) -> &'static str {
@@ -113,46 +224,46 @@ impl AIProvider for OpenAiProvider {
         config: &AiConfig,
         sender: mpsc::Sender<AiStreamChunk>,
         request_id: String,
-    ) -> Result<(), String> {
+    ) -> Result<AiUsage, AiError> {
         let model = config.effective_model();
         let max_tokens = config.effective_max_tokens();
         let temperature = config.effective_temperature();
+        let base_url = config
+            .effective_base_url()
+            .unwrap_or_else(|| "https://api.openai.com/v1".to_string());
 
         let body = json!({
             "model": model,
             "messages": openai_style_messages(messages),
             "max_tokens": max_tokens,
             "temperature": temperature,
-            "stream": true
+            "stream": true,
+            "stream_options": { "include_usage": true }
         });
 
         debug!("OpenAI request: model={}, max_tokens={}", model, max_tokens);
 
-        let response = self
-            .client
-            .post("https://api.openai.com/v1/chat/completions")
-            .header("Authorization", format!("Bearer {}", api_key))
-            .header("Content-Type", "application/json")
-            .json(&body)
-            .send()
-            .await
-            .map_err(|e| format!("OpenAI request failed: {}", e))?;
-
-        if !response.status().is_success() {
-            let status = response.status();
-            let body = response.text().await.unwrap_or_default();
-            let msg =
-                extract_api_error(&body).unwrap_or_else(|| format!("HTTP {}: {}", status, body));
-            return Err(msg);
-        }
+        let response = send_with_retry(
+            self.client
+                .post(format!(
+                    "{}/chat/completions",
+                    base_url.trim_end_matches('/')
+                ))
+                .header("Authorization", format!("Bearer {}", api_key))
+                .header("Content-Type", "application/json")
+                .json(&body),
+            "OpenAI",
+        )
+        .await?;
 
         // Parse SSE stream
+        let mut usage = AiUsage::default();
         let mut stream = response.bytes_stream();
         let mut buffer = String::new();
 
         use futures::StreamExt;
         while let Some(chunk_result) = stream.next().await {
-            let bytes = chunk_result.map_err(|e| format!("Stream error: {}", e))?;
+            let bytes = chunk_result.map_err(stream_error)?;
             buffer.push_str(&String::from_utf8_lossy(&bytes));
 
             // Process complete SSE lines
@@ -166,21 +277,18 @@ impl AIProvider for OpenAiProvider {
 
                 if let Some(data) = line.strip_prefix("data: ") {
                     if data.trim() == "[DONE]" {
-                        return Ok(());
+                        return Ok(usage);
                     }
 
                     if let Ok(parsed) = serde_json::from_str::<Value>(data) {
+                        merge_openai_usage(&mut usage, &parsed);
                         if let Some(delta) = parsed["choices"][0]["delta"]["content"].as_str() {
-                            let chunk = AiStreamChunk {
-                                request_id: request_id.clone(),
-                                delta: delta.to_string(),
-                                done: false,
-                                error: None,
-                                generated_query: None,
-                                safety_analysis: None,
-                            };
-                            if sender.send(chunk).await.is_err() {
-                                return Ok(()); // Receiver dropped (cancelled)
+                            if sender
+                                .send(AiStreamChunk::delta(&request_id, delta))
+                                .await
+                                .is_err()
+                            {
+                                return Ok(usage); // Receiver dropped (cancelled)
                             }
                         }
                     }
@@ -188,7 +296,34 @@ impl AIProvider for OpenAiProvider {
             }
         }
 
-        Ok(())
+        Ok(usage)
+    }
+
+    async fn stream_agent(
+        &self,
+        api_key: &str,
+        messages: &[AgentMessage],
+        tools: &[AgentTool],
+        config: &AiConfig,
+        sender: mpsc::Sender<AiStreamChunk>,
+        request_id: String,
+    ) -> Result<AgentTurn, AiError> {
+        let base_url = config
+            .effective_base_url()
+            .unwrap_or_else(|| "https://api.openai.com/v1".to_string());
+        stream_agent_openai_compatible(
+            &self.client,
+            &format!("{}/chat/completions", base_url.trim_end_matches('/')),
+            api_key,
+            messages,
+            tools,
+            config,
+            sender,
+            request_id,
+            "OpenAI",
+            true,
+        )
+        .await
     }
 }
 
@@ -223,10 +358,12 @@ impl AIProvider for AnthropicProvider {
         config: &AiConfig,
         sender: mpsc::Sender<AiStreamChunk>,
         request_id: String,
-    ) -> Result<(), String> {
+    ) -> Result<AiUsage, AiError> {
         let model = config.effective_model();
         let max_tokens = config.effective_max_tokens();
-        let temperature = config.effective_temperature();
+        let base_url = config
+            .effective_base_url()
+            .unwrap_or_else(|| "https://api.anthropic.com/v1".to_string());
 
         let (system, turns) = split_system(messages);
         let api_messages: Vec<Value> = turns
@@ -234,12 +371,13 @@ impl AIProvider for AnthropicProvider {
             .map(|m| json!({ "role": role_str(m.role), "content": m.content }))
             .collect();
 
+        // No sampling params: recent Anthropic models (Opus 4.7+, Sonnet 5)
+        // reject temperature/top_p/top_k with a 400.
         let body = json!({
             "model": model,
             "system": system,
             "messages": api_messages,
             "max_tokens": max_tokens,
-            "temperature": temperature,
             "stream": true
         });
 
@@ -248,32 +386,25 @@ impl AIProvider for AnthropicProvider {
             model, max_tokens
         );
 
-        let response = self
-            .client
-            .post("https://api.anthropic.com/v1/messages")
-            .header("x-api-key", api_key)
-            .header("anthropic-version", "2023-06-01")
-            .header("Content-Type", "application/json")
-            .json(&body)
-            .send()
-            .await
-            .map_err(|e| format!("Anthropic request failed: {}", e))?;
-
-        if !response.status().is_success() {
-            let status = response.status();
-            let body = response.text().await.unwrap_or_default();
-            let msg =
-                extract_api_error(&body).unwrap_or_else(|| format!("HTTP {}: {}", status, body));
-            return Err(msg);
-        }
+        let response = send_with_retry(
+            self.client
+                .post(format!("{}/messages", base_url.trim_end_matches('/')))
+                .header("x-api-key", api_key)
+                .header("anthropic-version", "2023-06-01")
+                .header("Content-Type", "application/json")
+                .json(&body),
+            "Anthropic",
+        )
+        .await?;
 
         // Parse SSE stream (Anthropic format)
+        let mut usage = AiUsage::default();
         let mut stream = response.bytes_stream();
         let mut buffer = String::new();
 
         use futures::StreamExt;
         while let Some(chunk_result) = stream.next().await {
-            let bytes = chunk_result.map_err(|e| format!("Stream error: {}", e))?;
+            let bytes = chunk_result.map_err(stream_error)?;
             buffer.push_str(&String::from_utf8_lossy(&bytes));
 
             while let Some(pos) = buffer.find('\n') {
@@ -289,29 +420,36 @@ impl AIProvider for AnthropicProvider {
                         let event_type = parsed["type"].as_str().unwrap_or("");
 
                         match event_type {
+                            "message_start" => {
+                                if let Some(v) = parsed["message"]["usage"]["input_tokens"].as_u64()
+                                {
+                                    usage.input_tokens = Some(v as u32);
+                                }
+                            }
                             "content_block_delta" => {
                                 if let Some(text) = parsed["delta"]["text"].as_str() {
-                                    let chunk = AiStreamChunk {
-                                        request_id: request_id.clone(),
-                                        delta: text.to_string(),
-                                        done: false,
-                                        error: None,
-                                        generated_query: None,
-                                        safety_analysis: None,
-                                    };
-                                    if sender.send(chunk).await.is_err() {
-                                        return Ok(());
+                                    if sender
+                                        .send(AiStreamChunk::delta(&request_id, text))
+                                        .await
+                                        .is_err()
+                                    {
+                                        return Ok(usage);
                                     }
                                 }
                             }
+                            "message_delta" => {
+                                if let Some(v) = parsed["usage"]["output_tokens"].as_u64() {
+                                    usage.output_tokens = Some(v as u32);
+                                }
+                            }
                             "message_stop" => {
-                                return Ok(());
+                                return Ok(usage);
                             }
                             "error" => {
                                 let msg = parsed["error"]["message"]
                                     .as_str()
                                     .unwrap_or("Unknown Anthropic error");
-                                return Err(msg.to_string());
+                                return Err(AiError::provider(msg));
                             }
                             _ => {}
                         }
@@ -320,7 +458,122 @@ impl AIProvider for AnthropicProvider {
             }
         }
 
-        Ok(())
+        Ok(usage)
+    }
+
+    async fn stream_agent(
+        &self,
+        api_key: &str,
+        messages: &[AgentMessage],
+        tools: &[AgentTool],
+        config: &AiConfig,
+        sender: mpsc::Sender<AiStreamChunk>,
+        request_id: String,
+    ) -> Result<AgentTurn, AiError> {
+        let model = config.effective_model();
+        let max_tokens = config.effective_max_tokens();
+        let base_url = config
+            .effective_base_url()
+            .unwrap_or_else(|| "https://api.anthropic.com/v1".to_string());
+
+        let (system, api_messages) = wire::anthropic_agent_messages(messages);
+        // No sampling params: recent Anthropic models reject them with a 400.
+        let mut body = json!({
+            "model": model,
+            "system": system,
+            "messages": api_messages,
+            "max_tokens": max_tokens,
+            "stream": true
+        });
+        if !tools.is_empty() {
+            body["tools"] = wire::anthropic_tools(tools);
+        }
+
+        debug!(
+            "Anthropic agent request: model={}, tools={}",
+            model,
+            tools.len()
+        );
+
+        let response = send_with_retry(
+            self.client
+                .post(format!("{}/messages", base_url.trim_end_matches('/')))
+                .header("x-api-key", api_key)
+                .header("anthropic-version", "2023-06-01")
+                .header("Content-Type", "application/json")
+                .json(&body),
+            "Anthropic",
+        )
+        .await?;
+
+        let mut turn = AgentTurn::default();
+        let mut acc = wire::AnthropicToolUseAccumulator::default();
+        let mut stream = response.bytes_stream();
+        let mut buffer = String::new();
+
+        use futures::StreamExt;
+        'outer: while let Some(chunk_result) = stream.next().await {
+            let bytes = chunk_result.map_err(stream_error)?;
+            buffer.push_str(&String::from_utf8_lossy(&bytes));
+
+            while let Some(pos) = buffer.find('\n') {
+                let line = buffer[..pos].trim().to_string();
+                buffer = buffer[pos + 1..].to_string();
+
+                if line.is_empty() || line.starts_with(':') {
+                    continue;
+                }
+
+                if let Some(data) = line.strip_prefix("data: ") {
+                    if let Ok(parsed) = serde_json::from_str::<Value>(data) {
+                        let index = parsed["index"].as_u64().unwrap_or(0);
+                        match parsed["type"].as_str().unwrap_or("") {
+                            "message_start" => {
+                                if let Some(v) = parsed["message"]["usage"]["input_tokens"].as_u64()
+                                {
+                                    turn.usage.input_tokens = Some(v as u32);
+                                }
+                            }
+                            "content_block_start" => {
+                                acc.start_block(index, &parsed["content_block"]);
+                            }
+                            "content_block_delta" => {
+                                let delta = &parsed["delta"];
+                                acc.feed_delta(index, delta);
+                                if let Some(text) = delta["text"].as_str() {
+                                    turn.text.push_str(text);
+                                    if sender
+                                        .send(AiStreamChunk::delta(&request_id, text))
+                                        .await
+                                        .is_err()
+                                    {
+                                        break 'outer;
+                                    }
+                                }
+                            }
+                            "message_delta" => {
+                                if let Some(v) = parsed["usage"]["output_tokens"].as_u64() {
+                                    turn.usage.output_tokens = Some(v as u32);
+                                }
+                            }
+                            "message_stop" => {
+                                break 'outer;
+                            }
+                            "error" => {
+                                let msg = parsed["error"]["message"]
+                                    .as_str()
+                                    .unwrap_or("Unknown Anthropic error");
+                                return Err(AiError::provider(msg));
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+            }
+        }
+
+        turn.tool_calls = acc.finish();
+        Ok(turn)
     }
 }
 
@@ -355,7 +608,7 @@ impl AIProvider for OllamaProvider {
         config: &AiConfig,
         sender: mpsc::Sender<AiStreamChunk>,
         request_id: String,
-    ) -> Result<(), String> {
+    ) -> Result<AiUsage, AiError> {
         let model = config.effective_model();
         let base_url = config
             .effective_base_url()
@@ -369,28 +622,29 @@ impl AIProvider for OllamaProvider {
 
         debug!("Ollama request: model={}, base_url={}", model, base_url);
 
-        let response = self
-            .client
-            .post(format!("{}/api/chat", base_url))
-            .header("Content-Type", "application/json")
-            .json(&body)
-            .send()
-            .await
-            .map_err(|e| format!("Ollama request failed: {}. Is Ollama running?", e))?;
-
-        if !response.status().is_success() {
-            let status = response.status();
-            let body = response.text().await.unwrap_or_default();
-            return Err(format!("Ollama HTTP {}: {}", status, body));
-        }
+        let response = send_with_retry(
+            self.client
+                .post(format!("{}/api/chat", base_url))
+                .header("Content-Type", "application/json")
+                .json(&body),
+            "Ollama",
+        )
+        .await
+        .map_err(|mut e| {
+            if e.kind == AiErrorKind::Network {
+                e.message.push_str(". Is Ollama running?");
+            }
+            e
+        })?;
 
         // Parse NDJSON stream
+        let mut usage = AiUsage::default();
         let mut stream = response.bytes_stream();
         let mut buffer = String::new();
 
         use futures::StreamExt;
         while let Some(chunk_result) = stream.next().await {
-            let bytes = chunk_result.map_err(|e| format!("Stream error: {}", e))?;
+            let bytes = chunk_result.map_err(stream_error)?;
             buffer.push_str(&String::from_utf8_lossy(&bytes));
 
             while let Some(pos) = buffer.find('\n') {
@@ -406,28 +660,135 @@ impl AIProvider for OllamaProvider {
 
                     if let Some(content) = parsed["message"]["content"].as_str() {
                         if !content.is_empty() {
-                            let chunk = AiStreamChunk {
-                                request_id: request_id.clone(),
-                                delta: content.to_string(),
-                                done: false,
-                                error: None,
-                                generated_query: None,
-                                safety_analysis: None,
-                            };
-                            if sender.send(chunk).await.is_err() {
-                                return Ok(());
+                            if sender
+                                .send(AiStreamChunk::delta(&request_id, content))
+                                .await
+                                .is_err()
+                            {
+                                return Ok(usage);
                             }
                         }
                     }
 
                     if done {
-                        return Ok(());
+                        if let Some(v) = parsed["prompt_eval_count"].as_u64() {
+                            usage.input_tokens = Some(v as u32);
+                        }
+                        if let Some(v) = parsed["eval_count"].as_u64() {
+                            usage.output_tokens = Some(v as u32);
+                        }
+                        return Ok(usage);
                     }
                 }
             }
         }
 
-        Ok(())
+        Ok(usage)
+    }
+
+    async fn stream_agent(
+        &self,
+        _api_key: &str,
+        messages: &[AgentMessage],
+        tools: &[AgentTool],
+        config: &AiConfig,
+        sender: mpsc::Sender<AiStreamChunk>,
+        request_id: String,
+    ) -> Result<AgentTurn, AiError> {
+        let model = config.effective_model();
+        let base_url = config
+            .effective_base_url()
+            .unwrap_or_else(|| "http://localhost:11434".to_string());
+
+        let mut body = json!({
+            "model": model,
+            "messages": wire::openai_agent_messages(messages),
+            "stream": true
+        });
+        if !tools.is_empty() {
+            body["tools"] = wire::openai_tools(tools);
+        }
+
+        debug!("Ollama agent request: model={}, tools={}", model, tools.len());
+
+        // A model without tool support answers 400 with an explicit message;
+        // the orchestrator uses that Provider error to fall back to text mode.
+        let response = send_with_retry(
+            self.client
+                .post(format!("{}/api/chat", base_url))
+                .header("Content-Type", "application/json")
+                .json(&body),
+            "Ollama",
+        )
+        .await
+        .map_err(|mut e| {
+            if e.kind == AiErrorKind::Network {
+                e.message.push_str(". Is Ollama running?");
+            }
+            e
+        })?;
+
+        let mut turn = AgentTurn::default();
+        let mut stream = response.bytes_stream();
+        let mut buffer = String::new();
+
+        use futures::StreamExt;
+        'outer: while let Some(chunk_result) = stream.next().await {
+            let bytes = chunk_result.map_err(stream_error)?;
+            buffer.push_str(&String::from_utf8_lossy(&bytes));
+
+            while let Some(pos) = buffer.find('\n') {
+                let line = buffer[..pos].trim().to_string();
+                buffer = buffer[pos + 1..].to_string();
+
+                if line.is_empty() {
+                    continue;
+                }
+
+                if let Ok(parsed) = serde_json::from_str::<Value>(&line) {
+                    let done = parsed["done"].as_bool().unwrap_or(false);
+
+                    // Ollama sends tool calls complete, arguments as object.
+                    if let Some(calls) = parsed["message"]["tool_calls"].as_array() {
+                        for call in calls {
+                            if let Some(name) = call["function"]["name"].as_str() {
+                                turn.tool_calls.push(ToolCall {
+                                    id: format!("call_{}", turn.tool_calls.len()),
+                                    name: name.to_string(),
+                                    input: call["function"]["arguments"].clone(),
+                                    thought_signature: None,
+                                });
+                            }
+                        }
+                    }
+
+                    if let Some(content) = parsed["message"]["content"].as_str() {
+                        if !content.is_empty() {
+                            turn.text.push_str(content);
+                            if sender
+                                .send(AiStreamChunk::delta(&request_id, content))
+                                .await
+                                .is_err()
+                            {
+                                break 'outer;
+                            }
+                        }
+                    }
+
+                    if done {
+                        if let Some(v) = parsed["prompt_eval_count"].as_u64() {
+                            turn.usage.input_tokens = Some(v as u32);
+                        }
+                        if let Some(v) = parsed["eval_count"].as_u64() {
+                            turn.usage.output_tokens = Some(v as u32);
+                        }
+                        break 'outer;
+                    }
+                }
+            }
+        }
+
+        Ok(turn)
     }
 }
 
@@ -462,16 +823,46 @@ impl AIProvider for MistralAiProvider {
         config: &AiConfig,
         sender: mpsc::Sender<AiStreamChunk>,
         request_id: String,
-    ) -> Result<(), String> {
+    ) -> Result<AiUsage, AiError> {
+        let base_url = config
+            .effective_base_url()
+            .unwrap_or_else(|| "https://api.mistral.ai/v1".to_string());
         stream_openai_compatible(
             &self.client,
-            "https://api.mistral.ai/v1/chat/completions",
+            &format!("{}/chat/completions", base_url.trim_end_matches('/')),
             api_key,
             messages,
             config,
             sender,
             request_id,
             "Mistral",
+        )
+        .await
+    }
+
+    async fn stream_agent(
+        &self,
+        api_key: &str,
+        messages: &[AgentMessage],
+        tools: &[AgentTool],
+        config: &AiConfig,
+        sender: mpsc::Sender<AiStreamChunk>,
+        request_id: String,
+    ) -> Result<AgentTurn, AiError> {
+        let base_url = config
+            .effective_base_url()
+            .unwrap_or_else(|| "https://api.mistral.ai/v1".to_string());
+        stream_agent_openai_compatible(
+            &self.client,
+            &format!("{}/chat/completions", base_url.trim_end_matches('/')),
+            api_key,
+            messages,
+            tools,
+            config,
+            sender,
+            request_id,
+            "Mistral",
+            false,
         )
         .await
     }
@@ -508,13 +899,17 @@ impl AIProvider for GoogleGeminiProvider {
         config: &AiConfig,
         sender: mpsc::Sender<AiStreamChunk>,
         request_id: String,
-    ) -> Result<(), String> {
+    ) -> Result<AiUsage, AiError> {
         let model = config.effective_model();
         let max_tokens = config.effective_max_tokens();
         let temperature = config.effective_temperature();
+        let base_url = config
+            .effective_base_url()
+            .unwrap_or_else(|| "https://generativelanguage.googleapis.com/v1beta".to_string());
 
         let url = format!(
-            "https://generativelanguage.googleapis.com/v1beta/models/{}:streamGenerateContent?alt=sse",
+            "{}/models/{}:streamGenerateContent?alt=sse",
+            base_url.trim_end_matches('/'),
             model
         );
 
@@ -543,31 +938,24 @@ impl AIProvider for GoogleGeminiProvider {
 
         debug!("Gemini request: model={}, max_tokens={}", model, max_tokens);
 
-        let response = self
-            .client
-            .post(&url)
-            .header("x-goog-api-key", api_key)
-            .header("Content-Type", "application/json")
-            .json(&body)
-            .send()
-            .await
-            .map_err(|e| format!("Gemini request failed: {}", e))?;
-
-        if !response.status().is_success() {
-            let status = response.status();
-            let body = response.text().await.unwrap_or_default();
-            let msg =
-                extract_api_error(&body).unwrap_or_else(|| format!("HTTP {}: {}", status, body));
-            return Err(msg);
-        }
+        let response = send_with_retry(
+            self.client
+                .post(&url)
+                .header("x-goog-api-key", api_key)
+                .header("Content-Type", "application/json")
+                .json(&body),
+            "Gemini",
+        )
+        .await?;
 
         // Parse SSE stream (Gemini format)
+        let mut usage = AiUsage::default();
         let mut stream = response.bytes_stream();
         let mut buffer = String::new();
 
         use futures::StreamExt;
         while let Some(chunk_result) = stream.next().await {
-            let bytes = chunk_result.map_err(|e| format!("Stream error: {}", e))?;
+            let bytes = chunk_result.map_err(stream_error)?;
             buffer.push_str(&String::from_utf8_lossy(&bytes));
 
             while let Some(pos) = buffer.find('\n') {
@@ -580,19 +968,21 @@ impl AIProvider for GoogleGeminiProvider {
 
                 if let Some(data) = line.strip_prefix("data: ") {
                     if let Ok(parsed) = serde_json::from_str::<Value>(data) {
+                        if let Some(v) = parsed["usageMetadata"]["promptTokenCount"].as_u64() {
+                            usage.input_tokens = Some(v as u32);
+                        }
+                        if let Some(v) = parsed["usageMetadata"]["candidatesTokenCount"].as_u64() {
+                            usage.output_tokens = Some(v as u32);
+                        }
                         if let Some(text) =
                             parsed["candidates"][0]["content"]["parts"][0]["text"].as_str()
                         {
-                            let chunk = AiStreamChunk {
-                                request_id: request_id.clone(),
-                                delta: text.to_string(),
-                                done: false,
-                                error: None,
-                                generated_query: None,
-                                safety_analysis: None,
-                            };
-                            if sender.send(chunk).await.is_err() {
-                                return Ok(());
+                            if sender
+                                .send(AiStreamChunk::delta(&request_id, text))
+                                .await
+                                .is_err()
+                            {
+                                return Ok(usage);
                             }
                         }
                     }
@@ -600,7 +990,114 @@ impl AIProvider for GoogleGeminiProvider {
             }
         }
 
-        Ok(())
+        Ok(usage)
+    }
+
+    async fn stream_agent(
+        &self,
+        api_key: &str,
+        messages: &[AgentMessage],
+        tools: &[AgentTool],
+        config: &AiConfig,
+        sender: mpsc::Sender<AiStreamChunk>,
+        request_id: String,
+    ) -> Result<AgentTurn, AiError> {
+        let model = config.effective_model();
+        let max_tokens = config.effective_max_tokens();
+        let temperature = config.effective_temperature();
+        let base_url = config
+            .effective_base_url()
+            .unwrap_or_else(|| "https://generativelanguage.googleapis.com/v1beta".to_string());
+
+        let url = format!(
+            "{}/models/{}:streamGenerateContent?alt=sse",
+            base_url.trim_end_matches('/'),
+            model
+        );
+
+        let (system, contents) = wire::gemini_agent_contents(messages);
+        let mut body = json!({
+            "systemInstruction": { "parts": [{ "text": system }] },
+            "contents": contents,
+            "generationConfig": {
+                "maxOutputTokens": max_tokens,
+                "temperature": temperature
+            }
+        });
+        if !tools.is_empty() {
+            body["tools"] = wire::gemini_tools(tools);
+        }
+
+        debug!("Gemini agent request: model={}, tools={}", model, tools.len());
+
+        let response = send_with_retry(
+            self.client
+                .post(&url)
+                .header("x-goog-api-key", api_key)
+                .header("Content-Type", "application/json")
+                .json(&body),
+            "Gemini",
+        )
+        .await?;
+
+        let mut turn = AgentTurn::default();
+        let mut stream = response.bytes_stream();
+        let mut buffer = String::new();
+
+        use futures::StreamExt;
+        'outer: while let Some(chunk_result) = stream.next().await {
+            let bytes = chunk_result.map_err(stream_error)?;
+            buffer.push_str(&String::from_utf8_lossy(&bytes));
+
+            while let Some(pos) = buffer.find('\n') {
+                let line = buffer[..pos].trim().to_string();
+                buffer = buffer[pos + 1..].to_string();
+
+                if line.is_empty() || line.starts_with(':') {
+                    continue;
+                }
+
+                if let Some(data) = line.strip_prefix("data: ") {
+                    if let Ok(parsed) = serde_json::from_str::<Value>(data) {
+                        if let Some(v) = parsed["usageMetadata"]["promptTokenCount"].as_u64() {
+                            turn.usage.input_tokens = Some(v as u32);
+                        }
+                        if let Some(v) = parsed["usageMetadata"]["candidatesTokenCount"].as_u64() {
+                            turn.usage.output_tokens = Some(v as u32);
+                        }
+                        if let Some(parts) = parsed["candidates"][0]["content"]["parts"].as_array()
+                        {
+                            for part in parts {
+                                if let Some(text) = part["text"].as_str() {
+                                    turn.text.push_str(text);
+                                    if sender
+                                        .send(AiStreamChunk::delta(&request_id, text))
+                                        .await
+                                        .is_err()
+                                    {
+                                        break 'outer;
+                                    }
+                                }
+                                // Gemini sends functionCall parts complete,
+                                // never fragmented.
+                                if let Some(name) = part["functionCall"]["name"].as_str() {
+                                    turn.tool_calls.push(ToolCall {
+                                        id: format!("call_{}", turn.tool_calls.len()),
+                                        name: name.to_string(),
+                                        input: part["functionCall"]["args"].clone(),
+                                        thought_signature: part["thoughtSignature"]
+                                            .as_str()
+                                            .map(String::from),
+                                    });
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Ok(turn)
     }
 }
 
@@ -635,10 +1132,13 @@ impl AIProvider for DeepSeekProvider {
         config: &AiConfig,
         sender: mpsc::Sender<AiStreamChunk>,
         request_id: String,
-    ) -> Result<(), String> {
+    ) -> Result<AiUsage, AiError> {
+        let base_url = config
+            .effective_base_url()
+            .unwrap_or_else(|| "https://api.deepseek.com".to_string());
         stream_openai_compatible(
             &self.client,
-            "https://api.deepseek.com/chat/completions",
+            &format!("{}/chat/completions", base_url.trim_end_matches('/')),
             api_key,
             messages,
             config,
@@ -648,9 +1148,38 @@ impl AIProvider for DeepSeekProvider {
         )
         .await
     }
+
+    async fn stream_agent(
+        &self,
+        api_key: &str,
+        messages: &[AgentMessage],
+        tools: &[AgentTool],
+        config: &AiConfig,
+        sender: mpsc::Sender<AiStreamChunk>,
+        request_id: String,
+    ) -> Result<AgentTurn, AiError> {
+        let base_url = config
+            .effective_base_url()
+            .unwrap_or_else(|| "https://api.deepseek.com".to_string());
+        stream_agent_openai_compatible(
+            &self.client,
+            &format!("{}/chat/completions", base_url.trim_end_matches('/')),
+            api_key,
+            messages,
+            tools,
+            config,
+            sender,
+            request_id,
+            "DeepSeek",
+            false,
+        )
+        .await
+    }
 }
 
 /// Shared streaming implementation for OpenAI-compatible APIs (Mistral, DeepSeek, etc.)
+/// The `usage` object arrives on the final chunk (sent natively by these APIs).
+#[allow(clippy::too_many_arguments)]
 async fn stream_openai_compatible(
     client: &Client,
     url: &str,
@@ -660,7 +1189,7 @@ async fn stream_openai_compatible(
     sender: mpsc::Sender<AiStreamChunk>,
     request_id: String,
     provider_name: &str,
-) -> Result<(), String> {
+) -> Result<AiUsage, AiError> {
     let model = config.effective_model();
     let max_tokens = config.effective_max_tokens();
     let temperature = config.effective_temperature();
@@ -678,29 +1207,24 @@ async fn stream_openai_compatible(
         provider_name, model, max_tokens
     );
 
-    let response = client
-        .post(url)
-        .header("Authorization", format!("Bearer {}", api_key))
-        .header("Content-Type", "application/json")
-        .json(&body)
-        .send()
-        .await
-        .map_err(|e| format!("{} request failed: {}", provider_name, e))?;
-
-    if !response.status().is_success() {
-        let status = response.status();
-        let body = response.text().await.unwrap_or_default();
-        let msg = extract_api_error(&body).unwrap_or_else(|| format!("HTTP {}: {}", status, body));
-        return Err(msg);
-    }
+    let response = send_with_retry(
+        client
+            .post(url)
+            .header("Authorization", format!("Bearer {}", api_key))
+            .header("Content-Type", "application/json")
+            .json(&body),
+        provider_name,
+    )
+    .await?;
 
     // Parse SSE stream (OpenAI-compatible format)
+    let mut usage = AiUsage::default();
     let mut stream = response.bytes_stream();
     let mut buffer = String::new();
 
     use futures::StreamExt;
     while let Some(chunk_result) = stream.next().await {
-        let bytes = chunk_result.map_err(|e| format!("Stream error: {}", e))?;
+        let bytes = chunk_result.map_err(stream_error)?;
         buffer.push_str(&String::from_utf8_lossy(&bytes));
 
         while let Some(pos) = buffer.find('\n') {
@@ -713,21 +1237,18 @@ async fn stream_openai_compatible(
 
             if let Some(data) = line.strip_prefix("data: ") {
                 if data.trim() == "[DONE]" {
-                    return Ok(());
+                    return Ok(usage);
                 }
 
                 if let Ok(parsed) = serde_json::from_str::<Value>(data) {
+                    merge_openai_usage(&mut usage, &parsed);
                     if let Some(delta) = parsed["choices"][0]["delta"]["content"].as_str() {
-                        let chunk = AiStreamChunk {
-                            request_id: request_id.clone(),
-                            delta: delta.to_string(),
-                            done: false,
-                            error: None,
-                            generated_query: None,
-                            safety_analysis: None,
-                        };
-                        if sender.send(chunk).await.is_err() {
-                            return Ok(());
+                        if sender
+                            .send(AiStreamChunk::delta(&request_id, delta))
+                            .await
+                            .is_err()
+                        {
+                            return Ok(usage);
                         }
                     }
                 }
@@ -735,7 +1256,103 @@ async fn stream_openai_compatible(
         }
     }
 
-    Ok(())
+    Ok(usage)
+}
+
+/// Agent-mode counterpart of `stream_openai_compatible`: advertises tools,
+/// streams text deltas and reassembles tool_call fragments.
+#[allow(clippy::too_many_arguments)]
+async fn stream_agent_openai_compatible(
+    client: &Client,
+    url: &str,
+    api_key: &str,
+    messages: &[AgentMessage],
+    tools: &[AgentTool],
+    config: &AiConfig,
+    sender: mpsc::Sender<AiStreamChunk>,
+    request_id: String,
+    provider_name: &str,
+    include_usage_option: bool,
+) -> Result<AgentTurn, AiError> {
+    let model = config.effective_model();
+    let max_tokens = config.effective_max_tokens();
+    let temperature = config.effective_temperature();
+
+    let mut body = json!({
+        "model": model,
+        "messages": wire::openai_agent_messages(messages),
+        "max_tokens": max_tokens,
+        "temperature": temperature,
+        "stream": true
+    });
+    if !tools.is_empty() {
+        body["tools"] = wire::openai_tools(tools);
+    }
+    if include_usage_option {
+        body["stream_options"] = json!({ "include_usage": true });
+    }
+
+    debug!(
+        "{} agent request: model={}, tools={}",
+        provider_name,
+        model,
+        tools.len()
+    );
+
+    let response = send_with_retry(
+        client
+            .post(url)
+            .header("Authorization", format!("Bearer {}", api_key))
+            .header("Content-Type", "application/json")
+            .json(&body),
+        provider_name,
+    )
+    .await?;
+
+    let mut turn = AgentTurn::default();
+    let mut acc = wire::OpenAiToolCallAccumulator::default();
+    let mut stream = response.bytes_stream();
+    let mut buffer = String::new();
+
+    use futures::StreamExt;
+    'outer: while let Some(chunk_result) = stream.next().await {
+        let bytes = chunk_result.map_err(stream_error)?;
+        buffer.push_str(&String::from_utf8_lossy(&bytes));
+
+        while let Some(pos) = buffer.find('\n') {
+            let line = buffer[..pos].trim().to_string();
+            buffer = buffer[pos + 1..].to_string();
+
+            if line.is_empty() || line.starts_with(':') {
+                continue;
+            }
+
+            if let Some(data) = line.strip_prefix("data: ") {
+                if data.trim() == "[DONE]" {
+                    break 'outer;
+                }
+
+                if let Ok(parsed) = serde_json::from_str::<Value>(data) {
+                    merge_openai_usage(&mut turn.usage, &parsed);
+                    let delta = &parsed["choices"][0]["delta"];
+                    acc.feed(delta);
+                    if let Some(text) = delta["content"].as_str() {
+                        turn.text.push_str(text);
+                        if sender
+                            .send(AiStreamChunk::delta(&request_id, text))
+                            .await
+                            .is_err()
+                        {
+                            break 'outer; // Receiver dropped (cancelled)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    turn.tool_calls = acc.finish();
+    Ok(turn)
 }
 
 /// Extract a user-friendly error message from an API error response body
@@ -744,6 +1361,193 @@ fn extract_api_error(body: &str) -> Option<String> {
     // OpenAI format: { "error": { "message": "..." } }
     // Anthropic format: { "error": { "message": "..." } }
     parsed["error"]["message"].as_str().map(|s| s.to_string())
+}
+
+/// Queries the provider's models endpoint. The curated lists in `types.rs`
+/// are only the fallback — hardcoded model ids rot.
+pub async fn fetch_models(
+    provider: &AiProvider,
+    api_key: &str,
+    base_url: Option<String>,
+) -> Result<Vec<AiModelInfoOwned>, String> {
+    let client = build_provider_client();
+    match provider {
+        AiProvider::OpenAi => {
+            let base = base_url.unwrap_or_else(|| "https://api.openai.com/v1".to_string());
+            let parsed = get_json(
+                client
+                    .get(format!("{}/models", base.trim_end_matches('/')))
+                    .header("Authorization", format!("Bearer {api_key}")),
+            )
+            .await?;
+            Ok(openai_style_models(&parsed, |id| {
+                (id.starts_with("gpt-")
+                    || id.starts_with("chatgpt")
+                    || (id.starts_with('o') && id.chars().nth(1).is_some_and(|c| c.is_ascii_digit())))
+                    && !contains_any(id, OPENAI_MODEL_EXCLUSIONS)
+            }))
+        }
+        AiProvider::MistralAi => {
+            let base = base_url.unwrap_or_else(|| "https://api.mistral.ai/v1".to_string());
+            let parsed = get_json(
+                client
+                    .get(format!("{}/models", base.trim_end_matches('/')))
+                    .header("Authorization", format!("Bearer {api_key}")),
+            )
+            .await?;
+            Ok(openai_style_models(&parsed, |id| {
+                !contains_any(id, MISTRAL_MODEL_EXCLUSIONS)
+            }))
+        }
+        AiProvider::DeepSeek => {
+            let base = base_url.unwrap_or_else(|| "https://api.deepseek.com".to_string());
+            let parsed = get_json(
+                client
+                    .get(format!("{}/models", base.trim_end_matches('/')))
+                    .header("Authorization", format!("Bearer {api_key}")),
+            )
+            .await?;
+            Ok(openai_style_models(&parsed, |_| true))
+        }
+        AiProvider::Anthropic => {
+            let base = base_url.unwrap_or_else(|| "https://api.anthropic.com/v1".to_string());
+            let parsed = get_json(
+                client
+                    .get(format!("{}/models?limit=100", base.trim_end_matches('/')))
+                    .header("x-api-key", api_key)
+                    .header("anthropic-version", "2023-06-01"),
+            )
+            .await?;
+            let mut out = Vec::new();
+            if let Some(items) = parsed["data"].as_array() {
+                for item in items {
+                    if let Some(id) = item["id"].as_str() {
+                        out.push(AiModelInfoOwned {
+                            id: id.to_string(),
+                            label: item["display_name"].as_str().unwrap_or(id).to_string(),
+                        });
+                    }
+                }
+            }
+            Ok(out)
+        }
+        AiProvider::GoogleGemini => {
+            let base = base_url
+                .unwrap_or_else(|| "https://generativelanguage.googleapis.com/v1beta".to_string());
+            let parsed = get_json(
+                client
+                    .get(format!("{}/models?pageSize=200", base.trim_end_matches('/')))
+                    .header("x-goog-api-key", api_key),
+            )
+            .await?;
+            let mut out = Vec::new();
+            if let Some(items) = parsed["models"].as_array() {
+                for item in items {
+                    let supports_generate = item["supportedGenerationMethods"]
+                        .as_array()
+                        .is_some_and(|m| m.iter().any(|v| v.as_str() == Some("generateContent")));
+                    if !supports_generate {
+                        continue;
+                    }
+                    let Some(name) = item["name"].as_str() else {
+                        continue;
+                    };
+                    let id = name.strip_prefix("models/").unwrap_or(name);
+                    if contains_any(id, GEMINI_MODEL_EXCLUSIONS) {
+                        continue;
+                    }
+                    out.push(AiModelInfoOwned {
+                        id: id.to_string(),
+                        label: item["displayName"].as_str().unwrap_or(id).to_string(),
+                    });
+                }
+            }
+            Ok(out)
+        }
+        AiProvider::Ollama => {
+            let base = base_url.unwrap_or_else(|| "http://localhost:11434".to_string());
+            let parsed = get_json(client.get(format!("{}/api/tags", base))).await?;
+            let mut out = Vec::new();
+            if let Some(items) = parsed["models"].as_array() {
+                for item in items {
+                    if let Some(name) = item["name"].as_str() {
+                        out.push(AiModelInfoOwned {
+                            id: name.to_string(),
+                            label: name.to_string(),
+                        });
+                    }
+                }
+            }
+            Ok(out)
+        }
+    }
+}
+
+const OPENAI_MODEL_EXCLUSIONS: &[&str] = &[
+    "embed",
+    "whisper",
+    "tts",
+    "audio",
+    "realtime",
+    "image",
+    "dall-e",
+    "moderation",
+    "transcribe",
+    "search",
+    "computer-use",
+    "instruct",
+];
+
+const MISTRAL_MODEL_EXCLUSIONS: &[&str] = &["embed", "moderation", "ocr", "transcribe", "voxtral"];
+
+const GEMINI_MODEL_EXCLUSIONS: &[&str] = &[
+    "embedding",
+    "tts",
+    "image",
+    "audio",
+    "live",
+    "veo",
+    "imagen",
+    "aqa",
+];
+
+fn contains_any(id: &str, needles: &[&str]) -> bool {
+    needles.iter().any(|needle| id.contains(needle))
+}
+
+/// Parses an OpenAI-style `{"data": [{"id": ...}]}` model list, newest ids
+/// first (descending lexicographic order works for versioned names).
+fn openai_style_models(parsed: &Value, keep: impl Fn(&str) -> bool) -> Vec<AiModelInfoOwned> {
+    let mut out: Vec<AiModelInfoOwned> = parsed["data"]
+        .as_array()
+        .map(|items| {
+            items
+                .iter()
+                .filter_map(|item| item["id"].as_str())
+                .filter(|id| keep(id))
+                .map(|id| AiModelInfoOwned {
+                    id: id.to_string(),
+                    label: id.to_string(),
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    out.sort_by(|a, b| b.id.cmp(&a.id));
+    out.dedup_by(|a, b| a.id == b.id);
+    out
+}
+
+async fn get_json(builder: reqwest::RequestBuilder) -> Result<Value, String> {
+    let response = builder
+        .send()
+        .await
+        .map_err(|e| format!("Request failed: {e}"))?;
+    if !response.status().is_success() {
+        let status = response.status();
+        let body = response.text().await.unwrap_or_default();
+        return Err(extract_api_error(&body).unwrap_or_else(|| format!("HTTP {status}: {body}")));
+    }
+    response.json::<Value>().await.map_err(|e| e.to_string())
 }
 
 /// Extract a SQL/MQL code block from LLM response text.
@@ -910,5 +1714,387 @@ mod tests {
     fn test_extract_api_error() {
         let body = r#"{"error":{"message":"Invalid API key","type":"invalid_request_error"}}"#;
         assert_eq!(extract_api_error(body), Some("Invalid API key".to_string()));
+    }
+
+    #[test]
+    fn test_looks_context_too_large() {
+        assert!(looks_context_too_large(
+            "This model's maximum context length is 8192 tokens"
+        ));
+        assert!(looks_context_too_large(
+            "prompt is too long: 250000 tokens > 200000 maximum"
+        ));
+        assert!(!looks_context_too_large("Invalid request"));
+    }
+
+    mod http {
+        use wiremock::matchers::{method, path};
+        use wiremock::{Mock, MockServer, ResponseTemplate};
+
+        use super::super::*;
+        use crate::ai::types::AiProvider;
+
+        fn config(provider: AiProvider, base_url: &str) -> AiConfig {
+            AiConfig {
+                provider,
+                model: Some("test-model".to_string()),
+                base_url: Some(base_url.to_string()),
+                max_tokens: Some(64),
+                temperature: Some(0.0),
+            }
+        }
+
+        #[tokio::test]
+        async fn openai_401_maps_to_invalid_key_without_retry() {
+            let server = MockServer::start().await;
+            Mock::given(method("POST"))
+                .and(path("/chat/completions"))
+                .respond_with(
+                    ResponseTemplate::new(401)
+                        .set_body_string(r#"{"error":{"message":"Invalid API key"}}"#),
+                )
+                .expect(1)
+                .mount(&server)
+                .await;
+
+            let provider = OpenAiProvider::new();
+            let (tx, _rx) = mpsc::channel(8);
+            let err = provider
+                .stream(
+                    "sk-test",
+                    &[AiMessage::user("hi")],
+                    &config(AiProvider::OpenAi, &server.uri()),
+                    tx,
+                    "r1".to_string(),
+                )
+                .await
+                .unwrap_err();
+            assert_eq!(err.kind, AiErrorKind::InvalidKey);
+            assert_eq!(err.message, "Invalid API key");
+        }
+
+        #[tokio::test]
+        async fn openai_429_retries_twice_then_reports_rate_limited() {
+            let server = MockServer::start().await;
+            Mock::given(method("POST"))
+                .and(path("/chat/completions"))
+                .respond_with(
+                    ResponseTemplate::new(429)
+                        .insert_header("retry-after", "7")
+                        .set_body_string(r#"{"error":{"message":"Rate limit exceeded"}}"#),
+                )
+                .expect(3)
+                .mount(&server)
+                .await;
+
+            let provider = OpenAiProvider::new();
+            let (tx, _rx) = mpsc::channel(8);
+            let err = provider
+                .stream(
+                    "sk-test",
+                    &[AiMessage::user("hi")],
+                    &config(AiProvider::OpenAi, &server.uri()),
+                    tx,
+                    "r1".to_string(),
+                )
+                .await
+                .unwrap_err();
+            assert_eq!(err.kind, AiErrorKind::RateLimited);
+            assert_eq!(err.retry_after_secs, Some(7));
+        }
+
+        #[tokio::test]
+        async fn openai_500_then_success_streams_and_reports_usage() {
+            let server = MockServer::start().await;
+            Mock::given(method("POST"))
+                .and(path("/chat/completions"))
+                .respond_with(ResponseTemplate::new(500).set_body_string("boom"))
+                .up_to_n_times(1)
+                .expect(1)
+                .mount(&server)
+                .await;
+            let sse = "data: {\"choices\":[{\"delta\":{\"content\":\"Hello\"}}]}\n\n\
+                       data: {\"choices\":[],\"usage\":{\"prompt_tokens\":10,\"completion_tokens\":5}}\n\n\
+                       data: [DONE]\n\n";
+            Mock::given(method("POST"))
+                .and(path("/chat/completions"))
+                .respond_with(
+                    ResponseTemplate::new(200)
+                        .insert_header("content-type", "text/event-stream")
+                        .set_body_string(sse),
+                )
+                .expect(1)
+                .mount(&server)
+                .await;
+
+            let provider = OpenAiProvider::new();
+            let (tx, mut rx) = mpsc::channel(8);
+            let usage = provider
+                .stream(
+                    "sk-test",
+                    &[AiMessage::user("hi")],
+                    &config(AiProvider::OpenAi, &server.uri()),
+                    tx,
+                    "r1".to_string(),
+                )
+                .await
+                .unwrap();
+            assert_eq!(usage.total(), Some(15));
+            let chunk = rx.recv().await.unwrap();
+            assert_eq!(chunk.delta, "Hello");
+        }
+
+        #[tokio::test]
+        async fn openai_400_context_error_maps_to_context_too_large() {
+            let server = MockServer::start().await;
+            Mock::given(method("POST"))
+                .and(path("/chat/completions"))
+                .respond_with(ResponseTemplate::new(400).set_body_string(
+                    r#"{"error":{"message":"This model's maximum context length is 8192 tokens"}}"#,
+                ))
+                .expect(1)
+                .mount(&server)
+                .await;
+
+            let provider = OpenAiProvider::new();
+            let (tx, _rx) = mpsc::channel(8);
+            let err = provider
+                .stream(
+                    "sk-test",
+                    &[AiMessage::user("hi")],
+                    &config(AiProvider::OpenAi, &server.uri()),
+                    tx,
+                    "r1".to_string(),
+                )
+                .await
+                .unwrap_err();
+            assert_eq!(err.kind, AiErrorKind::ContextTooLarge);
+        }
+
+        #[tokio::test]
+        async fn anthropic_stream_reports_usage() {
+            let server = MockServer::start().await;
+            let sse = "data: {\"type\":\"message_start\",\"message\":{\"usage\":{\"input_tokens\":12}}}\n\n\
+                       data: {\"type\":\"content_block_delta\",\"delta\":{\"text\":\"Hi\"}}\n\n\
+                       data: {\"type\":\"message_delta\",\"usage\":{\"output_tokens\":4}}\n\n\
+                       data: {\"type\":\"message_stop\"}\n\n";
+            Mock::given(method("POST"))
+                .and(path("/messages"))
+                .respond_with(
+                    ResponseTemplate::new(200)
+                        .insert_header("content-type", "text/event-stream")
+                        .set_body_string(sse),
+                )
+                .expect(1)
+                .mount(&server)
+                .await;
+
+            let provider = AnthropicProvider::new();
+            let (tx, mut rx) = mpsc::channel(8);
+            let usage = provider
+                .stream(
+                    "sk-ant-test",
+                    &[AiMessage::user("hi")],
+                    &config(AiProvider::Anthropic, &server.uri()),
+                    tx,
+                    "r1".to_string(),
+                )
+                .await
+                .unwrap();
+            assert_eq!(usage.input_tokens, Some(12));
+            assert_eq!(usage.output_tokens, Some(4));
+            assert_eq!(rx.recv().await.unwrap().delta, "Hi");
+        }
+
+        #[tokio::test]
+        async fn openai_agent_round_trip_reassembles_tool_calls() {
+            let server = MockServer::start().await;
+            let sse = "data: {\"choices\":[{\"delta\":{\"content\":\"Let me check.\"}}]}\n\n\
+                       data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"index\":0,\"id\":\"call_1\",\"function\":{\"name\":\"list_tables\",\"arguments\":\"\"}}]}}]}\n\n\
+                       data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"index\":0,\"function\":{\"arguments\":\"{\\\"database\\\":\"}}]}}]}\n\n\
+                       data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"index\":0,\"function\":{\"arguments\":\"\\\"shop\\\"}\"}}]}}]}\n\n\
+                       data: {\"choices\":[{\"delta\":{},\"finish_reason\":\"tool_calls\"}]}\n\n\
+                       data: [DONE]\n\n";
+            Mock::given(method("POST"))
+                .and(path("/chat/completions"))
+                .respond_with(
+                    ResponseTemplate::new(200)
+                        .insert_header("content-type", "text/event-stream")
+                        .set_body_string(sse),
+                )
+                .expect(1)
+                .mount(&server)
+                .await;
+
+            let provider = OpenAiProvider::new();
+            let (tx, mut rx) = mpsc::channel(8);
+            let tools = vec![AgentTool {
+                name: "list_tables".to_string(),
+                description: "List tables".to_string(),
+                input_schema: serde_json::json!({"type": "object"}),
+            }];
+            let messages = vec![AgentMessage {
+                role: AiRole::User,
+                content: "which tables?".to_string(),
+                tool_calls: vec![],
+                tool_results: vec![],
+            }];
+            let turn = provider
+                .stream_agent(
+                    "sk-test",
+                    &messages,
+                    &tools,
+                    &config(AiProvider::OpenAi, &server.uri()),
+                    tx,
+                    "r1".to_string(),
+                )
+                .await
+                .unwrap();
+            assert_eq!(turn.text, "Let me check.");
+            assert_eq!(turn.tool_calls.len(), 1);
+            assert_eq!(turn.tool_calls[0].id, "call_1");
+            assert_eq!(turn.tool_calls[0].name, "list_tables");
+            assert_eq!(
+                turn.tool_calls[0].input,
+                serde_json::json!({"database": "shop"})
+            );
+            assert_eq!(rx.recv().await.unwrap().delta, "Let me check.");
+
+            // The advertised tools travelled in the request body.
+            let requests = server.received_requests().await.unwrap();
+            let body: Value = serde_json::from_slice(&requests[0].body).unwrap();
+            assert_eq!(body["tools"][0]["function"]["name"], "list_tables");
+            assert_eq!(body["stream_options"]["include_usage"], true);
+        }
+
+        #[tokio::test]
+        async fn anthropic_agent_round_trip_reassembles_tool_use() {
+            let server = MockServer::start().await;
+            let sse = "data: {\"type\":\"message_start\",\"message\":{\"usage\":{\"input_tokens\":9}}}\n\n\
+                       data: {\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"text\"}}\n\n\
+                       data: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"Checking.\"}}\n\n\
+                       data: {\"type\":\"content_block_start\",\"index\":1,\"content_block\":{\"type\":\"tool_use\",\"id\":\"toolu_1\",\"name\":\"describe_table\"}}\n\n\
+                       data: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"input_json_delta\",\"partial_json\":\"{\\\"table\\\":\"}}\n\n\
+                       data: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"input_json_delta\",\"partial_json\":\"\\\"users\\\"}\"}}\n\n\
+                       data: {\"type\":\"message_delta\",\"usage\":{\"output_tokens\":3}}\n\n\
+                       data: {\"type\":\"message_stop\"}\n\n";
+            Mock::given(method("POST"))
+                .and(path("/messages"))
+                .respond_with(
+                    ResponseTemplate::new(200)
+                        .insert_header("content-type", "text/event-stream")
+                        .set_body_string(sse),
+                )
+                .expect(1)
+                .mount(&server)
+                .await;
+
+            let provider = AnthropicProvider::new();
+            let (tx, mut rx) = mpsc::channel(8);
+            let tools = vec![AgentTool {
+                name: "describe_table".to_string(),
+                description: "Describe a table".to_string(),
+                input_schema: serde_json::json!({"type": "object"}),
+            }];
+            let messages = vec![AgentMessage {
+                role: AiRole::User,
+                content: "describe users".to_string(),
+                tool_calls: vec![],
+                tool_results: vec![],
+            }];
+            let turn = provider
+                .stream_agent(
+                    "sk-ant-test",
+                    &messages,
+                    &tools,
+                    &config(AiProvider::Anthropic, &server.uri()),
+                    tx,
+                    "r1".to_string(),
+                )
+                .await
+                .unwrap();
+            assert_eq!(turn.text, "Checking.");
+            assert_eq!(turn.tool_calls.len(), 1);
+            assert_eq!(turn.tool_calls[0].id, "toolu_1");
+            assert_eq!(turn.tool_calls[0].name, "describe_table");
+            assert_eq!(turn.tool_calls[0].input, serde_json::json!({"table": "users"}));
+            assert_eq!(turn.usage.input_tokens, Some(9));
+            assert_eq!(turn.usage.output_tokens, Some(3));
+            assert_eq!(rx.recv().await.unwrap().delta, "Checking.");
+        }
+
+        #[tokio::test]
+        async fn fetch_models_openai_filters_non_chat_models() {
+            let server = MockServer::start().await;
+            Mock::given(method("GET"))
+                .and(path("/models"))
+                .respond_with(ResponseTemplate::new(200).set_body_string(
+                    r#"{"data":[
+                        {"id":"gpt-5.6-terra"},
+                        {"id":"gpt-5.6-sol"},
+                        {"id":"text-embedding-3-large"},
+                        {"id":"whisper-1"},
+                        {"id":"o4-mini"},
+                        {"id":"dall-e-3"}
+                    ]}"#,
+                ))
+                .expect(1)
+                .mount(&server)
+                .await;
+
+            let models = fetch_models(&AiProvider::OpenAi, "sk-test", Some(server.uri()))
+                .await
+                .unwrap();
+            let ids: Vec<&str> = models.iter().map(|m| m.id.as_str()).collect();
+            assert!(ids.contains(&"gpt-5.6-terra"));
+            assert!(ids.contains(&"gpt-5.6-sol"));
+            assert!(ids.contains(&"o4-mini"));
+            assert!(!ids.iter().any(|id| id.contains("embedding")));
+            assert!(!ids.contains(&"whisper-1"));
+            assert!(!ids.contains(&"dall-e-3"));
+        }
+
+        #[tokio::test]
+        async fn fetch_models_gemini_keeps_generate_content_only() {
+            let server = MockServer::start().await;
+            Mock::given(method("GET"))
+                .and(path("/models"))
+                .respond_with(ResponseTemplate::new(200).set_body_string(
+                    r#"{"models":[
+                        {"name":"models/gemini-3.5-flash","displayName":"Gemini 3.5 Flash","supportedGenerationMethods":["generateContent","countTokens"]},
+                        {"name":"models/gemini-embedding-001","displayName":"Embedding","supportedGenerationMethods":["embedContent"]},
+                        {"name":"models/gemini-3.1-pro-preview","displayName":"Gemini 3.1 Pro","supportedGenerationMethods":["generateContent"]},
+                        {"name":"models/gemini-2.5-flash-preview-tts","displayName":"TTS","supportedGenerationMethods":["generateContent"]}
+                    ]}"#,
+                ))
+                .expect(1)
+                .mount(&server)
+                .await;
+
+            let models = fetch_models(&AiProvider::GoogleGemini, "key", Some(server.uri()))
+                .await
+                .unwrap();
+            let ids: Vec<&str> = models.iter().map(|m| m.id.as_str()).collect();
+            assert_eq!(ids, vec!["gemini-3.5-flash", "gemini-3.1-pro-preview"]);
+            assert_eq!(models[0].label, "Gemini 3.5 Flash");
+        }
+
+        #[tokio::test]
+        async fn transport_error_maps_to_network() {
+            // Port 1 refuses connections instantly; retries then Network.
+            let provider = OpenAiProvider::new();
+            let (tx, _rx) = mpsc::channel(8);
+            let err = provider
+                .stream(
+                    "sk-test",
+                    &[AiMessage::user("hi")],
+                    &config(AiProvider::OpenAi, "http://127.0.0.1:1"),
+                    tx,
+                    "r1".to_string(),
+                )
+                .await
+                .unwrap_err();
+            assert_eq!(err.kind, AiErrorKind::Network);
+        }
     }
 }

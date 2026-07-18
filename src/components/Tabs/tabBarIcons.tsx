@@ -2,6 +2,7 @@
 
 import {
   BookOpen,
+  Bot,
   Camera,
   Database,
   FileCode,
@@ -39,6 +40,8 @@ export function getTabIcon(type: TabKind) {
       return <ListRestart size={14} />;
     case 'plugin-output':
       return <Puzzle size={14} />;
+    case 'chat':
+      return <Bot size={14} className="text-accent" />;
   }
 }
 

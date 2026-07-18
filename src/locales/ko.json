@@ -429,6 +429,7 @@
     "footerHint": "결과를 클릭하면 테이블이 열립니다"
   },
   "tabs": {
+    "newTab": "새 탭",
     "new": "새 탭",
     "newQuery": "새 쿼리 ({{modifier}}+T)",
     "newNotebook": "새 노트북",
@@ -2397,6 +2398,35 @@
       "enterKey": "API 키 입력...",
       "deleteKey": "API 키 삭제",
       "ollamaHint": "Ollama는 로컬에서 실행됩니다 — API 키가 필요하지 않습니다. Ollama가 컴퓨터에서 실행 중인지 확인하세요."
+    }
+  },
+  "agentChat": {
+    "model": "모델",
+    "title": "채팅",
+    "openChat": "AI 채팅",
+    "conversations": "대화",
+    "newConversation": "새 대화",
+    "noConversations": "아직 대화가 없습니다",
+    "untitled": "제목 없음",
+    "rename": "이름 변경",
+    "delete": "삭제",
+    "promptPlaceholder": "데이터베이스에 대해 질문하세요…",
+    "send": "보내기",
+    "cancel": "중지",
+    "thinking": "생각 중…",
+    "emptyState": "데이터베이스 에이전트",
+    "emptyHint": "자연어로 질문하면 에이전트가 스키마를 탐색하고 읽기 전용 쿼리를 실행하여 실제 데이터로 답합니다. 쓰기 작업은 항상 승인이 필요합니다.",
+    "noConnection": "채팅을 시작하려면 데이터베이스에 연결하세요.",
+    "noApiKey": "에이전트를 사용하려면 설정에서 AI 제공업체 API 키를 등록하세요.",
+    "permission": {
+      "allow": "허용",
+      "allowAlways": "항상 허용",
+      "deny": "거부",
+      "approved": "허용됨",
+      "denied": "거부됨"
+    },
+    "tool": {
+      "truncated": "{{count}}개 행 중 앞부분만 표시"
     }
   },
   "federation": {

@@ -429,6 +429,7 @@
     "footerHint": "Klicken Sie auf ein Ergebnis, um die Tabelle zu öffnen"
   },
   "tabs": {
+    "newTab": "Neuer Tab",
     "new": "Neuer Tab",
     "newQuery": "Neue Abfrage ({{modifier}}+T)",
     "newNotebook": "Neues Notebook",
@@ -2397,6 +2398,35 @@
       "enterKey": "API-Schlüssel eingeben…",
       "deleteKey": "API-Schlüssel löschen",
       "ollamaHint": "Ollama läuft lokal — kein API-Schlüssel erforderlich. Stellen Sie sicher, dass Ollama auf Ihrem Rechner läuft."
+    }
+  },
+  "agentChat": {
+    "model": "Modell",
+    "title": "Chat",
+    "openChat": "KI-Chat",
+    "conversations": "Unterhaltungen",
+    "newConversation": "Neue Unterhaltung",
+    "noConversations": "Noch keine Unterhaltungen",
+    "untitled": "Ohne Titel",
+    "rename": "Umbenennen",
+    "delete": "Löschen",
+    "promptPlaceholder": "Stellen Sie eine Frage zu Ihrer Datenbank…",
+    "send": "Senden",
+    "cancel": "Stoppen",
+    "thinking": "Denkt nach…",
+    "emptyState": "Datenbank-Agent",
+    "emptyHint": "Stellen Sie eine Frage in natürlicher Sprache — der Agent erkundet das Schema, führt Leseabfragen aus und antwortet mit echten Daten. Schreibvorgänge erfordern immer Ihre Zustimmung.",
+    "noConnection": "Verbinden Sie sich mit einer Datenbank, um zu starten.",
+    "noApiKey": "Hinterlegen Sie in den Einstellungen einen API-Schlüssel für einen KI-Anbieter, um den Agenten zu nutzen.",
+    "permission": {
+      "allow": "Erlauben",
+      "allowAlways": "Immer erlauben",
+      "deny": "Ablehnen",
+      "approved": "Erlaubt",
+      "denied": "Abgelehnt"
+    },
+    "tool": {
+      "truncated": "Erste Zeilen von {{count}} angezeigt"
     }
   },
   "federation": {

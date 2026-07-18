@@ -429,6 +429,7 @@
     "footerHint": "結果をクリックしてテーブルを開く"
   },
   "tabs": {
+    "newTab": "新しいタブ",
     "new": "新しいタブ",
     "newQuery": "新しいクエリ ({{modifier}}+T)",
     "newNotebook": "新しいノートブック",
@@ -2397,6 +2398,35 @@
       "enterKey": "API キーを入力...",
       "deleteKey": "API キーを削除",
       "ollamaHint": "Ollama はローカルで実行されるため、API キーは不要です。Ollama がマシンで実行されていることを確認してください。"
+    }
+  },
+  "agentChat": {
+    "model": "モデル",
+    "title": "チャット",
+    "openChat": "AI チャット",
+    "conversations": "会話",
+    "newConversation": "新しい会話",
+    "noConversations": "会話はまだありません",
+    "untitled": "無題",
+    "rename": "名前を変更",
+    "delete": "削除",
+    "promptPlaceholder": "データベースについて質問してください…",
+    "send": "送信",
+    "cancel": "停止",
+    "thinking": "考え中…",
+    "emptyState": "データベースエージェント",
+    "emptyHint": "自然言語で質問すると、エージェントがスキーマを探索し、読み取り専用クエリを実行して実データで回答します。書き込みには必ず承認が必要です。",
+    "noConnection": "チャットを始めるにはデータベースに接続してください。",
+    "noApiKey": "エージェントを使うには、設定で AI プロバイダーの API キーを設定してください。",
+    "permission": {
+      "allow": "許可",
+      "allowAlways": "常に許可",
+      "deny": "拒否",
+      "approved": "許可済み",
+      "denied": "拒否済み"
+    },
+    "tool": {
+      "truncated": "{{count}} 行中、先頭の行のみ表示"
     }
   },
   "federation": {

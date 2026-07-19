@@ -2428,6 +2428,7 @@
     },
     "error": {
       "forbiddenHint": "Der API-Schlüssel wurde akzeptiert, darf aber dieses Projekt, Modell oder diesen Vorgang nicht verwenden. Prüfen Sie die Projektberechtigungen und den Modellzugriff.",
+      "openAiRequestHint": "Diese OpenAI-Antwort beweist nicht, dass dem Schlüssel Berechtigungen fehlen. QoreDB versucht die Anfrage automatisch erneut; bleibt der Fehler bestehen, verwenden Sie die Anfrage-ID in den OpenAI-Logs.",
       "requestId": "Anfrage-ID"
     },
     "permission": {

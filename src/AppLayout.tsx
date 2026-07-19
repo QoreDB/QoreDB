@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { lazy, Suspense, useCallback, useEffect, useMemo } from "react";
-import { useTranslation } from "react-i18next";
-import { Toaster } from "sonner";
+import { lazy, Suspense, useCallback, useEffect, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
+import { Toaster } from 'sonner';
 import {
   emitUiEvent,
   UI_EVENT_EXPORT_DATA,
@@ -10,101 +10,92 @@ import {
   UI_EVENT_OPEN_LOGS,
   UI_EVENT_REFRESH_TABLE,
   UI_EVENT_TOGGLE_SANDBOX,
-} from "@/lib/events/uiEvents";
+} from '@/lib/events/uiEvents';
 import {
   activateSandbox,
   deactivateSandbox,
   getSandboxPreferences,
   hasPendingChanges,
   isSandboxActive,
-} from "@/lib/sandbox/sandboxStore";
-import { getShortcut } from "@/utils/platform";
-import { AppOverlays } from "./components/AppOverlays";
-import {
-  DatabaseBrowser,
-  type DatabaseBrowserTab,
-} from "./components/Browser/DatabaseBrowser";
-import {
-  TableBrowser,
-  type TableBrowserTab,
-} from "./components/Browser/TableBrowser";
-import { CustomTitlebar } from "./components/CustomTitlebar";
-import { ConnectionDashboard } from "./components/Dashboard/ConnectionDashboard";
-import { WelcomeScreen } from "./components/Home/WelcomeScreen";
-import { LicenseGate } from "./components/License/LicenseGate";
-import { AnalyticsService } from "./components/Onboarding/AnalyticsService";
-import { QueryPanel } from "./components/Query/QueryPanel";
-import { SandboxBorder } from "./components/Sandbox";
-import type { SearchResult } from "./components/Search/GlobalSearch";
-import { Sidebar } from "./components/Sidebar/Sidebar";
+} from '@/lib/sandbox/sandboxStore';
+import { getShortcut } from '@/utils/platform';
+import { AppOverlays } from './components/AppOverlays';
+import { DatabaseBrowser, type DatabaseBrowserTab } from './components/Browser/DatabaseBrowser';
+import { TableBrowser, type TableBrowserTab } from './components/Browser/TableBrowser';
+import { CustomTitlebar } from './components/CustomTitlebar';
+import { ConnectionDashboard } from './components/Dashboard/ConnectionDashboard';
+import { WelcomeScreen } from './components/Home/WelcomeScreen';
+import { LicenseGate } from './components/License/LicenseGate';
+import { AnalyticsService } from './components/Onboarding/AnalyticsService';
+import { QueryPanel } from './components/Query/QueryPanel';
+import { SandboxBorder } from './components/Sandbox';
+import type { SearchResult } from './components/Search/GlobalSearch';
+import { Sidebar } from './components/Sidebar/Sidebar';
 
 const DataDiffViewer = lazy(() =>
-  import("./components/Diff/DataDiffViewer").then((m) => ({
+  import('./components/Diff/DataDiffViewer').then(m => ({
     default: m.DataDiffViewer,
-  })),
+  }))
 );
 const SchemaDiffViewer = lazy(() =>
-  import("./components/Migrations/SchemaDiffViewer").then((m) => ({
+  import('./components/Migrations/SchemaDiffViewer').then(m => ({
     default: m.SchemaDiffViewer,
-  })),
+  }))
 );
 const TimeTravelViewer = lazy(() =>
-  import("./components/TimeTravel/TimeTravelViewer").then((m) => ({
+  import('./components/TimeTravel/TimeTravelViewer').then(m => ({
     default: m.TimeTravelViewer,
-  })),
+  }))
 );
 const FederationViewer = lazy(() =>
-  import("./components/Federation/FederationViewer").then((m) => ({
+  import('./components/Federation/FederationViewer').then(m => ({
     default: m.FederationViewer,
-  })),
+  }))
 );
 const NotebookTab = lazy(() =>
-  import("./components/Notebook").then((m) => ({ default: m.NotebookTab })),
+  import('./components/Notebook').then(m => ({ default: m.NotebookTab }))
 );
 const SettingsPage = lazy(() =>
-  import("./components/Settings/SettingsPage").then((m) => ({
+  import('./components/Settings/SettingsPage').then(m => ({
     default: m.SettingsPage,
-  })),
+  }))
 );
 const SnapshotManager = lazy(() =>
-  import("./components/Snapshot/SnapshotManager").then((m) => ({
+  import('./components/Snapshot/SnapshotManager').then(m => ({
     default: m.SnapshotManager,
-  })),
+  }))
 );
 const MigrationsPanel = lazy(() =>
-  import("./components/Migrations/MigrationsPanel").then((m) => ({
+  import('./components/Migrations/MigrationsPanel').then(m => ({
     default: m.MigrationsPanel,
-  })),
+  }))
 );
 const PluginOutputView = lazy(() =>
-  import("./components/Plugins/PluginOutputView").then((m) => ({
+  import('./components/Plugins/PluginOutputView').then(m => ({
     default: m.PluginOutputView,
-  })),
+  }))
 );
 const ChatView = lazy(() =>
-  import("./components/Chat/ChatView").then((m) => ({ default: m.ChatView })),
+  import('./components/Chat/ChatView').then(m => ({ default: m.ChatView }))
 );
 
-import { StatusBar } from "./components/Status/StatusBar";
-import { TabBar } from "./components/Tabs/TabBar";
-import { FeatureTour } from "./components/Tour/FeatureTour";
-import { ErrorBoundary } from "./components/ui/error-boundary";
-import { SkipLink } from "./components/ui/skip-link";
-import type { useRecovery } from "./hooks/useRecovery";
-import { useResizableSidebar } from "./hooks/useResizableSidebar";
-import { useTheme } from "./hooks/useTheme";
-import { useTourManager } from "./hooks/useTourManager";
-import { useWebviewGuards } from "./hooks/useWebviewGuards";
-import { Driver } from "./lib/connection/drivers";
-import { buildQualifiedTableName } from "./lib/ddl";
-import {
-  openNotebookFromFile,
-  setPendingNotebook,
-} from "./lib/notebook/notebookIO";
-import { notify } from "./lib/notify";
-import { splitContributionId } from "./lib/plugins";
-import type { HistoryEntry } from "./lib/query/history";
-import type { QueryLibraryItem } from "./lib/query/queryLibrary";
+import { StatusBar } from './components/Status/StatusBar';
+import { TabBar } from './components/Tabs/TabBar';
+import { FeatureTour } from './components/Tour/FeatureTour';
+import { ErrorBoundary } from './components/ui/error-boundary';
+import { SkipLink } from './components/ui/skip-link';
+import type { useRecovery } from './hooks/useRecovery';
+import { useResizableSidebar } from './hooks/useResizableSidebar';
+import { useTheme } from './hooks/useTheme';
+import { useTourManager } from './hooks/useTourManager';
+import { useWebviewGuards } from './hooks/useWebviewGuards';
+import { Driver } from './lib/connection/drivers';
+import { buildQualifiedTableName } from './lib/ddl';
+import { openNotebookFromFile, setPendingNotebook } from './lib/notebook/notebookIO';
+import { notify } from './lib/notify';
+import { splitContributionId } from './lib/plugins';
+import type { HistoryEntry } from './lib/query/history';
+import type { QueryLibraryItem } from './lib/query/queryLibrary';
 import {
   handleEditConnection,
   setConnectionModalOpen,
@@ -115,7 +106,7 @@ import {
   toggleSidebar,
   toggleZenMode,
   useModalStore,
-} from "./lib/stores/modalStore";
+} from './lib/stores/modalStore';
 import {
   createChatTab,
   createDatabaseTab,
@@ -130,7 +121,7 @@ import {
   createTableTab,
   createTimeTravelTab,
   type OpenTab,
-} from "./lib/tabs";
+} from './lib/tabs';
 import {
   type Collection,
   connectSavedConnection,
@@ -148,17 +139,14 @@ import {
   type SearchFilter,
   type Sequence,
   type Trigger,
-} from "./lib/tauri";
-import { getRoutineTemplate } from "./lib/templates/routineTemplates";
-import {
-  getEventTemplate,
-  getTriggerTemplate,
-} from "./lib/templates/triggerTemplates";
-import { usePluginOutput } from "./providers/PluginOutputProvider";
-import { usePlugins } from "./providers/PluginProvider";
-import { useSessionContext } from "./providers/SessionProvider";
-import { useTabContext } from "./providers/TabProvider";
-import { useWorkspace } from "./providers/WorkspaceProvider";
+} from './lib/tauri';
+import { getRoutineTemplate } from './lib/templates/routineTemplates';
+import { getEventTemplate, getTriggerTemplate } from './lib/templates/triggerTemplates';
+import { usePluginOutput } from './providers/PluginOutputProvider';
+import { usePlugins } from './providers/PluginProvider';
+import { useSessionContext } from './providers/SessionProvider';
+import { useTabContext } from './providers/TabProvider';
+import { useWorkspace } from './providers/WorkspaceProvider';
 
 export function AppLayout() {
   const { t } = useTranslation();
@@ -215,13 +203,13 @@ export function AppLayout() {
   const { projectId } = useWorkspace();
   const { plugins, contributions } = usePlugins();
   const { runCommand: runPluginCommandHistoryAware } = usePluginOutput();
-  const settingsOpen = useModalStore((s) => s.settingsOpen);
-  const sidebarVisible = useModalStore((s) => s.sidebarVisible);
-  const zenMode = useModalStore((s) => s.zenMode);
+  const settingsOpen = useModalStore(s => s.settingsOpen);
+  const sidebarVisible = useModalStore(s => s.sidebarVisible);
+  const zenMode = useModalStore(s => s.zenMode);
 
   useEffect(() => {
     if (zenMode) {
-      notify.info(t("zenMode.enabled"), { duration: 2500 });
+      notify.info(t('zenMode.enabled'), { duration: 2500 });
     }
   }, [zenMode, t]);
 
@@ -229,19 +217,13 @@ export function AppLayout() {
     if (!sessionId || !activeConnection || !activeTab?.connectionId) return;
     if (activeTab.connectionId === activeConnection.id) return;
     void switchToConnection(activeTab.connectionId, activeTab.id);
-  }, [
-    sessionId,
-    activeConnection,
-    activeTab?.connectionId,
-    activeTab?.id,
-    switchToConnection,
-  ]);
+  }, [sessionId, activeConnection, activeTab?.connectionId, activeTab?.id, switchToConnection]);
 
   useEffect(() => {
     setBeforeCloseTab((tabId: string) => {
-      const tab = tabs.find((t) => t.id === tabId);
-      if (tab?.type === "notebook" && tab.notebookDirty) {
-        return window.confirm(t("notebook.unsavedChanges"));
+      const tab = tabs.find(t => t.id === tabId);
+      if (tab?.type === 'notebook' && tab.notebookDirty) {
+        return window.confirm(t('notebook.unsavedChanges'));
       }
       return true;
     });
@@ -249,39 +231,28 @@ export function AppLayout() {
 
   const handleCloseTab = useCallback(
     async (tabId: string) => {
-      const tab = tabs.find((candidate) => candidate.id === tabId);
+      const tab = tabs.find(candidate => candidate.id === tabId);
       const closed = await closeTab(tabId);
-      if (
-        !closed ||
-        !tab?.connectionId ||
-        tab.connectionId !== activeConnection?.id
-      )
-        return;
+      if (!closed || !tab?.connectionId || tab.connectionId !== activeConnection?.id) return;
 
       const hasOtherTabForSession = tabs.some(
-        (candidate) =>
-          candidate.id !== tabId && candidate.connectionId === tab.connectionId,
+        candidate => candidate.id !== tabId && candidate.connectionId === tab.connectionId
       );
       if (hasOtherTabForSession) return;
 
-      const remainingTabs = tabs.filter((candidate) => candidate.id !== tabId);
-      const closedIndex = tabs.findIndex((candidate) => candidate.id === tabId);
-      const nextActiveTab =
-        remainingTabs[closedIndex] ?? remainingTabs[closedIndex - 1];
-      if (
-        nextActiveTab?.connectionId &&
-        nextActiveTab.connectionId !== tab.connectionId
-      )
-        return;
+      const remainingTabs = tabs.filter(candidate => candidate.id !== tabId);
+      const closedIndex = tabs.findIndex(candidate => candidate.id === tabId);
+      const nextActiveTab = remainingTabs[closedIndex] ?? remainingTabs[closedIndex - 1];
+      if (nextActiveTab?.connectionId && nextActiveTab.connectionId !== tab.connectionId) return;
 
       await disconnectActiveConnection();
     },
-    [activeConnection?.id, closeTab, disconnectActiveConnection, tabs],
+    [activeConnection?.id, closeTab, disconnectActiveConnection, tabs]
   );
 
   const handleDisconnect = useCallback(() => {
-    void disconnectActiveConnection().then((disconnected) => {
-      if (disconnected) notify.info(t("status.disconnected"));
+    void disconnectActiveConnection().then(disconnected => {
+      if (disconnected) notify.info(t('status.disconnected'));
     });
   }, [disconnectActiveConnection, t]);
 
@@ -291,42 +262,42 @@ export function AppLayout() {
       tableName: string,
       rf?: RelationFilter,
       sf?: SearchFilter,
-      requestedTab?: TableBrowserTab,
+      requestedTab?: TableBrowserTab
     ) => {
-      AnalyticsService.capture("resource_opened", {
-        source: sf ? "search" : rf ? "relation" : "tree",
-        resource_type: driver === Driver.Mongodb ? "collection" : "table",
+      AnalyticsService.capture('resource_opened', {
+        source: sf ? 'search' : rf ? 'relation' : 'tree',
+        resource_type: driver === Driver.Mongodb ? 'collection' : 'table',
         driver,
       });
       const nextTab = createTableTab(ns, tableName, rf, sf);
 
       if (requestedTab) {
         const existing = tabs.find(
-          (tab) =>
-            tab.type === "table" &&
+          tab =>
+            tab.type === 'table' &&
             tab.namespace?.database === ns.database &&
             tab.namespace?.schema === ns.schema &&
             tab.tableName === tableName &&
-            tab.connectionId === activeConnection?.id,
+            tab.connectionId === activeConnection?.id
         );
         updateTableBrowserTab(existing?.id ?? nextTab.id, requestedTab);
       }
 
       openTab(nextTab);
     },
-    [activeConnection?.id, driver, openTab, tabs, updateTableBrowserTab],
+    [activeConnection?.id, driver, openTab, tabs, updateTableBrowserTab]
   );
 
   const handleDatabaseSelect = useCallback(
     (namespace: Namespace) => {
-      AnalyticsService.capture("resource_opened", {
-        source: "tree",
-        resource_type: driver === Driver.Mongodb ? "database" : "schema",
+      AnalyticsService.capture('resource_opened', {
+        source: 'tree',
+        resource_type: driver === Driver.Mongodb ? 'database' : 'schema',
         driver,
       });
       openTab(createDatabaseTab(namespace));
     },
-    [driver, openTab],
+    [driver, openTab]
   );
 
   const handleNewQuery = useCallback(() => {
@@ -339,17 +310,14 @@ export function AppLayout() {
 
   const handleTabSelect = useCallback(
     (tabId: string) => {
-      const target = tabs.find((t) => t.id === tabId);
-      if (
-        target?.connectionId &&
-        target.connectionId !== activeConnection?.id
-      ) {
+      const target = tabs.find(t => t.id === tabId);
+      if (target?.connectionId && target.connectionId !== activeConnection?.id) {
         void switchToConnection(target.connectionId, tabId);
         return;
       }
       setActiveTabId(tabId);
     },
-    [tabs, activeConnection?.id, switchToConnection, setActiveTabId],
+    [tabs, activeConnection?.id, switchToConnection, setActiveTabId]
   );
 
   const handleNewNotebook = useCallback(() => {
@@ -362,30 +330,21 @@ export function AppLayout() {
       const nbResult = await openNotebookFromFile();
       if (nbResult) {
         setPendingNotebook(nbResult.path, nbResult.notebook);
-        openTab(
-          createNotebookTab(nbResult.notebook.metadata.title, nbResult.path),
-        );
+        openTab(createNotebookTab(nbResult.notebook.metadata.title, nbResult.path));
       }
     } catch {}
   }, [sessionId, openTab]);
 
   const handleOpenDiff = useCallback(() => {
     if (sessionId)
-      openTab(
-        createDiffTab(
-          undefined,
-          undefined,
-          t("diff.title"),
-          activeTab?.namespace,
-        ),
-      );
+      openTab(createDiffTab(undefined, undefined, t('diff.title'), activeTab?.namespace));
   }, [sessionId, openTab, t, activeTab?.namespace]);
 
   const handleCompareTable = useCallback(
     (collection: Collection, targetConnectionId?: string) => {
       if (!sessionId) return;
       const leftSource = {
-        type: "table" as const,
+        type: 'table' as const,
         label: collection.name,
         namespace: collection.namespace,
         tableName: collection.name,
@@ -393,7 +352,7 @@ export function AppLayout() {
       };
       const rightSource = targetConnectionId
         ? {
-            type: "table" as const,
+            type: 'table' as const,
             label: collection.name,
             namespace: collection.namespace,
             tableName: collection.name,
@@ -404,12 +363,12 @@ export function AppLayout() {
         createDiffTab(
           leftSource,
           rightSource,
-          `${t("diff.title")}: ${collection.name}`,
-          collection.namespace,
-        ),
+          `${t('diff.title')}: ${collection.name}`,
+          collection.namespace
+        )
       );
     },
-    [sessionId, openTab, t, activeConnection?.id],
+    [sessionId, openTab, t, activeConnection?.id]
   );
 
   const handleSchemaDiff = useCallback(
@@ -420,11 +379,11 @@ export function AppLayout() {
           activeConnection.id,
           targetConnectionId,
           collection.namespace,
-          `${t("schemaDiff.title")}: ${collection.name}`,
-        ),
+          `${t('schemaDiff.title')}: ${collection.name}`
+        )
       );
     },
-    [openTab, t, activeConnection?.id],
+    [openTab, t, activeConnection?.id]
   );
 
   const handleAiGenerateForTable = useCallback(
@@ -435,25 +394,21 @@ export function AppLayout() {
       tab.aiTableContext = collection.name;
       openTab(tab);
     },
-    [sessionId, openTab],
+    [sessionId, openTab]
   );
 
   const handleNewQueryForTable = useCallback(
     (collection: Collection) => {
       if (!sessionId) return;
       const d = driver as Driver;
-      const tableRef = buildQualifiedTableName(
-        collection.namespace,
-        collection.name,
-        d,
-      );
+      const tableRef = buildQualifiedTableName(collection.namespace, collection.name, d);
       const sql =
         d === Driver.SqlServer
           ? `SELECT TOP 100 * FROM ${tableRef};`
           : `SELECT * FROM ${tableRef} LIMIT 100;`;
       openTab(createQueryTab(sql, collection.namespace));
     },
-    [sessionId, driver, openTab],
+    [sessionId, driver, openTab]
   );
 
   const handleOpenRoutineSource = useCallback(
@@ -465,35 +420,31 @@ export function AppLayout() {
         namespace.schema,
         routine.name,
         routine.routine_type,
-        routine.arguments || undefined,
+        routine.arguments || undefined
       );
       if (result.success && result.definition) {
         const tab = createQueryTab(result.definition.definition, namespace);
-        tab.title = `${routine.routine_type === "Function" ? "fn" : "proc"}: ${routine.name}`;
+        tab.title = `${routine.routine_type === 'Function' ? 'fn' : 'proc'}: ${routine.name}`;
         openTab(tab);
       } else {
-        notify.error(t("routineManager.sourceLoadError"), result.error);
+        notify.error(t('routineManager.sourceLoadError'), result.error);
       }
     },
-    [sessionId, openTab, t],
+    [sessionId, openTab, t]
   );
 
   const handleCreateRoutine = useCallback(
     (routineType: RoutineType, namespace: Namespace) => {
       if (!sessionId) return;
-      const template = getRoutineTemplate(
-        driver as Driver,
-        routineType,
-        namespace,
-      );
+      const template = getRoutineTemplate(driver as Driver, routineType, namespace);
       const tab = createQueryTab(template, namespace);
       tab.title =
-        routineType === "Function"
-          ? t("routineManager.createFunction")
-          : t("routineManager.createProcedure");
+        routineType === 'Function'
+          ? t('routineManager.createFunction')
+          : t('routineManager.createProcedure');
       openTab(tab);
     },
-    [sessionId, driver, openTab, t],
+    [sessionId, driver, openTab, t]
   );
 
   const handleOpenTriggerSource = useCallback(
@@ -503,17 +454,17 @@ export function AppLayout() {
         sessionId,
         namespace.database,
         namespace.schema,
-        trigger.name,
+        trigger.name
       );
       if (result.success && result.definition) {
         const tab = createQueryTab(result.definition.definition, namespace);
         tab.title = `trigger: ${trigger.name}`;
         openTab(tab);
       } else {
-        notify.error(t("triggerManager.sourceLoadError"), result.error);
+        notify.error(t('triggerManager.sourceLoadError'), result.error);
       }
     },
-    [sessionId, openTab, t],
+    [sessionId, openTab, t]
   );
 
   const handleCreateTrigger = useCallback(
@@ -521,10 +472,10 @@ export function AppLayout() {
       if (!sessionId) return;
       const template = getTriggerTemplate(driver as Driver, namespace);
       const tab = createQueryTab(template, namespace);
-      tab.title = t("triggerManager.createTrigger");
+      tab.title = t('triggerManager.createTrigger');
       openTab(tab);
     },
-    [sessionId, driver, openTab, t],
+    [sessionId, driver, openTab, t]
   );
 
   const handleOpenEventSource = useCallback(
@@ -534,17 +485,17 @@ export function AppLayout() {
         sessionId,
         namespace.database,
         namespace.schema,
-        event.name,
+        event.name
       );
       if (result.success && result.definition) {
         const tab = createQueryTab(result.definition.definition, namespace);
         tab.title = `event: ${event.name}`;
         openTab(tab);
       } else {
-        notify.error(t("eventManager.sourceLoadError"), result.error);
+        notify.error(t('eventManager.sourceLoadError'), result.error);
       }
     },
-    [sessionId, openTab, t],
+    [sessionId, openTab, t]
   );
 
   const handleOpenSequenceSource = useCallback(
@@ -554,17 +505,17 @@ export function AppLayout() {
         sessionId,
         namespace.database,
         namespace.schema,
-        sequence.name,
+        sequence.name
       );
       if (result.success && result.definition) {
         const tab = createQueryTab(result.definition.definition, namespace);
         tab.title = `seq: ${sequence.name}`;
         openTab(tab);
       } else {
-        notify.error(t("sequenceManager.sourceLoadError"), result.error);
+        notify.error(t('sequenceManager.sourceLoadError'), result.error);
       }
     },
-    [sessionId, openTab, t],
+    [sessionId, openTab, t]
   );
 
   const handleCreateEvent = useCallback(
@@ -572,19 +523,19 @@ export function AppLayout() {
       if (!sessionId) return;
       const template = getEventTemplate(namespace);
       const tab = createQueryTab(template, namespace);
-      tab.title = t("eventManager.createEvent");
+      tab.title = t('eventManager.createEvent');
       openTab(tab);
     },
-    [sessionId, openTab, t],
+    [sessionId, openTab, t]
   );
 
   const handleOpenHistory = useCallback(() => {
     if (!sessionId) {
-      notify.error(t("query.noConnectionError"));
+      notify.error(t('query.noConnectionError'));
       return;
     }
     setSettingsOpen(false);
-    if (activeTab?.type !== "query") {
+    if (activeTab?.type !== 'query') {
       openTab(createQueryTab(undefined, activeTab?.namespace));
       window.setTimeout(() => emitUiEvent(UI_EVENT_OPEN_HISTORY), 0);
       return;
@@ -594,7 +545,7 @@ export function AppLayout() {
 
   const handleToggleSandbox = useCallback(() => {
     if (!sessionId) {
-      notify.error(t("query.noConnectionError"));
+      notify.error(t('query.noConnectionError'));
       return;
     }
     const isActive = isSandboxActive(sessionId);
@@ -602,12 +553,10 @@ export function AppLayout() {
       const prefs = getSandboxPreferences();
       if (prefs.confirmOnDiscard && hasPendingChanges(sessionId)) {
         const confirmExit = window.confirm(
-          `${t("sandbox.confirmDeactivate.title")}\n\n${t("sandbox.confirmDeactivate.message")}`,
+          `${t('sandbox.confirmDeactivate.title')}\n\n${t('sandbox.confirmDeactivate.message')}`
         );
         if (!confirmExit) return;
-        const discard = window.confirm(
-          t("sandbox.confirmDeactivate.discardChanges"),
-        );
+        const discard = window.confirm(t('sandbox.confirmDeactivate.discardChanges'));
         deactivateSandbox(sessionId, discard);
         return;
       }
@@ -615,16 +564,14 @@ export function AppLayout() {
       return;
     }
     activateSandbox(sessionId);
-    if (activeConnection?.environment === "staging")
-      notify.warning(t("sandbox.envWarningStaging"));
-    if (activeConnection?.environment === "production")
-      notify.warning(t("sandbox.envWarningProduction"));
+    if (activeConnection?.environment === 'staging') notify.warning(t('sandbox.envWarningStaging'));
+    if (activeConnection?.environment === 'production')
+      notify.warning(t('sandbox.envWarningProduction'));
   }, [activeConnection?.environment, sessionId, t]);
 
   useEffect(() => {
     window.addEventListener(UI_EVENT_TOGGLE_SANDBOX, handleToggleSandbox);
-    return () =>
-      window.removeEventListener(UI_EVENT_TOGGLE_SANDBOX, handleToggleSandbox);
+    return () => window.removeEventListener(UI_EVENT_TOGGLE_SANDBOX, handleToggleSandbox);
   }, [handleToggleSandbox]);
 
   const paletteFeatures = useMemo(
@@ -632,224 +579,226 @@ export function AppLayout() {
       sessionId
         ? [
             {
-              id: "feat_notebook",
-              label: t("features.notebooks.name"),
-              sublabel: t("features.notebooks.description"),
+              id: 'feat_notebook',
+              label: t('features.notebooks.name'),
+              sublabel: t('features.notebooks.description'),
             },
             {
-              id: "feat_sandbox",
-              label: t("features.sandbox.name"),
-              sublabel: t("features.sandbox.description"),
+              id: 'feat_sandbox',
+              label: t('features.sandbox.name'),
+              sublabel: t('features.sandbox.description'),
             },
             {
-              id: "feat_federation",
-              label: t("features.federation.name"),
-              sublabel: t("features.federation.description"),
+              id: 'feat_federation',
+              label: t('features.federation.name'),
+              sublabel: t('features.federation.description'),
             },
             {
-              id: "feat_diff",
-              label: t("features.diff.name"),
-              sublabel: t("features.diff.description"),
+              id: 'feat_diff',
+              label: t('features.diff.name'),
+              sublabel: t('features.diff.description'),
             },
             {
-              id: "feat_snapshots",
-              label: t("features.snapshots.name"),
-              sublabel: t("features.snapshots.description"),
+              id: 'feat_snapshots',
+              label: t('features.snapshots.name'),
+              sublabel: t('features.snapshots.description'),
             },
             {
-              id: "feat_fulltext",
-              label: t("features.fulltextSearch.name"),
-              sublabel: t("features.fulltextSearch.description"),
+              id: 'feat_fulltext',
+              label: t('features.fulltextSearch.name'),
+              sublabel: t('features.fulltextSearch.description'),
             },
             {
-              id: "feat_ai",
-              label: t("features.aiAssistant.name"),
-              sublabel: t("features.aiAssistant.description"),
+              id: 'feat_ai',
+              label: t('features.aiAssistant.name'),
+              sublabel: t('features.aiAssistant.description'),
             },
             {
-              id: "feat_er",
-              label: t("features.erDiagram.name"),
-              sublabel: t("features.erDiagram.description"),
+              id: 'feat_er',
+              label: t('features.erDiagram.name'),
+              sublabel: t('features.erDiagram.description'),
             },
             {
-              id: "feat_virtual_relations",
-              label: t("features.virtualRelations.name"),
-              sublabel: t("features.virtualRelations.description"),
+              id: 'feat_virtual_relations',
+              label: t('features.virtualRelations.name'),
+              sublabel: t('features.virtualRelations.description'),
             },
           ]
         : [],
-    [sessionId, t],
+    [sessionId, t]
   );
 
   const paletteCommands = useMemo(
     () => [
       {
-        id: "cmd_new_connection",
-        label: t("palette.newConnection"),
-        shortcut: getShortcut("N", { symbol: true }),
+        id: 'cmd_new_connection',
+        label: t('palette.newConnection'),
+        shortcut: getShortcut('N', { symbol: true }),
       },
       {
-        id: "cmd_new_query",
-        label: t("palette.newQuery"),
-        shortcut: getShortcut("T", { symbol: true }),
+        id: 'cmd_new_query',
+        label: t('palette.newQuery'),
+        shortcut: getShortcut('T', { symbol: true }),
       },
-      { id: "cmd_open_library", label: t("palette.openLibrary") },
+      {
+        id: 'cmd_open_qore_ai',
+        label: t('agentChat.openChat'),
+        sublabel: t('agentChat.emptyHint'),
+        keywords: [
+          'qore ai',
+          'qoreia',
+          'qore ia',
+          'qore',
+          'chat ai',
+          'chat ia',
+          'assistant ai',
+          'assistant ia',
+          'agent ai',
+          'agent ia',
+        ],
+      },
+      { id: 'cmd_open_library', label: t('palette.openLibrary') },
       ...(sessionId
         ? [
             {
-              id: "cmd_fulltext_search",
-              label: t("palette.fulltextSearch"),
-              shortcut: getShortcut("F", { symbol: true, shift: true }),
+              id: 'cmd_fulltext_search',
+              label: t('palette.fulltextSearch'),
+              shortcut: getShortcut('F', { symbol: true, shift: true }),
             },
           ]
         : []),
-      ...(sessionId
-        ? [{ id: "cmd_open_diff", label: t("diff.openDiff") }]
-        : []),
-      ...(sessionId
-        ? [{ id: "cmd_open_federation", label: t("federation.openFederation") }]
-        : []),
-      ...(sessionId
-        ? [{ id: "cmd_new_notebook", label: t("palette.newNotebook") }]
-        : []),
-      ...(sessionId
-        ? [{ id: "cmd_open_notebook", label: t("palette.openNotebook") }]
-        : []),
-      ...(sessionId && activeTab?.type === "query"
+      ...(sessionId ? [{ id: 'cmd_open_diff', label: t('diff.openDiff') }] : []),
+      ...(sessionId ? [{ id: 'cmd_open_federation', label: t('federation.openFederation') }] : []),
+      ...(sessionId ? [{ id: 'cmd_new_notebook', label: t('palette.newNotebook') }] : []),
+      ...(sessionId ? [{ id: 'cmd_open_notebook', label: t('palette.openNotebook') }] : []),
+      ...(sessionId && activeTab?.type === 'query'
         ? [
             {
-              id: "cmd_convert_to_notebook",
-              label: t("palette.convertToNotebook"),
-              shortcut: getShortcut("N", { symbol: true, shift: true }),
+              id: 'cmd_convert_to_notebook',
+              label: t('palette.convertToNotebook'),
+              shortcut: getShortcut('N', { symbol: true, shift: true }),
             },
           ]
         : []),
-      { id: "cmd_open_snapshots", label: t("snapshots.openManager") },
-      { id: "cmd_open_migrations", label: t("migrations.openManager") },
+      { id: 'cmd_open_snapshots', label: t('snapshots.openManager') },
+      { id: 'cmd_open_migrations', label: t('migrations.openManager') },
       {
-        id: "cmd_open_settings",
-        label: t("palette.openSettings"),
-        shortcut: getShortcut(",", { symbol: true }),
+        id: 'cmd_open_settings',
+        label: t('palette.openSettings'),
+        shortcut: getShortcut(',', { symbol: true }),
       },
-      { id: "cmd_toggle_theme", label: t("palette.toggleTheme") },
+      { id: 'cmd_toggle_theme', label: t('palette.toggleTheme') },
       ...(activeTabId
         ? [
             {
-              id: "cmd_close_tab",
-              label: t("palette.closeTab"),
-              shortcut: getShortcut("W", { symbol: true }),
+              id: 'cmd_close_tab',
+              label: t('palette.closeTab'),
+              shortcut: getShortcut('W', { symbol: true }),
             },
           ]
         : []),
-      ...contributions.commands.map((cmd) => {
+      ...contributions.commands.map(cmd => {
         const { pluginId } = splitContributionId(cmd.id);
-        const pluginName =
-          plugins.find((p) => p.manifest.id === pluginId)?.manifest.name ??
-          pluginId;
+        const pluginName = plugins.find(p => p.manifest.id === pluginId)?.manifest.name ?? pluginId;
         return { id: cmd.id, label: `${pluginName}: ${cmd.label}` };
       }),
     ],
-    [
-      activeTabId,
-      activeTab?.type,
-      sessionId,
-      t,
-      contributions.commands,
-      plugins,
-    ],
+    [activeTabId, activeTab?.type, sessionId, t, contributions.commands, plugins]
   );
 
   const handleRunPluginCommand = useCallback(
     (namespacedId: string) => {
-      openTab(createPluginOutputTab(t("pluginOutput.tabTitle")));
+      openTab(createPluginOutputTab(t('pluginOutput.tabTitle')));
       void runPluginCommandHistoryAware(namespacedId);
     },
-    [openTab, t, runPluginCommandHistoryAware],
+    [openTab, t, runPluginCommandHistoryAware]
   );
 
   const handleSearchSelect = useCallback(
     async (result: SearchResult) => {
       setSearchOpen(false);
-      if (result.type === "command") {
-        if (result.id.includes("::")) {
+      if (result.type === 'command') {
+        if (result.id.includes('::')) {
           handleRunPluginCommand(result.id);
           return;
         }
         switch (result.id) {
-          case "cmd_new_connection":
+          case 'cmd_new_connection':
             setConnectionModalOpen(true);
             return;
-          case "cmd_new_query":
+          case 'cmd_new_query':
             if (!sessionId) {
-              notify.error(t("query.noConnectionError"));
+              notify.error(t('query.noConnectionError'));
               return;
             }
             openTab(createQueryTab(undefined, activeTab?.namespace));
             return;
-          case "cmd_open_library":
+          case 'cmd_open_qore_ai':
+            if (!sessionId) {
+              notify.error(t('agentChat.noConnection'));
+              return;
+            }
+            openTab(createChatTab());
+            return;
+          case 'cmd_open_library':
             setLibraryModalOpen(true);
             return;
-          case "cmd_fulltext_search":
+          case 'cmd_fulltext_search':
             if (sessionId) setFulltextSearchOpen(true);
             return;
-          case "cmd_open_diff":
+          case 'cmd_open_diff':
             if (sessionId) handleOpenDiff();
             return;
-          case "cmd_open_snapshots":
+          case 'cmd_open_snapshots':
             openTab(createSnapshotsTab());
             return;
-          case "cmd_open_migrations":
+          case 'cmd_open_migrations':
             openTab(createMigrationsTab(activeTab?.namespace));
             return;
-          case "cmd_open_federation":
+          case 'cmd_open_federation':
             if (sessionId) openTab(createFederationTab());
             return;
-          case "cmd_new_notebook":
+          case 'cmd_new_notebook':
             if (sessionId) openTab(createNotebookTab());
             return;
-          case "cmd_open_notebook":
+          case 'cmd_open_notebook':
             if (sessionId) {
               try {
                 const nbResult = await openNotebookFromFile();
                 if (nbResult) {
                   setPendingNotebook(nbResult.path, nbResult.notebook);
-                  openTab(
-                    createNotebookTab(
-                      nbResult.notebook.metadata.title,
-                      nbResult.path,
-                    ),
-                  );
+                  openTab(createNotebookTab(nbResult.notebook.metadata.title, nbResult.path));
                 }
               } catch (err) {
-                console.error("Failed to open notebook from file:", err);
+                console.error('Failed to open notebook from file:', err);
               }
             }
             return;
-          case "cmd_convert_to_notebook":
-            if (sessionId && activeTab?.type === "query") {
-              const draft = queryDrafts[activeTab.id] ?? "";
+          case 'cmd_convert_to_notebook':
+            if (sessionId && activeTab?.type === 'query') {
+              const draft = queryDrafts[activeTab.id] ?? '';
               const nbTab = createNotebookTab(undefined, undefined, draft);
               nbTab.namespace = activeTab.namespace;
               openTab(nbTab);
             }
             return;
-          case "cmd_open_settings":
+          case 'cmd_open_settings':
             setSettingsOpen(true);
             return;
-          case "cmd_toggle_theme":
+          case 'cmd_toggle_theme':
             toggleTheme();
             return;
-          case "cmd_close_tab":
+          case 'cmd_close_tab':
             if (activeTabId) void handleCloseTab(activeTabId);
             return;
         }
       }
-      if (result.type === "connection" && result.data) {
+      if (result.type === 'connection' && result.data) {
         const conn = result.data as SavedConnection;
         try {
           const r = await connectSavedConnection(projectId, conn.id);
           if (r.success && r.session_id) {
-            notify.success(t("sidebar.connectedTo", { name: conn.name }));
+            notify.success(t('sidebar.connectedTo', { name: conn.name }));
             handleConnected(r.session_id, {
               ...conn,
               environment: conn.environment,
@@ -857,51 +806,48 @@ export function AppLayout() {
             });
             refreshSidebar();
           } else {
-            notify.error(
-              t("sidebar.connectionToFailed", { name: conn.name }),
-              r.error,
-            );
+            notify.error(t('sidebar.connectionToFailed', { name: conn.name }), r.error);
           }
         } catch {
-          notify.error(t("sidebar.connectError"));
+          notify.error(t('sidebar.connectError'));
         }
-      } else if (result.type === "query" || result.type === "favorite") {
+      } else if (result.type === 'query' || result.type === 'favorite') {
         const entry = result.data as HistoryEntry;
         if (entry?.query && sessionId) {
           openTab(createQueryTab(entry.query));
           setSettingsOpen(false);
         }
-      } else if (result.type === "library") {
+      } else if (result.type === 'library') {
         const item = result.data as QueryLibraryItem;
         if (item?.query && sessionId) {
           openTab(createQueryTab(item.query));
           setSettingsOpen(false);
         }
-      } else if (result.type === "feature") {
+      } else if (result.type === 'feature') {
         switch (result.id) {
-          case "feat_notebook":
+          case 'feat_notebook':
             if (sessionId) openTab(createNotebookTab());
             return;
-          case "feat_sandbox":
+          case 'feat_sandbox':
             if (sessionId) handleToggleSandbox();
             return;
-          case "feat_federation":
+          case 'feat_federation':
             if (sessionId) openTab(createFederationTab());
             return;
-          case "feat_diff":
+          case 'feat_diff':
             if (sessionId) handleOpenDiff();
             return;
-          case "feat_snapshots":
+          case 'feat_snapshots':
             openTab(createSnapshotsTab());
             return;
-          case "feat_fulltext":
+          case 'feat_fulltext':
             if (sessionId) setFulltextSearchOpen(true);
             return;
-          case "feat_ai":
+          case 'feat_ai':
             setSettingsOpen(true);
             return;
-          case "feat_er":
-          case "feat_virtual_relations":
+          case 'feat_er':
+          case 'feat_virtual_relations':
             return;
         }
       }
@@ -923,11 +869,11 @@ export function AppLayout() {
       refreshSidebar,
       projectId,
       handleRunPluginCommand,
-    ],
+    ]
   );
 
-  const canRefreshData = Boolean(sessionId && activeTab?.type === "table");
-  const canExportData = Boolean(sessionId && activeTab?.type === "table");
+  const canRefreshData = Boolean(sessionId && activeTab?.type === 'table');
+  const canExportData = Boolean(sessionId && activeTab?.type === 'table');
 
   return (
     <>
@@ -944,15 +890,9 @@ export function AppLayout() {
             onOpenHistory={sessionId ? handleOpenHistory : undefined}
             onOpenMigrations={handleOpenMigrations}
             onToggleSidebar={toggleSidebar}
-            onRefreshData={
-              canRefreshData
-                ? () => emitUiEvent(UI_EVENT_REFRESH_TABLE)
-                : undefined
-            }
+            onRefreshData={canRefreshData ? () => emitUiEvent(UI_EVENT_REFRESH_TABLE) : undefined}
             onExportData={
-              canExportData
-                ? () => emitUiEvent(UI_EVENT_EXPORT_DATA, { format: "csv" })
-                : undefined
+              canExportData ? () => emitUiEvent(UI_EVENT_EXPORT_DATA, { format: 'csv' }) : undefined
             }
             onToggleSandbox={sessionId ? handleToggleSandbox : undefined}
             onToggleZenMode={toggleZenMode}
@@ -971,10 +911,7 @@ export function AppLayout() {
           )}
 
           {!zenMode && sidebarVisible && (
-            <aside
-              aria-label={t("a11y.sidebar")}
-              className="flex h-full shrink-0"
-            >
+            <aside aria-label={t('a11y.sidebar')} className="flex h-full shrink-0">
               <Sidebar
                 ref={sidebarRef}
                 onNewConnection={() => setConnectionModalOpen(true)}
@@ -1021,7 +958,7 @@ export function AppLayout() {
                 <div className="flex items-center gap-2 flex-1 min-w-0">
                   {!settingsOpen && sessionId && (
                     <TabBar
-                      tabs={tabs.map((t) => ({
+                      tabs={tabs.map(t => ({
                         id: t.id,
                         title: t.title,
                         type: t.type,
@@ -1029,11 +966,11 @@ export function AppLayout() {
                         connectionId: t.connectionId,
                       }))}
                       activeId={activeTabId || undefined}
-                      resolveConnection={(id) => {
+                      resolveConnection={id => {
                         const conn =
                           activeConnection?.id === id
                             ? activeConnection
-                            : savedConnections.find((c) => c.id === id);
+                            : savedConnections.find(c => c.id === id);
                         return conn
                           ? { name: conn.name, environment: conn.environment }
                           : undefined;
@@ -1042,12 +979,12 @@ export function AppLayout() {
                       onClose={handleCloseTab}
                       onNew={handleNewQuery}
                       onNewChat={() => openTab(createChatTab())}
-                      onReorder={(reordered) =>
+                      onReorder={reordered =>
                         reorderTabs(
-                          reordered.flatMap((t) => {
-                            const full = tabs.find((f) => f.id === t.id);
+                          reordered.flatMap(t => {
+                            const full = tabs.find(f => f.id === t.id);
                             return full ? [full] : [];
-                          }),
+                          })
                         )
                       }
                       onTogglePin={togglePinTab}
@@ -1059,10 +996,10 @@ export function AppLayout() {
 
             <SandboxBorder
               sessionId={sessionId}
-              environment={activeConnection?.environment || "development"}
-              className={`flex flex-1 min-h-0 flex-col overflow-hidden ${zenMode || activeTab?.type === "chat" ? "" : "p-4"}`}
+              environment={activeConnection?.environment || 'development'}
+              className={`flex flex-1 min-h-0 flex-col overflow-hidden ${zenMode || activeTab?.type === 'chat' ? '' : 'p-4'}`}
             >
-              <ErrorBoundary fallbackLabel={t("errorBoundary.panelCrashed")}>
+              <ErrorBoundary fallbackLabel={t('errorBoundary.panelCrashed')}>
                 <Suspense fallback={<LazyTabFallback />}>
                   <AppContent
                     sessionId={sessionId}
@@ -1120,12 +1057,10 @@ export function AppLayout() {
         onConnected={handleConnected}
         onConnectionSaved={handleConnectionSaved}
         onSearchSelect={handleSearchSelect}
-        onSelectLibraryQuery={(query) => {
+        onSelectLibraryQuery={query => {
           if (sessionId) openTab(createQueryTab(query));
         }}
-        onNavigateToTable={(ns, table, filter) =>
-          handleTableSelect(ns, table, undefined, filter)
-        }
+        onNavigateToTable={(ns, table, filter) => handleTableSelect(ns, table, undefined, filter)}
         paletteCommands={paletteCommands}
         paletteFeatures={paletteFeatures}
         sessionId={sessionId}
@@ -1141,8 +1076,7 @@ export function AppLayout() {
         <FeatureTour
           steps={tourManager.activeTourSteps}
           onComplete={() => {
-            if (tourManager.activeTour)
-              tourManager.completeTour(tourManager.activeTour);
+            if (tourManager.activeTour) tourManager.completeTour(tourManager.activeTour);
           }}
           onDismiss={() => tourManager.dismissTour()}
         />
@@ -1170,7 +1104,7 @@ interface AppContentProps {
     table: string,
     rf?: RelationFilter,
     sf?: SearchFilter,
-    requestedTab?: TableBrowserTab,
+    requestedTab?: TableBrowserTab
   ) => void;
   onDatabaseSelect: (ns: Namespace) => void;
   onNewQuery: () => void;
@@ -1200,10 +1134,7 @@ interface AppContentProps {
 function LazyTabFallback() {
   return (
     <div className="flex h-full w-full items-center justify-center p-8">
-      <div
-        className="h-2 w-32 animate-pulse rounded-full bg-muted"
-        aria-hidden="true"
-      />
+      <div className="h-2 w-32 animate-pulse rounded-full bg-muted" aria-hidden="true" />
       <span className="sr-only">Loading…</span>
     </div>
   );
@@ -1265,11 +1196,7 @@ function AppContent({
     );
   }
 
-  if (
-    activeTab?.type === "table" &&
-    activeTab.namespace &&
-    activeTab.tableName
-  ) {
+  if (activeTab?.type === 'table' && activeTab.namespace && activeTab.tableName) {
     return (
       <TableBrowser
         key={activeTab.id}
@@ -1278,19 +1205,17 @@ function AppContent({
         tableName={activeTab.tableName}
         driver={driver}
         driverCapabilities={driverCapabilities}
-        environment={activeConnection?.environment || "development"}
+        environment={activeConnection?.environment || 'development'}
         readOnly={activeConnection?.read_only || false}
         connectionName={activeConnection?.name}
         connectionDatabase={activeConnection?.database}
         connectionId={activeConnection?.id}
         onOpenRelatedTable={onTableSelect}
-        onOpenTimeTravel={(ns, table) =>
-          onOpenTab(createTimeTravelTab(ns, table))
-        }
+        onOpenTimeTravel={(ns, table) => onOpenTab(createTimeTravelTab(ns, table))}
         relationFilter={activeTab.relationFilter}
         searchFilter={activeTab.searchFilter}
         initialTab={tableBrowserTabs[activeTab.id]}
-        onActiveTabChange={(tab) => {
+        onActiveTabChange={tab => {
           onUpdateTableBrowserTab(activeTab.id, tab);
           onScheduleRecoverySave();
         }}
@@ -1299,37 +1224,32 @@ function AppContent({
     );
   }
 
-  if (activeTab?.type === "database" && activeTab.namespace) {
+  if (activeTab?.type === 'database' && activeTab.namespace) {
     return (
       <DatabaseBrowser
         key={activeTab.id}
         sessionId={sessionId}
         namespace={activeTab.namespace}
         driver={driver}
-        environment={activeConnection?.environment || "development"}
+        environment={activeConnection?.environment || 'development'}
         readOnly={activeConnection?.read_only || false}
         connectionName={activeConnection?.name}
         connectionId={activeConnection?.id}
         onTableSelect={onTableSelect}
-        onOpenTableTab={(ns, table, tab) =>
-          onTableSelect(ns, table, undefined, undefined, tab)
-        }
+        onOpenTableTab={(ns, table, tab) => onTableSelect(ns, table, undefined, undefined, tab)}
         onOpenTableQuery={(ns, table) =>
           onOpenTab(
-            createQueryTab(
-              `SELECT * FROM ${buildQualifiedTableName(ns, table, driver)};`,
-              ns,
-            ),
+            createQueryTab(`SELECT * FROM ${buildQualifiedTableName(ns, table, driver)};`, ns)
           )
         }
         schemaRefreshTrigger={schemaRefreshTrigger}
         onSchemaChange={onSchemaChange}
         initialTab={databaseBrowserTabs[activeTab.id]}
-        onActiveTabChange={(tab) => {
+        onActiveTabChange={tab => {
           onUpdateDatabaseBrowserTab(activeTab.id, tab);
           onScheduleRecoverySave();
         }}
-        onOpenQueryTab={(ns) => onOpenTab(createQueryTab(undefined, ns))}
+        onOpenQueryTab={ns => onOpenTab(createQueryTab(undefined, ns))}
         onOpenFulltextSearch={onOpenFulltextSearch}
         onOpenRoutineSource={onOpenRoutineSource}
         onCreateRoutine={onCreateRoutine}
@@ -1343,7 +1263,7 @@ function AppContent({
     );
   }
 
-  if (activeTab?.type === "plugin-output") {
+  if (activeTab?.type === 'plugin-output') {
     return (
       <div className="flex-1 min-h-0 flex flex-col">
         <PluginOutputView key={activeTab.id} />
@@ -1351,7 +1271,7 @@ function AppContent({
     );
   }
 
-  if (activeTab?.type === "migrations") {
+  if (activeTab?.type === 'migrations') {
     return (
       <div className="flex h-full min-h-0 flex-col overflow-hidden">
         <MigrationsPanel
@@ -1367,28 +1287,26 @@ function AppContent({
     );
   }
 
-  if (activeTab?.type === "snapshots") {
+  if (activeTab?.type === 'snapshots') {
     return (
       <div className="flex-1 min-h-0 flex flex-col">
         <SnapshotManager
           key={activeTab.id}
           onCompareInDiff={(snapshotId, meta) => {
             const source = {
-              type: "snapshot" as const,
+              type: 'snapshot' as const,
               label: meta.name,
               snapshotId,
               namespace: meta.namespace,
             };
-            onOpenTab(
-              createDiffTab(source, undefined, `Data Diff: ${meta.name}`),
-            );
+            onOpenTab(createDiffTab(source, undefined, `Data Diff: ${meta.name}`));
           }}
         />
       </div>
     );
   }
 
-  if (activeTab?.type === "notebook") {
+  if (activeTab?.type === 'notebook') {
     return (
       <div className="h-full">
         <NotebookTab
@@ -1397,7 +1315,7 @@ function AppContent({
           sessionId={sessionId}
           dialect={driver}
           driverCapabilities={driverCapabilities}
-          environment={activeConnection?.environment || "development"}
+          environment={activeConnection?.environment || 'development'}
           readOnly={activeConnection?.read_only || false}
           connectionName={activeConnection?.name}
           connectionDatabase={activeConnection?.database}
@@ -1405,15 +1323,13 @@ function AppContent({
           initialPath={activeTab.notebookPath}
           initialQuery={queryDrafts[activeTab.id] ?? activeTab.initialQuery}
           onSchemaChange={onSchemaChange}
-          onDirtyChange={(dirty) =>
-            onUpdateTab(activeTab.id, { notebookDirty: dirty })
-          }
+          onDirtyChange={dirty => onUpdateTab(activeTab.id, { notebookDirty: dirty })}
         />
       </div>
     );
   }
 
-  if (activeTab?.type === "federation") {
+  if (activeTab?.type === 'federation') {
     return (
       <div className="flex-1 min-h-0 flex flex-col">
         <FederationViewer
@@ -1424,7 +1340,7 @@ function AppContent({
     );
   }
 
-  if (activeTab?.type === "chat") {
+  if (activeTab?.type === 'chat') {
     return (
       <div className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden">
         <ChatView
@@ -1432,13 +1348,13 @@ function AppContent({
           sessionId={sessionId}
           connectionId={activeConnection?.id}
           connectionName={activeConnection?.name}
-          environment={activeConnection?.environment || "development"}
+          environment={activeConnection?.environment || 'development'}
         />
       </div>
     );
   }
 
-  if (activeTab?.type === "query") {
+  if (activeTab?.type === 'query') {
     return (
       <ErrorBoundary>
         <div className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden">
@@ -1447,7 +1363,7 @@ function AppContent({
             sessionId={sessionId}
             dialect={driver}
             driverCapabilities={driverCapabilities}
-            environment={activeConnection?.environment || "development"}
+            environment={activeConnection?.environment || 'development'}
             readOnly={activeConnection?.read_only || false}
             connectionName={activeConnection?.name}
             connectionDatabase={activeConnection?.database}
@@ -1455,11 +1371,9 @@ function AppContent({
             initialQuery={queryDrafts[activeTab.id] ?? activeTab.initialQuery}
             onSchemaChange={onSchemaChange}
             onOpenLibrary={onOpenLibrary}
-            onNamespaceChange={(ns) => onUpdateTabNamespace(activeTab.id, ns)}
+            onNamespaceChange={ns => onUpdateTabNamespace(activeTab.id, ns)}
             isActive
-            onQueryDraftChange={(value) =>
-              onUpdateQueryDraft(activeTab.id, value)
-            }
+            onQueryDraftChange={value => onUpdateQueryDraft(activeTab.id, value)}
             initialShowAiPanel={activeTab.showAiPanel}
             aiTableContext={activeTab.aiTableContext}
           />
@@ -1468,7 +1382,7 @@ function AppContent({
     );
   }
 
-  if (activeTab?.type === "diff") {
+  if (activeTab?.type === 'diff') {
     return (
       <div className="flex-1 min-h-0 flex flex-col">
         <LicenseGate feature="visual_diff">
@@ -1485,7 +1399,7 @@ function AppContent({
   }
 
   if (
-    activeTab?.type === "schema-diff" &&
+    activeTab?.type === 'schema-diff' &&
     activeTab.schemaDiffLeftConnectionId &&
     activeTab.schemaDiffRightConnectionId
   ) {
@@ -1504,7 +1418,7 @@ function AppContent({
   }
 
   if (
-    activeTab?.type === "time-travel" &&
+    activeTab?.type === 'time-travel' &&
     activeTab.timeTravelNamespace &&
     activeTab.timeTravelTableName
   ) {

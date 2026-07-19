@@ -2427,6 +2427,7 @@
     },
     "error": {
       "forbiddenHint": "APIキーは受け入れられましたが、このプロジェクト、モデル、または操作を使用する権限がありません。プロジェクトの権限とモデルへのアクセスを確認してください。",
+      "openAiRequestHint": "このOpenAI応答だけでは、キーに権限がないとは判断できません。QoreDBは自動的に再試行します。解消しない場合は、OpenAI LogsでリクエストIDを使用してください。",
       "requestId": "リクエストID"
     },
     "permission": {

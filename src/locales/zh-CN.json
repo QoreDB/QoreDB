@@ -2427,6 +2427,7 @@
     },
     "error": {
       "forbiddenHint": "API 密钥已被接受，但无权使用此项目、模型或操作。请检查项目权限和模型访问权限。",
+      "openAiRequestHint": "此 OpenAI 响应并不能证明密钥缺少权限。QoreDB 会自动重试；如果问题持续，请在 OpenAI Logs 中使用该请求 ID。",
       "requestId": "请求 ID"
     },
     "permission": {

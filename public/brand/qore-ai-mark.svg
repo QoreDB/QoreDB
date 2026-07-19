@@ -8,9 +8,10 @@
   <path d="m49 55.5 15 8.5v19L49 74.5v-19Z" fill="#6B5CFF"/>
   <path d="M79 55.5 64 64v19l15-8.5v-19Z" fill="#5847FF"/>
   <path d="M64 68v10" stroke="#F4F6FA" stroke-width="3" stroke-linecap="round"/>
-  <circle cx="96" cy="95" r="17" stroke="#F4F6FA" stroke-width="10"/>
-  <path d="m107.5 106.5 9 9" stroke="#F4F6FA" stroke-width="10" stroke-linecap="round"/>
-  <circle cx="96" cy="95" r="17" stroke="#6B5CFF" stroke-width="6"/>
-  <path d="m107.5 106.5 9 9" stroke="#6B5CFF" stroke-width="6" stroke-linecap="round"/>
+  <path d="m106.5 105.5 10 10" stroke="#F4F6FA" stroke-width="12" stroke-linecap="round"/>
+  <circle cx="96" cy="95" r="20" fill="#F4F6FA"/>
+  <path d="m106.5 105.5 10 10" stroke="#6B5CFF" stroke-width="7" stroke-linecap="round"/>
+  <circle cx="96" cy="95" r="17" fill="#6B5CFF"/>
+  <circle cx="96" cy="95" r="11" fill="#F4F6FA"/>
   <path d="M96 86c1.12 5.62 3.38 7.88 9 9-5.62 1.12-7.88 3.38-9 9-1.12-5.62-3.38-7.88-9-9 5.62-1.12 7.88-3.38 9-9Z" fill="#38D9FF"/>
 </svg>

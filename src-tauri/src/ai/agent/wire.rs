@@ -28,6 +28,63 @@ pub fn openai_tools(tools: &[AgentTool]) -> Value {
     )
 }
 
+/// OpenAI Responses places function metadata directly on each tool instead
+/// of nesting it below the Chat Completions `function` property.
+pub fn openai_responses_tools(tools: &[AgentTool]) -> Value {
+    Value::Array(
+        tools
+            .iter()
+            .map(|t| {
+                json!({
+                    "type": "function",
+                    "name": t.name,
+                    "description": t.description,
+                    "parameters": t.input_schema,
+                    "strict": false,
+                })
+            })
+            .collect(),
+    )
+}
+
+/// Build a complete manual Responses replay. With `store: false`, every user
+/// input, provider output item and function result must be sent again on each
+/// tool iteration. Omitting the original user request makes the model lose its
+/// objective after the first tool call.
+pub fn openai_responses_input(messages: &[AgentMessage]) -> Value {
+    let mut items = Vec::new();
+    for message in messages {
+        match message.role {
+            AiRole::System => {}
+            AiRole::Assistant if !message.provider_output_items.is_empty() => {
+                items.extend(message.provider_output_items.iter().cloned());
+            }
+            AiRole::Assistant => {
+                if !message.content.is_empty() {
+                    items.push(json!({ "role": "assistant", "content": message.content }));
+                }
+            }
+            AiRole::User => {
+                if !message.content.is_empty() {
+                    items.push(json!({ "role": "user", "content": message.content }));
+                }
+                items.extend(message.tool_results.iter().map(|result| {
+                    json!({
+                        "type": "function_call_output",
+                        "call_id": result.id,
+                        "output": result.content,
+                    })
+                }));
+            }
+        }
+    }
+    Value::Array(items)
+}
+
+pub fn agent_system_instructions(messages: &[AgentMessage]) -> String {
+    join_system(messages)
+}
+
 /// OpenAI-style message list: assistant tool_calls carry their arguments as
 /// a JSON *string*, and each tool result becomes a separate `tool` message.
 pub fn openai_agent_messages(messages: &[AgentMessage]) -> Value {
@@ -392,6 +449,7 @@ mod tests {
                 reasoning_content: None,
                 tool_calls: vec![call("c1", "list_tables", json!({"database": "shop"}))],
                 tool_results: vec![],
+                provider_output_items: vec![],
             },
             AgentMessage {
                 role: AiRole::User,
@@ -403,6 +461,7 @@ mod tests {
                     content: "[\"users\"]".to_string(),
                     is_error: false,
                 }],
+                provider_output_items: vec![],
             },
         ];
         let out = openai_agent_messages(&messages);
@@ -417,6 +476,78 @@ mod tests {
     }
 
     #[test]
+    fn openai_responses_replay_keeps_objective_and_every_tool_turn() {
+        let messages = vec![
+            AgentMessage {
+                role: AiRole::User,
+                content: "Count users in organization 51".to_string(),
+                reasoning_content: None,
+                tool_calls: vec![],
+                tool_results: vec![],
+                provider_output_items: vec![],
+            },
+            AgentMessage {
+                role: AiRole::Assistant,
+                content: String::new(),
+                reasoning_content: None,
+                tool_calls: vec![],
+                tool_results: vec![],
+                provider_output_items: vec![json!({
+                    "type": "function_call",
+                    "call_id": "c1",
+                    "name": "list_connections",
+                    "arguments": "{}"
+                })],
+            },
+            AgentMessage {
+                role: AiRole::User,
+                content: String::new(),
+                reasoning_content: None,
+                tool_calls: vec![],
+                tool_results: vec![ToolResult {
+                    id: "c1".to_string(),
+                    content: "[{\"id\":\"pulse\"}]".to_string(),
+                    is_error: false,
+                }],
+                provider_output_items: vec![],
+            },
+            AgentMessage {
+                role: AiRole::Assistant,
+                content: String::new(),
+                reasoning_content: None,
+                tool_calls: vec![],
+                tool_results: vec![],
+                provider_output_items: vec![json!({
+                    "type": "function_call",
+                    "call_id": "c2",
+                    "name": "list_namespaces",
+                    "arguments": "{}"
+                })],
+            },
+            AgentMessage {
+                role: AiRole::User,
+                content: String::new(),
+                reasoning_content: None,
+                tool_calls: vec![],
+                tool_results: vec![ToolResult {
+                    id: "c2".to_string(),
+                    content: "[\"pulse\"]".to_string(),
+                    is_error: false,
+                }],
+                provider_output_items: vec![],
+            },
+        ];
+
+        let input = openai_responses_input(&messages);
+        assert_eq!(input.as_array().unwrap().len(), 5);
+        assert_eq!(input[0]["content"], "Count users in organization 51");
+        assert_eq!(input[1]["call_id"], "c1");
+        assert_eq!(input[2]["call_id"], "c1");
+        assert_eq!(input[3]["call_id"], "c2");
+        assert_eq!(input[4]["call_id"], "c2");
+    }
+
+    #[test]
     fn deepseek_replays_reasoning_content_after_tool_call() {
         let messages = vec![AgentMessage {
             role: AiRole::Assistant,
@@ -424,6 +555,7 @@ mod tests {
             reasoning_content: Some("private reasoning summary".to_string()),
             tool_calls: vec![call("c1", "list_tables", json!({}))],
             tool_results: vec![],
+            provider_output_items: vec![],
         }];
 
         let deepseek = deepseek_agent_messages(&messages);
@@ -476,6 +608,7 @@ mod tests {
                 thought_signature: Some("sig-abc".to_string()),
             }],
             tool_results: vec![],
+            provider_output_items: vec![],
         }];
         let (_, contents) = gemini_agent_contents(&messages);
         assert_eq!(contents[0]["parts"][0]["thoughtSignature"], "sig-abc");
@@ -495,6 +628,7 @@ mod tests {
                 reasoning_content: None,
                 tool_calls: vec![call("c1", "describe_table", json!({"table": "users"}))],
                 tool_results: vec![],
+                provider_output_items: vec![],
             },
             AgentMessage {
                 role: AiRole::User,
@@ -506,6 +640,7 @@ mod tests {
                     content: "not json".to_string(),
                     is_error: false,
                 }],
+                provider_output_items: vec![],
             },
         ];
         let (_, contents) = gemini_agent_contents(&messages);

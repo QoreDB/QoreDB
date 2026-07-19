@@ -193,6 +193,9 @@ fn agent_system_prompt(driver_id: &str, environment: &str) -> String {
          - Prefer few, precise queries; always bound result sizes (LIMIT).\n\
          - Minimize schema exploration: inspect only tables that are plausibly \
          relevant to the question.\n\
+         - Complete the current request end to end. Never replace the requested \
+         answer with a generic offer to help. If evidence is still missing, use \
+         the next relevant tool or state the exact blocker.\n\
          - As soon as a tool result answers the question, stop calling tools \
          and give the final answer.\n\
          - Use run_mutation only when the user explicitly asked for a change; \
@@ -254,6 +257,7 @@ async fn run_inner(
         reasoning_content: None,
         tool_calls: vec![],
         tool_results: vec![],
+        provider_output_items: vec![],
     });
     conversation.extend(request.history.iter().cloned());
     conversation.push(AgentMessage {
@@ -262,6 +266,7 @@ async fn run_inner(
         reasoning_content: None,
         tool_calls: vec![],
         tool_results: vec![],
+        provider_output_items: vec![],
     });
 
     let mut tokens_total: u32 = 0;
@@ -376,6 +381,7 @@ async fn run_inner(
             reasoning_content: turn.reasoning_content,
             tool_calls: turn.tool_calls,
             tool_results: vec![],
+            provider_output_items: turn.provider_output_items,
         });
         conversation.push(AgentMessage {
             role: AiRole::User,
@@ -383,6 +389,7 @@ async fn run_inner(
             reasoning_content: None,
             tool_calls: vec![],
             tool_results: results,
+            provider_output_items: vec![],
         });
     }
 }

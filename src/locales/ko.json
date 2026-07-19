@@ -2427,6 +2427,7 @@
     },
     "error": {
       "forbiddenHint": "API 키가 승인되었지만 이 프로젝트, 모델 또는 작업을 사용할 권한이 없습니다. 프로젝트 권한과 모델 접근 권한을 확인하세요.",
+      "openAiRequestHint": "이 OpenAI 응답만으로 API 키에 권한이 없다고 판단할 수 없습니다. QoreDB가 자동으로 재시도하며, 문제가 계속되면 OpenAI Logs에서 요청 ID를 사용하세요.",
       "requestId": "요청 ID"
     },
     "permission": {

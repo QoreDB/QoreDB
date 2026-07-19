@@ -118,18 +118,17 @@ export interface AiProviderInfo {
   requiresKey: boolean;
 }
 
-// Curated fallback lists (mirrors src-tauri/src/ai/types.rs) — the live list
-// comes from aiListModels(). Verified against provider docs 2026-07-18.
+// Curated Qore AI catalogs (mirrors src-tauri/src/ai/types.rs). The backend
+// intersects these with each provider's live model availability.
 export const AI_PROVIDERS: AiProviderInfo[] = [
   {
     id: 'open_ai',
     label: 'OpenAI',
     requiresKey: true,
     models: [
-      { id: 'gpt-5.6-terra', label: 'GPT-5.6 Terra' },
-      { id: 'gpt-5.6-sol', label: 'GPT-5.6 Sol' },
-      { id: 'gpt-5.6-luna', label: 'GPT-5.6 Luna' },
-      { id: 'gpt-5.5', label: 'GPT-5.5' },
+      { id: 'gpt-5.6-terra', label: 'GPT-5.6 Terra · Balanced' },
+      { id: 'gpt-5.6-sol', label: 'GPT-5.6 Sol · Best quality' },
+      { id: 'gpt-5.6-luna', label: 'GPT-5.6 Luna · Fast' },
     ],
   },
   {

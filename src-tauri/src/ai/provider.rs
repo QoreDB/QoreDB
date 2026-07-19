@@ -97,9 +97,10 @@ async fn send_with_retry(
         };
         // OpenAI can sporadically answer with a 401 invalid_request_error for
         // an otherwise working key in the middle of a tool loop. Retrying a
-        // real invalid key is pointless, but one replay is safe here because
+        // real invalid key is pointless, but bounded replays are safe here because
         // no tool has been executed for a rejected model request.
-        let retry_permission_anomaly = attempt == 0 && is_permission_anomaly(&error);
+        let retry_permission_anomaly =
+            is_permission_anomaly(&error) && attempt < RETRY_BACKOFFS.len();
         match next {
             Some(retry)
                 if (error.is_retryable() && attempt < RETRY_BACKOFFS.len())
@@ -109,7 +110,7 @@ async fn send_with_retry(
                     tracing::warn!(
                         provider = provider_name,
                         request_id = ?error.request_id,
-                        "Retrying anomalous provider permission rejection once"
+                        "Retrying anomalous provider permission rejection"
                     );
                 }
                 tokio::time::sleep(RETRY_BACKOFFS[attempt]).await;
@@ -290,9 +291,9 @@ fn native_openai_chat_body(
         "stream": true,
     });
 
-    // GPT-5.4+ supports `none` and GPT-5.6 requires effective reasoning
-    // `none` when function tools are used through Chat Completions. It also
-    // avoids sending sampling parameters rejected by reasoning models.
+    // Agent tool calling uses the Responses API below. This Chat Completions
+    // path is text-only, where recent GPT-5 models support `none` and reject
+    // sampling parameters such as temperature.
     if openai_supports_reasoning_none(model) {
         body["reasoning_effort"] = json!("none");
     } else if !openai_is_reasoning_model(model) {
@@ -462,18 +463,15 @@ impl AIProvider for OpenAiProvider {
         let base_url = config
             .effective_base_url()
             .unwrap_or_else(|| "https://api.openai.com/v1".to_string());
-        stream_agent_openai_compatible(
+        stream_openai_responses_agent(
             &self.client,
-            &format!("{}/chat/completions", base_url.trim_end_matches('/')),
+            &format!("{}/responses", base_url.trim_end_matches('/')),
             api_key,
             messages,
             tools,
             config,
             sender,
             request_id,
-            "OpenAI",
-            true,
-            false,
         )
         .await
     }
@@ -1443,6 +1441,145 @@ async fn stream_openai_compatible(
 
 /// Agent-mode counterpart of `stream_openai_compatible`: advertises tools,
 /// streams text deltas and reassembles tool_call fragments.
+async fn stream_openai_responses_agent(
+    client: &Client,
+    url: &str,
+    api_key: &str,
+    messages: &[AgentMessage],
+    tools: &[AgentTool],
+    config: &AiConfig,
+    sender: mpsc::Sender<AiStreamChunk>,
+    request_id: String,
+) -> Result<AgentTurn, AiError> {
+    let model = config.effective_model();
+    let max_tokens = config.effective_max_tokens();
+    let temperature = config.effective_temperature();
+    let replaying_tool_turn = messages
+        .iter()
+        .any(|message| !message.provider_output_items.is_empty());
+    let mut body = json!({
+        "model": model,
+        "instructions": wire::agent_system_instructions(messages),
+        "input": wire::openai_responses_input(messages),
+        "tools": wire::openai_responses_tools(tools),
+        "max_output_tokens": max_tokens,
+        "stream": true,
+        "store": false,
+    });
+    if openai_is_reasoning_model(&model) {
+        body["reasoning"] = json!({ "effort": "low" });
+        body["include"] = json!(["reasoning.encrypted_content"]);
+    } else {
+        body["temperature"] = json!(temperature);
+    }
+
+    debug!(
+        "OpenAI Responses agent request: model={}, tools={}, continuation={}",
+        model,
+        tools.len(),
+        replaying_tool_turn
+    );
+
+    let response = send_with_retry(
+        client
+            .post(url)
+            .header("Authorization", format!("Bearer {}", api_key))
+            .header("Content-Type", "application/json")
+            .json(&body),
+        "OpenAI",
+    )
+    .await?;
+
+    let mut turn = AgentTurn::default();
+    let mut stream = response.bytes_stream();
+    let mut buffer = String::new();
+
+    use futures::StreamExt;
+    'outer: while let Some(chunk_result) = stream.next().await {
+        let bytes = chunk_result.map_err(stream_error)?;
+        buffer.push_str(&String::from_utf8_lossy(&bytes));
+
+        while let Some(pos) = buffer.find('\n') {
+            let line = buffer[..pos].trim().to_string();
+            buffer = buffer[pos + 1..].to_string();
+
+            if line.is_empty() || line.starts_with(':') {
+                continue;
+            }
+            let Some(data) = line.strip_prefix("data: ") else {
+                continue;
+            };
+            if data.trim() == "[DONE]" {
+                break 'outer;
+            }
+            let Ok(parsed) = serde_json::from_str::<Value>(data) else {
+                continue;
+            };
+
+            match parsed["type"].as_str().unwrap_or("") {
+                "response.created" => {}
+                "response.output_text.delta" => {
+                    if let Some(text) = parsed["delta"].as_str() {
+                        turn.text.push_str(text);
+                        if sender
+                            .send(AiStreamChunk::delta(&request_id, text))
+                            .await
+                            .is_err()
+                        {
+                            break 'outer;
+                        }
+                    }
+                }
+                "response.output_item.done" => {
+                    let item = &parsed["item"];
+                    if item["type"].as_str() == Some("function_call") {
+                        let arguments = item["arguments"]
+                            .as_str()
+                            .and_then(|raw| serde_json::from_str(raw).ok())
+                            .unwrap_or_else(|| json!({}));
+                        turn.tool_calls.push(ToolCall {
+                            id: item["call_id"]
+                                .as_str()
+                                .or_else(|| item["id"].as_str())
+                                .unwrap_or_default()
+                                .to_string(),
+                            name: item["name"].as_str().unwrap_or_default().to_string(),
+                            input: arguments,
+                            thought_signature: None,
+                        });
+                    }
+                }
+                "response.completed" => {
+                    let completed = &parsed["response"];
+                    if let Some(items) = completed["output"].as_array() {
+                        turn.provider_output_items = items.clone();
+                    }
+                    if let Some(value) = completed["usage"]["input_tokens"].as_u64() {
+                        turn.usage.input_tokens = Some(value as u32);
+                    }
+                    if let Some(value) = completed["usage"]["output_tokens"].as_u64() {
+                        turn.usage.output_tokens = Some(value as u32);
+                    }
+                    break 'outer;
+                }
+                "response.failed" | "error" => {
+                    let message = parsed["response"]["error"]["message"]
+                        .as_str()
+                        .or_else(|| parsed["error"]["message"].as_str())
+                        .or_else(|| parsed["message"].as_str())
+                        .unwrap_or("OpenAI Responses stream failed");
+                    return Err(AiError::provider(message));
+                }
+                _ => {}
+            }
+        }
+    }
+
+    Ok(turn)
+}
+
+/// Agent-mode counterpart of `stream_openai_compatible`: advertises tools,
+/// streams text deltas and reassembles tool_call fragments.
 #[allow(clippy::too_many_arguments)]
 async fn stream_agent_openai_compatible(
     client: &Client,
@@ -1563,15 +1700,15 @@ fn extract_api_error(body: &str) -> Option<String> {
     extract_api_error_details(body).message
 }
 
-/// Queries the provider's models endpoint. The curated lists in `types.rs`
-/// are only the fallback — hardcoded model ids rot.
+/// Queries the provider's model inventory, then reduces it to Qore AI's
+/// curated agent-ready catalog.
 pub async fn fetch_models(
     provider: &AiProvider,
     api_key: &str,
     base_url: Option<String>,
 ) -> Result<Vec<AiModelInfoOwned>, String> {
     let client = build_provider_client();
-    match provider {
+    let discovered = match provider {
         AiProvider::OpenAi => {
             let base = base_url.unwrap_or_else(|| "https://api.openai.com/v1".to_string());
             let parsed = get_json(
@@ -1580,13 +1717,13 @@ pub async fn fetch_models(
                     .header("Authorization", format!("Bearer {api_key}")),
             )
             .await?;
-            Ok(openai_style_models(&parsed, |id| {
+            openai_style_models(&parsed, |id| {
                 (id.starts_with("gpt-")
                     || id.starts_with("chatgpt")
                     || (id.starts_with('o')
                         && id.chars().nth(1).is_some_and(|c| c.is_ascii_digit())))
                     && !contains_any(id, OPENAI_MODEL_EXCLUSIONS)
-            }))
+            })
         }
         AiProvider::MistralAi => {
             let base = base_url.unwrap_or_else(|| "https://api.mistral.ai/v1".to_string());
@@ -1596,9 +1733,9 @@ pub async fn fetch_models(
                     .header("Authorization", format!("Bearer {api_key}")),
             )
             .await?;
-            Ok(openai_style_models(&parsed, |id| {
+            openai_style_models(&parsed, |id| {
                 !contains_any(id, MISTRAL_MODEL_EXCLUSIONS)
-            }))
+            })
         }
         AiProvider::DeepSeek => {
             let base = base_url.unwrap_or_else(|| "https://api.deepseek.com".to_string());
@@ -1608,7 +1745,7 @@ pub async fn fetch_models(
                     .header("Authorization", format!("Bearer {api_key}")),
             )
             .await?;
-            Ok(openai_style_models(&parsed, |_| true))
+            openai_style_models(&parsed, |_| true)
         }
         AiProvider::Anthropic => {
             let base = base_url.unwrap_or_else(|| "https://api.anthropic.com/v1".to_string());
@@ -1630,7 +1767,7 @@ pub async fn fetch_models(
                     }
                 }
             }
-            Ok(out)
+            out
         }
         AiProvider::GoogleGemini => {
             let base = base_url
@@ -1666,7 +1803,7 @@ pub async fn fetch_models(
                     });
                 }
             }
-            Ok(out)
+            out
         }
         AiProvider::Ollama => {
             let base = base_url.unwrap_or_else(|| "http://localhost:11434".to_string());
@@ -1682,9 +1819,46 @@ pub async fn fetch_models(
                     }
                 }
             }
-            Ok(out)
+            out
         }
+    };
+
+    Ok(curate_discovered_models(provider, discovered))
+}
+
+const MAX_UNRECOGNIZED_MODELS: usize = 6;
+
+/// The provider endpoints are capability inventories, not product pickers:
+/// they also contain dated snapshots, legacy families and specialist models.
+/// Prefer Qore AI's small role-based catalog when those aliases are available.
+/// A bounded live fallback keeps custom/early-access accounts usable without
+/// turning the selector back into an unfiltered API dump.
+fn curate_discovered_models(
+    provider: &AiProvider,
+    discovered: Vec<AiModelInfoOwned>,
+) -> Vec<AiModelInfoOwned> {
+    if matches!(provider, AiProvider::Ollama) {
+        return discovered;
     }
+
+    let recommended = provider
+        .available_models()
+        .iter()
+        .filter(|candidate| discovered.iter().any(|model| model.id == candidate.id))
+        .map(|candidate| AiModelInfoOwned {
+            id: candidate.id.to_string(),
+            label: candidate.label.to_string(),
+        })
+        .collect::<Vec<_>>();
+
+    if !recommended.is_empty() {
+        return recommended;
+    }
+
+    discovered
+        .into_iter()
+        .take(MAX_UNRECOGNIZED_MODELS)
+        .collect()
 }
 
 const OPENAI_MODEL_EXCLUSIONS: &[&str] = &[
@@ -1975,6 +2149,51 @@ mod tests {
         assert_eq!(openai_delta_texts(&delta), vec!["Hello", " world"]);
     }
 
+    #[test]
+    fn model_picker_prefers_curated_aliases_in_product_order() {
+        let discovered = vec![
+            AiModelInfoOwned {
+                id: "gpt-5.6-sol".to_string(),
+                label: "raw sol".to_string(),
+            },
+            AiModelInfoOwned {
+                id: "gpt-5.6-terra".to_string(),
+                label: "raw terra".to_string(),
+            },
+            AiModelInfoOwned {
+                id: "gpt-5.5-pro-2026-04-23".to_string(),
+                label: "legacy snapshot".to_string(),
+            },
+        ];
+
+        let curated = curate_discovered_models(&AiProvider::OpenAi, discovered);
+        let ids = curated
+            .iter()
+            .map(|model| model.id.as_str())
+            .collect::<Vec<_>>();
+        assert_eq!(ids, vec!["gpt-5.6-terra", "gpt-5.6-sol"]);
+        assert_eq!(curated[0].label, "GPT-5.6 Terra · Balanced");
+    }
+
+    #[test]
+    fn model_picker_bounds_unknown_cloud_catalogs_but_keeps_ollama() {
+        let discovered = (0..9)
+            .map(|index| AiModelInfoOwned {
+                id: format!("custom-model-{index}"),
+                label: format!("Custom model {index}"),
+            })
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            curate_discovered_models(&AiProvider::OpenAi, discovered.clone()).len(),
+            MAX_UNRECOGNIZED_MODELS
+        );
+        assert_eq!(
+            curate_discovered_models(&AiProvider::Ollama, discovered).len(),
+            9
+        );
+    }
+
     mod http {
         use wiremock::matchers::{method, path};
         use wiremock::{Mock, MockServer, ResponseTemplate};
@@ -2022,7 +2241,7 @@ mod tests {
         }
 
         #[tokio::test]
-        async fn openai_permission_401_retries_once_and_is_not_an_invalid_key() {
+        async fn openai_permission_401_uses_transient_retries_and_is_not_an_invalid_key() {
             let server = MockServer::start().await;
             Mock::given(method("POST"))
                 .and(path("/chat/completions"))
@@ -2033,7 +2252,7 @@ mod tests {
                             r#"{"error":{"message":"You have insufficient permissions for this operation.","type":"invalid_request_error"}}"#,
                         ),
                 )
-                .expect(2)
+                .expect(3)
                 .mount(&server)
                 .await;
 
@@ -2235,14 +2454,13 @@ mod tests {
         #[tokio::test]
         async fn openai_agent_round_trip_reassembles_tool_calls() {
             let server = MockServer::start().await;
-            let sse = "data: {\"choices\":[{\"delta\":{\"content\":\"Let me check.\"}}]}\n\n\
-                       data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"index\":0,\"id\":\"call_1\",\"function\":{\"name\":\"list_tables\",\"arguments\":\"\"}}]}}]}\n\n\
-                       data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"index\":0,\"function\":{\"arguments\":\"{\\\"database\\\":\"}}]}}]}\n\n\
-                       data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"index\":0,\"function\":{\"arguments\":\"\\\"shop\\\"}\"}}]}}]}\n\n\
-                       data: {\"choices\":[{\"delta\":{},\"finish_reason\":\"tool_calls\"}]}\n\n\
+            let sse = "data: {\"type\":\"response.created\",\"response\":{\"id\":\"resp_1\"}}\n\n\
+                       data: {\"type\":\"response.output_text.delta\",\"delta\":\"Let me check.\"}\n\n\
+                       data: {\"type\":\"response.output_item.done\",\"item\":{\"type\":\"function_call\",\"id\":\"fc_1\",\"call_id\":\"call_1\",\"name\":\"list_tables\",\"arguments\":\"{\\\"database\\\":\\\"shop\\\"}\"}}\n\n\
+                       data: {\"type\":\"response.completed\",\"response\":{\"id\":\"resp_1\",\"output\":[{\"type\":\"reasoning\",\"id\":\"rs_1\",\"encrypted_content\":\"encrypted-state\"},{\"type\":\"function_call\",\"id\":\"fc_1\",\"call_id\":\"call_1\",\"name\":\"list_tables\",\"arguments\":\"{\\\"database\\\":\\\"shop\\\"}\"}],\"usage\":{\"input_tokens\":12,\"output_tokens\":4}}}\n\n\
                        data: [DONE]\n\n";
             Mock::given(method("POST"))
-                .and(path("/chat/completions"))
+                .and(path("/responses"))
                 .respond_with(
                     ResponseTemplate::new(200)
                         .insert_header("content-type", "text/event-stream")
@@ -2265,6 +2483,7 @@ mod tests {
                 reasoning_content: None,
                 tool_calls: vec![],
                 tool_results: vec![],
+                provider_output_items: vec![],
             }];
             let mut openai_config = config(AiProvider::OpenAi, &server.uri());
             openai_config.model = Some("gpt-5.6-terra".to_string());
@@ -2283,6 +2502,9 @@ mod tests {
             assert_eq!(turn.tool_calls.len(), 1);
             assert_eq!(turn.tool_calls[0].id, "call_1");
             assert_eq!(turn.tool_calls[0].name, "list_tables");
+            assert_eq!(turn.provider_output_items.len(), 2);
+            assert_eq!(turn.usage.input_tokens, Some(12));
+            assert_eq!(turn.usage.output_tokens, Some(4));
             assert_eq!(
                 turn.tool_calls[0].input,
                 serde_json::json!({"database": "shop"})
@@ -2292,12 +2514,121 @@ mod tests {
             // The advertised tools travelled in the request body.
             let requests = server.received_requests().await.unwrap();
             let body: Value = serde_json::from_slice(&requests[0].body).unwrap();
-            assert_eq!(body["tools"][0]["function"]["name"], "list_tables");
-            assert_eq!(body["stream_options"]["include_usage"], true);
-            assert_eq!(body["max_completion_tokens"], 64);
-            assert_eq!(body["reasoning_effort"], "none");
+            assert_eq!(body["tools"][0]["name"], "list_tables");
+            assert_eq!(body["max_output_tokens"], 64);
+            assert_eq!(body["reasoning"]["effort"], "low");
+            assert_eq!(body["input"][0]["content"], "which tables?");
+            assert_eq!(body["store"], false);
+            assert_eq!(body["include"][0], "reasoning.encrypted_content");
+            assert!(body.get("messages").is_none());
+            assert!(body.get("reasoning_effort").is_none());
             assert!(body.get("max_tokens").is_none());
             assert!(body.get("temperature").is_none());
+        }
+
+        #[tokio::test]
+        async fn openai_agent_continues_with_function_outputs() {
+            let server = MockServer::start().await;
+            let sse = "data: {\"type\":\"response.created\",\"response\":{\"id\":\"resp_2\"}}\n\n\
+                       data: {\"type\":\"response.output_text.delta\",\"delta\":\"There are 3 tables.\"}\n\n\
+                       data: {\"type\":\"response.completed\",\"response\":{\"id\":\"resp_2\",\"usage\":{\"input_tokens\":8,\"output_tokens\":5}}}\n\n";
+            Mock::given(method("POST"))
+                .and(path("/responses"))
+                .respond_with(
+                    ResponseTemplate::new(200)
+                        .insert_header("content-type", "text/event-stream")
+                        .set_body_string(sse),
+                )
+                .expect(1)
+                .mount(&server)
+                .await;
+
+            let messages = vec![
+                AgentMessage {
+                    role: AiRole::System,
+                    content: "Answer from database evidence.".to_string(),
+                    reasoning_content: None,
+                    tool_calls: vec![],
+                    tool_results: vec![],
+                    provider_output_items: vec![],
+                },
+                AgentMessage {
+                    role: AiRole::User,
+                    content: "How many users belong to organization 51?".to_string(),
+                    reasoning_content: None,
+                    tool_calls: vec![],
+                    tool_results: vec![],
+                    provider_output_items: vec![],
+                },
+                AgentMessage {
+                    role: AiRole::Assistant,
+                    content: String::new(),
+                    reasoning_content: None,
+                    tool_calls: vec![],
+                    tool_results: vec![],
+                    provider_output_items: vec![
+                        serde_json::json!({
+                            "type": "reasoning",
+                            "id": "rs_1",
+                            "encrypted_content": "encrypted-state"
+                        }),
+                        serde_json::json!({
+                            "type": "function_call",
+                            "id": "fc_1",
+                            "call_id": "call_1",
+                            "name": "list_tables",
+                            "arguments": "{}"
+                        }),
+                    ],
+                },
+                AgentMessage {
+                    role: AiRole::User,
+                    content: String::new(),
+                    reasoning_content: None,
+                    tool_calls: vec![],
+                    tool_results: vec![crate::ai::agent::types::ToolResult {
+                        id: "call_1".to_string(),
+                        content: "[\"users\",\"orders\",\"products\"]".to_string(),
+                        is_error: false,
+                    }],
+                    provider_output_items: vec![],
+                },
+            ];
+            let mut openai_config = config(AiProvider::OpenAi, &server.uri());
+            openai_config.model = Some("gpt-5.6-terra".to_string());
+            let provider = OpenAiProvider::new();
+            let (tx, mut rx) = mpsc::channel(8);
+            let turn = provider
+                .stream_agent(
+                    "sk-test",
+                    &messages,
+                    &[],
+                    &openai_config,
+                    tx,
+                    "r1".to_string(),
+                )
+                .await
+                .unwrap();
+
+            assert_eq!(turn.text, "There are 3 tables.");
+            assert_eq!(rx.recv().await.unwrap().delta, "There are 3 tables.");
+            let requests = server.received_requests().await.unwrap();
+            let body: Value = serde_json::from_slice(&requests[0].body).unwrap();
+            assert!(body.get("previous_response_id").is_none());
+            assert_eq!(body["instructions"], "Answer from database evidence.");
+            assert_eq!(
+                body["input"][0]["content"],
+                "How many users belong to organization 51?"
+            );
+            assert_eq!(body["input"][1]["type"], "reasoning");
+            assert_eq!(body["input"][1]["encrypted_content"], "encrypted-state");
+            assert_eq!(body["input"][2]["type"], "function_call");
+            assert_eq!(body["input"][3]["type"], "function_call_output");
+            assert_eq!(body["input"][3]["call_id"], "call_1");
+            assert!(body["input"][3]["output"]
+                .as_str()
+                .unwrap()
+                .contains("orders"));
         }
 
         #[tokio::test]
@@ -2335,6 +2666,7 @@ mod tests {
                 reasoning_content: None,
                 tool_calls: vec![],
                 tool_results: vec![],
+                provider_output_items: vec![],
             }];
             let turn = provider
                 .stream_agent(
@@ -2415,6 +2747,7 @@ mod tests {
                 reasoning_content: None,
                 tool_calls: vec![],
                 tool_results: vec![],
+                provider_output_items: vec![],
             }];
             let turn = provider
                 .stream_agent(
@@ -2458,6 +2791,7 @@ mod tests {
                 reasoning_content: None,
                 tool_calls: vec![],
                 tool_results: vec![],
+                provider_output_items: vec![],
             }];
             let turn = provider
                 .stream_agent(
@@ -2501,12 +2835,8 @@ mod tests {
                 .await
                 .unwrap();
             let ids: Vec<&str> = models.iter().map(|m| m.id.as_str()).collect();
-            assert!(ids.contains(&"gpt-5.6-terra"));
-            assert!(ids.contains(&"gpt-5.6-sol"));
-            assert!(ids.contains(&"o4-mini"));
-            assert!(!ids.iter().any(|id| id.contains("embedding")));
-            assert!(!ids.contains(&"whisper-1"));
-            assert!(!ids.contains(&"dall-e-3"));
+            assert_eq!(ids, vec!["gpt-5.6-terra", "gpt-5.6-sol"]);
+            assert_eq!(models[0].label, "GPT-5.6 Terra · Balanced");
         }
 
         #[tokio::test]

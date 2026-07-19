@@ -79,10 +79,11 @@ export function QoreAiMark({ size = 24, compact = false, className, ...props }: 
       <path d="m49 55.5 15 8.5v19L49 74.5v-19Z" fill="currentColor" />
       <path d="M79 55.5 64 64v19l15-8.5v-19Z" fill="var(--q-accent-strong)" />
       <path d="M64 68v10" stroke="var(--q-bg-0)" strokeWidth="3" strokeLinecap="round" />
-      <circle cx="96" cy="95" r="17" stroke="var(--q-bg-0)" strokeWidth="10" />
-      <path d="m107.5 106.5 9 9" stroke="var(--q-bg-0)" strokeWidth="10" strokeLinecap="round" />
-      <circle cx="96" cy="95" r="17" stroke="currentColor" strokeWidth="6" />
-      <path d="m107.5 106.5 9 9" stroke="currentColor" strokeWidth="6" strokeLinecap="round" />
+      <path d="m106.5 105.5 10 10" stroke="var(--q-bg-0)" strokeWidth="12" strokeLinecap="round" />
+      <circle cx="96" cy="95" r="20" fill="var(--q-bg-0)" />
+      <path d="m106.5 105.5 10 10" stroke="currentColor" strokeWidth="7" strokeLinecap="round" />
+      <circle cx="96" cy="95" r="17" fill="currentColor" />
+      <circle cx="96" cy="95" r="11" fill="var(--q-bg-0)" />
       <path
         d="M96 86c1.12 5.62 3.38 7.88 9 9-5.62 1.12-7.88 3.38-9 9-1.12-5.62-3.38-7.88-9-9 5.62-1.12 7.88-3.38 9-9Z"
         fill="var(--q-ai-signal)"

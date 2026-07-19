@@ -5614,6 +5614,7 @@ dependencies = [
  "qore-sql",
  "rand_core 0.6.4",
  "regex",
+ "security-framework 3.7.0",
  "serde",
  "serde_json",
  "sha2",

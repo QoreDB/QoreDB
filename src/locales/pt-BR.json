@@ -2428,6 +2428,7 @@
     },
     "error": {
       "forbiddenHint": "A chave de API foi aceita, mas não tem permissão para usar este projeto, modelo ou operação. Verifique as permissões do projeto e o acesso ao modelo.",
+      "openAiRequestHint": "Essa resposta da OpenAI não prova que a chave não tem permissões. O QoreDB tenta novamente automaticamente; se persistir, use o ID da solicitação nos Logs da OpenAI.",
       "requestId": "ID da solicitação"
     },
     "permission": {

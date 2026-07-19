@@ -74,9 +74,16 @@ export function AgentThread({ items, loading, onRespondPermission }: AgentThread
             );
           case 'assistant':
             if (item.error) {
-              const isPermissionError =
-                item.error.http_status === 403 ||
+              const isOpenAiPermissionAnomaly =
+                item.error.provider === 'OpenAI' &&
+                item.error.http_status === 401 &&
+                item.error.provider_error_type === 'invalid_request_error' &&
                 item.error.message.toLowerCase().includes('insufficient permission');
+              const isPermissionError =
+                !isOpenAiPermissionAnomaly &&
+                (item.error.http_status === 403 ||
+                  item.error.provider_error_type?.toLowerCase().includes('permission') ||
+                  item.error.provider_code?.toLowerCase().includes('permission'));
               const diagnostics = [
                 item.error.provider,
                 item.error.http_status ? `HTTP ${item.error.http_status}` : null,
@@ -99,6 +106,11 @@ export function AgentThread({ items, loading, onRespondPermission }: AgentThread
                     {isPermissionError && (
                       <p className="text-xs leading-relaxed text-muted-foreground">
                         {t('agentChat.error.forbiddenHint')}
+                      </p>
+                    )}
+                    {isOpenAiPermissionAnomaly && (
+                      <p className="text-xs leading-relaxed text-muted-foreground">
+                        {t('agentChat.error.openAiRequestHint')}
                       </p>
                     )}
                     {item.error.request_id && (

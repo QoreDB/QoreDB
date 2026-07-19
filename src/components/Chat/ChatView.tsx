@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: BUSL-1.1
 
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { PanelLeftOpen } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -39,6 +40,7 @@ interface ChatViewProps {
 }
 
 const CONVERSATION_SIDEBAR_STORAGE_KEY = 'qoredb_chat_conversation_sidebar';
+const CONVERSATION_SIDEBAR_WIDTH = 256;
 
 function loadConversationSidebarPreference(): boolean {
   try {
@@ -50,6 +52,7 @@ function loadConversationSidebarPreference(): boolean {
 
 export function ChatView({ sessionId, connectionId, connectionName, environment }: ChatViewProps) {
   const { t } = useTranslation();
+  const reduceMotion = useReducedMotion();
   const {
     preferredProvider,
     setPreferredProvider,
@@ -212,17 +215,30 @@ export function ChatView({ sessionId, connectionId, connectionName, environment 
   return (
     <LicenseGate feature="ai">
       <div className="flex h-full min-h-0 min-w-0 flex-1 overflow-hidden">
-        {conversationSidebarVisible && (
-          <ConversationList
-            conversations={conversations}
-            activeId={activeId}
-            onSelect={id => void handleSelect(id)}
-            onNew={handleNew}
-            onRename={(id, nextTitle) => void handleRename(id, nextTitle)}
-            onDelete={id => void handleDelete(id)}
-            onCollapse={() => setConversationSidebar(false)}
-          />
-        )}
+        <AnimatePresence initial={false}>
+          {conversationSidebarVisible && (
+            <motion.div
+              key="conversation-sidebar"
+              initial={{ width: 0, opacity: 0, x: -12 }}
+              animate={{ width: CONVERSATION_SIDEBAR_WIDTH, opacity: 1, x: 0 }}
+              exit={{ width: 0, opacity: 0, x: -12 }}
+              transition={
+                reduceMotion ? { duration: 0 } : { duration: 0.2, ease: [0.22, 1, 0.36, 1] }
+              }
+              className="flex min-h-0 shrink-0 overflow-hidden"
+            >
+              <ConversationList
+                conversations={conversations}
+                activeId={activeId}
+                onSelect={id => void handleSelect(id)}
+                onNew={handleNew}
+                onRename={(id, nextTitle) => void handleRename(id, nextTitle)}
+                onDelete={id => void handleDelete(id)}
+                onCollapse={() => setConversationSidebar(false)}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
         <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-background">
           <div className="flex min-h-12 items-center gap-2 border-b border-border px-3 py-2">
             {!conversationSidebarVisible && (

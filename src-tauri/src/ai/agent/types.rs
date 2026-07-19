@@ -49,6 +49,11 @@ pub struct AgentMessage {
     pub tool_calls: Vec<ToolCall>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub tool_results: Vec<ToolResult>,
+    /// Opaque OpenAI Responses output items replayed within the current tool
+    /// loop. They stay out of serialized conversation history: encrypted
+    /// reasoning state is only needed for the immediately following turn.
+    #[serde(skip)]
+    pub provider_output_items: Vec<serde_json::Value>,
 }
 
 /// The model's complete answer for one agent iteration: streamed text plus
@@ -59,4 +64,5 @@ pub struct AgentTurn {
     pub reasoning_content: Option<String>,
     pub tool_calls: Vec<ToolCall>,
     pub usage: AiUsage,
+    pub provider_output_items: Vec<serde_json::Value>,
 }

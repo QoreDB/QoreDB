@@ -37,27 +37,23 @@ impl AiProvider {
         }
     }
 
-    /// Curated fallback list, used when the provider's models endpoint is
-    /// unreachable (`ai_list_models` is the source of truth at runtime).
+    /// Curated Qore AI catalog, intersected with live provider availability;
+    /// also used as the fallback when model discovery is unavailable.
     /// First entry is the default. Verified against provider docs 2026-07-18.
     pub fn available_models(&self) -> &'static [AiModelInfo] {
         match self {
             AiProvider::OpenAi => &[
                 AiModelInfo {
                     id: "gpt-5.6-terra",
-                    label: "GPT-5.6 Terra",
+                    label: "GPT-5.6 Terra · Balanced",
                 },
                 AiModelInfo {
                     id: "gpt-5.6-sol",
-                    label: "GPT-5.6 Sol",
+                    label: "GPT-5.6 Sol · Best quality",
                 },
                 AiModelInfo {
                     id: "gpt-5.6-luna",
-                    label: "GPT-5.6 Luna",
-                },
-                AiModelInfo {
-                    id: "gpt-5.5",
-                    label: "GPT-5.5",
+                    label: "GPT-5.6 Luna · Fast",
                 },
             ],
             AiProvider::Anthropic => &[

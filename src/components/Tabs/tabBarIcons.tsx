@@ -2,7 +2,6 @@
 
 import {
   BookOpen,
-  Bot,
   Camera,
   Database,
   FileCode,
@@ -14,6 +13,7 @@ import {
   Settings,
   Table,
 } from 'lucide-react';
+import { QoreAiMark } from '@/components/Brand/QoreAiMark';
 import type { TabKind } from './tabBarTypes';
 
 export function getTabIcon(type: TabKind) {
@@ -41,7 +41,7 @@ export function getTabIcon(type: TabKind) {
     case 'plugin-output':
       return <Puzzle size={14} />;
     case 'chat':
-      return <Bot size={14} className="text-accent" />;
+      return <QoreAiMark compact size={14} />;
   }
 }
 

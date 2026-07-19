@@ -13,8 +13,6 @@ use uuid::Uuid;
 
 use crate::ai::types::AiRole;
 
-/// Hard guard for the no-raw-results invariant: a legitimate step summary
-/// ("Executed SELECT … — 42 rows") never needs more than this.
 pub const MAX_SUMMARY_CHARS: usize = 500;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

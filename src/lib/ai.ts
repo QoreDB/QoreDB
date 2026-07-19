@@ -72,6 +72,11 @@ export interface AiError {
   kind: AiErrorKind;
   message: string;
   retry_after_secs?: number;
+  provider?: string;
+  http_status?: number;
+  provider_code?: string;
+  provider_error_type?: string;
+  request_id?: string;
 }
 
 export interface AiStreamChunk {
@@ -213,8 +218,8 @@ export async function aiDeleteApiKey(provider: AiProvider): Promise<void> {
   return invoke('ai_delete_api_key', { provider });
 }
 
-export async function aiGetProviderStatus(): Promise<AiProviderStatus[]> {
-  return invoke('ai_get_provider_status');
+export async function aiGetProviderStatus(probeProvider?: AiProvider): Promise<AiProviderStatus[]> {
+  return invoke('ai_get_provider_status', { probeProvider });
 }
 
 /** Live model list from the provider API (cached per session backend-side);

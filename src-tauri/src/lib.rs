@@ -69,8 +69,9 @@ impl AppState {
         ));
 
         #[cfg(feature = "pro")]
-        let ai_manager = Arc::new(ai::manager::AiManager::new(
+        let ai_manager = Arc::new(ai::manager::AiManager::new_persistent(
             Box::new(KeyringProvider::new()),
+            data_dir.join("ai-provider-status.json"),
         ));
 
         let changelog_store = Arc::new(time_travel::ChangelogStore::new(

@@ -80,7 +80,7 @@ export function ToolStepCard({ item }: ToolStepCardProps) {
           ) : item.result.isError ? (
             <AlertCircle size={13} className="text-destructive" />
           ) : (
-            <CheckCircle2 size={13} className="text-green-600 dark:text-green-500" />
+            <CheckCircle2 size={13} className="text-[var(--q-ai-verified)]" />
           )}
         </span>
       </button>

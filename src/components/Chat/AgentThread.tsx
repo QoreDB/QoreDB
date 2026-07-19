@@ -1,12 +1,33 @@
 // SPDX-License-Identifier: BUSL-1.1
 
-import { AlertCircle, Bot } from 'lucide-react';
+import { AlertCircle } from 'lucide-react';
 import { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
+import { QoreAiMark } from '@/components/Brand/QoreAiMark';
 import { Markdown } from '@/components/ui/markdown';
 import type { AgentChatItem } from '@/hooks/useAgentChat';
+import { AgentActivityGroup } from './AgentActivityGroup';
 import { PermissionCard } from './PermissionCard';
-import { ToolStepCard } from './ToolStepCard';
+
+type ToolItem = Extract<AgentChatItem, { kind: 'tool' }>;
+type ThreadEntry =
+  | Exclude<AgentChatItem, { kind: 'tool' }>
+  | { kind: 'activity'; id: string; items: ToolItem[] };
+
+function groupToolActivity(items: AgentChatItem[]): ThreadEntry[] {
+  const entries: ThreadEntry[] = [];
+  for (const item of items) {
+    const previous = entries[entries.length - 1];
+    if (item.kind === 'tool' && previous?.kind === 'activity') {
+      previous.items.push(item);
+    } else if (item.kind === 'tool') {
+      entries.push({ kind: 'activity', id: `activity-${item.id}`, items: [item] });
+    } else {
+      entries.push(item);
+    }
+  }
+  return entries;
+}
 
 interface AgentThreadProps {
   items: AgentChatItem[];
@@ -18,6 +39,7 @@ export function AgentThread({ items, loading, onRespondPermission }: AgentThread
   const { t } = useTranslation();
   const bottomRef = useRef<HTMLDivElement>(null);
   const lastItem = items[items.length - 1];
+  const entries = groupToolActivity(items);
   const lastAssistantContent = lastItem?.kind === 'assistant' ? lastItem.content : undefined;
   const lastToolResolved = lastItem?.kind === 'tool' ? Boolean(lastItem.result) : undefined;
 
@@ -29,8 +51,8 @@ export function AgentThread({ items, loading, onRespondPermission }: AgentThread
   if (items.length === 0) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-3 text-muted-foreground">
-        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-accent/10 text-[var(--q-accent)]">
-          <Bot size={24} />
+        <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-accent/10">
+          <QoreAiMark size={68} />
         </div>
         <p className="text-sm font-medium text-foreground">{t('agentChat.emptyState')}</p>
         <p className="max-w-sm text-center text-xs leading-relaxed">{t('agentChat.emptyHint')}</p>
@@ -40,7 +62,7 @@ export function AgentThread({ items, loading, onRespondPermission }: AgentThread
 
   return (
     <div className="flex flex-col gap-4">
-      {items.map(item => {
+      {entries.map((item, index) => {
         switch (item.kind) {
           case 'user':
             return (
@@ -52,19 +74,49 @@ export function AgentThread({ items, loading, onRespondPermission }: AgentThread
             );
           case 'assistant':
             if (item.error) {
+              const isPermissionError =
+                item.error.http_status === 403 ||
+                item.error.message.toLowerCase().includes('insufficient permission');
+              const diagnostics = [
+                item.error.provider,
+                item.error.http_status ? `HTTP ${item.error.http_status}` : null,
+                item.error.provider_code ? `code: ${item.error.provider_code}` : null,
+                item.error.provider_error_type ? `type: ${item.error.provider_error_type}` : null,
+              ].filter(Boolean);
               return (
                 <div
                   key={item.id}
                   className="flex items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-sm"
                 >
                   <AlertCircle size={15} className="mt-0.5 shrink-0 text-destructive" />
-                  <span className="min-w-0 break-words">{item.error}</span>
+                  <div className="min-w-0 space-y-1.5 break-words">
+                    <p>{item.error.message}</p>
+                    {diagnostics.length > 0 && (
+                      <p className="font-mono text-xs text-muted-foreground">
+                        {diagnostics.join(' · ')}
+                      </p>
+                    )}
+                    {isPermissionError && (
+                      <p className="text-xs leading-relaxed text-muted-foreground">
+                        {t('agentChat.error.forbiddenHint')}
+                      </p>
+                    )}
+                    {item.error.request_id && (
+                      <p className="select-text font-mono text-xs text-muted-foreground">
+                        {t('agentChat.error.requestId')}: {item.error.request_id}
+                      </p>
+                    )}
+                  </div>
                 </div>
               );
             }
             if (!item.content && item.streaming) {
               return (
-                <div key={item.id} className="text-sm text-muted-foreground animate-pulse">
+                <div
+                  key={item.id}
+                  className="flex items-center gap-2 text-sm text-muted-foreground animate-pulse"
+                >
+                  <QoreAiMark compact size={16} />
                   {t('agentChat.thinking')}
                 </div>
               );
@@ -75,17 +127,29 @@ export function AgentThread({ items, loading, onRespondPermission }: AgentThread
                 <Markdown>{item.content}</Markdown>
               </div>
             );
-          case 'tool':
-            return <ToolStepCard key={item.id} item={item} />;
+          case 'activity':
+            return (
+              <AgentActivityGroup
+                key={item.id}
+                items={item.items}
+                active={loading && index === entries.length - 1}
+              />
+            );
           case 'permission':
             return <PermissionCard key={item.id} item={item} onRespond={onRespondPermission} />;
           default:
             return null;
         }
       })}
-      {loading && lastItem?.kind !== 'assistant' && lastItem?.kind !== 'permission' && (
-        <div className="text-sm text-muted-foreground animate-pulse">{t('agentChat.thinking')}</div>
-      )}
+      {loading &&
+        lastItem?.kind !== 'assistant' &&
+        lastItem?.kind !== 'permission' &&
+        lastItem?.kind !== 'tool' && (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground animate-pulse">
+            <QoreAiMark compact size={16} />
+            {t('agentChat.thinking')}
+          </div>
+        )}
       <div ref={bottomRef} />
     </div>
   );

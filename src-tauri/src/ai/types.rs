@@ -311,6 +311,16 @@ pub struct AiError {
     pub message: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub retry_after_secs: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub provider: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub http_status: Option<u16>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub provider_code: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub provider_error_type: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub request_id: Option<String>,
 }
 
 impl AiError {
@@ -319,6 +329,11 @@ impl AiError {
             kind,
             message: message.into(),
             retry_after_secs: None,
+            provider: None,
+            http_status: None,
+            provider_code: None,
+            provider_error_type: None,
+            request_id: None,
         }
     }
 
@@ -343,6 +358,22 @@ impl AiError {
 
     pub fn provider(message: impl Into<String>) -> Self {
         Self::new(AiErrorKind::Provider, message)
+    }
+
+    pub fn with_provider_details(
+        mut self,
+        provider: &str,
+        http_status: u16,
+        provider_code: Option<String>,
+        provider_error_type: Option<String>,
+        request_id: Option<String>,
+    ) -> Self {
+        self.provider = Some(provider.to_string());
+        self.http_status = Some(http_status);
+        self.provider_code = provider_code;
+        self.provider_error_type = provider_error_type;
+        self.request_id = request_id;
+        self
     }
 
     /// Only transient failures (rate limit, 5xx, transport) deserve a retry.

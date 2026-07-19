@@ -41,6 +41,10 @@ pub struct ToolResult {
 pub struct AgentMessage {
     pub role: AiRole,
     pub content: String,
+    /// DeepSeek thinking models require the assistant's reasoning content to
+    /// be replayed verbatim after a tool call. Absent for other providers.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reasoning_content: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub tool_calls: Vec<ToolCall>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -52,6 +56,7 @@ pub struct AgentMessage {
 #[derive(Debug, Clone, Default)]
 pub struct AgentTurn {
     pub text: String,
+    pub reasoning_content: Option<String>,
     pub tool_calls: Vec<ToolCall>,
     pub usage: AiUsage,
 }

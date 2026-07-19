@@ -420,11 +420,15 @@ pub async fn ai_delete_api_key(
 #[tauri::command]
 pub async fn ai_get_provider_status(
     state: State<'_, SharedState>,
+    probe_provider: Option<AiProvider>,
 ) -> Result<Vec<crate::ai::types::AiProviderStatus>, String> {
     let ai_manager = {
         let s = state.lock().await;
         Arc::clone(&s.ai_manager)
     };
+    if let Some(provider) = probe_provider {
+        ai_manager.probe_api_key_once(&provider);
+    }
     Ok(ai_manager.list_configured_providers())
 }
 

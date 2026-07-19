@@ -59,6 +59,8 @@
     --q-accent: #6b5cff;
     --q-accent-soft: #e7e5ff;
     --q-accent-strong: #5847ff;
+    --q-ai-signal: #0891b2;
+    --q-ai-verified: #0f9f76;
 
     /* Sémantiques Light */
     --q-success: #16a34a;
@@ -90,6 +92,8 @@
     --q-accent: #7a6cff;
     --q-accent-soft: rgba(122, 108, 255, 0.15);
     --q-accent-strong: #9a8cff;
+    --q-ai-signal: #38d9ff;
+    --q-ai-verified: #31e6a1;
 
     /* Sémantiques Dark */
     --q-success: #22c55e;

@@ -182,7 +182,7 @@ export function createChatTab(): OpenTab {
   return {
     id: generateTabId(),
     type: 'chat',
-    title: 'Chat',
+    title: 'Qore AI',
   };
 }
 

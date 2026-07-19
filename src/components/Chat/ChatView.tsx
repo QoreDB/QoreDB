@@ -1,21 +1,13 @@
 // SPDX-License-Identifier: BUSL-1.1
 
+import { PanelLeftOpen } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AiProviderSelector } from '@/components/AI/AiProviderSelector';
+import { QoreAiMark } from '@/components/Brand/QoreAiMark';
 import { LicenseGate } from '@/components/License/LicenseGate';
 import { Badge } from '@/components/ui/badge';
-import { useAgentChat } from '@/hooks/useAgentChat';
-import {
-  chatDeleteConversation,
-  chatGenerateTitle,
-  chatListConversations,
-  chatLoadConversation,
-  chatRenameConversation,
-  chatSaveConversation,
-  type ConversationMeta,
-} from '@/lib/agent';
-import { AI_PROVIDERS, type AiModelInfo, type AiProvider, aiListModels } from '@/lib/ai';
+import { Button } from '@/components/ui/button';
 import {
   Select,
   SelectContent,
@@ -23,6 +15,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { useAgentChat } from '@/hooks/useAgentChat';
+import {
+  type ConversationMeta,
+  chatDeleteConversation,
+  chatGenerateTitle,
+  chatListConversations,
+  chatLoadConversation,
+  chatRenameConversation,
+  chatSaveConversation,
+} from '@/lib/agent';
+import { AI_PROVIDERS, type AiModelInfo, type AiProvider, aiListModels } from '@/lib/ai';
 import { useAiPreferences } from '@/providers/AiPreferencesProvider';
 import { AgentPromptInput } from './AgentPromptInput';
 import { AgentThread } from './AgentThread';
@@ -33,6 +36,16 @@ interface ChatViewProps {
   connectionId?: string;
   connectionName?: string;
   environment?: string;
+}
+
+const CONVERSATION_SIDEBAR_STORAGE_KEY = 'qoredb_chat_conversation_sidebar';
+
+function loadConversationSidebarPreference(): boolean {
+  try {
+    return localStorage.getItem(CONVERSATION_SIDEBAR_STORAGE_KEY) !== 'collapsed';
+  } catch {
+    return true;
+  }
 }
 
 export function ChatView({ sessionId, connectionId, connectionName, environment }: ChatViewProps) {
@@ -52,6 +65,16 @@ export function ChatView({ sessionId, connectionId, connectionName, environment 
   const [conversations, setConversations] = useState<ConversationMeta[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [title, setTitle] = useState('');
+  const [conversationSidebarVisible, setConversationSidebarVisible] = useState(
+    loadConversationSidebarPreference
+  );
+
+  const setConversationSidebar = useCallback((visible: boolean) => {
+    setConversationSidebarVisible(visible);
+    try {
+      localStorage.setItem(CONVERSATION_SIDEBAR_STORAGE_KEY, visible ? 'expanded' : 'collapsed');
+    } catch {}
+  }, []);
 
   const activeIdRef = useRef<string | null>(null);
   activeIdRef.current = activeId;
@@ -61,9 +84,7 @@ export function ChatView({ sessionId, connectionId, connectionName, environment 
   const refreshList = useCallback(async () => {
     try {
       setConversations(await chatListConversations());
-    } catch {
-      // Core build or unreadable directory: leave the list empty.
-    }
+    } catch {}
   }, []);
 
   useEffect(() => {
@@ -78,9 +99,7 @@ export function ChatView({ sessionId, connectionId, connectionName, environment 
       .then(list => {
         if (!cancelled && list.length > 0) setModels(list);
       })
-      .catch(() => {
-        // Core build or provider unreachable: keep the curated fallback.
-      });
+      .catch(() => {});
     return () => {
       cancelled = true;
     };
@@ -110,9 +129,7 @@ export function ChatView({ sessionId, connectionId, connectionName, environment 
       if (firstUser) {
         try {
           nextTitle = await chatGenerateTitle(firstUser.content, getConfig());
-        } catch {
-          // Keep the truncated prompt as fallback title.
-        }
+        } catch {}
       }
     }
     try {
@@ -194,20 +211,36 @@ export function ChatView({ sessionId, connectionId, connectionName, environment 
 
   return (
     <LicenseGate feature="ai">
-      <div className="flex h-full min-h-0">
-        <ConversationList
-          conversations={conversations}
-          activeId={activeId}
-          onSelect={id => void handleSelect(id)}
-          onNew={handleNew}
-          onRename={(id, nextTitle) => void handleRename(id, nextTitle)}
-          onDelete={id => void handleDelete(id)}
-        />
-        <div className="flex min-w-0 flex-1 flex-col">
-          <div className="flex items-center gap-2 border-b border-border px-4 py-2">
-            <span className="min-w-0 flex-1 truncate text-sm font-medium">
-              {title || t('agentChat.title')}
-            </span>
+      <div className="flex h-full min-h-0 min-w-0 flex-1 overflow-hidden">
+        {conversationSidebarVisible && (
+          <ConversationList
+            conversations={conversations}
+            activeId={activeId}
+            onSelect={id => void handleSelect(id)}
+            onNew={handleNew}
+            onRename={(id, nextTitle) => void handleRename(id, nextTitle)}
+            onDelete={id => void handleDelete(id)}
+            onCollapse={() => setConversationSidebar(false)}
+          />
+        )}
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-background">
+          <div className="flex min-h-12 items-center gap-2 border-b border-border px-3 py-2">
+            {!conversationSidebarVisible && (
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-8 w-8 shrink-0"
+                onClick={() => setConversationSidebar(true)}
+                title={t('agentChat.showConversations')}
+                aria-label={t('agentChat.showConversations')}
+              >
+                <PanelLeftOpen size={16} />
+              </Button>
+            )}
+            <div className="flex min-w-0 flex-1 items-center gap-2">
+              <QoreAiMark compact size={20} />
+              <span className="truncate text-sm font-medium">{title || t('agentChat.title')}</span>
+            </div>
             {connectionName && (
               <Badge variant="outline" className="shrink-0 gap-1 font-normal">
                 {connectionName}
@@ -250,8 +283,8 @@ export function ChatView({ sessionId, connectionId, connectionName, environment 
               </SelectContent>
             </Select>
           </div>
-          <div className="min-h-0 flex-1 overflow-y-auto">
-            <div className="mx-auto min-h-full w-full max-w-3xl px-4 py-6">
+          <div className="min-h-0 flex-1 overflow-y-auto scroll-smooth">
+            <div className="mx-auto min-h-full w-full max-w-4xl px-5 py-6">
               <AgentThread
                 items={chat.items}
                 loading={chat.loading}
@@ -262,12 +295,12 @@ export function ChatView({ sessionId, connectionId, connectionName, environment 
             </div>
           </div>
           {!sessionId && (
-            <p className="mx-auto w-full max-w-3xl px-4 pb-1 text-xs text-muted-foreground">
+            <p className="mx-auto w-full max-w-4xl px-5 pb-1 text-xs text-muted-foreground">
               {t('agentChat.noConnection')}
             </p>
           )}
           {sessionId && !isReady && (
-            <p className="mx-auto w-full max-w-3xl px-4 pb-1 text-xs text-muted-foreground">
+            <p className="mx-auto w-full max-w-4xl px-5 pb-1 text-xs text-muted-foreground">
               {t('agentChat.noApiKey')}
             </p>
           )}

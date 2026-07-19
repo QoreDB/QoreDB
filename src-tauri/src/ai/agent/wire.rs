@@ -31,6 +31,19 @@ pub fn openai_tools(tools: &[AgentTool]) -> Value {
 /// OpenAI-style message list: assistant tool_calls carry their arguments as
 /// a JSON *string*, and each tool result becomes a separate `tool` message.
 pub fn openai_agent_messages(messages: &[AgentMessage]) -> Value {
+    openai_compatible_agent_messages(messages, false)
+}
+
+/// DeepSeek's thinking-mode tool loop uses the OpenAI message shape, with
+/// one extra assistant field that must be echoed on subsequent requests.
+pub fn deepseek_agent_messages(messages: &[AgentMessage]) -> Value {
+    openai_compatible_agent_messages(messages, true)
+}
+
+fn openai_compatible_agent_messages(
+    messages: &[AgentMessage],
+    include_reasoning_content: bool,
+) -> Value {
     let mut out = Vec::new();
     for m in messages {
         match m.role {
@@ -42,6 +55,11 @@ pub fn openai_agent_messages(messages: &[AgentMessage]) -> Value {
                     Value::String(m.content.clone())
                 };
                 let mut msg = json!({ "role": "assistant", "content": content });
+                if include_reasoning_content {
+                    if let Some(reasoning) = &m.reasoning_content {
+                        msg["reasoning_content"] = json!(reasoning);
+                    }
+                }
                 if !m.tool_calls.is_empty() {
                     msg["tool_calls"] = Value::Array(
                         m.tool_calls
@@ -192,7 +210,7 @@ pub fn gemini_agent_contents(messages: &[AgentMessage]) -> (String, Value) {
                 for c in &m.tool_calls {
                     call_names.insert(c.id.as_str(), c.name.as_str());
                     let mut part = json!({
-                        "functionCall": { "name": c.name, "args": c.input }
+                        "functionCall": { "id": c.id, "name": c.name, "args": c.input }
                     });
                     if let Some(signature) = &c.thought_signature {
                         part["thoughtSignature"] = json!(signature);
@@ -212,7 +230,7 @@ pub fn gemini_agent_contents(messages: &[AgentMessage]) -> (String, Value) {
                         Err(_) => json!({ "result": r.content }),
                     };
                     parts.push(json!({
-                        "functionResponse": { "name": name, "response": response }
+                        "functionResponse": { "id": r.id, "name": name, "response": response }
                     }));
                 }
                 if !m.content.is_empty() {
@@ -371,12 +389,14 @@ mod tests {
             AgentMessage {
                 role: AiRole::Assistant,
                 content: String::new(),
+                reasoning_content: None,
                 tool_calls: vec![call("c1", "list_tables", json!({"database": "shop"}))],
                 tool_results: vec![],
             },
             AgentMessage {
                 role: AiRole::User,
                 content: String::new(),
+                reasoning_content: None,
                 tool_calls: vec![],
                 tool_results: vec![ToolResult {
                     id: "c1".to_string(),
@@ -394,6 +414,25 @@ mod tests {
         );
         assert_eq!(out[1]["role"], "tool");
         assert_eq!(out[1]["tool_call_id"], "c1");
+    }
+
+    #[test]
+    fn deepseek_replays_reasoning_content_after_tool_call() {
+        let messages = vec![AgentMessage {
+            role: AiRole::Assistant,
+            content: String::new(),
+            reasoning_content: Some("private reasoning summary".to_string()),
+            tool_calls: vec![call("c1", "list_tables", json!({}))],
+            tool_results: vec![],
+        }];
+
+        let deepseek = deepseek_agent_messages(&messages);
+        let generic = openai_agent_messages(&messages);
+        assert_eq!(
+            deepseek[0]["reasoning_content"],
+            "private reasoning summary"
+        );
+        assert!(generic[0].get("reasoning_content").is_none());
     }
 
     #[test]
@@ -429,6 +468,7 @@ mod tests {
         let messages = vec![AgentMessage {
             role: AiRole::Assistant,
             content: String::new(),
+            reasoning_content: None,
             tool_calls: vec![ToolCall {
                 id: "call_0".to_string(),
                 name: "list_connections".to_string(),
@@ -439,6 +479,7 @@ mod tests {
         }];
         let (_, contents) = gemini_agent_contents(&messages);
         assert_eq!(contents[0]["parts"][0]["thoughtSignature"], "sig-abc");
+        assert_eq!(contents[0]["parts"][0]["functionCall"]["id"], "call_0");
         assert_eq!(
             contents[0]["parts"][0]["functionCall"]["name"],
             "list_connections"
@@ -451,12 +492,14 @@ mod tests {
             AgentMessage {
                 role: AiRole::Assistant,
                 content: String::new(),
+                reasoning_content: None,
                 tool_calls: vec![call("c1", "describe_table", json!({"table": "users"}))],
                 tool_results: vec![],
             },
             AgentMessage {
                 role: AiRole::User,
                 content: String::new(),
+                reasoning_content: None,
                 tool_calls: vec![],
                 tool_results: vec![ToolResult {
                     id: "c1".to_string(),
@@ -468,6 +511,7 @@ mod tests {
         let (_, contents) = gemini_agent_contents(&messages);
         let response_part = &contents[1]["parts"][0]["functionResponse"];
         assert_eq!(response_part["name"], "describe_table");
+        assert_eq!(response_part["id"], "c1");
         assert_eq!(response_part["response"]["result"], "not json");
     }
 

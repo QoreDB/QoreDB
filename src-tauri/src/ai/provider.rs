@@ -4,7 +4,7 @@ use std::time::Duration;
 
 use async_trait::async_trait;
 use reqwest::Client;
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 use tokio::sync::mpsc;
 use tracing::debug;
 
@@ -95,8 +95,23 @@ async fn send_with_retry(
             Ok(response) => map_error_response(response, provider_name).await,
             Err(e) => AiError::network(format!("{provider_name} request failed: {e}")),
         };
+        // OpenAI can sporadically answer with a 401 invalid_request_error for
+        // an otherwise working key in the middle of a tool loop. Retrying a
+        // real invalid key is pointless, but one replay is safe here because
+        // no tool has been executed for a rejected model request.
+        let retry_permission_anomaly = attempt == 0 && is_permission_anomaly(&error);
         match next {
-            Some(retry) if error.is_retryable() && attempt < RETRY_BACKOFFS.len() => {
+            Some(retry)
+                if (error.is_retryable() && attempt < RETRY_BACKOFFS.len())
+                    || retry_permission_anomaly =>
+            {
+                if retry_permission_anomaly {
+                    tracing::warn!(
+                        provider = provider_name,
+                        request_id = ?error.request_id,
+                        "Retrying anomalous provider permission rejection once"
+                    );
+                }
                 tokio::time::sleep(RETRY_BACKOFFS[attempt]).await;
                 attempt += 1;
                 current = retry;
@@ -108,21 +123,90 @@ async fn send_with_retry(
 
 async fn map_error_response(response: reqwest::Response, provider_name: &str) -> AiError {
     let status = response.status();
+    let request_id = response
+        .headers()
+        .get("x-request-id")
+        .or_else(|| response.headers().get("request-id"))
+        .and_then(|v| v.to_str().ok())
+        .map(str::to_owned);
     let retry_after = response
         .headers()
         .get("retry-after")
         .and_then(|v| v.to_str().ok())
         .and_then(|s| s.trim().parse::<u64>().ok());
     let body = response.text().await.unwrap_or_default();
-    let message =
-        extract_api_error(&body).unwrap_or_else(|| format!("{provider_name} HTTP {status}: {body}"));
+    let details = extract_api_error_details(&body);
+    let message = details
+        .message
+        .unwrap_or_else(|| format!("{provider_name} HTTP {status}: {body}"));
 
-    match status.as_u16() {
-        401 | 403 => AiError::invalid_key(message),
+    let permission_rejection = looks_insufficient_permissions(&message);
+    let error = match status.as_u16() {
+        401 if permission_rejection => AiError::provider(message),
+        401 => AiError::invalid_key(message),
+        // A 403 means the key was authenticated but is not authorized for the
+        // requested project/model/operation. Calling it an invalid key hides
+        // the actual remediation and confused the agent UI.
+        403 => AiError::provider(message),
         429 => AiError::rate_limited(message, retry_after),
         400 | 413 if looks_context_too_large(&message) => AiError::context_too_large(message),
         code if code >= 500 => AiError::network(message),
         _ => AiError::provider(message),
+    }
+    .with_provider_details(
+        provider_name,
+        status.as_u16(),
+        details.code,
+        details.error_type,
+        request_id,
+    );
+
+    tracing::warn!(
+        provider = provider_name,
+        http_status = status.as_u16(),
+        provider_code = ?error.provider_code,
+        provider_error_type = ?error.provider_error_type,
+        request_id = ?error.request_id,
+        "AI provider request rejected"
+    );
+    error
+}
+
+fn looks_insufficient_permissions(message: &str) -> bool {
+    let message = message.to_ascii_lowercase();
+    message.contains("insufficient permission") || message.contains("missing scope")
+}
+
+fn is_permission_anomaly(error: &AiError) -> bool {
+    error.http_status == Some(401)
+        && error.provider_error_type.as_deref() == Some("invalid_request_error")
+        && looks_insufficient_permissions(&error.message)
+}
+
+#[derive(Default)]
+struct ApiErrorDetails {
+    message: Option<String>,
+    code: Option<String>,
+    error_type: Option<String>,
+}
+
+fn json_scalar_string(value: &Value) -> Option<String> {
+    match value {
+        Value::String(value) => Some(value.clone()),
+        Value::Number(value) => Some(value.to_string()),
+        _ => None,
+    }
+}
+
+fn extract_api_error_details(body: &str) -> ApiErrorDetails {
+    let Ok(parsed) = serde_json::from_str::<Value>(body) else {
+        return ApiErrorDetails::default();
+    };
+    let error = &parsed["error"];
+    ApiErrorDetails {
+        message: error["message"].as_str().map(str::to_owned),
+        code: json_scalar_string(&error["code"]),
+        error_type: error["type"].as_str().map(str::to_owned),
     }
 }
 
@@ -174,6 +258,71 @@ fn openai_style_messages(messages: &[AiMessage]) -> Value {
             .map(|m| json!({ "role": role_str(m.role), "content": m.content }))
             .collect(),
     )
+}
+
+/// Text deltas are usually strings, but Mistral may stream typed content
+/// chunks. Accept both representations so no visible text is dropped.
+fn openai_delta_texts(delta: &Value) -> Vec<&str> {
+    match &delta["content"] {
+        Value::String(text) => vec![text.as_str()],
+        Value::Array(parts) => parts
+            .iter()
+            .filter_map(|part| part["text"].as_str().or_else(|| part["content"].as_str()))
+            .collect(),
+        _ => Vec::new(),
+    }
+}
+
+/// Native OpenAI Chat Completions has diverged from the older
+/// "OpenAI-compatible" dialect used by Mistral and DeepSeek. Keep the native
+/// request policy in one place so regular completions and agent turns cannot
+/// drift apart as model families evolve.
+fn native_openai_chat_body(
+    model: &str,
+    messages: Value,
+    max_tokens: u32,
+    temperature: f32,
+) -> Value {
+    let mut body = json!({
+        "model": model,
+        "messages": messages,
+        "max_completion_tokens": max_tokens,
+        "stream": true,
+    });
+
+    // GPT-5.4+ supports `none` and GPT-5.6 requires effective reasoning
+    // `none` when function tools are used through Chat Completions. It also
+    // avoids sending sampling parameters rejected by reasoning models.
+    if openai_supports_reasoning_none(model) {
+        body["reasoning_effort"] = json!("none");
+    } else if !openai_is_reasoning_model(model) {
+        body["temperature"] = json!(temperature);
+    }
+
+    body
+}
+
+fn openai_is_reasoning_model(model: &str) -> bool {
+    let model = model.to_ascii_lowercase();
+    model == "gpt-5"
+        || model.starts_with("gpt-5-")
+        || model.starts_with("gpt-5.")
+        || model
+            .strip_prefix('o')
+            .and_then(|suffix| suffix.chars().next())
+            .is_some_and(|c| c.is_ascii_digit())
+}
+
+fn openai_supports_reasoning_none(model: &str) -> bool {
+    let model = model.to_ascii_lowercase();
+    let Some(version) = model.strip_prefix("gpt-5.") else {
+        return false;
+    };
+    let minor = version
+        .chars()
+        .take_while(|c| c.is_ascii_digit())
+        .collect::<String>();
+    minor.parse::<u32>().is_ok_and(|minor| minor >= 4)
 }
 
 /// Split messages into a combined system prompt and the user/assistant turns,
@@ -232,16 +381,18 @@ impl AIProvider for OpenAiProvider {
             .effective_base_url()
             .unwrap_or_else(|| "https://api.openai.com/v1".to_string());
 
-        let body = json!({
-            "model": model,
-            "messages": openai_style_messages(messages),
-            "max_tokens": max_tokens,
-            "temperature": temperature,
-            "stream": true,
-            "stream_options": { "include_usage": true }
-        });
+        let mut body = native_openai_chat_body(
+            &model,
+            openai_style_messages(messages),
+            max_tokens,
+            temperature,
+        );
+        body["stream_options"] = json!({ "include_usage": true });
 
-        debug!("OpenAI request: model={}, max_tokens={}", model, max_tokens);
+        debug!(
+            "OpenAI request: model={}, max_completion_tokens={}",
+            model, max_tokens
+        );
 
         let response = send_with_retry(
             self.client
@@ -282,7 +433,7 @@ impl AIProvider for OpenAiProvider {
 
                     if let Ok(parsed) = serde_json::from_str::<Value>(data) {
                         merge_openai_usage(&mut usage, &parsed);
-                        if let Some(delta) = parsed["choices"][0]["delta"]["content"].as_str() {
+                        for delta in openai_delta_texts(&parsed["choices"][0]["delta"]) {
                             if sender
                                 .send(AiStreamChunk::delta(&request_id, delta))
                                 .await
@@ -322,6 +473,7 @@ impl AIProvider for OpenAiProvider {
             request_id,
             "OpenAI",
             true,
+            false,
         )
         .await
     }
@@ -610,6 +762,8 @@ impl AIProvider for OllamaProvider {
         request_id: String,
     ) -> Result<AiUsage, AiError> {
         let model = config.effective_model();
+        let max_tokens = config.effective_max_tokens();
+        let temperature = config.effective_temperature();
         let base_url = config
             .effective_base_url()
             .unwrap_or_else(|| "http://localhost:11434".to_string());
@@ -617,6 +771,10 @@ impl AIProvider for OllamaProvider {
         let body = json!({
             "model": model,
             "messages": openai_style_messages(messages),
+            "options": {
+                "num_predict": max_tokens,
+                "temperature": temperature
+            },
             "stream": true
         });
 
@@ -624,7 +782,7 @@ impl AIProvider for OllamaProvider {
 
         let response = send_with_retry(
             self.client
-                .post(format!("{}/api/chat", base_url))
+                .post(format!("{}/api/chat", base_url.trim_end_matches('/')))
                 .header("Content-Type", "application/json")
                 .json(&body),
             "Ollama",
@@ -696,6 +854,8 @@ impl AIProvider for OllamaProvider {
         request_id: String,
     ) -> Result<AgentTurn, AiError> {
         let model = config.effective_model();
+        let max_tokens = config.effective_max_tokens();
+        let temperature = config.effective_temperature();
         let base_url = config
             .effective_base_url()
             .unwrap_or_else(|| "http://localhost:11434".to_string());
@@ -703,19 +863,27 @@ impl AIProvider for OllamaProvider {
         let mut body = json!({
             "model": model,
             "messages": wire::openai_agent_messages(messages),
+            "options": {
+                "num_predict": max_tokens,
+                "temperature": temperature
+            },
             "stream": true
         });
         if !tools.is_empty() {
             body["tools"] = wire::openai_tools(tools);
         }
 
-        debug!("Ollama agent request: model={}, tools={}", model, tools.len());
+        debug!(
+            "Ollama agent request: model={}, tools={}",
+            model,
+            tools.len()
+        );
 
         // A model without tool support answers 400 with an explicit message;
         // the orchestrator uses that Provider error to fall back to text mode.
         let response = send_with_retry(
             self.client
-                .post(format!("{}/api/chat", base_url))
+                .post(format!("{}/api/chat", base_url.trim_end_matches('/')))
                 .header("Content-Type", "application/json")
                 .json(&body),
             "Ollama",
@@ -863,6 +1031,7 @@ impl AIProvider for MistralAiProvider {
             request_id,
             "Mistral",
             false,
+            false,
         )
         .await
     }
@@ -974,15 +1143,18 @@ impl AIProvider for GoogleGeminiProvider {
                         if let Some(v) = parsed["usageMetadata"]["candidatesTokenCount"].as_u64() {
                             usage.output_tokens = Some(v as u32);
                         }
-                        if let Some(text) =
-                            parsed["candidates"][0]["content"]["parts"][0]["text"].as_str()
+                        if let Some(parts) = parsed["candidates"][0]["content"]["parts"].as_array()
                         {
-                            if sender
-                                .send(AiStreamChunk::delta(&request_id, text))
-                                .await
-                                .is_err()
-                            {
-                                return Ok(usage);
+                            for part in parts {
+                                if let Some(text) = part["text"].as_str() {
+                                    if sender
+                                        .send(AiStreamChunk::delta(&request_id, text))
+                                        .await
+                                        .is_err()
+                                    {
+                                        return Ok(usage);
+                                    }
+                                }
                             }
                         }
                     }
@@ -1028,7 +1200,11 @@ impl AIProvider for GoogleGeminiProvider {
             body["tools"] = wire::gemini_tools(tools);
         }
 
-        debug!("Gemini agent request: model={}, tools={}", model, tools.len());
+        debug!(
+            "Gemini agent request: model={}, tools={}",
+            model,
+            tools.len()
+        );
 
         let response = send_with_retry(
             self.client
@@ -1082,7 +1258,12 @@ impl AIProvider for GoogleGeminiProvider {
                                 // never fragmented.
                                 if let Some(name) = part["functionCall"]["name"].as_str() {
                                     turn.tool_calls.push(ToolCall {
-                                        id: format!("call_{}", turn.tool_calls.len()),
+                                        id: part["functionCall"]["id"]
+                                            .as_str()
+                                            .map(String::from)
+                                            .unwrap_or_else(|| {
+                                                format!("call_{}", turn.tool_calls.len())
+                                            }),
                                         name: name.to_string(),
                                         input: part["functionCall"]["args"].clone(),
                                         thought_signature: part["thoughtSignature"]
@@ -1172,6 +1353,7 @@ impl AIProvider for DeepSeekProvider {
             request_id,
             "DeepSeek",
             false,
+            true,
         )
         .await
     }
@@ -1242,7 +1424,7 @@ async fn stream_openai_compatible(
 
                 if let Ok(parsed) = serde_json::from_str::<Value>(data) {
                     merge_openai_usage(&mut usage, &parsed);
-                    if let Some(delta) = parsed["choices"][0]["delta"]["content"].as_str() {
+                    for delta in openai_delta_texts(&parsed["choices"][0]["delta"]) {
                         if sender
                             .send(AiStreamChunk::delta(&request_id, delta))
                             .await
@@ -1272,23 +1454,37 @@ async fn stream_agent_openai_compatible(
     sender: mpsc::Sender<AiStreamChunk>,
     request_id: String,
     provider_name: &str,
-    include_usage_option: bool,
+    native_openai: bool,
+    deepseek_reasoning: bool,
 ) -> Result<AgentTurn, AiError> {
     let model = config.effective_model();
     let max_tokens = config.effective_max_tokens();
     let temperature = config.effective_temperature();
 
-    let mut body = json!({
-        "model": model,
-        "messages": wire::openai_agent_messages(messages),
-        "max_tokens": max_tokens,
-        "temperature": temperature,
-        "stream": true
-    });
+    let mut body = if native_openai {
+        native_openai_chat_body(
+            &model,
+            wire::openai_agent_messages(messages),
+            max_tokens,
+            temperature,
+        )
+    } else {
+        json!({
+            "model": model,
+            "messages": if deepseek_reasoning {
+                wire::deepseek_agent_messages(messages)
+            } else {
+                wire::openai_agent_messages(messages)
+            },
+            "max_tokens": max_tokens,
+            "temperature": temperature,
+            "stream": true
+        })
+    };
     if !tools.is_empty() {
         body["tools"] = wire::openai_tools(tools);
     }
-    if include_usage_option {
+    if native_openai {
         body["stream_options"] = json!({ "include_usage": true });
     }
 
@@ -1336,7 +1532,14 @@ async fn stream_agent_openai_compatible(
                     merge_openai_usage(&mut turn.usage, &parsed);
                     let delta = &parsed["choices"][0]["delta"];
                     acc.feed(delta);
-                    if let Some(text) = delta["content"].as_str() {
+                    if deepseek_reasoning {
+                        if let Some(reasoning) = delta["reasoning_content"].as_str() {
+                            turn.reasoning_content
+                                .get_or_insert_with(String::new)
+                                .push_str(reasoning);
+                        }
+                    }
+                    for text in openai_delta_texts(delta) {
                         turn.text.push_str(text);
                         if sender
                             .send(AiStreamChunk::delta(&request_id, text))
@@ -1357,10 +1560,7 @@ async fn stream_agent_openai_compatible(
 
 /// Extract a user-friendly error message from an API error response body
 fn extract_api_error(body: &str) -> Option<String> {
-    let parsed: Value = serde_json::from_str(body).ok()?;
-    // OpenAI format: { "error": { "message": "..." } }
-    // Anthropic format: { "error": { "message": "..." } }
-    parsed["error"]["message"].as_str().map(|s| s.to_string())
+    extract_api_error_details(body).message
 }
 
 /// Queries the provider's models endpoint. The curated lists in `types.rs`
@@ -1383,7 +1583,8 @@ pub async fn fetch_models(
             Ok(openai_style_models(&parsed, |id| {
                 (id.starts_with("gpt-")
                     || id.starts_with("chatgpt")
-                    || (id.starts_with('o') && id.chars().nth(1).is_some_and(|c| c.is_ascii_digit())))
+                    || (id.starts_with('o')
+                        && id.chars().nth(1).is_some_and(|c| c.is_ascii_digit())))
                     && !contains_any(id, OPENAI_MODEL_EXCLUSIONS)
             }))
         }
@@ -1436,7 +1637,10 @@ pub async fn fetch_models(
                 .unwrap_or_else(|| "https://generativelanguage.googleapis.com/v1beta".to_string());
             let parsed = get_json(
                 client
-                    .get(format!("{}/models?pageSize=200", base.trim_end_matches('/')))
+                    .get(format!(
+                        "{}/models?pageSize=200",
+                        base.trim_end_matches('/')
+                    ))
                     .header("x-goog-api-key", api_key),
             )
             .await?;
@@ -1594,7 +1798,11 @@ fn collect_code_blocks(response: &str) -> Vec<String> {
                 let is_lang_tag = !first_line.is_empty()
                     && first_line.len() <= 16
                     && first_line.chars().all(|c| c.is_ascii_alphanumeric());
-                if is_lang_tag { &raw[nl + 1..] } else { raw }
+                if is_lang_tag {
+                    &raw[nl + 1..]
+                } else {
+                    raw
+                }
             }
             None => raw,
         };
@@ -1727,6 +1935,46 @@ mod tests {
         assert!(!looks_context_too_large("Invalid request"));
     }
 
+    #[test]
+    fn native_openai_reasoning_request_uses_current_chat_parameters() {
+        let body = native_openai_chat_body("gpt-5.6-terra", serde_json::json!([]), 2048, 0.3);
+
+        assert_eq!(body["max_completion_tokens"], 2048);
+        assert_eq!(body["reasoning_effort"], "none");
+        assert!(body.get("max_tokens").is_none());
+        assert!(body.get("temperature").is_none());
+    }
+
+    #[test]
+    fn native_openai_legacy_request_keeps_sampling_parameter() {
+        let body = native_openai_chat_body("gpt-4.1-mini", serde_json::json!([]), 1024, 0.2);
+
+        assert_eq!(body["max_completion_tokens"], 1024);
+        let temperature = body["temperature"].as_f64().unwrap();
+        assert!((temperature - 0.2).abs() < 0.000_001);
+        assert!(body.get("reasoning_effort").is_none());
+    }
+
+    #[test]
+    fn native_openai_older_reasoning_request_omits_sampling_parameter() {
+        let body = native_openai_chat_body("o4-mini", serde_json::json!([]), 1024, 0.2);
+
+        assert_eq!(body["max_completion_tokens"], 1024);
+        assert!(body.get("temperature").is_none());
+        assert!(body.get("reasoning_effort").is_none());
+    }
+
+    #[test]
+    fn openai_compatible_delta_accepts_mistral_content_chunks() {
+        let delta = serde_json::json!({
+            "content": [
+                {"type": "text", "text": "Hello"},
+                {"type": "text", "text": " world"}
+            ]
+        });
+        assert_eq!(openai_delta_texts(&delta), vec!["Hello", " world"]);
+    }
+
     mod http {
         use wiremock::matchers::{method, path};
         use wiremock::{Mock, MockServer, ResponseTemplate};
@@ -1771,6 +2019,84 @@ mod tests {
                 .unwrap_err();
             assert_eq!(err.kind, AiErrorKind::InvalidKey);
             assert_eq!(err.message, "Invalid API key");
+        }
+
+        #[tokio::test]
+        async fn openai_permission_401_retries_once_and_is_not_an_invalid_key() {
+            let server = MockServer::start().await;
+            Mock::given(method("POST"))
+                .and(path("/chat/completions"))
+                .respond_with(
+                    ResponseTemplate::new(401)
+                        .insert_header("x-request-id", "req_permission_401")
+                        .set_body_string(
+                            r#"{"error":{"message":"You have insufficient permissions for this operation.","type":"invalid_request_error"}}"#,
+                        ),
+                )
+                .expect(2)
+                .mount(&server)
+                .await;
+
+            let provider = OpenAiProvider::new();
+            let (tx, _rx) = mpsc::channel(8);
+            let err = provider
+                .stream(
+                    "sk-test",
+                    &[AiMessage::user("hi")],
+                    &config(AiProvider::OpenAi, &server.uri()),
+                    tx,
+                    "r1".to_string(),
+                )
+                .await
+                .unwrap_err();
+
+            assert_eq!(err.kind, AiErrorKind::Provider);
+            assert_eq!(err.http_status, Some(401));
+            assert_eq!(
+                err.provider_error_type.as_deref(),
+                Some("invalid_request_error")
+            );
+            assert_eq!(err.request_id.as_deref(), Some("req_permission_401"));
+        }
+
+        #[tokio::test]
+        async fn openai_403_preserves_provider_diagnostics() {
+            let server = MockServer::start().await;
+            Mock::given(method("POST"))
+                .and(path("/chat/completions"))
+                .respond_with(
+                    ResponseTemplate::new(403)
+                        .insert_header("x-request-id", "req_permission_test")
+                        .set_body_string(
+                            r#"{"error":{"message":"You have insufficient permissions for this operation.","type":"insufficient_permissions_error","code":"model_not_allowed"}}"#,
+                        ),
+                )
+                .expect(1)
+                .mount(&server)
+                .await;
+
+            let provider = OpenAiProvider::new();
+            let (tx, _rx) = mpsc::channel(8);
+            let err = provider
+                .stream(
+                    "sk-test",
+                    &[AiMessage::user("hi")],
+                    &config(AiProvider::OpenAi, &server.uri()),
+                    tx,
+                    "r1".to_string(),
+                )
+                .await
+                .unwrap_err();
+
+            assert_eq!(err.kind, AiErrorKind::Provider);
+            assert_eq!(err.provider.as_deref(), Some("OpenAI"));
+            assert_eq!(err.http_status, Some(403));
+            assert_eq!(err.provider_code.as_deref(), Some("model_not_allowed"));
+            assert_eq!(
+                err.provider_error_type.as_deref(),
+                Some("insufficient_permissions_error")
+            );
+            assert_eq!(err.request_id.as_deref(), Some("req_permission_test"));
         }
 
         #[tokio::test]
@@ -1936,15 +2262,18 @@ mod tests {
             let messages = vec![AgentMessage {
                 role: AiRole::User,
                 content: "which tables?".to_string(),
+                reasoning_content: None,
                 tool_calls: vec![],
                 tool_results: vec![],
             }];
+            let mut openai_config = config(AiProvider::OpenAi, &server.uri());
+            openai_config.model = Some("gpt-5.6-terra".to_string());
             let turn = provider
                 .stream_agent(
                     "sk-test",
                     &messages,
                     &tools,
-                    &config(AiProvider::OpenAi, &server.uri()),
+                    &openai_config,
                     tx,
                     "r1".to_string(),
                 )
@@ -1965,6 +2294,10 @@ mod tests {
             let body: Value = serde_json::from_slice(&requests[0].body).unwrap();
             assert_eq!(body["tools"][0]["function"]["name"], "list_tables");
             assert_eq!(body["stream_options"]["include_usage"], true);
+            assert_eq!(body["max_completion_tokens"], 64);
+            assert_eq!(body["reasoning_effort"], "none");
+            assert!(body.get("max_tokens").is_none());
+            assert!(body.get("temperature").is_none());
         }
 
         #[tokio::test]
@@ -1999,6 +2332,7 @@ mod tests {
             let messages = vec![AgentMessage {
                 role: AiRole::User,
                 content: "describe users".to_string(),
+                reasoning_content: None,
                 tool_calls: vec![],
                 tool_results: vec![],
             }];
@@ -2017,10 +2351,131 @@ mod tests {
             assert_eq!(turn.tool_calls.len(), 1);
             assert_eq!(turn.tool_calls[0].id, "toolu_1");
             assert_eq!(turn.tool_calls[0].name, "describe_table");
-            assert_eq!(turn.tool_calls[0].input, serde_json::json!({"table": "users"}));
+            assert_eq!(
+                turn.tool_calls[0].input,
+                serde_json::json!({"table": "users"})
+            );
             assert_eq!(turn.usage.input_tokens, Some(9));
             assert_eq!(turn.usage.output_tokens, Some(3));
             assert_eq!(rx.recv().await.unwrap().delta, "Checking.");
+        }
+
+        #[tokio::test]
+        async fn ollama_sends_generation_options_and_trims_base_url() {
+            let server = MockServer::start().await;
+            Mock::given(method("POST"))
+                .and(path("/api/chat"))
+                .respond_with(ResponseTemplate::new(200).set_body_string(
+                    "{\"message\":{\"content\":\"Hi\"},\"done\":false}\n{\"done\":true,\"prompt_eval_count\":2,\"eval_count\":1}\n",
+                ))
+                .expect(1)
+                .mount(&server)
+                .await;
+
+            let provider = OllamaProvider::new();
+            let (tx, mut rx) = mpsc::channel(8);
+            let mut cfg = config(AiProvider::Ollama, &format!("{}/", server.uri()));
+            cfg.max_tokens = Some(321);
+            cfg.temperature = Some(0.25);
+            let usage = provider
+                .stream("", &[AiMessage::user("hi")], &cfg, tx, "r1".to_string())
+                .await
+                .unwrap();
+
+            assert_eq!(usage.total(), Some(3));
+            assert_eq!(rx.recv().await.unwrap().delta, "Hi");
+            let requests = server.received_requests().await.unwrap();
+            let body: Value = serde_json::from_slice(&requests[0].body).unwrap();
+            assert_eq!(body["options"]["num_predict"], 321);
+            assert_eq!(body["options"]["temperature"], 0.25);
+        }
+
+        #[tokio::test]
+        async fn deepseek_agent_preserves_streamed_reasoning_for_next_step() {
+            let server = MockServer::start().await;
+            let sse = "data: {\"choices\":[{\"delta\":{\"reasoning_content\":\"Need schema. \"}}]}\n\n\
+                       data: {\"choices\":[{\"delta\":{\"reasoning_content\":\"I'll inspect.\",\"tool_calls\":[{\"index\":0,\"id\":\"call_1\",\"function\":{\"name\":\"list_tables\",\"arguments\":\"{}\"}}]}}]}\n\n\
+                       data: [DONE]\n\n";
+            Mock::given(method("POST"))
+                .and(path("/chat/completions"))
+                .respond_with(
+                    ResponseTemplate::new(200)
+                        .insert_header("content-type", "text/event-stream")
+                        .set_body_string(sse),
+                )
+                .expect(1)
+                .mount(&server)
+                .await;
+
+            let provider = DeepSeekProvider::new();
+            let (tx, _rx) = mpsc::channel(8);
+            let messages = vec![AgentMessage {
+                role: AiRole::User,
+                content: "inspect".to_string(),
+                reasoning_content: None,
+                tool_calls: vec![],
+                tool_results: vec![],
+            }];
+            let turn = provider
+                .stream_agent(
+                    "sk-test",
+                    &messages,
+                    &[],
+                    &config(AiProvider::DeepSeek, &server.uri()),
+                    tx,
+                    "r1".to_string(),
+                )
+                .await
+                .unwrap();
+
+            assert_eq!(
+                turn.reasoning_content.as_deref(),
+                Some("Need schema. I'll inspect.")
+            );
+            assert_eq!(turn.tool_calls[0].id, "call_1");
+        }
+
+        #[tokio::test]
+        async fn gemini_agent_preserves_function_id_and_thought_signature() {
+            let server = MockServer::start().await;
+            let sse = "data: {\"candidates\":[{\"content\":{\"parts\":[{\"functionCall\":{\"id\":\"fc-123\",\"name\":\"list_tables\",\"args\":{}},\"thoughtSignature\":\"sig-abc\"}]}}]}\n\n";
+            Mock::given(method("POST"))
+                .and(path("/models/test-model:streamGenerateContent"))
+                .respond_with(
+                    ResponseTemplate::new(200)
+                        .insert_header("content-type", "text/event-stream")
+                        .set_body_string(sse),
+                )
+                .expect(1)
+                .mount(&server)
+                .await;
+
+            let provider = GoogleGeminiProvider::new();
+            let (tx, _rx) = mpsc::channel(8);
+            let messages = vec![AgentMessage {
+                role: AiRole::User,
+                content: "inspect".to_string(),
+                reasoning_content: None,
+                tool_calls: vec![],
+                tool_results: vec![],
+            }];
+            let turn = provider
+                .stream_agent(
+                    "gemini-key",
+                    &messages,
+                    &[],
+                    &config(AiProvider::GoogleGemini, &server.uri()),
+                    tx,
+                    "r1".to_string(),
+                )
+                .await
+                .unwrap();
+
+            assert_eq!(turn.tool_calls[0].id, "fc-123");
+            assert_eq!(
+                turn.tool_calls[0].thought_signature.as_deref(),
+                Some("sig-abc")
+            );
         }
 
         #[tokio::test]

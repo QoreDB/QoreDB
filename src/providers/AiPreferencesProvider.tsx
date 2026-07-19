@@ -68,12 +68,15 @@ export function AiPreferencesProvider({ children }: { children: ReactNode }) {
 
   const refreshStatuses = useCallback(async () => {
     try {
-      const statuses = await aiGetProviderStatus();
+      // Probe only the selected provider for users upgrading from the old
+      // per-key scan. The backend remembers the result, so future launches do
+      // not touch Keychain merely to render configuration badges.
+      const statuses = await aiGetProviderStatus(preferredProvider);
       setProviderStatuses(statuses);
     } catch {
       // AI may not be available (Core build)
     }
-  }, []);
+  }, [preferredProvider]);
 
   useEffect(() => {
     refreshStatuses();

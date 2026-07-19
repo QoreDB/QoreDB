@@ -4,7 +4,6 @@ import {
   AlertCircle,
   BookmarkPlus,
   BookOpen,
-  Bot,
   Braces,
   Check,
   Database,
@@ -25,6 +24,7 @@ import {
 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { QoreAiMark } from '@/components/Brand/QoreAiMark';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -489,7 +489,7 @@ export function QueryPanelToolbar({
             </DropdownMenuItem>
           )}
           <DropdownMenuItem onClick={() => openTab(createChatTab())}>
-            <Bot size={14} />
+            <QoreAiMark compact size={14} />
             {t('agentChat.openChat')}
           </DropdownMenuItem>
           {onConvertToNotebook && (

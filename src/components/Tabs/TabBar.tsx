@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { Reorder } from 'framer-motion';
-import { Bot, FileCode, Plus } from 'lucide-react';
+import { FileCode, Plus } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { QoreAiMark } from '@/components/Brand/QoreAiMark';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -221,7 +222,7 @@ export function TabBar({
               </DropdownMenuItem>
               {onNewChat && (
                 <DropdownMenuItem onClick={onNewChat}>
-                  <Bot size={14} />
+                  <QoreAiMark compact size={14} />
                   {t('agentChat.newConversation')}
                 </DropdownMenuItem>
               )}

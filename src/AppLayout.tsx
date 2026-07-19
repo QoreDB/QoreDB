@@ -1060,7 +1060,7 @@ export function AppLayout() {
             <SandboxBorder
               sessionId={sessionId}
               environment={activeConnection?.environment || "development"}
-              className={`flex-1 min-h-0 overflow-hidden ${zenMode ? "" : "p-4"}`}
+              className={`flex flex-1 min-h-0 flex-col overflow-hidden ${zenMode || activeTab?.type === "chat" ? "" : "p-4"}`}
             >
               <ErrorBoundary fallbackLabel={t("errorBoundary.panelCrashed")}>
                 <Suspense fallback={<LazyTabFallback />}>
@@ -1426,7 +1426,7 @@ function AppContent({
 
   if (activeTab?.type === "chat") {
     return (
-      <div className="flex-1 min-h-0 flex flex-col">
+      <div className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden">
         <ChatView
           key={activeTab.id}
           sessionId={sessionId}

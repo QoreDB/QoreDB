@@ -11,12 +11,12 @@ import {
   type StoredMessage,
   type ToolStepSummary,
 } from '@/lib/agent';
-import type { AiConfig } from '@/lib/ai';
+import type { AiConfig, AiError } from '@/lib/ai';
 import { listen, type UnlistenFn } from '@/lib/transport';
 
 export type AgentChatItem =
   | { kind: 'user'; id: string; content: string }
-  | { kind: 'assistant'; id: string; content: string; streaming: boolean; error?: string | null }
+  | { kind: 'assistant'; id: string; content: string; streaming: boolean; error?: AiError | null }
   | {
       kind: 'tool';
       id: string;
@@ -199,7 +199,7 @@ export function useAgentChat({ sessionId, connectionId, onDone }: UseAgentChatOp
               id: crypto.randomUUID(),
               content: '',
               streaming: false,
-              error: event.error.message,
+              error: event.error,
             },
           ];
         }
@@ -314,7 +314,7 @@ export function useAgentChat({ sessionId, connectionId, onDone }: UseAgentChatOp
       } else if (item.kind === 'assistant' && (item.content || item.error)) {
         out.push({
           role: 'assistant',
-          content: item.content || (item.error ?? ''),
+          content: item.content || item.error?.message || '',
           tool_steps: pendingSteps.length > 0 ? pendingSteps : undefined,
         });
         pendingSteps = [];

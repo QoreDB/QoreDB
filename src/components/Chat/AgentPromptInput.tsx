@@ -52,8 +52,8 @@ export function AgentPromptInput({ onSubmit, onCancel, loading, disabled }: Agen
   );
 
   return (
-    <div className="mx-auto w-full max-w-3xl px-4 pb-4">
-      <div className="flex items-end gap-1.5 rounded-xl border border-border bg-muted/30 p-1.5 shadow-sm transition-colors focus-within:border-[var(--q-accent)]">
+    <div className="w-full border-t border-border bg-background/95 px-5 py-3 backdrop-blur-sm">
+      <div className="mx-auto flex w-full max-w-4xl items-end gap-1.5 rounded-xl border border-border bg-muted/30 p-1.5 shadow-sm transition-colors focus-within:border-[var(--q-accent)]">
         <textarea
           ref={textareaRef}
           value={prompt}

@@ -2397,7 +2397,11 @@
       "notConfigured": "미구성",
       "enterKey": "API 키 입력...",
       "deleteKey": "API 키 삭제",
-      "ollamaHint": "Ollama는 로컬에서 실행됩니다 — API 키가 필요하지 않습니다. Ollama가 컴퓨터에서 실행 중인지 확인하세요."
+      "ollamaHint": "Ollama는 로컬에서 실행됩니다 — API 키가 필요하지 않습니다. Ollama가 컴퓨터에서 실행 중인지 확인하세요.",
+      "sampleRows": "샘플 행",
+      "sampleRowsDescription": "AI 제안 품질을 높이기 위해 샘플 행 몇 개를 공유합니다. 민감한 열은 아래에서 허용하지 않는 한 마스킹된 상태로 유지됩니다.",
+      "sensitiveData": "민감한 데이터",
+      "sensitiveDataDescription": "AI가 민감한 값(이메일, 이름, 전화번호 등)을 볼 수 있도록 허용합니다. 비활성화하면 해당 열은 공급자에게 전송되기 전에 마스킹됩니다."
     }
   },
   "agentChat": {

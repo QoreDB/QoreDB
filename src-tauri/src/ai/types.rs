@@ -176,6 +176,10 @@ pub struct AiConfig {
     pub base_url: Option<String>,
     pub max_tokens: Option<u32>,
     pub temperature: Option<f32>,
+    /// Explicit user opt-in: send values and names of sensitive columns
+    /// (emails, person names, phones…) to the AI provider unmasked.
+    #[serde(default)]
+    pub allow_sensitive_data: bool,
 }
 
 impl AiConfig {

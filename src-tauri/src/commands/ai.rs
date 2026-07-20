@@ -185,6 +185,7 @@ pub async fn ai_explain_result(
         None,
         &query,
         false,
+        !config.allow_sensitive_data,
     )
     .await?;
 
@@ -246,6 +247,7 @@ pub async fn ai_summarize_schema(
         None,
         "",
         false,
+        !config.allow_sensitive_data,
     )
     .await?;
 
@@ -307,6 +309,7 @@ pub async fn ai_generate_filters(
         None,
         &prompt,
         false,
+        !config.allow_sensitive_data,
     )
     .await?;
 
@@ -574,6 +577,7 @@ async fn stream_ai_request(
         request.connection_id.as_deref(),
         &request.prompt,
         request.include_sample_rows,
+        !request.config.allow_sensitive_data,
     )
     .await?;
 

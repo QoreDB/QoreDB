@@ -2436,7 +2436,11 @@
       "notConfigured": "Not configured",
       "enterKey": "Enter API key...",
       "deleteKey": "Delete API key",
-      "ollamaHint": "Ollama runs locally — no API key required. Make sure Ollama is running on your machine."
+      "ollamaHint": "Ollama runs locally — no API key required. Make sure Ollama is running on your machine.",
+      "sampleRows": "Sample rows",
+      "sampleRowsDescription": "Share a few sample rows with the AI to improve its suggestions. Sensitive columns stay masked unless allowed below.",
+      "sensitiveData": "Sensitive data",
+      "sensitiveDataDescription": "Let the AI see sensitive values (emails, names, phone numbers…). When disabled, these columns are masked before anything is sent to the provider."
     }
   },
   "agentChat": {

@@ -2397,7 +2397,11 @@
       "notConfigured": "未配置",
       "enterKey": "输入 API 密钥…",
       "deleteKey": "删除 API 密钥",
-      "ollamaHint": "Ollama 在本地运行 — 无需 API 密钥。请确保 Ollama 正在您的机器上运行。"
+      "ollamaHint": "Ollama 在本地运行 — 无需 API 密钥。请确保 Ollama 正在您的机器上运行。",
+      "sampleRows": "示例行",
+      "sampleRowsDescription": "与 AI 共享少量示例行以改进建议。除非在下方允许,敏感列仍保持脱敏。",
+      "sensitiveData": "敏感数据",
+      "sensitiveDataDescription": "允许 AI 查看敏感值(邮箱、姓名、电话等)。关闭时,这些列会在发送给提供商之前被脱敏。"
     }
   },
   "agentChat": {

@@ -195,6 +195,7 @@ impl ToolOutcome {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub async fn execute(
     ctx: &AgentToolContext,
     session: SessionId,
@@ -203,11 +204,12 @@ pub async fn execute(
     tool_name: &str,
     input: &Value,
     acknowledged: bool,
+    redact_sensitive: bool,
 ) -> ToolOutcome {
     let result = match tool_name {
         "list_connections" => list_connections(ctx, scope).await,
         "run_federated_query" => match require_str(input, "query") {
-            Ok(query) => run_federated_query(ctx, scope, query).await,
+            Ok(query) => run_federated_query(ctx, scope, query, redact_sensitive).await,
             Err(e) => Err(e),
         },
         "list_namespaces" => agent_tools::list_namespaces(ctx, session)
@@ -228,7 +230,13 @@ pub async fn execute(
                     .await
                     .and_then(|schema| {
                         serde_json::to_value(&schema)
-                            .map(|v| redact_schema_value(v).to_string())
+                            .map(|v| {
+                                if redact_sensitive {
+                                    redact_schema_value(v).to_string()
+                                } else {
+                                    v.to_string()
+                                }
+                            })
                             .map_err(|e| e.to_string())
                     })
             }
@@ -245,7 +253,7 @@ pub async fn execute(
                 QuerySource::Ai,
             )
             .await
-            .map(|result| format_query_result(&result)),
+            .map(|result| format_query_result(&result, redact_sensitive)),
             Err(e) => Err(e),
         },
         other => Err(format!("Unknown tool: {other}")),
@@ -289,6 +297,7 @@ async fn run_federated_query(
     ctx: &AgentToolContext,
     scope: &HashSet<String>,
     query: &str,
+    redact_sensitive: bool,
 ) -> Result<String, String> {
     let mut alias_map = ConnectionAliasMap::new();
     for (session_id, display_name) in ctx.session_manager.list_sessions().await {
@@ -323,7 +332,7 @@ async fn run_federated_query(
     .await
     .map_err(|e| e.sanitized_message())?;
 
-    let mut payload = query_result_payload(&result);
+    let mut payload = query_result_payload(&result, redact_sensitive);
     payload["sources"] = Value::Array(
         meta.source_results
             .iter()
@@ -354,17 +363,17 @@ fn require_str<'a>(input: &'a Value, key: &str) -> Result<&'a str, String> {
         .ok_or_else(|| format!("Missing required argument `{key}`"))
 }
 
-/// Rows sent back to the model: sensitive columns masked, long cells
-/// clamped, row count capped.
-fn format_query_result(result: &QueryResult) -> String {
-    query_result_payload(result).to_string()
+/// Rows sent back to the model: sensitive columns masked (unless the user
+/// opted in to sharing them), long cells clamped, row count capped.
+fn format_query_result(result: &QueryResult, redact_sensitive: bool) -> String {
+    query_result_payload(result, redact_sensitive).to_string()
 }
 
-fn query_result_payload(result: &QueryResult) -> Value {
+fn query_result_payload(result: &QueryResult, redact_sensitive: bool) -> Value {
     let sensitive: Vec<bool> = result
         .columns
         .iter()
-        .map(|c| crate::redaction::is_sensitive_column(&c.name))
+        .map(|c| redact_sensitive && crate::redaction::is_sensitive_column(&c.name))
         .collect();
     let total = result.rows.len();
     let rows: Vec<Vec<Value>> = result
@@ -453,12 +462,15 @@ mod tests {
             affected_rows: None,
             execution_time_ms: 1.0,
         };
-        let payload: Value = serde_json::from_str(&format_query_result(&result)).unwrap();
+        let payload: Value = serde_json::from_str(&format_query_result(&result, true)).unwrap();
         assert_eq!(payload["rows"].as_array().unwrap().len(), MAX_ROWS_TO_MODEL);
         assert_eq!(payload["row_count"], 60);
         assert_eq!(payload["truncated"], true);
         assert_eq!(payload["rows"][0][0], "<redacted>");
         assert_eq!(payload["rows"][0][1], "city-0");
+
+        let opted_in: Value = serde_json::from_str(&format_query_result(&result, false)).unwrap();
+        assert_eq!(opted_in["rows"][0][0], "a@b.c");
     }
 
     #[test]

@@ -152,6 +152,8 @@ export function AiSection({ searchQuery }: AiSectionProps) {
     refreshStatuses,
     includeSampleRows,
     setIncludeSampleRows,
+    allowSensitiveData,
+    setAllowSensitiveData,
   } = useAiPreferences();
 
   const providerHasKey = Object.fromEntries(
@@ -192,6 +194,14 @@ export function AiSection({ searchQuery }: AiSectionProps) {
           searchQuery={searchQuery}
         >
           <Switch checked={includeSampleRows} onCheckedChange={setIncludeSampleRows} />
+        </SettingsCard>
+
+        <SettingsCard
+          title={t('ai.settings.sensitiveData')}
+          description={t('ai.settings.sensitiveDataDescription')}
+          searchQuery={searchQuery}
+        >
+          <Switch checked={allowSensitiveData} onCheckedChange={setAllowSensitiveData} />
         </SettingsCard>
 
         <SettingsCard

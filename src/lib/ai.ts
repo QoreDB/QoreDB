@@ -37,6 +37,8 @@ export interface AiConfig {
   base_url?: string;
   max_tokens?: number;
   temperature?: number;
+  /** Explicit opt-in: send sensitive column values (PII) to the provider. */
+  allow_sensitive_data?: boolean;
 }
 
 export interface AiRequest {

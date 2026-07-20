@@ -2397,7 +2397,11 @@
       "notConfigured": "未設定",
       "enterKey": "API キーを入力...",
       "deleteKey": "API キーを削除",
-      "ollamaHint": "Ollama はローカルで実行されるため、API キーは不要です。Ollama がマシンで実行されていることを確認してください。"
+      "ollamaHint": "Ollama はローカルで実行されるため、API キーは不要です。Ollama がマシンで実行されていることを確認してください。",
+      "sampleRows": "サンプル行",
+      "sampleRowsDescription": "AI の提案精度を高めるため、サンプル行をいくつか共有します。機密性の高い列は、下で許可しない限りマスクされたままです。",
+      "sensitiveData": "機密データ",
+      "sensitiveDataDescription": "AI に機密性の高い値(メールアドレス、氏名、電話番号など)の閲覧を許可します。無効の場合、これらの列はプロバイダーへの送信前にマスクされます。"
     }
   },
   "agentChat": {

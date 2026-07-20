@@ -2397,7 +2397,11 @@
       "notConfigured": "Não configurado",
       "enterKey": "Insira a chave de API...",
       "deleteKey": "Excluir chave de API",
-      "ollamaHint": "O Ollama roda localmente — nenhuma chave de API é necessária. Certifique-se de que o Ollama esteja rodando na sua máquina."
+      "ollamaHint": "O Ollama roda localmente — nenhuma chave de API é necessária. Certifique-se de que o Ollama esteja rodando na sua máquina.",
+      "sampleRows": "Linhas de exemplo",
+      "sampleRowsDescription": "Compartilhar algumas linhas de exemplo com a IA para melhorar as sugestões. Colunas sensíveis permanecem mascaradas, salvo autorização abaixo.",
+      "sensitiveData": "Dados sensíveis",
+      "sensitiveDataDescription": "Permitir que a IA veja valores sensíveis (e-mails, nomes, telefones…). Quando desativado, essas colunas são mascaradas antes de qualquer envio ao provedor."
     }
   },
   "agentChat": {

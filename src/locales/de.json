@@ -2397,7 +2397,11 @@
       "notConfigured": "Nicht konfiguriert",
       "enterKey": "API-Schlüssel eingeben…",
       "deleteKey": "API-Schlüssel löschen",
-      "ollamaHint": "Ollama läuft lokal — kein API-Schlüssel erforderlich. Stellen Sie sicher, dass Ollama auf Ihrem Rechner läuft."
+      "ollamaHint": "Ollama läuft lokal — kein API-Schlüssel erforderlich. Stellen Sie sicher, dass Ollama auf Ihrem Rechner läuft.",
+      "sampleRows": "Beispielzeilen",
+      "sampleRowsDescription": "Einige Beispielzeilen mit der KI teilen, um ihre Vorschläge zu verbessern. Sensible Spalten bleiben maskiert, sofern unten nicht erlaubt.",
+      "sensitiveData": "Sensible Daten",
+      "sensitiveDataDescription": "Der KI erlauben, sensible Werte zu sehen (E-Mails, Namen, Telefonnummern …). Wenn deaktiviert, werden diese Spalten vor dem Senden an den Anbieter maskiert."
     }
   },
   "agentChat": {

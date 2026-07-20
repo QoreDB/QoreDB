@@ -2277,6 +2277,7 @@ mod tests {
                 base_url: Some(base_url.to_string()),
                 max_tokens: Some(64),
                 temperature: Some(0.0),
+                allow_sensitive_data: false,
             }
         }
 

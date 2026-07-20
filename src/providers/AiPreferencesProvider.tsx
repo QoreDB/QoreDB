@@ -11,6 +11,7 @@ import {
 
 const STORAGE_KEY = 'qoredb_ai_provider';
 const SAMPLE_ROWS_STORAGE_KEY = 'qoredb_ai_sample_rows';
+const SENSITIVE_DATA_STORAGE_KEY = 'qoredb_ai_sensitive_data';
 const MODELS_STORAGE_KEY = 'qoredb_ai_models';
 
 export interface AiPreferencesContextValue {
@@ -24,6 +25,8 @@ export interface AiPreferencesContextValue {
   getConfig: () => AiConfig;
   includeSampleRows: boolean;
   setIncludeSampleRows: (enabled: boolean) => void;
+  allowSensitiveData: boolean;
+  setAllowSensitiveData: (enabled: boolean) => void;
 }
 
 const AiPreferencesContext = createContext<AiPreferencesContextValue | null>(null);
@@ -48,6 +51,14 @@ function loadSampleRowsPreference(): boolean {
   }
 }
 
+function loadSensitiveDataPreference(): boolean {
+  try {
+    return localStorage.getItem(SENSITIVE_DATA_STORAGE_KEY) === 'true';
+  } catch {
+    return false;
+  }
+}
+
 function loadSavedModels(): Partial<Record<AiProvider, string>> {
   try {
     const saved = localStorage.getItem(MODELS_STORAGE_KEY);
@@ -65,6 +76,9 @@ export function AiPreferencesProvider({ children }: { children: ReactNode }) {
   const [providerStatuses, setProviderStatuses] = useState<AiProviderStatus[]>([]);
   const [includeSampleRows, setIncludeSampleRowsState] =
     useState<boolean>(loadSampleRowsPreference);
+  const [allowSensitiveData, setAllowSensitiveDataState] = useState<boolean>(
+    loadSensitiveDataPreference
+  );
 
   const refreshStatuses = useCallback(async () => {
     try {
@@ -100,6 +114,11 @@ export function AiPreferencesProvider({ children }: { children: ReactNode }) {
     localStorage.setItem(SAMPLE_ROWS_STORAGE_KEY, String(enabled));
   }, []);
 
+  const setAllowSensitiveData = useCallback((enabled: boolean) => {
+    setAllowSensitiveDataState(enabled);
+    localStorage.setItem(SENSITIVE_DATA_STORAGE_KEY, String(enabled));
+  }, []);
+
   const providerInfo = AI_PROVIDERS.find(p => p.id === preferredProvider);
   const isReady =
     (providerInfo && !providerInfo.requiresKey) ||
@@ -109,8 +128,9 @@ export function AiPreferencesProvider({ children }: { children: ReactNode }) {
     (): AiConfig => ({
       provider: preferredProvider,
       model: preferredModels[preferredProvider],
+      allow_sensitive_data: allowSensitiveData,
     }),
-    [preferredProvider, preferredModels]
+    [preferredProvider, preferredModels, allowSensitiveData]
   );
 
   return (
@@ -126,6 +146,8 @@ export function AiPreferencesProvider({ children }: { children: ReactNode }) {
         getConfig,
         includeSampleRows,
         setIncludeSampleRows,
+        allowSensitiveData,
+        setAllowSensitiveData,
       }}
     >
       {children}

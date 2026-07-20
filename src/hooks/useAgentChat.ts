@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   type AgentEvent,
   type AgentMessage,
+  type AgentUsage,
   agentCancel,
   agentRespondPermission,
   agentSendMessage,
@@ -18,7 +19,15 @@ import { listen, type UnlistenFn } from '@/lib/transport';
 
 export type AgentChatItem =
   | { kind: 'user'; id: string; content: string }
-  | { kind: 'assistant'; id: string; content: string; streaming: boolean; error?: AiError | null }
+  | {
+      kind: 'assistant';
+      id: string;
+      content: string;
+      streaming: boolean;
+      error?: AiError | null;
+      usage?: AgentUsage;
+      iterations?: number;
+    }
   | {
       kind: 'tool';
       id: string;
@@ -102,6 +111,7 @@ export function useAgentChat({ sessionId, connectionId, onDone }: UseAgentChatOp
             id: crypto.randomUUID(),
             content: message.content,
             streaming: false,
+            usage: message.usage,
           });
         }
       }
@@ -169,7 +179,7 @@ export function useAgentChat({ sessionId, connectionId, onDone }: UseAgentChatOp
             },
           ];
         case 'done': {
-          const next = prev.map(item =>
+          let next = prev.map(item =>
             item.kind === 'assistant' ? { ...item, streaming: false } : item
           );
           // The final text may arrive without having been streamed (e.g.
@@ -177,14 +187,13 @@ export function useAgentChat({ sessionId, connectionId, onDone }: UseAgentChatOp
           const last = next[next.length - 1];
           if (event.text && (last?.kind !== 'assistant' || last.content !== event.text)) {
             if (last?.kind === 'assistant' && last.content === '') {
-              return next.map(item =>
+              next = next.map(item =>
                 item.id === last.id && item.kind === 'assistant'
                   ? { ...item, content: event.text }
                   : item
               );
-            }
-            if (last?.kind !== 'assistant') {
-              return [
+            } else if (last?.kind !== 'assistant') {
+              next = [
                 ...next,
                 {
                   kind: 'assistant' as const,
@@ -193,6 +202,18 @@ export function useAgentChat({ sessionId, connectionId, onDone }: UseAgentChatOp
                   streaming: false,
                 },
               ];
+            }
+          }
+          if (event.usage) {
+            const target = [...next]
+              .reverse()
+              .find(item => item.kind === 'assistant' && item.content);
+            if (target) {
+              next = next.map(item =>
+                item.id === target.id && item.kind === 'assistant'
+                  ? { ...item, usage: event.usage, iterations: event.iterations }
+                  : item
+              );
             }
           }
           return next;
@@ -315,6 +336,7 @@ export function useAgentChat({ sessionId, connectionId, onDone }: UseAgentChatOp
           role: 'assistant',
           content: item.content || item.error?.message || '',
           tool_steps: pendingSteps.length > 0 ? pendingSteps : undefined,
+          usage: item.usage,
         });
         pendingSteps = [];
       }

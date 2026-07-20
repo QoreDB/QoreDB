@@ -6,8 +6,42 @@ import { useTranslation } from 'react-i18next';
 import { QoreAiMark } from '@/components/Brand/QoreAiMark';
 import { Markdown } from '@/components/ui/markdown';
 import type { AgentChatItem } from '@/hooks/useAgentChat';
+import type { AgentUsage } from '@/lib/agent';
 import { AgentActivityGroup } from './AgentActivityGroup';
 import { PermissionCard } from './PermissionCard';
+
+export function usageTotalTokens(usage: AgentUsage): number {
+  return (
+    (usage.input_tokens ?? 0) +
+    (usage.output_tokens ?? 0) +
+    (usage.cache_read_tokens ?? 0) +
+    (usage.cache_creation_tokens ?? 0)
+  );
+}
+
+function UsageLine({ usage, iterations }: { usage: AgentUsage; iterations?: number }) {
+  const { t, i18n } = useTranslation();
+  const total = usageTotalTokens(usage);
+  if (total === 0) return null;
+  const format = new Intl.NumberFormat(i18n.language, {
+    notation: 'compact',
+    maximumFractionDigits: 1,
+  });
+  const parts = [t('agentChat.usage.tokens', { value: format.format(total) })];
+  if (iterations && iterations > 1) {
+    parts.push(t('agentChat.usage.iterations', { count: iterations }));
+  }
+  const cacheRead = usage.cache_read_tokens ?? 0;
+  const promptTokens = (usage.input_tokens ?? 0) + cacheRead + (usage.cache_creation_tokens ?? 0);
+  if (cacheRead > 0 && promptTokens > 0) {
+    parts.push(
+      t('agentChat.usage.cached', { percent: Math.round((cacheRead / promptTokens) * 100) })
+    );
+  }
+  return (
+    <p className="mt-1.5 select-none text-[11px] text-muted-foreground/70">{parts.join(' · ')}</p>
+  );
+}
 
 type ToolItem = Extract<AgentChatItem, { kind: 'tool' }>;
 type ThreadEntry =
@@ -137,6 +171,9 @@ export function AgentThread({ items, loading, onRespondPermission }: AgentThread
             return (
               <div key={item.id} className="max-w-full text-sm leading-relaxed">
                 <Markdown>{item.content}</Markdown>
+                {!item.streaming && item.usage && (
+                  <UsageLine usage={item.usage} iterations={item.iterations} />
+                )}
               </div>
             );
           case 'activity':

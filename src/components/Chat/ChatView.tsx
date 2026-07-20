@@ -29,7 +29,7 @@ import {
 import { AI_PROVIDERS, type AiModelInfo, type AiProvider, aiListModels } from '@/lib/ai';
 import { useAiPreferences } from '@/providers/AiPreferencesProvider';
 import { AgentPromptInput } from './AgentPromptInput';
-import { AgentThread } from './AgentThread';
+import { AgentThread, usageTotalTokens } from './AgentThread';
 import { ConversationList } from './ConversationList';
 
 interface ChatViewProps {
@@ -51,7 +51,7 @@ function loadConversationSidebarPreference(): boolean {
 }
 
 export function ChatView({ sessionId, connectionId, connectionName, environment }: ChatViewProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const reduceMotion = useReducedMotion();
   const {
     preferredProvider,
@@ -212,6 +212,16 @@ export function ChatView({ sessionId, connectionId, connectionName, environment 
 
   const disabled = !sessionId || !isReady;
 
+  const conversationTokens = useMemo(
+    () =>
+      chat.items.reduce(
+        (sum, item) =>
+          item.kind === 'assistant' && item.usage ? sum + usageTotalTokens(item.usage) : sum,
+        0
+      ),
+    [chat.items]
+  );
+
   return (
     <LicenseGate feature="ai">
       <div className="flex h-full min-h-0 min-w-0 flex-1 overflow-hidden">
@@ -256,6 +266,19 @@ export function ChatView({ sessionId, connectionId, connectionName, environment 
             <div className="flex min-w-0 flex-1 items-center gap-2">
               <QoreAiMark compact size={20} />
               <span className="truncate text-sm font-medium">{title || t('agentChat.title')}</span>
+              {conversationTokens > 0 && (
+                <span
+                  className="shrink-0 select-none text-[11px] text-muted-foreground/70"
+                  title={t('agentChat.usage.conversationTotal')}
+                >
+                  {t('agentChat.usage.tokens', {
+                    value: new Intl.NumberFormat(i18n.language, {
+                      notation: 'compact',
+                      maximumFractionDigits: 1,
+                    }).format(conversationTokens),
+                  })}
+                </span>
+              )}
             </div>
             {connectionName && (
               <Badge variant="outline" className="shrink-0 gap-1 font-normal">

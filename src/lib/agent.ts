@@ -19,6 +19,13 @@ export interface ToolResult {
   is_error: boolean;
 }
 
+export interface AgentUsage {
+  input_tokens?: number;
+  output_tokens?: number;
+  cache_read_tokens?: number;
+  cache_creation_tokens?: number;
+}
+
 export interface AgentMessage {
   role: "system" | "user" | "assistant";
   content: string;
@@ -62,7 +69,13 @@ export type AgentEvent =
       reason: string;
       can_remember: boolean;
     }
-  | { type: "done"; text: string; tokens_used?: number; iterations: number }
+  | {
+      type: "done";
+      text: string;
+      tokens_used?: number;
+      usage?: AgentUsage;
+      iterations: number;
+    }
   | { type: "error"; error: AiError };
 
 export interface ToolStepSummary {
@@ -75,6 +88,7 @@ export interface StoredMessage {
   role: "system" | "user" | "assistant";
   content: string;
   tool_steps?: ToolStepSummary[];
+  usage?: AgentUsage;
 }
 
 export interface Conversation {

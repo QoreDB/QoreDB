@@ -2443,6 +2443,12 @@
     },
     "tool": {
       "truncated": "{{count}} 行中、先頭の行のみ表示"
+    },
+    "usage": {
+      "tokens": "{{value}} トークン",
+      "iterations": "{{count}} 回の反復",
+      "cached": "キャッシュから {{percent}}%",
+      "conversationTotal": "この会話で使用したトークン"
     }
   },
   "federation": {

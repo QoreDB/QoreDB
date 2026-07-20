@@ -2446,6 +2446,12 @@
     },
     "tool": {
       "truncated": "Показаны первые строки из {{count}}"
+    },
+    "usage": {
+      "tokens": "{{value}} токенов",
+      "iterations": "{{count}} итераций",
+      "cached": "{{percent}} % из кэша",
+      "conversationTotal": "Токены, израсходованные в этом разговоре"
     }
   },
   "federation": {

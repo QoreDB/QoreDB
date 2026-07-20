@@ -11,7 +11,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::ai::types::AiRole;
+use crate::ai::types::{AiRole, AiUsage};
 
 pub const MAX_SUMMARY_CHARS: usize = 500;
 
@@ -29,6 +29,10 @@ pub struct StoredMessage {
     pub content: String,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub tool_steps: Vec<ToolStepSummary>,
+    /// Token usage of the run that produced this assistant message —
+    /// metadata only, never query data (option C untouched).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub usage: Option<AiUsage>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -167,6 +171,7 @@ mod tests {
                     role: AiRole::User,
                     content: "combien de commandes par client ?".to_string(),
                     tool_steps: vec![],
+                    usage: None,
                 },
                 StoredMessage {
                     role: AiRole::Assistant,
@@ -176,6 +181,12 @@ mod tests {
                         summary: "SELECT customer_id, COUNT(*) … — 42 lignes".to_string(),
                         is_error: false,
                     }],
+                    usage: Some(AiUsage {
+                        input_tokens: Some(1_200),
+                        output_tokens: Some(300),
+                        cache_read_tokens: Some(4_000),
+                        cache_creation_tokens: None,
+                    }),
                 },
             ],
             scope: vec!["local-pg".to_string()],

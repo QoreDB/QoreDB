@@ -2443,6 +2443,12 @@
     },
     "tool": {
       "truncated": "共 {{count}} 行，仅显示前若干行"
+    },
+    "usage": {
+      "tokens": "{{value}} 个 token",
+      "iterations": "{{count}} 次迭代",
+      "cached": "{{percent}}% 来自缓存",
+      "conversationTotal": "本对话已使用的 token"
     }
   },
   "federation": {

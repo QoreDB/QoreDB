@@ -23,7 +23,7 @@ use super::permissions::{self, Gate};
 use super::tools::{self, ToolOutcome};
 use super::types::{AgentMessage, AgentTurn, ToolCall, ToolResult};
 use crate::ai::manager::AiManager;
-use crate::ai::types::{AiConfig, AiError, AiRole, AiStreamChunk};
+use crate::ai::types::{AiConfig, AiError, AiRole, AiStreamChunk, AiUsage};
 
 pub const TOTAL_TIMEOUT_SECS: u64 = 600;
 /// Hard cap across all iterations of one run, in billing-weighted tokens
@@ -95,6 +95,10 @@ pub enum AgentEvent {
     Done {
         text: String,
         tokens_used: Option<u32>,
+        /// Cumulative usage breakdown for the run, when the provider
+        /// reported one (cache split included).
+        #[serde(skip_serializing_if = "Option::is_none")]
+        usage: Option<AiUsage>,
         iterations: u32,
     },
     Error {
@@ -373,6 +377,7 @@ async fn run_inner(
 
     let mut tokens_total: u32 = 0;
     let mut budget_spent: u32 = 0;
+    let mut run_usage = AiUsage::default();
     let mut iteration: u32 = 0;
     let mut previous_tool_batch: Option<String> = None;
     let mut repeated_tool_batches: u8 = 0;
@@ -467,12 +472,14 @@ async fn run_inner(
         if let Some(weighted) = turn.usage.cost_weighted() {
             budget_spent = budget_spent.saturating_add(weighted);
         }
+        accumulate_usage(&mut run_usage, &turn.usage);
 
         // A final answer always wins, even one delivered over the budget.
         if turn.tool_calls.is_empty() {
             return Ok(AgentEvent::Done {
                 text: turn.text,
                 tokens_used: (tokens_total > 0).then_some(tokens_total),
+                usage: run_usage.total().map(|_| run_usage),
                 iterations: iteration,
             });
         }
@@ -617,6 +624,17 @@ async fn watch_cancelled(flag: &Arc<AtomicBool>) {
 
 fn configured_iteration_limit_reached(limit: Option<u32>, iteration: u32) -> bool {
     limit.is_some_and(|limit| iteration > limit)
+}
+
+fn accumulate_usage(sum: &mut AiUsage, turn: &AiUsage) {
+    let add = |acc: Option<u32>, extra: Option<u32>| match (acc, extra) {
+        (None, None) => None,
+        (acc, extra) => Some(acc.unwrap_or(0).saturating_add(extra.unwrap_or(0))),
+    };
+    sum.input_tokens = add(sum.input_tokens, turn.input_tokens);
+    sum.output_tokens = add(sum.output_tokens, turn.output_tokens);
+    sum.cache_read_tokens = add(sum.cache_read_tokens, turn.cache_read_tokens);
+    sum.cache_creation_tokens = add(sum.cache_creation_tokens, turn.cache_creation_tokens);
 }
 
 fn push_turn(conversation: &mut Vec<AgentMessage>, turn: AgentTurn, results: Vec<ToolResult>) {

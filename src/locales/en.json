@@ -2483,6 +2483,12 @@
     },
     "tool": {
       "truncated": "Showing first rows of {{count}}"
+    },
+    "usage": {
+      "tokens": "{{value}} tokens",
+      "iterations": "{{count}} iteration(s)",
+      "cached": "{{percent}}% from cache",
+      "conversationTotal": "Tokens used in this conversation"
     }
   },
   "federation": {

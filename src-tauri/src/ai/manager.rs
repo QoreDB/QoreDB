@@ -271,19 +271,11 @@ mod tests {
             Ok(())
         }
 
-        fn has_credential(
-            &self,
-            _service: &str,
-            username: &str,
-        ) -> Result<bool, CredentialError> {
+        fn has_credential(&self, _service: &str, username: &str) -> Result<bool, CredentialError> {
             Ok(self.values.lock().contains_key(username))
         }
 
-        fn delete_credential(
-            &self,
-            _service: &str,
-            username: &str,
-        ) -> Result<(), CredentialError> {
+        fn delete_credential(&self, _service: &str, username: &str) -> Result<(), CredentialError> {
             self.values.lock().remove(username);
             Ok(())
         }

@@ -143,6 +143,19 @@ impl AiProvider {
         self.available_models()[0].id
     }
 
+    /// Cheapest curated model, for utility calls (conversation titles) where
+    /// quality doesn't matter.
+    pub fn utility_model(&self) -> &'static str {
+        match self {
+            AiProvider::OpenAi => "gpt-5.6-luna",
+            AiProvider::Anthropic => "claude-haiku-4-5",
+            AiProvider::MistralAi => "mistral-small-latest",
+            AiProvider::GoogleGemini => "gemini-3.1-flash-lite",
+            AiProvider::DeepSeek => "deepseek-v4-flash",
+            AiProvider::Ollama => self.default_model(),
+        }
+    }
+
     pub fn default_base_url(&self) -> Option<&'static str> {
         match self {
             AiProvider::Ollama => Some("http://localhost:11434"),
@@ -391,18 +404,48 @@ impl From<AiError> for String {
 }
 
 /// Token counts reported by the provider at the end of a stream.
+/// `input_tokens` is normalized to the *uncached* input across providers
+/// (some report cached tokens inside their prompt count, some outside).
 #[derive(Debug, Clone, Copy, Default, Serialize, Deserialize)]
 pub struct AiUsage {
     pub input_tokens: Option<u32>,
     pub output_tokens: Option<u32>,
+    pub cache_read_tokens: Option<u32>,
+    pub cache_creation_tokens: Option<u32>,
 }
 
 impl AiUsage {
     pub fn total(&self) -> Option<u32> {
-        match (self.input_tokens, self.output_tokens) {
-            (None, None) => None,
-            (input, output) => Some(input.unwrap_or(0) + output.unwrap_or(0)),
+        if self.input_tokens.is_none()
+            && self.output_tokens.is_none()
+            && self.cache_read_tokens.is_none()
+            && self.cache_creation_tokens.is_none()
+        {
+            return None;
         }
+        Some(
+            self.input_tokens.unwrap_or(0)
+                + self.output_tokens.unwrap_or(0)
+                + self.cache_read_tokens.unwrap_or(0)
+                + self.cache_creation_tokens.unwrap_or(0),
+        )
+    }
+
+    /// Billing-representative weight: cache reads cost ~10% of fresh input
+    /// and cache writes ~125% (Anthropic pricing, close enough elsewhere).
+    /// Used for the per-run budget so cached agent iterations don't burn it
+    /// quadratically.
+    pub fn cost_weighted(&self) -> Option<u32> {
+        self.total()?;
+        Some(
+            self.input_tokens.unwrap_or(0)
+                + self.output_tokens.unwrap_or(0)
+                + self.cache_read_tokens.unwrap_or(0).div_ceil(10)
+                + {
+                    let creation = self.cache_creation_tokens.unwrap_or(0);
+                    creation + creation / 4
+                },
+        )
     }
 }
 

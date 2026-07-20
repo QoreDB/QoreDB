@@ -9,6 +9,8 @@ import {
   agentSendMessage,
   agentStreamEvent,
   type StoredMessage,
+  type ToolCall,
+  type ToolResult,
   type ToolStepSummary,
 } from '@/lib/agent';
 import type { AiConfig, AiError } from '@/lib/ai';
@@ -23,6 +25,7 @@ export type AgentChatItem =
       callId: string;
       name: string;
       input: unknown;
+      thoughtSignature?: string;
       result?: { content: string; isError: boolean };
     }
   | {
@@ -129,6 +132,11 @@ export function useAgentChat({ sessionId, connectionId, onDone }: UseAgentChatOp
             },
           ];
         }
+        case 'text_reset':
+          // A failed iteration is being retried: drop its partial text.
+          return prev.map(item =>
+            item.kind === 'assistant' && item.streaming ? { ...item, content: '' } : item
+          );
         case 'tool_call_started':
           return [
             ...prev,
@@ -138,6 +146,7 @@ export function useAgentChat({ sessionId, connectionId, onDone }: UseAgentChatOp
               callId: event.call_id,
               name: event.name,
               input: event.input,
+              thoughtSignature: event.thought_signature,
             },
           ];
         case 'tool_result':
@@ -217,17 +226,7 @@ export function useAgentChat({ sessionId, connectionId, onDone }: UseAgentChatOp
       const requestId = crypto.randomUUID();
       requestIdRef.current = requestId;
 
-      // Option C: history carries text only, tool steps stay in the run.
-      const history: AgentMessage[] = itemsRef.current.flatMap(item =>
-        item.kind === 'user' || (item.kind === 'assistant' && item.content)
-          ? [
-              {
-                role: item.kind === 'user' ? ('user' as const) : ('assistant' as const),
-                content: item.content,
-              },
-            ]
-          : []
-      );
+      const history = buildHistory(itemsRef.current);
 
       setItems(prev => [...prev, { kind: 'user', id: crypto.randomUUID(), content: prompt }]);
       setLoading(true);
@@ -333,6 +332,66 @@ export function useAgentChat({ sessionId, connectionId, onDone }: UseAgentChatOp
     loadMessages,
     toStoredMessages,
   };
+}
+
+const MAX_CARRIED_RESULT_CHARS = 2000;
+
+/**
+ * Rebuilds the provider conversation from the visible thread. Tool calls and
+ * their (clamped) results from this session are carried over so the model
+ * keeps what it already discovered; they live in memory only — persistence
+ * stays summaries-only (option C). Restored steps (no input) are skipped, and
+ * a tool batch without an assistant conclusion is dropped so roles keep
+ * alternating.
+ */
+function buildHistory(items: AgentChatItem[]): AgentMessage[] {
+  const history: AgentMessage[] = [];
+  let calls: ToolCall[] = [];
+  let results: ToolResult[] = [];
+  const dropPending = () => {
+    calls = [];
+    results = [];
+  };
+  const flushTools = () => {
+    if (calls.length === 0) return;
+    const prev = history[history.length - 1];
+    if (prev?.role === 'assistant' && !prev.tool_calls) {
+      prev.tool_calls = calls;
+    } else {
+      history.push({ role: 'assistant', content: '', tool_calls: calls });
+    }
+    history.push({ role: 'user', content: '', tool_results: results });
+    dropPending();
+  };
+  for (const item of items) {
+    if (item.kind === 'user') {
+      dropPending();
+      history.push({ role: 'user', content: item.content });
+    } else if (item.kind === 'tool' && item.input !== undefined && item.result) {
+      calls.push({
+        id: item.callId,
+        name: item.name,
+        input: item.input,
+        thought_signature: item.thoughtSignature,
+      });
+      results.push({
+        id: item.callId,
+        content: clampCarriedResult(item.result.content),
+        is_error: item.result.isError,
+      });
+    } else if (item.kind === 'assistant' && item.content) {
+      flushTools();
+      history.push({ role: 'assistant', content: item.content });
+    }
+  }
+  dropPending();
+  return history;
+}
+
+function clampCarriedResult(content: string): string {
+  return content.length > MAX_CARRIED_RESULT_CHARS
+    ? `${content.slice(0, MAX_CARRIED_RESULT_CHARS)}… (truncated)`
+    : content;
 }
 
 /** Short, results-free description of a tool step (option C invariant). */

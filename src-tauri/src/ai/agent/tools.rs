@@ -20,6 +20,68 @@ pub const MAX_ROWS_TO_MODEL: usize = 50;
 pub const MAX_CELL_CHARS: usize = 200;
 pub const TOOL_TIMEOUT_MS: u64 = 60_000;
 
+const PRESEED_TIMEOUT_MS: u64 = 3_000;
+const PRESEED_MAX_NAMESPACES: usize = 8;
+const PRESEED_TABLES_PER_NAMESPACE: usize = 40;
+const PRESEED_MAX_CHARS: usize = 2_000;
+
+/// Compact table listing injected into the system prompt so the model
+/// doesn't spend its first iterations on discovery calls. Best-effort:
+/// capped in size, sorted for stable cache prefixes, skipped when the
+/// connection is slow to answer.
+pub async fn schema_overview(ctx: &AgentToolContext, session: SessionId) -> Option<String> {
+    tokio::time::timeout(
+        std::time::Duration::from_millis(PRESEED_TIMEOUT_MS),
+        schema_overview_inner(ctx, session),
+    )
+    .await
+    .ok()
+    .flatten()
+}
+
+async fn schema_overview_inner(ctx: &AgentToolContext, session: SessionId) -> Option<String> {
+    let mut namespaces = agent_tools::list_namespaces(ctx, session).await.ok()?;
+    if namespaces.is_empty() {
+        return None;
+    }
+    namespaces.sort_by(|a, b| {
+        (a.database.as_str(), a.schema.as_deref()).cmp(&(b.database.as_str(), b.schema.as_deref()))
+    });
+
+    let shown = namespaces.len().min(PRESEED_MAX_NAMESPACES);
+    let mut out = String::new();
+    for namespace in &namespaces[..shown] {
+        let Ok(list) = agent_tools::list_tables(ctx, session, namespace, None).await else {
+            continue;
+        };
+        let mut names: Vec<&str> = list.collections.iter().map(|c| c.name.as_str()).collect();
+        names.sort_unstable();
+        let label = match &namespace.schema {
+            Some(schema) => format!("{}.{schema}", namespace.database),
+            None => namespace.database.clone(),
+        };
+        let visible = names.len().min(PRESEED_TABLES_PER_NAMESPACE);
+        let mut line = format!("{label}: {}", names[..visible].join(", "));
+        let hidden = (list.total_count as usize).saturating_sub(visible);
+        if hidden > 0 {
+            line.push_str(&format!(" (+{hidden} more)"));
+        }
+        if out.chars().count() + line.chars().count() > PRESEED_MAX_CHARS {
+            out.push_str("(more namespaces omitted)\n");
+            break;
+        }
+        out.push_str(&line);
+        out.push('\n');
+    }
+    if namespaces.len() > shown && !out.ends_with("(more namespaces omitted)\n") {
+        out.push_str(&format!(
+            "(+{} more namespaces)\n",
+            namespaces.len() - shown
+        ));
+    }
+    (!out.is_empty()).then(|| out.trim_end().to_string())
+}
+
 pub fn definitions() -> Vec<AgentTool> {
     vec![
         AgentTool {
@@ -173,19 +235,17 @@ pub async fn execute(
             (Err(e), _) | (_, Err(e)) => Err(e),
         },
         "run_query" | "run_mutation" => match require_str(input, "query") {
-            Ok(query) => {
-                agent_tools::run_query(
-                    ctx,
-                    session,
-                    query,
-                    None,
-                    acknowledged,
-                    Some(TOOL_TIMEOUT_MS),
-                    QuerySource::Ai,
-                )
-                .await
-                .map(|result| format_query_result(&result))
-            }
+            Ok(query) => agent_tools::run_query(
+                ctx,
+                session,
+                query,
+                None,
+                acknowledged,
+                Some(TOOL_TIMEOUT_MS),
+                QuerySource::Ai,
+            )
+            .await
+            .map(|result| format_query_result(&result)),
             Err(e) => Err(e),
         },
         other => Err(format!("Unknown tool: {other}")),
@@ -194,7 +254,10 @@ pub async fn execute(
     ToolOutcome::from_result(result)
 }
 
-async fn list_connections(ctx: &AgentToolContext, scope: &HashSet<String>) -> Result<String, String> {
+async fn list_connections(
+    ctx: &AgentToolContext,
+    scope: &HashSet<String>,
+) -> Result<String, String> {
     let sessions = ctx.session_manager.list_sessions().await;
     let mut out = Vec::with_capacity(sessions.len());
     for (session_id, display_name) in sessions {

@@ -63,11 +63,21 @@ pub fn openai_responses_input(messages: &[AgentMessage]) -> Value {
                 if !message.content.is_empty() {
                     items.push(json!({ "role": "assistant", "content": message.content }));
                 }
+                // Tool calls carried over from a previous run (or another
+                // provider) have no output items; rebuild the function_call
+                // entries so their function_call_output twins stay paired.
+                items.extend(message.tool_calls.iter().map(|call| {
+                    json!({
+                        "type": "function_call",
+                        "call_id": call.id,
+                        "name": call.name,
+                        "arguments": call.input.to_string(),
+                    })
+                }));
             }
             AiRole::User => {
-                if !message.content.is_empty() {
-                    items.push(json!({ "role": "user", "content": message.content }));
-                }
+                // Outputs first: they must stay adjacent to their
+                // function_call items from the previous assistant message.
                 items.extend(message.tool_results.iter().map(|result| {
                     json!({
                         "type": "function_call_output",
@@ -75,6 +85,9 @@ pub fn openai_responses_input(messages: &[AgentMessage]) -> Value {
                         "output": result.content,
                     })
                 }));
+                if !message.content.is_empty() {
+                    items.push(json!({ "role": "user", "content": message.content }));
+                }
             }
         }
     }
@@ -166,6 +179,31 @@ pub fn anthropic_tools(tools: &[AgentTool]) -> Value {
             })
             .collect(),
     )
+}
+
+/// Anthropic system prompt as a content-block array with a cache breakpoint,
+/// so the (tools + system) prefix is cached across iterations and turns.
+pub fn anthropic_system_blocks(system: &str) -> Value {
+    json!([{
+        "type": "text",
+        "text": system,
+        "cache_control": { "type": "ephemeral" }
+    }])
+}
+
+/// Marks the last content block of the last message as a cache breakpoint.
+/// Each agent iteration replays the whole conversation; moving the breakpoint
+/// to the tail makes every previous iteration's prefix a cache hit.
+pub fn anthropic_mark_cache_tail(messages: &mut Value) {
+    let Some(block) = messages
+        .as_array_mut()
+        .and_then(|msgs| msgs.last_mut())
+        .and_then(|msg| msg["content"].as_array_mut())
+        .and_then(|blocks| blocks.last_mut())
+    else {
+        return;
+    };
+    block["cache_control"] = json!({ "type": "ephemeral" });
 }
 
 /// Returns `(system, messages)`; tool calls become `tool_use` content
@@ -568,6 +606,81 @@ mod tests {
     }
 
     #[test]
+    fn anthropic_cache_tail_lands_on_last_block_of_last_message() {
+        let messages = vec![
+            AgentMessage {
+                role: AiRole::User,
+                content: "count users".to_string(),
+                reasoning_content: None,
+                tool_calls: vec![],
+                tool_results: vec![],
+                provider_output_items: vec![],
+            },
+            AgentMessage {
+                role: AiRole::Assistant,
+                content: String::new(),
+                reasoning_content: None,
+                tool_calls: vec![call("c1", "list_tables", json!({"database": "shop"}))],
+                tool_results: vec![],
+                provider_output_items: vec![],
+            },
+            AgentMessage {
+                role: AiRole::User,
+                content: String::new(),
+                reasoning_content: None,
+                tool_calls: vec![],
+                tool_results: vec![ToolResult {
+                    id: "c1".to_string(),
+                    content: "[]".to_string(),
+                    is_error: false,
+                }],
+                provider_output_items: vec![],
+            },
+        ];
+        let (system, mut out) = anthropic_agent_messages(&messages);
+        anthropic_mark_cache_tail(&mut out);
+
+        assert!(out[0]["content"][0].get("cache_control").is_none());
+        assert!(out[1]["content"][0].get("cache_control").is_none());
+        assert_eq!(out[2]["content"][0]["cache_control"]["type"], "ephemeral");
+        assert_eq!(
+            anthropic_system_blocks(&system)[0]["cache_control"]["type"],
+            "ephemeral"
+        );
+    }
+
+    #[test]
+    fn responses_input_synthesizes_function_calls_from_carried_history() {
+        let messages = vec![
+            AgentMessage {
+                role: AiRole::Assistant,
+                content: String::new(),
+                reasoning_content: None,
+                tool_calls: vec![call("c1", "list_tables", json!({"database": "shop"}))],
+                tool_results: vec![],
+                provider_output_items: vec![],
+            },
+            AgentMessage {
+                role: AiRole::User,
+                content: String::new(),
+                reasoning_content: None,
+                tool_calls: vec![],
+                tool_results: vec![ToolResult {
+                    id: "c1".to_string(),
+                    content: "[\"users\"]".to_string(),
+                    is_error: false,
+                }],
+                provider_output_items: vec![],
+            },
+        ];
+        let input = openai_responses_input(&messages);
+        assert_eq!(input[0]["type"], "function_call");
+        assert_eq!(input[0]["call_id"], "c1");
+        assert_eq!(input[1]["type"], "function_call_output");
+        assert_eq!(input[1]["call_id"], "c1");
+    }
+
+    #[test]
     fn gemini_tools_strip_additional_properties_recursively() {
         let tools = vec![AgentTool {
             name: "list_tables".to_string(),
@@ -592,7 +705,10 @@ mod tests {
                 .get("additionalProperties")
                 .is_none()
         );
-        assert_eq!(params["properties"]["filter"]["properties"]["name"]["type"], "string");
+        assert_eq!(
+            params["properties"]["filter"]["properties"]["name"]["type"],
+            "string"
+        );
     }
 
     #[test]
@@ -676,7 +792,10 @@ mod tests {
             1,
             &json!({"type": "tool_use", "id": "toolu_1", "name": "list_tables"}),
         );
-        acc.feed_delta(1, &json!({"type": "input_json_delta", "partial_json": "{\"data"}));
+        acc.feed_delta(
+            1,
+            &json!({"type": "input_json_delta", "partial_json": "{\"data"}),
+        );
         acc.feed_delta(
             1,
             &json!({"type": "input_json_delta", "partial_json": "base\":\"shop\"}"}),

@@ -38,7 +38,14 @@ export interface AgentChatRequest {
 
 export type AgentEvent =
   | { type: "text_delta"; text: string }
-  | { type: "tool_call_started"; call_id: string; name: string; input: unknown }
+  | { type: "text_reset" }
+  | {
+      type: "tool_call_started";
+      call_id: string;
+      name: string;
+      input: unknown;
+      thought_signature?: string;
+    }
   | {
       type: "tool_result";
       call_id: string;

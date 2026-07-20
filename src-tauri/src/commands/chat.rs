@@ -136,6 +136,14 @@ pub async fn chat_generate_title(
         Arc::clone(&s.ai_manager)
     };
 
+    // Ten words of output: use the provider's cheapest model, unless a
+    // custom base_url exposes an unknown model catalog.
+    let mut config = config;
+    if config.base_url.is_none() {
+        config.model = Some(config.provider.utility_model().to_string());
+    }
+    config.max_tokens = Some(64);
+
     let system = "You name conversations. Reply with a short title (max 6 words) in the \
                   language of the message. Title only — no quotes, no punctuation around it.";
     let (title, _) =

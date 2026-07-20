@@ -181,7 +181,13 @@ mod tests {
     #[test]
     fn unknown_tool_is_blocked() {
         assert!(matches!(
-            classify("drop_database", None, "postgres", Environment::Development, None),
+            classify(
+                "drop_database",
+                None,
+                "postgres",
+                Environment::Development,
+                None
+            ),
             Gate::Block { .. }
         ));
     }
@@ -202,8 +208,12 @@ mod tests {
 
     #[test]
     fn scope_access_to_production_cannot_be_remembered() {
-        match classify_scope_access("prod-pg", "production", Environment::Production, Some("key"))
-        {
+        match classify_scope_access(
+            "prod-pg",
+            "production",
+            Environment::Production,
+            Some("key"),
+        ) {
             Gate::Confirm { grant_key, .. } => assert!(grant_key.is_none()),
             other => panic!("expected Confirm, got {other:?}"),
         }
@@ -211,8 +221,12 @@ mod tests {
 
     #[test]
     fn scope_access_to_dev_offers_remember() {
-        match classify_scope_access("local-pg", "development", Environment::Development, Some("k"))
-        {
+        match classify_scope_access(
+            "local-pg",
+            "development",
+            Environment::Development,
+            Some("k"),
+        ) {
             Gate::Confirm { grant_key, .. } => assert_eq!(grant_key.as_deref(), Some("scope|k")),
             other => panic!("expected Confirm, got {other:?}"),
         }

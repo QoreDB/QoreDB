@@ -4,7 +4,7 @@ use std::time::Duration;
 
 use async_trait::async_trait;
 use reqwest::Client;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use tokio::sync::mpsc;
 use tracing::debug;
 
@@ -113,7 +113,11 @@ async fn send_with_retry(
                         "Retrying anomalous provider permission rejection"
                     );
                 }
-                tokio::time::sleep(RETRY_BACKOFFS[attempt]).await;
+                // Honor the provider's retry-after (bounded) instead of
+                // burning both retries inside a still-closed window.
+                let retry_after = error.retry_after_secs.unwrap_or(0).min(30);
+                let delay = RETRY_BACKOFFS[attempt].max(Duration::from_secs(retry_after));
+                tokio::time::sleep(delay).await;
                 attempt += 1;
                 current = retry;
             }
@@ -231,14 +235,81 @@ fn stream_error(e: impl std::fmt::Display) -> AiError {
     AiError::network(format!("Stream error: {e}"))
 }
 
+/// Splits a byte stream into trimmed, non-empty lines (SSE or NDJSON).
+/// Buffering *bytes* keeps multi-byte UTF-8 characters intact when the
+/// network splits them across chunks — decoding each chunk separately turned
+/// them into U+FFFD replacement characters in streamed text.
+#[derive(Default)]
+struct StreamLineBuffer {
+    bytes: Vec<u8>,
+}
+
+impl StreamLineBuffer {
+    fn push(&mut self, chunk: &[u8]) -> Vec<String> {
+        self.bytes.extend_from_slice(chunk);
+        let mut lines = Vec::new();
+        while let Some(pos) = self.bytes.iter().position(|&b| b == b'\n') {
+            let raw: Vec<u8> = self.bytes.drain(..=pos).collect();
+            let line = String::from_utf8_lossy(&raw);
+            let line = line.trim();
+            if !line.is_empty() {
+                lines.push(line.to_string());
+            }
+        }
+        lines
+    }
+}
+
 /// OpenAI-style `usage` object, present on the final chunk when
 /// `stream_options.include_usage` is set (native on Mistral/DeepSeek).
+/// `prompt_tokens` *includes* cached tokens on these APIs; normalize so
+/// `input_tokens` is the uncached part (AiUsage contract).
 fn merge_openai_usage(usage: &mut AiUsage, parsed: &Value) {
     let u = &parsed["usage"];
+    let cached = u["prompt_tokens_details"]["cached_tokens"]
+        .as_u64()
+        .or_else(|| u["prompt_cache_hit_tokens"].as_u64());
     if let Some(v) = u["prompt_tokens"].as_u64() {
-        usage.input_tokens = Some(v as u32);
+        let cached = cached.unwrap_or(0).min(v);
+        usage.input_tokens = Some((v - cached) as u32);
+        if cached > 0 {
+            usage.cache_read_tokens = Some(cached as u32);
+        }
     }
     if let Some(v) = u["completion_tokens"].as_u64() {
+        usage.output_tokens = Some(v as u32);
+    }
+}
+
+/// Anthropic `usage` object (from `message_start`/`message_delta`):
+/// `input_tokens` already excludes the cache_* counts.
+fn merge_anthropic_usage(usage: &mut AiUsage, u: &Value) {
+    if let Some(v) = u["input_tokens"].as_u64() {
+        usage.input_tokens = Some(v as u32);
+    }
+    if let Some(v) = u["output_tokens"].as_u64() {
+        usage.output_tokens = Some(v as u32);
+    }
+    if let Some(v) = u["cache_read_input_tokens"].as_u64() {
+        usage.cache_read_tokens = Some(v as u32);
+    }
+    if let Some(v) = u["cache_creation_input_tokens"].as_u64() {
+        usage.cache_creation_tokens = Some(v as u32);
+    }
+}
+
+/// Gemini `usageMetadata`: `promptTokenCount` includes the implicitly cached
+/// tokens reported by `cachedContentTokenCount`.
+fn merge_gemini_usage(usage: &mut AiUsage, meta: &Value) {
+    let cached = meta["cachedContentTokenCount"].as_u64();
+    if let Some(v) = meta["promptTokenCount"].as_u64() {
+        let cached = cached.unwrap_or(0).min(v);
+        usage.input_tokens = Some((v - cached) as u32);
+        if cached > 0 {
+            usage.cache_read_tokens = Some(cached as u32);
+        }
+    }
+    if let Some(v) = meta["candidatesTokenCount"].as_u64() {
         usage.output_tokens = Some(v as u32);
     }
 }
@@ -411,19 +482,13 @@ impl AIProvider for OpenAiProvider {
         // Parse SSE stream
         let mut usage = AiUsage::default();
         let mut stream = response.bytes_stream();
-        let mut buffer = String::new();
+        let mut buffer = StreamLineBuffer::default();
 
         use futures::StreamExt;
         while let Some(chunk_result) = stream.next().await {
             let bytes = chunk_result.map_err(stream_error)?;
-            buffer.push_str(&String::from_utf8_lossy(&bytes));
-
-            // Process complete SSE lines
-            while let Some(pos) = buffer.find('\n') {
-                let line = buffer[..pos].trim().to_string();
-                buffer = buffer[pos + 1..].to_string();
-
-                if line.is_empty() || line.starts_with(':') {
+            for line in buffer.push(&bytes) {
+                if line.starts_with(':') {
                     continue;
                 }
 
@@ -525,7 +590,7 @@ impl AIProvider for AnthropicProvider {
         // reject temperature/top_p/top_k with a 400.
         let body = json!({
             "model": model,
-            "system": system,
+            "system": wire::anthropic_system_blocks(&system),
             "messages": api_messages,
             "max_tokens": max_tokens,
             "stream": true
@@ -550,18 +615,13 @@ impl AIProvider for AnthropicProvider {
         // Parse SSE stream (Anthropic format)
         let mut usage = AiUsage::default();
         let mut stream = response.bytes_stream();
-        let mut buffer = String::new();
+        let mut buffer = StreamLineBuffer::default();
 
         use futures::StreamExt;
         while let Some(chunk_result) = stream.next().await {
             let bytes = chunk_result.map_err(stream_error)?;
-            buffer.push_str(&String::from_utf8_lossy(&bytes));
-
-            while let Some(pos) = buffer.find('\n') {
-                let line = buffer[..pos].trim().to_string();
-                buffer = buffer[pos + 1..].to_string();
-
-                if line.is_empty() || line.starts_with(':') {
+            for line in buffer.push(&bytes) {
+                if line.starts_with(':') {
                     continue;
                 }
 
@@ -571,10 +631,7 @@ impl AIProvider for AnthropicProvider {
 
                         match event_type {
                             "message_start" => {
-                                if let Some(v) = parsed["message"]["usage"]["input_tokens"].as_u64()
-                                {
-                                    usage.input_tokens = Some(v as u32);
-                                }
+                                merge_anthropic_usage(&mut usage, &parsed["message"]["usage"]);
                             }
                             "content_block_delta" => {
                                 if let Some(text) = parsed["delta"]["text"].as_str() {
@@ -588,9 +645,7 @@ impl AIProvider for AnthropicProvider {
                                 }
                             }
                             "message_delta" => {
-                                if let Some(v) = parsed["usage"]["output_tokens"].as_u64() {
-                                    usage.output_tokens = Some(v as u32);
-                                }
+                                merge_anthropic_usage(&mut usage, &parsed["usage"]);
                             }
                             "message_stop" => {
                                 return Ok(usage);
@@ -599,7 +654,16 @@ impl AIProvider for AnthropicProvider {
                                 let msg = parsed["error"]["message"]
                                     .as_str()
                                     .unwrap_or("Unknown Anthropic error");
-                                return Err(AiError::provider(msg));
+                                // Overload is transient: report it as network
+                                // so the agent loop may replay the turn.
+                                return Err(
+                                    if parsed["error"]["type"].as_str() == Some("overloaded_error")
+                                    {
+                                        AiError::network(msg)
+                                    } else {
+                                        AiError::provider(msg)
+                                    },
+                                );
                             }
                             _ => {}
                         }
@@ -626,11 +690,12 @@ impl AIProvider for AnthropicProvider {
             .effective_base_url()
             .unwrap_or_else(|| "https://api.anthropic.com/v1".to_string());
 
-        let (system, api_messages) = wire::anthropic_agent_messages(messages);
+        let (system, mut api_messages) = wire::anthropic_agent_messages(messages);
+        wire::anthropic_mark_cache_tail(&mut api_messages);
         // No sampling params: recent Anthropic models reject them with a 400.
         let mut body = json!({
             "model": model,
-            "system": system,
+            "system": wire::anthropic_system_blocks(&system),
             "messages": api_messages,
             "max_tokens": max_tokens,
             "stream": true
@@ -659,18 +724,13 @@ impl AIProvider for AnthropicProvider {
         let mut turn = AgentTurn::default();
         let mut acc = wire::AnthropicToolUseAccumulator::default();
         let mut stream = response.bytes_stream();
-        let mut buffer = String::new();
+        let mut buffer = StreamLineBuffer::default();
 
         use futures::StreamExt;
         'outer: while let Some(chunk_result) = stream.next().await {
             let bytes = chunk_result.map_err(stream_error)?;
-            buffer.push_str(&String::from_utf8_lossy(&bytes));
-
-            while let Some(pos) = buffer.find('\n') {
-                let line = buffer[..pos].trim().to_string();
-                buffer = buffer[pos + 1..].to_string();
-
-                if line.is_empty() || line.starts_with(':') {
+            for line in buffer.push(&bytes) {
+                if line.starts_with(':') {
                     continue;
                 }
 
@@ -679,10 +739,7 @@ impl AIProvider for AnthropicProvider {
                         let index = parsed["index"].as_u64().unwrap_or(0);
                         match parsed["type"].as_str().unwrap_or("") {
                             "message_start" => {
-                                if let Some(v) = parsed["message"]["usage"]["input_tokens"].as_u64()
-                                {
-                                    turn.usage.input_tokens = Some(v as u32);
-                                }
+                                merge_anthropic_usage(&mut turn.usage, &parsed["message"]["usage"]);
                             }
                             "content_block_start" => {
                                 acc.start_block(index, &parsed["content_block"]);
@@ -702,9 +759,7 @@ impl AIProvider for AnthropicProvider {
                                 }
                             }
                             "message_delta" => {
-                                if let Some(v) = parsed["usage"]["output_tokens"].as_u64() {
-                                    turn.usage.output_tokens = Some(v as u32);
-                                }
+                                merge_anthropic_usage(&mut turn.usage, &parsed["usage"]);
                             }
                             "message_stop" => {
                                 break 'outer;
@@ -713,7 +768,16 @@ impl AIProvider for AnthropicProvider {
                                 let msg = parsed["error"]["message"]
                                     .as_str()
                                     .unwrap_or("Unknown Anthropic error");
-                                return Err(AiError::provider(msg));
+                                // Overload is transient: report it as network
+                                // so the agent loop may replay the turn.
+                                return Err(
+                                    if parsed["error"]["type"].as_str() == Some("overloaded_error")
+                                    {
+                                        AiError::network(msg)
+                                    } else {
+                                        AiError::provider(msg)
+                                    },
+                                );
                             }
                             _ => {}
                         }
@@ -796,21 +860,12 @@ impl AIProvider for OllamaProvider {
         // Parse NDJSON stream
         let mut usage = AiUsage::default();
         let mut stream = response.bytes_stream();
-        let mut buffer = String::new();
+        let mut buffer = StreamLineBuffer::default();
 
         use futures::StreamExt;
         while let Some(chunk_result) = stream.next().await {
             let bytes = chunk_result.map_err(stream_error)?;
-            buffer.push_str(&String::from_utf8_lossy(&bytes));
-
-            while let Some(pos) = buffer.find('\n') {
-                let line = buffer[..pos].trim().to_string();
-                buffer = buffer[pos + 1..].to_string();
-
-                if line.is_empty() {
-                    continue;
-                }
-
+            for line in buffer.push(&bytes) {
                 if let Ok(parsed) = serde_json::from_str::<Value>(&line) {
                     let done = parsed["done"].as_bool().unwrap_or(false);
 
@@ -896,21 +951,12 @@ impl AIProvider for OllamaProvider {
 
         let mut turn = AgentTurn::default();
         let mut stream = response.bytes_stream();
-        let mut buffer = String::new();
+        let mut buffer = StreamLineBuffer::default();
 
         use futures::StreamExt;
         'outer: while let Some(chunk_result) = stream.next().await {
             let bytes = chunk_result.map_err(stream_error)?;
-            buffer.push_str(&String::from_utf8_lossy(&bytes));
-
-            while let Some(pos) = buffer.find('\n') {
-                let line = buffer[..pos].trim().to_string();
-                buffer = buffer[pos + 1..].to_string();
-
-                if line.is_empty() {
-                    continue;
-                }
-
+            for line in buffer.push(&bytes) {
                 if let Ok(parsed) = serde_json::from_str::<Value>(&line) {
                     let done = parsed["done"].as_bool().unwrap_or(false);
 
@@ -1118,29 +1164,19 @@ impl AIProvider for GoogleGeminiProvider {
         // Parse SSE stream (Gemini format)
         let mut usage = AiUsage::default();
         let mut stream = response.bytes_stream();
-        let mut buffer = String::new();
+        let mut buffer = StreamLineBuffer::default();
 
         use futures::StreamExt;
         while let Some(chunk_result) = stream.next().await {
             let bytes = chunk_result.map_err(stream_error)?;
-            buffer.push_str(&String::from_utf8_lossy(&bytes));
-
-            while let Some(pos) = buffer.find('\n') {
-                let line = buffer[..pos].trim().to_string();
-                buffer = buffer[pos + 1..].to_string();
-
-                if line.is_empty() || line.starts_with(':') {
+            for line in buffer.push(&bytes) {
+                if line.starts_with(':') {
                     continue;
                 }
 
                 if let Some(data) = line.strip_prefix("data: ") {
                     if let Ok(parsed) = serde_json::from_str::<Value>(data) {
-                        if let Some(v) = parsed["usageMetadata"]["promptTokenCount"].as_u64() {
-                            usage.input_tokens = Some(v as u32);
-                        }
-                        if let Some(v) = parsed["usageMetadata"]["candidatesTokenCount"].as_u64() {
-                            usage.output_tokens = Some(v as u32);
-                        }
+                        merge_gemini_usage(&mut usage, &parsed["usageMetadata"]);
                         if let Some(parts) = parsed["candidates"][0]["content"]["parts"].as_array()
                         {
                             for part in parts {
@@ -1216,29 +1252,19 @@ impl AIProvider for GoogleGeminiProvider {
 
         let mut turn = AgentTurn::default();
         let mut stream = response.bytes_stream();
-        let mut buffer = String::new();
+        let mut buffer = StreamLineBuffer::default();
 
         use futures::StreamExt;
         'outer: while let Some(chunk_result) = stream.next().await {
             let bytes = chunk_result.map_err(stream_error)?;
-            buffer.push_str(&String::from_utf8_lossy(&bytes));
-
-            while let Some(pos) = buffer.find('\n') {
-                let line = buffer[..pos].trim().to_string();
-                buffer = buffer[pos + 1..].to_string();
-
-                if line.is_empty() || line.starts_with(':') {
+            for line in buffer.push(&bytes) {
+                if line.starts_with(':') {
                     continue;
                 }
 
                 if let Some(data) = line.strip_prefix("data: ") {
                     if let Ok(parsed) = serde_json::from_str::<Value>(data) {
-                        if let Some(v) = parsed["usageMetadata"]["promptTokenCount"].as_u64() {
-                            turn.usage.input_tokens = Some(v as u32);
-                        }
-                        if let Some(v) = parsed["usageMetadata"]["candidatesTokenCount"].as_u64() {
-                            turn.usage.output_tokens = Some(v as u32);
-                        }
+                        merge_gemini_usage(&mut turn.usage, &parsed["usageMetadata"]);
                         if let Some(parts) = parsed["candidates"][0]["content"]["parts"].as_array()
                         {
                             for part in parts {
@@ -1400,18 +1426,13 @@ async fn stream_openai_compatible(
     // Parse SSE stream (OpenAI-compatible format)
     let mut usage = AiUsage::default();
     let mut stream = response.bytes_stream();
-    let mut buffer = String::new();
+    let mut buffer = StreamLineBuffer::default();
 
     use futures::StreamExt;
     while let Some(chunk_result) = stream.next().await {
         let bytes = chunk_result.map_err(stream_error)?;
-        buffer.push_str(&String::from_utf8_lossy(&bytes));
-
-        while let Some(pos) = buffer.find('\n') {
-            let line = buffer[..pos].trim().to_string();
-            buffer = buffer[pos + 1..].to_string();
-
-            if line.is_empty() || line.starts_with(':') {
+        for line in buffer.push(&bytes) {
+            if line.starts_with(':') {
                 continue;
             }
 
@@ -1452,7 +1473,13 @@ async fn stream_openai_responses_agent(
     request_id: String,
 ) -> Result<AgentTurn, AiError> {
     let model = config.effective_model();
-    let max_tokens = config.effective_max_tokens();
+    // Reasoning tokens count against max_output_tokens: with the default
+    // 2048 the model could think, then have no room left for the answer.
+    let max_tokens = if openai_is_reasoning_model(&model) {
+        config.effective_max_tokens().max(4_096)
+    } else {
+        config.effective_max_tokens()
+    };
     let temperature = config.effective_temperature();
     let replaying_tool_turn = messages
         .iter()
@@ -1492,18 +1519,13 @@ async fn stream_openai_responses_agent(
 
     let mut turn = AgentTurn::default();
     let mut stream = response.bytes_stream();
-    let mut buffer = String::new();
+    let mut buffer = StreamLineBuffer::default();
 
     use futures::StreamExt;
     'outer: while let Some(chunk_result) = stream.next().await {
         let bytes = chunk_result.map_err(stream_error)?;
-        buffer.push_str(&String::from_utf8_lossy(&bytes));
-
-        while let Some(pos) = buffer.find('\n') {
-            let line = buffer[..pos].trim().to_string();
-            buffer = buffer[pos + 1..].to_string();
-
-            if line.is_empty() || line.starts_with(':') {
+        for line in buffer.push(&bytes) {
+            if line.starts_with(':') {
                 continue;
             }
             let Some(data) = line.strip_prefix("data: ") else {
@@ -1554,10 +1576,18 @@ async fn stream_openai_responses_agent(
                     if let Some(items) = completed["output"].as_array() {
                         turn.provider_output_items = items.clone();
                     }
-                    if let Some(value) = completed["usage"]["input_tokens"].as_u64() {
-                        turn.usage.input_tokens = Some(value as u32);
+                    let usage = &completed["usage"];
+                    let cached = usage["input_tokens_details"]["cached_tokens"]
+                        .as_u64()
+                        .unwrap_or(0);
+                    if let Some(value) = usage["input_tokens"].as_u64() {
+                        let cached = cached.min(value);
+                        turn.usage.input_tokens = Some((value - cached) as u32);
+                        if cached > 0 {
+                            turn.usage.cache_read_tokens = Some(cached as u32);
+                        }
                     }
-                    if let Some(value) = completed["usage"]["output_tokens"].as_u64() {
+                    if let Some(value) = usage["output_tokens"].as_u64() {
                         turn.usage.output_tokens = Some(value as u32);
                     }
                     break 'outer;
@@ -1645,18 +1675,13 @@ async fn stream_agent_openai_compatible(
     let mut turn = AgentTurn::default();
     let mut acc = wire::OpenAiToolCallAccumulator::default();
     let mut stream = response.bytes_stream();
-    let mut buffer = String::new();
+    let mut buffer = StreamLineBuffer::default();
 
     use futures::StreamExt;
     'outer: while let Some(chunk_result) = stream.next().await {
         let bytes = chunk_result.map_err(stream_error)?;
-        buffer.push_str(&String::from_utf8_lossy(&bytes));
-
-        while let Some(pos) = buffer.find('\n') {
-            let line = buffer[..pos].trim().to_string();
-            buffer = buffer[pos + 1..].to_string();
-
-            if line.is_empty() || line.starts_with(':') {
+        for line in buffer.push(&bytes) {
+            if line.starts_with(':') {
                 continue;
             }
 
@@ -1733,9 +1758,7 @@ pub async fn fetch_models(
                     .header("Authorization", format!("Bearer {api_key}")),
             )
             .await?;
-            openai_style_models(&parsed, |id| {
-                !contains_any(id, MISTRAL_MODEL_EXCLUSIONS)
-            })
+            openai_style_models(&parsed, |id| !contains_any(id, MISTRAL_MODEL_EXCLUSIONS))
         }
         AiProvider::DeepSeek => {
             let base = base_url.unwrap_or_else(|| "https://api.deepseek.com".to_string());
@@ -1972,11 +1995,7 @@ fn collect_code_blocks(response: &str) -> Vec<String> {
                 let is_lang_tag = !first_line.is_empty()
                     && first_line.len() <= 16
                     && first_line.chars().all(|c| c.is_ascii_alphanumeric());
-                if is_lang_tag {
-                    &raw[nl + 1..]
-                } else {
-                    raw
-                }
+                if is_lang_tag { &raw[nl + 1..] } else { raw }
             }
             None => raw,
         };
@@ -2034,6 +2053,56 @@ fn looks_like_query(candidate: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn line_buffer_survives_utf8_split_across_chunks() {
+        let payload = "data: {\"delta\":\"réponse détaillée\"}\n".as_bytes();
+        // Coupe au milieu du "é" multi-octets.
+        let split = payload.iter().position(|&b| b == 0xC3).unwrap() + 1;
+        let mut buffer = StreamLineBuffer::default();
+        assert!(buffer.push(&payload[..split]).is_empty());
+        let lines = buffer.push(&payload[split..]);
+        assert_eq!(lines, vec!["data: {\"delta\":\"réponse détaillée\"}"]);
+    }
+
+    #[test]
+    fn line_buffer_drops_blank_lines_and_keeps_partial_tail() {
+        let mut buffer = StreamLineBuffer::default();
+        let lines = buffer.push(b"a\n\n  \nb\npartial");
+        assert_eq!(lines, vec!["a", "b"]);
+        assert_eq!(buffer.push(b"-tail\n"), vec!["partial-tail"]);
+    }
+
+    #[test]
+    fn cost_weighted_discounts_cache_reads() {
+        let usage = AiUsage {
+            input_tokens: Some(1_000),
+            output_tokens: Some(500),
+            cache_read_tokens: Some(10_000),
+            cache_creation_tokens: Some(2_000),
+        };
+        assert_eq!(usage.total(), Some(13_500));
+        // 1000 + 500 + 10000/10 + 2000*1.25
+        assert_eq!(usage.cost_weighted(), Some(5_000));
+    }
+
+    #[test]
+    fn openai_usage_normalizes_cached_prompt_tokens() {
+        let mut usage = AiUsage::default();
+        merge_openai_usage(
+            &mut usage,
+            &json!({
+                "usage": {
+                    "prompt_tokens": 1_200,
+                    "completion_tokens": 80,
+                    "prompt_tokens_details": { "cached_tokens": 1_000 }
+                }
+            }),
+        );
+        assert_eq!(usage.input_tokens, Some(200));
+        assert_eq!(usage.cache_read_tokens, Some(1_000));
+        assert_eq!(usage.output_tokens, Some(80));
+    }
 
     #[test]
     fn test_extract_query_sql_block() {
@@ -2625,10 +2694,12 @@ mod tests {
             assert_eq!(body["input"][2]["type"], "function_call");
             assert_eq!(body["input"][3]["type"], "function_call_output");
             assert_eq!(body["input"][3]["call_id"], "call_1");
-            assert!(body["input"][3]["output"]
-                .as_str()
-                .unwrap()
-                .contains("orders"));
+            assert!(
+                body["input"][3]["output"]
+                    .as_str()
+                    .unwrap()
+                    .contains("orders")
+            );
         }
 
         #[tokio::test]

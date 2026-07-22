@@ -3,7 +3,7 @@
 import { AlertCircle, CheckCircle2, ChevronDown, ChevronRight, Loader2 } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { QoreAiMark } from '@/components/Brand/QoreAiMark';
+import { QoreAiMonoMark } from '@/components/Brand/QoreAiMark';
 import type { AgentChatItem } from '@/hooks/useAgentChat';
 import { ToolStepCard } from './ToolStepCard';
 
@@ -29,7 +29,10 @@ export function AgentActivityGroup({ items, active }: AgentActivityGroupProps) {
         onClick={() => setExpanded(value => !value)}
         className="flex min-h-9 w-full items-center gap-2 px-3 py-2 text-left text-xs transition-colors hover:bg-muted/40"
       >
-        <QoreAiMark compact size={15} className={active ? 'animate-pulse' : undefined} />
+        <QoreAiMonoMark
+          size={15}
+          className={active ? 'animate-pulse text-foreground' : 'text-foreground'}
+        />
         <span className="shrink-0 font-medium text-foreground">
           {active ? t('agentChat.activity.inProgress') : t('agentChat.activity.complete')}
         </span>

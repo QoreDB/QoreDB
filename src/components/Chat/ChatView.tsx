@@ -5,7 +5,7 @@ import { PanelLeftOpen } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AiProviderSelector } from '@/components/AI/AiProviderSelector';
-import { QoreAiMark } from '@/components/Brand/QoreAiMark';
+import { QoreAiMonoMark } from '@/components/Brand/QoreAiMark';
 import { LicenseGate } from '@/components/License/LicenseGate';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -256,7 +256,7 @@ export function ChatView({ sessionId, connectionId, connectionName, environment 
               </Button>
             )}
             <div className="flex min-w-0 flex-1 items-center gap-2">
-              <QoreAiMark compact size={20} />
+              <QoreAiMonoMark size={20} className="text-foreground" />
               <span className="truncate text-sm font-medium">{title || t('agentChat.title')}</span>
               {conversationTokens > 0 && (
                 <span

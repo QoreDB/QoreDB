@@ -4,12 +4,15 @@ import { createContext, type ReactNode, useCallback, useContext, useEffect, useS
 import {
   AI_PROVIDERS,
   type AiConfig,
+  type AiModelInfo,
   type AiProvider,
   type AiProviderStatus,
   aiCheckProvider,
   aiGetLocalRuntimeStatus,
   aiGetProviderStatus,
+  aiListModels,
   type LocalRuntimeStatus,
+  resolveAvailableLocalModel,
 } from '@/lib/ai';
 
 const STORAGE_KEY = 'qoredb_ai_provider';
@@ -26,6 +29,7 @@ export interface AiPreferencesContextValue {
   preferredBaseUrls: Partial<Record<AiProvider, string>>;
   setPreferredBaseUrl: (provider: AiProvider, baseUrl: string) => void;
   providerStatuses: AiProviderStatus[];
+  availableModels: Partial<Record<AiProvider, AiModelInfo[]>>;
   localRuntimeStatus: LocalRuntimeStatus | null;
   providerReady: Record<AiProvider, boolean>;
   isReady: boolean;
@@ -94,6 +98,9 @@ export function AiPreferencesProvider({ children }: { children: ReactNode }) {
   const [preferredBaseUrls, setPreferredBaseUrlsState] =
     useState<Partial<Record<AiProvider, string>>>(loadSavedBaseUrls);
   const [providerStatuses, setProviderStatuses] = useState<AiProviderStatus[]>([]);
+  const [availableModels, setAvailableModels] = useState<
+    Partial<Record<AiProvider, AiModelInfo[]>>
+  >({});
   const [localRuntimeStatus, setLocalRuntimeStatus] = useState<LocalRuntimeStatus | null>(null);
   const [ollamaReady, setOllamaReady] = useState(false);
   const [includeSampleRows, setIncludeSampleRowsState] =
@@ -113,7 +120,32 @@ export function AiPreferencesProvider({ children }: { children: ReactNode }) {
     ]);
     if (providers.status === 'fulfilled') setProviderStatuses(providers.value);
     if (localRuntime.status === 'fulfilled') setLocalRuntimeStatus(localRuntime.value);
-    setOllamaReady(ollama.status === 'fulfilled' && ollama.value);
+    const ollamaIsReady = ollama.status === 'fulfilled' && ollama.value;
+    setOllamaReady(ollamaIsReady);
+    if (ollamaIsReady) {
+      try {
+        const models = await aiListModels('ollama', preferredBaseUrls.ollama);
+        if (models.length > 0) {
+          setAvailableModels(current => ({ ...current, ollama: models }));
+          setPreferredModelsState(current => {
+            const resolved = resolveAvailableLocalModel(current.ollama, models);
+            if (!resolved || resolved === current.ollama) return current;
+            const next = { ...current, ollama: resolved };
+            localStorage.setItem(MODELS_STORAGE_KEY, JSON.stringify(next));
+            return next;
+          });
+        }
+      } catch {
+        // The readiness badge already captures connectivity failures.
+      }
+    } else {
+      setAvailableModels(current => {
+        if (!current.ollama) return current;
+        const next = { ...current };
+        delete next.ollama;
+        return next;
+      });
+    }
   }, [preferredProvider, preferredBaseUrls.ollama]);
 
   useEffect(() => {
@@ -190,6 +222,7 @@ export function AiPreferencesProvider({ children }: { children: ReactNode }) {
         preferredBaseUrls,
         setPreferredBaseUrl,
         providerStatuses,
+        availableModels,
         localRuntimeStatus,
         providerReady,
         isReady,

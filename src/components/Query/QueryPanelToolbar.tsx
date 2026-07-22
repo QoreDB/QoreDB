@@ -24,7 +24,7 @@ import {
 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { QoreAiMark } from '@/components/Brand/QoreAiMark';
+import { QoreAiMonoMark } from '@/components/Brand/QoreAiMark';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -489,7 +489,7 @@ export function QueryPanelToolbar({
             </DropdownMenuItem>
           )}
           <DropdownMenuItem onClick={() => openTab(createChatTab())}>
-            <QoreAiMark compact size={14} />
+            <QoreAiMonoMark size={14} className="text-muted-foreground" />
             {t('agentChat.openChat')}
           </DropdownMenuItem>
           {onConvertToNotebook && (

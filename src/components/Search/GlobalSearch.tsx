@@ -3,7 +3,7 @@
 import { Command, Compass, Database, FileCode, Folder, Search, Star } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { QoreAiMark } from '@/components/Brand/QoreAiMark';
+import { QoreAiMonoMark } from '@/components/Brand/QoreAiMark';
 import { cn } from '@/lib/utils';
 import { useWorkspace } from '@/providers/WorkspaceProvider';
 import { getFavorites, type HistoryEntry, searchHistory } from '../../lib/query/history';
@@ -346,7 +346,7 @@ export function GlobalSearch({
                     )}
                   >
                     {result.id === 'cmd_open_qore_ai' ? (
-                      <QoreAiMark compact size={16} />
+                      <QoreAiMonoMark size={16} />
                     ) : result.type === 'command' ? (
                       <Command size={16} />
                     ) : result.type === 'feature' ? (

@@ -186,6 +186,7 @@ function ProviderRow({
     preferredBaseUrls,
     setPreferredBaseUrl,
     providerStatuses,
+    availableModels,
     localRuntimeStatus,
     providerReady,
     refreshStatuses,
@@ -195,7 +196,12 @@ function ProviderRow({
   const [installProgress, setInstallProgress] = useState<LocalInstallProgress | null>(null);
   const [endpointDraft, setEndpointDraft] = useState(preferredBaseUrls[provider.id] ?? '');
   const status = providerStatuses.find(item => item.provider === provider.id);
-  const models = status?.models.length ? status.models : provider.models;
+  const liveModels = availableModels[provider.id];
+  const models = liveModels?.length
+    ? liveModels
+    : status?.models.length
+      ? status.models
+      : provider.models;
   const selectedModel = preferredModels[provider.id] ?? status?.default_model ?? models[0]?.id;
   const ready = providerReady[provider.id];
   const isManagedLocal = provider.kind === 'managed_local';

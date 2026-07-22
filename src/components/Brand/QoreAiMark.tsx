@@ -1,49 +1,14 @@
 // SPDX-License-Identifier: BUSL-1.1
 
-import type { SVGProps } from 'react';
+import type { HTMLAttributes, SVGProps } from 'react';
 import { cn } from '@/lib/utils';
 
 interface QoreAiMarkProps extends Omit<SVGProps<SVGSVGElement>, 'width' | 'height'> {
   size?: number;
-  compact?: boolean;
 }
 
-/** Qore AI master mark. The compact form is the approved micro-mark for 12–24 px use. */
-export function QoreAiMark({ size = 24, compact = false, className, ...props }: QoreAiMarkProps) {
-  if (compact) {
-    return (
-      <svg
-        viewBox="0 0 32 32"
-        width={size}
-        height={size}
-        fill="none"
-        aria-hidden="true"
-        className={cn('shrink-0 text-[var(--q-accent)]', className)}
-        {...props}
-      >
-        <path
-          d="M15 3 26 9.5v12L15 28 4 21.5v-12L15 3Z"
-          stroke="currentColor"
-          strokeWidth="3.25"
-          strokeLinejoin="round"
-        />
-        <circle
-          cx="21.5"
-          cy="21"
-          r="5.5"
-          fill="var(--q-bg-0)"
-          stroke="currentColor"
-          strokeWidth="2.75"
-        />
-        <path d="m25.5 25 3 3" stroke="currentColor" strokeWidth="2.75" strokeLinecap="round" />
-        <path
-          d="M21.5 17.5c.43 2.15 1.35 3.07 3.5 3.5-2.15.43-3.07 1.35-3.5 3.5-.43-2.15-1.35-3.07-3.5-3.5 2.15-.43 3.07-1.35 3.5-3.5Z"
-          fill="var(--q-ai-signal)"
-        />
-      </svg>
-    );
-  }
-
+/** Full-colour Qore AI master mark for hero and brand moments. */
+export function QoreAiMark({ size = 24, className, ...props }: QoreAiMarkProps) {
   return (
     <svg
       viewBox="0 0 128 128"
@@ -89,5 +54,28 @@ export function QoreAiMark({ size = 24, compact = false, className, ...props }: 
         fill="var(--q-ai-signal)"
       />
     </svg>
+  );
+}
+
+interface QoreAiMonoMarkProps extends Omit<HTMLAttributes<HTMLSpanElement>, 'children'> {
+  size?: number;
+}
+
+/** Monochrome Qore AI mark for navigation, menus and compact status UI. */
+export function QoreAiMonoMark({ size = 16, className, style, ...props }: QoreAiMonoMarkProps) {
+  return (
+    <span
+      aria-hidden="true"
+      className={cn('inline-block shrink-0', className)}
+      style={{
+        width: size,
+        height: size,
+        backgroundColor: 'currentColor',
+        WebkitMask: "url('/brand/qore-ai-mark-mono-light.svg') center / contain no-repeat",
+        mask: "url('/brand/qore-ai-mark-mono-light.svg') center / contain no-repeat",
+        ...style,
+      }}
+      {...props}
+    />
   );
 }

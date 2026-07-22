@@ -101,18 +101,27 @@ pub fn agent_system_instructions(messages: &[AgentMessage]) -> String {
 /// OpenAI-style message list: assistant tool_calls carry their arguments as
 /// a JSON *string*, and each tool result becomes a separate `tool` message.
 pub fn openai_agent_messages(messages: &[AgentMessage]) -> Value {
-    openai_compatible_agent_messages(messages, false)
+    openai_compatible_agent_messages(messages, false, true)
+}
+
+/// Ollama accepts OpenAI-shaped messages, but requires function arguments to
+/// remain JSON objects when tool calls are replayed on the next agent turn.
+/// Sending the OpenAI string representation makes Ollama reject the request
+/// while rendering some model templates.
+pub fn ollama_agent_messages(messages: &[AgentMessage]) -> Value {
+    openai_compatible_agent_messages(messages, false, false)
 }
 
 /// DeepSeek's thinking-mode tool loop uses the OpenAI message shape, with
 /// one extra assistant field that must be echoed on subsequent requests.
 pub fn deepseek_agent_messages(messages: &[AgentMessage]) -> Value {
-    openai_compatible_agent_messages(messages, true)
+    openai_compatible_agent_messages(messages, true, true)
 }
 
 fn openai_compatible_agent_messages(
     messages: &[AgentMessage],
     include_reasoning_content: bool,
+    stringify_tool_arguments: bool,
 ) -> Value {
     let mut out = Vec::new();
     for m in messages {
@@ -135,12 +144,17 @@ fn openai_compatible_agent_messages(
                         m.tool_calls
                             .iter()
                             .map(|c| {
+                                let arguments = if stringify_tool_arguments {
+                                    Value::String(c.input.to_string())
+                                } else {
+                                    c.input.clone()
+                                };
                                 json!({
                                     "id": c.id,
                                     "type": "function",
                                     "function": {
                                         "name": c.name,
-                                        "arguments": c.input.to_string(),
+                                        "arguments": arguments,
                                     }
                                 })
                             })
@@ -603,6 +617,34 @@ mod tests {
             "private reasoning summary"
         );
         assert!(generic[0].get("reasoning_content").is_none());
+    }
+
+    #[test]
+    fn ollama_replays_tool_arguments_as_an_object() {
+        let messages = vec![AgentMessage {
+            role: AiRole::Assistant,
+            content: String::new(),
+            reasoning_content: None,
+            tool_calls: vec![call(
+                "c1",
+                "run_query",
+                json!({"query": "SELECT COUNT(*) FROM organization"}),
+            )],
+            tool_results: vec![],
+            provider_output_items: vec![],
+        }];
+
+        let ollama = ollama_agent_messages(&messages);
+        let openai = openai_agent_messages(&messages);
+
+        assert_eq!(
+            ollama[0]["tool_calls"][0]["function"]["arguments"],
+            json!({"query": "SELECT COUNT(*) FROM organization"})
+        );
+        assert_eq!(
+            openai[0]["tool_calls"][0]["function"]["arguments"],
+            json!(r#"{"query":"SELECT COUNT(*) FROM organization"}"#)
+        );
     }
 
     #[test]

@@ -4,7 +4,7 @@ import { Reorder } from 'framer-motion';
 import { FileCode, Plus } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { QoreAiMark } from '@/components/Brand/QoreAiMark';
+import { QoreAiMonoMark } from '@/components/Brand/QoreAiMark';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -222,7 +222,7 @@ export function TabBar({
               </DropdownMenuItem>
               {onNewChat && (
                 <DropdownMenuItem onClick={onNewChat}>
-                  <QoreAiMark compact size={14} />
+                  <QoreAiMonoMark className="text-muted-foreground" />
                   {t('agentChat.newConversation')}
                 </DropdownMenuItem>
               )}

@@ -39,10 +39,10 @@ Amber remains reserved for approvals and red for rejected or blocked actions. Cy
 
 ## Logo usage
 
-The master mark combines four elements: the QoreDB shell, the database cube, a cyan exploration orbit and the Q signal. The compact micro-mark removes the cube and orbit where they would become illegible.
+The master mark combines four elements: the QoreDB shell, the database cube, a cyan exploration orbit and the Q signal. Use the full-colour master for hero and brand moments. Navigation, menus and compact status UI use the monochrome mark so the product presents one consistent silhouette instead of competing micro-icons.
 
 - Master mark minimum size: **40 px** digital.
-- Compact micro-mark range: **12–24 px** digital.
+- Monochrome UI mark range: **12–24 px** digital.
 - Clear space: at least the width of the Q badge around the mark.
 - Use the monochrome asset when color reproduction is unavailable.
 - Do not rotate the mark, recolor the cyan signal, add glow, or detach the Q badge.
@@ -52,4 +52,5 @@ Assets:
 - `/public/brand/qore-ai-mark.svg`
 - `/public/brand/qore-ai-mark-dark.svg`
 - `/public/brand/qore-ai-mark-mono.svg`
+- `/public/brand/qore-ai-mark-mono-light.svg`
 - React UI component: `src/components/Brand/QoreAiMark.tsx`

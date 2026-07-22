@@ -3,7 +3,7 @@
 import { AlertCircle } from 'lucide-react';
 import { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { QoreAiMark } from '@/components/Brand/QoreAiMark';
+import { QoreAiMark, QoreAiMonoMark } from '@/components/Brand/QoreAiMark';
 import { Markdown } from '@/components/ui/markdown';
 import type { AgentChatItem } from '@/hooks/useAgentChat';
 import type { AgentUsage } from '@/lib/agent';
@@ -162,7 +162,7 @@ export function AgentThread({ items, loading, onRespondPermission }: AgentThread
                   key={item.id}
                   className="flex items-center gap-2 text-sm text-muted-foreground animate-pulse"
                 >
-                  <QoreAiMark compact size={16} />
+                  <QoreAiMonoMark size={16} />
                   {t('agentChat.thinking')}
                 </div>
               );
@@ -195,7 +195,7 @@ export function AgentThread({ items, loading, onRespondPermission }: AgentThread
         lastItem?.kind !== 'permission' &&
         lastItem?.kind !== 'tool' && (
           <div className="flex items-center gap-2 text-sm text-muted-foreground animate-pulse">
-            <QoreAiMark compact size={16} />
+            <QoreAiMonoMark size={16} />
             {t('agentChat.thinking')}
           </div>
         )}

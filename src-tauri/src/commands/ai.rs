@@ -620,9 +620,16 @@ pub async fn ai_check_provider(
     } else {
         String::new()
     };
+    let cache_base_url = base_url.clone();
     crate::ai::provider::fetch_models(&provider, &api_key, base_url)
         .await
-        .map(|models| !models.is_empty())
+        .map(|models| {
+            let ready = !models.is_empty();
+            if ready {
+                ai_manager.cache_models(provider, cache_base_url.as_deref(), models);
+            }
+            ready
+        })
 }
 
 /// Collect the full response from a streamed AI request (used for non-streaming commands)

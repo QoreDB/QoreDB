@@ -13,7 +13,7 @@ import {
   Settings,
   Table,
 } from 'lucide-react';
-import { QoreAiMark } from '@/components/Brand/QoreAiMark';
+import { QoreAiMonoMark } from '@/components/Brand/QoreAiMark';
 import type { TabKind } from './tabBarTypes';
 
 export function getTabIcon(type: TabKind) {
@@ -41,7 +41,7 @@ export function getTabIcon(type: TabKind) {
     case 'plugin-output':
       return <Puzzle size={14} />;
     case 'chat':
-      return <QoreAiMark compact size={14} />;
+      return <QoreAiMonoMark size={14} />;
   }
 }
 

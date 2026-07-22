@@ -106,6 +106,25 @@ export interface AiModelInfo {
   label: string;
 }
 
+/** Resolve a persisted local-model preference against the inventory currently
+ * reported by the runtime. Exact tags win, then a matching model family, then
+ * the first installed model. */
+export function resolveAvailableLocalModel(
+  preferred: string | undefined,
+  available: AiModelInfo[]
+): string | undefined {
+  if (available.length === 0) return undefined;
+  if (preferred && available.some(model => model.id === preferred)) return preferred;
+  if (preferred) {
+    const family = preferred.split(':', 1)[0];
+    const sameFamily = available.filter(model => model.id.split(':', 1)[0] === family);
+    const latest = sameFamily.find(model => model.id.endsWith(':latest'));
+    if (latest) return latest.id;
+    if (sameFamily.length > 0) return sameFamily[0].id;
+  }
+  return available[0].id;
+}
+
 export interface AiProviderStatus {
   provider: AiProvider;
   has_key: boolean;

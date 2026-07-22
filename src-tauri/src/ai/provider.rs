@@ -1012,7 +1012,7 @@ impl AIProvider for OllamaProvider {
 
         let mut body = json!({
             "model": model,
-            "messages": wire::openai_agent_messages(messages),
+            "messages": wire::ollama_agent_messages(messages),
             "options": {
                 "num_predict": max_tokens,
                 "temperature": temperature
@@ -1074,10 +1074,11 @@ impl AIProvider for OllamaProvider {
                     if let Some(content) = parsed["message"]["content"].as_str() {
                         if !content.is_empty() {
                             turn.text.push_str(content);
-                            if sender
-                                .send(AiStreamChunk::delta(&request_id, content))
-                                .await
-                                .is_err()
+                            if tools.is_empty()
+                                && sender
+                                    .send(AiStreamChunk::delta(&request_id, content))
+                                    .await
+                                    .is_err()
                             {
                                 break 'outer;
                             }
@@ -1097,8 +1098,53 @@ impl AIProvider for OllamaProvider {
             }
         }
 
+        // Some Ollama templates advertise tool support but serialize a tool
+        // call as the whole text response instead of `message.tool_calls`.
+        // Accept only a single strict JSON object whose name matches a tool
+        // QoreDB advertised; execution still goes through the permission gate.
+        if turn.tool_calls.is_empty()
+            && !tools.is_empty()
+            && let Some(call) = ollama_text_tool_call(&turn.text, tools)
+        {
+            turn.tool_calls.push(call);
+            turn.text.clear();
+        } else if !turn.text.is_empty() && !tools.is_empty() {
+            let _ = sender
+                .send(AiStreamChunk::delta(&request_id, &turn.text))
+                .await;
+        }
+
         Ok(turn)
     }
+}
+
+fn ollama_text_tool_call(text: &str, tools: &[AgentTool]) -> Option<ToolCall> {
+    let trimmed = text.trim();
+    let without_fence = trimmed
+        .strip_prefix("```json")
+        .or_else(|| trimmed.strip_prefix("```"))
+        .unwrap_or(trimmed);
+    let json_text = without_fence
+        .strip_suffix("```")
+        .unwrap_or(without_fence)
+        .trim();
+    let value: Value = serde_json::from_str(json_text).ok()?;
+    let function = value.get("function").unwrap_or(&value);
+    let name = function.get("name")?.as_str()?;
+    if !tools.iter().any(|tool| tool.name == name) {
+        return None;
+    }
+    let input = match function.get("arguments")? {
+        Value::String(arguments) => serde_json::from_str(arguments).ok()?,
+        arguments @ Value::Object(_) => arguments.clone(),
+        _ => return None,
+    };
+    Some(ToolCall {
+        id: "call_0".to_string(),
+        name: name.to_string(),
+        input,
+        thought_signature: None,
+    })
 }
 
 pub struct MistralAiProvider {
@@ -2361,6 +2407,23 @@ mod tests {
         );
     }
 
+    #[test]
+    fn ollama_text_tool_call_accepts_only_advertised_tools() {
+        let tools = vec![AgentTool {
+            name: "lookup".to_string(),
+            description: "Look up an item".to_string(),
+            input_schema: json!({"type": "object"}),
+        }];
+        let call =
+            ollama_text_tool_call(r#"{"name":"lookup","arguments":{"id":42}}"#, &tools).unwrap();
+        assert_eq!(call.name, "lookup");
+        assert_eq!(call.input, json!({"id": 42}));
+        assert!(
+            ollama_text_tool_call(r#"{"name":"unadvertised","arguments":{"id":42}}"#, &tools,)
+                .is_none()
+        );
+    }
+
     mod http {
         use wiremock::matchers::{method, path};
         use wiremock::{Mock, MockServer, ResponseTemplate};
@@ -3081,6 +3144,27 @@ mod tests {
             let ids: Vec<&str> = models.iter().map(|m| m.id.as_str()).collect();
             assert_eq!(ids, vec!["gemini-3.5-flash", "gemini-3.1-pro-preview"]);
             assert_eq!(models[0].label, "Gemini 3.5 Flash");
+        }
+
+        #[tokio::test]
+        async fn fetch_models_ollama_preserves_the_exact_installed_tag() {
+            let server = MockServer::start().await;
+            Mock::given(method("GET"))
+                .and(path("/api/tags"))
+                .respond_with(
+                    ResponseTemplate::new(200)
+                        .set_body_string(r#"{"models":[{"name":"qwen2.5-coder:3b"}]}"#),
+                )
+                .expect(1)
+                .mount(&server)
+                .await;
+
+            let models = fetch_models(&AiProvider::Ollama, "", Some(server.uri()))
+                .await
+                .unwrap();
+            assert_eq!(models.len(), 1);
+            assert_eq!(models[0].id, "qwen2.5-coder:3b");
+            assert_eq!(models[0].label, "qwen2.5-coder:3b");
         }
 
         #[tokio::test]

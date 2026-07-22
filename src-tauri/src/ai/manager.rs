@@ -8,9 +8,10 @@ use std::sync::Arc;
 
 use parking_lot::Mutex;
 
+use super::local_runtime::LocalAiRuntime;
 use super::provider::{
     AIProvider, AnthropicProvider, DeepSeekProvider, GoogleGeminiProvider, MistralAiProvider,
-    OllamaProvider, OpenAiProvider,
+    OllamaProvider, OpenAiProvider, QoreLocalProvider,
 };
 use super::types::{AiModelInfoOwned, AiProvider, AiProviderStatus};
 use crate::vault::backend::CredentialProvider;
@@ -35,26 +36,41 @@ pub struct AiManager {
     key_index: Mutex<ProviderKeyIndex>,
     key_index_path: Option<PathBuf>,
     /// Per-provider model lists fetched from the provider API (session TTL).
-    models_cache: Mutex<HashMap<AiProvider, Vec<AiModelInfoOwned>>>,
+    models_cache: Mutex<HashMap<(AiProvider, String), Vec<AiModelInfoOwned>>>,
+    local_runtime: Arc<LocalAiRuntime>,
 }
 
 impl AiManager {
     pub fn new(credential_provider: Box<dyn CredentialProvider>) -> Self {
-        Self::with_key_index(credential_provider, None)
+        Self::with_key_index(
+            credential_provider,
+            None,
+            crate::paths::app_data_dir().join("ai-local"),
+        )
     }
 
     pub fn new_persistent(
         credential_provider: Box<dyn CredentialProvider>,
         key_index_path: PathBuf,
     ) -> Self {
-        Self::with_key_index(credential_provider, Some(key_index_path))
+        let local_root = key_index_path
+            .parent()
+            .unwrap_or_else(|| Path::new("."))
+            .join("ai-local");
+        Self::with_key_index(credential_provider, Some(key_index_path), local_root)
     }
 
     fn with_key_index(
         credential_provider: Box<dyn CredentialProvider>,
         key_index_path: Option<PathBuf>,
+        local_root: PathBuf,
     ) -> Self {
+        let local_runtime = Arc::new(LocalAiRuntime::new(local_root));
         let mut providers: HashMap<String, Arc<dyn AIProvider>> = HashMap::new();
+        providers.insert(
+            "qore_local".to_string(),
+            Arc::new(QoreLocalProvider::new(Arc::clone(&local_runtime))),
+        );
         providers.insert("openai".to_string(), Arc::new(OpenAiProvider::new()));
         providers.insert("anthropic".to_string(), Arc::new(AnthropicProvider::new()));
         providers.insert("mistral_ai".to_string(), Arc::new(MistralAiProvider::new()));
@@ -77,6 +93,7 @@ impl AiManager {
             key_index: Mutex::new(key_index),
             key_index_path,
             models_cache: Mutex::new(HashMap::new()),
+            local_runtime,
         }
     }
 
@@ -113,12 +130,30 @@ impl AiManager {
         self.persist_key_index(&index);
     }
 
-    pub fn cached_models(&self, provider: &AiProvider) -> Option<Vec<AiModelInfoOwned>> {
-        self.models_cache.lock().get(provider).cloned()
+    pub fn cached_models(
+        &self,
+        provider: &AiProvider,
+        base_url: Option<&str>,
+    ) -> Option<Vec<AiModelInfoOwned>> {
+        self.models_cache
+            .lock()
+            .get(&model_cache_key(provider, base_url))
+            .cloned()
     }
 
-    pub fn cache_models(&self, provider: AiProvider, models: Vec<AiModelInfoOwned>) {
-        self.models_cache.lock().insert(provider, models);
+    pub fn local_runtime(&self) -> Arc<LocalAiRuntime> {
+        Arc::clone(&self.local_runtime)
+    }
+
+    pub fn cache_models(
+        &self,
+        provider: AiProvider,
+        base_url: Option<&str>,
+        models: Vec<AiModelInfoOwned>,
+    ) {
+        self.models_cache
+            .lock()
+            .insert(model_cache_key(&provider, base_url), models);
     }
 
     /// Store an API key for a provider in the OS keyring
@@ -195,6 +230,7 @@ impl AiManager {
     /// List all providers with their configuration status
     pub fn list_configured_providers(&self) -> Vec<AiProviderStatus> {
         let all = [
+            AiProvider::QoreLocal,
             AiProvider::OpenAi,
             AiProvider::Anthropic,
             AiProvider::MistralAi,
@@ -223,6 +259,16 @@ impl AiManager {
             })
             .collect()
     }
+}
+
+fn model_cache_key(provider: &AiProvider, base_url: Option<&str>) -> (AiProvider, String) {
+    let endpoint = base_url
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(|value| value.trim_end_matches('/').to_string())
+        .or_else(|| provider.default_base_url().map(str::to_string))
+        .unwrap_or_default();
+    (provider.clone(), endpoint)
 }
 
 #[cfg(test)]
@@ -297,6 +343,7 @@ mod tests {
         let manager = AiManager::new(Box::new(MockProvider::new()));
 
         assert!(!manager.has_api_key(&AiProvider::OpenAi));
+        assert!(manager.has_api_key(&AiProvider::QoreLocal));
         assert!(manager.has_api_key(&AiProvider::Ollama)); // Ollama never needs key
 
         manager
@@ -321,25 +368,54 @@ mod tests {
         let manager = AiManager::new(Box::new(MockProvider::new()));
         let list = manager.list_configured_providers();
 
-        assert_eq!(list.len(), 6);
-        assert!(!list[0].has_key); // OpenAI — no key set
-        assert!(!list[1].has_key); // Anthropic — no key set
-        assert!(!list[2].has_key); // Mistral — no key set
-        assert!(!list[3].has_key); // Gemini — no key set
-        assert!(!list[4].has_key); // DeepSeek — no key set
-        assert!(list[5].has_key); // Ollama — always true
+        assert_eq!(list.len(), 7);
+        assert!(list[0].has_key); // Qore Local — never needs a key
+        assert!(!list[1].has_key); // OpenAI — no key set
+        assert!(!list[2].has_key); // Anthropic — no key set
+        assert!(!list[3].has_key); // Mistral — no key set
+        assert!(!list[4].has_key); // Gemini — no key set
+        assert!(!list[5].has_key); // DeepSeek — no key set
+        assert!(list[6].has_key); // Ollama — always true
     }
 
     #[test]
     fn test_get_provider() {
         let manager = AiManager::new(Box::new(MockProvider::new()));
 
+        assert!(manager.get_provider(&AiProvider::QoreLocal).is_some());
         assert!(manager.get_provider(&AiProvider::OpenAi).is_some());
         assert!(manager.get_provider(&AiProvider::Anthropic).is_some());
         assert!(manager.get_provider(&AiProvider::MistralAi).is_some());
         assert!(manager.get_provider(&AiProvider::GoogleGemini).is_some());
         assert!(manager.get_provider(&AiProvider::DeepSeek).is_some());
         assert!(manager.get_provider(&AiProvider::Ollama).is_some());
+    }
+
+    #[test]
+    fn model_cache_is_scoped_by_endpoint() {
+        let manager = AiManager::new(Box::new(MockProvider::new()));
+        let models = vec![AiModelInfoOwned {
+            id: "local-model".to_string(),
+            label: "Local model".to_string(),
+        }];
+        manager.cache_models(
+            AiProvider::Ollama,
+            Some("http://localhost:11434/"),
+            models.clone(),
+        );
+
+        assert_eq!(
+            manager
+                .cached_models(&AiProvider::Ollama, Some("http://localhost:11434"))
+                .unwrap()[0]
+                .id,
+            "local-model"
+        );
+        assert!(
+            manager
+                .cached_models(&AiProvider::Ollama, Some("http://localhost:22434"))
+                .is_none()
+        );
     }
 
     #[test]

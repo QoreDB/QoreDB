@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: BUSL-1.1
 
+use std::sync::Arc;
 use std::time::Duration;
 
 use async_trait::async_trait;
@@ -10,6 +11,7 @@ use tracing::debug;
 
 use super::agent::types::{AgentMessage, AgentTool, AgentTurn, ToolCall};
 use super::agent::wire;
+use super::local_runtime::LocalAiRuntime;
 use super::types::{
     AiConfig, AiError, AiErrorKind, AiMessage, AiModelInfoOwned, AiProvider, AiRole, AiStreamChunk,
     AiUsage,
@@ -788,6 +790,101 @@ impl AIProvider for AnthropicProvider {
 
         turn.tool_calls = acc.finish();
         Ok(turn)
+    }
+}
+
+pub struct QoreLocalProvider {
+    client: Client,
+    runtime: Arc<LocalAiRuntime>,
+}
+
+impl QoreLocalProvider {
+    pub fn new(runtime: Arc<LocalAiRuntime>) -> Self {
+        Self {
+            client: build_provider_client(),
+            runtime,
+        }
+    }
+
+    async fn base_url(&self, config: &AiConfig) -> Result<String, AiError> {
+        match config.base_url.as_deref().map(str::trim) {
+            Some(base_url) if !base_url.is_empty() => {
+                let parsed = reqwest::Url::parse(base_url)
+                    .map_err(|_| AiError::provider("Invalid Qore AI Local endpoint"))?;
+                let local_host = parsed.host_str().is_some_and(|host| {
+                    host.eq_ignore_ascii_case("localhost")
+                        || host
+                            .parse::<std::net::IpAddr>()
+                            .is_ok_and(|address| address.is_loopback())
+                });
+                if parsed.scheme() != "http" || !local_host {
+                    return Err(AiError::provider(
+                        "Qore AI Local only accepts loopback HTTP endpoints",
+                    ));
+                }
+                Ok(base_url.trim_end_matches('/').to_string())
+            }
+            _ => self
+                .runtime
+                .ensure_running()
+                .await
+                .map_err(AiError::provider),
+        }
+    }
+}
+
+#[async_trait]
+impl AIProvider for QoreLocalProvider {
+    fn provider_id(&self) -> &'static str {
+        "qore_local"
+    }
+
+    async fn stream(
+        &self,
+        _api_key: &str,
+        messages: &[AiMessage],
+        config: &AiConfig,
+        sender: mpsc::Sender<AiStreamChunk>,
+        request_id: String,
+    ) -> Result<AiUsage, AiError> {
+        let base_url = self.base_url(config).await?;
+        stream_openai_compatible(
+            &self.client,
+            &format!("{base_url}/chat/completions"),
+            "qore-local",
+            messages,
+            config,
+            sender,
+            request_id,
+            "Qore AI Local",
+        )
+        .await
+    }
+
+    async fn stream_agent(
+        &self,
+        _api_key: &str,
+        messages: &[AgentMessage],
+        tools: &[AgentTool],
+        config: &AiConfig,
+        sender: mpsc::Sender<AiStreamChunk>,
+        request_id: String,
+    ) -> Result<AgentTurn, AiError> {
+        let base_url = self.base_url(config).await?;
+        stream_agent_openai_compatible(
+            &self.client,
+            &format!("{base_url}/chat/completions"),
+            "qore-local",
+            messages,
+            tools,
+            config,
+            sender,
+            request_id,
+            "Qore AI Local",
+            false,
+            false,
+        )
+        .await
     }
 }
 
@@ -1734,6 +1831,7 @@ pub async fn fetch_models(
 ) -> Result<Vec<AiModelInfoOwned>, String> {
     let client = build_provider_client();
     let discovered = match provider {
+        AiProvider::QoreLocal => return Ok(provider.available_models_owned()),
         AiProvider::OpenAi => {
             let base = base_url.unwrap_or_else(|| "https://api.openai.com/v1".to_string());
             let parsed = get_json(
@@ -1860,7 +1958,7 @@ fn curate_discovered_models(
     provider: &AiProvider,
     discovered: Vec<AiModelInfoOwned>,
 ) -> Vec<AiModelInfoOwned> {
-    if matches!(provider, AiProvider::Ollama) {
+    if matches!(provider, AiProvider::QoreLocal | AiProvider::Ollama) {
         return discovered;
     }
 
@@ -2792,6 +2890,55 @@ mod tests {
             let body: Value = serde_json::from_slice(&requests[0].body).unwrap();
             assert_eq!(body["options"]["num_predict"], 321);
             assert_eq!(body["options"]["temperature"], 0.25);
+        }
+
+        #[tokio::test]
+        async fn qore_local_uses_openai_compatible_streaming() {
+            let server = MockServer::start().await;
+            let sse = "data: {\"choices\":[{\"delta\":{\"content\":\"Local\"}}]}\n\n\
+                       data: {\"usage\":{\"prompt_tokens\":3,\"completion_tokens\":2},\"choices\":[]}\n\n\
+                       data: [DONE]\n\n";
+            Mock::given(method("POST"))
+                .and(path("/chat/completions"))
+                .respond_with(
+                    ResponseTemplate::new(200)
+                        .insert_header("content-type", "text/event-stream")
+                        .set_body_string(sse),
+                )
+                .expect(1)
+                .mount(&server)
+                .await;
+
+            let temp = tempfile::tempdir().unwrap();
+            let provider =
+                QoreLocalProvider::new(Arc::new(LocalAiRuntime::new(temp.path().to_path_buf())));
+            let (tx, mut rx) = mpsc::channel(8);
+            let usage = provider
+                .stream(
+                    "",
+                    &[AiMessage::user("hi")],
+                    &config(AiProvider::QoreLocal, &server.uri()),
+                    tx,
+                    "r1".to_string(),
+                )
+                .await
+                .unwrap();
+
+            assert_eq!(usage.total(), Some(5));
+            assert_eq!(rx.recv().await.unwrap().delta, "Local");
+        }
+
+        #[tokio::test]
+        async fn qore_local_rejects_remote_endpoint_overrides() {
+            let temp = tempfile::tempdir().unwrap();
+            let provider =
+                QoreLocalProvider::new(Arc::new(LocalAiRuntime::new(temp.path().to_path_buf())));
+            let error = provider
+                .base_url(&config(AiProvider::QoreLocal, "https://example.com/v1"))
+                .await
+                .unwrap_err();
+
+            assert!(error.message.contains("loopback"));
         }
 
         #[tokio::test]

@@ -143,6 +143,8 @@ keyring = { version = "3", features = [
 argon2 = "0.5"
 rand = "0.8"
 sha2 = "0.10"
+flate2 = "1"
+tar = "0.4"
 
 which = "6"
 

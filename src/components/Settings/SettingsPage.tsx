@@ -168,7 +168,7 @@ export function SettingsPage({ onClose }: SettingsPageProps) {
 
         {/* Content area */}
         <div className="flex-1 overflow-auto px-6 py-4">
-          <div className="max-w-xl">
+          <div className={activeSection === 'ai' ? 'max-w-3xl' : 'max-w-xl'}>
             {searchQuery && visibleSections.length === 0 ? (
               <div className="text-center py-12 text-muted-foreground">
                 <p className="text-sm">{t('settings.search.noResults')}</p>

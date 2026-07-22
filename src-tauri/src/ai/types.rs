@@ -17,6 +17,7 @@ pub struct AiModelInfo {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 #[serde(rename_all = "snake_case")]
 pub enum AiProvider {
+    QoreLocal,
     OpenAi,
     Anthropic,
     MistralAi,
@@ -28,6 +29,7 @@ pub enum AiProvider {
 impl AiProvider {
     pub fn as_str(&self) -> &'static str {
         match self {
+            AiProvider::QoreLocal => "qore_local",
             AiProvider::OpenAi => "openai",
             AiProvider::Anthropic => "anthropic",
             AiProvider::MistralAi => "mistral_ai",
@@ -42,6 +44,10 @@ impl AiProvider {
     /// First entry is the default. Verified against provider docs 2026-07-18.
     pub fn available_models(&self) -> &'static [AiModelInfo] {
         match self {
+            AiProvider::QoreLocal => &[AiModelInfo {
+                id: "qore-qwen3-8b",
+                label: "Qwen 3 8B · Local",
+            }],
             AiProvider::OpenAi => &[
                 AiModelInfo {
                     id: "gpt-5.6-terra",
@@ -147,6 +153,7 @@ impl AiProvider {
     /// quality doesn't matter.
     pub fn utility_model(&self) -> &'static str {
         match self {
+            AiProvider::QoreLocal => self.default_model(),
             AiProvider::OpenAi => "gpt-5.6-luna",
             AiProvider::Anthropic => "claude-haiku-4-5",
             AiProvider::MistralAi => "mistral-small-latest",
@@ -164,7 +171,7 @@ impl AiProvider {
     }
 
     pub fn requires_api_key(&self) -> bool {
-        !matches!(self, AiProvider::Ollama)
+        !matches!(self, AiProvider::QoreLocal | AiProvider::Ollama)
     }
 }
 

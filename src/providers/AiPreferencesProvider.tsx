@@ -6,20 +6,28 @@ import {
   type AiConfig,
   type AiProvider,
   type AiProviderStatus,
+  aiCheckProvider,
+  aiGetLocalRuntimeStatus,
   aiGetProviderStatus,
+  type LocalRuntimeStatus,
 } from '@/lib/ai';
 
 const STORAGE_KEY = 'qoredb_ai_provider';
 const SAMPLE_ROWS_STORAGE_KEY = 'qoredb_ai_sample_rows';
 const SENSITIVE_DATA_STORAGE_KEY = 'qoredb_ai_sensitive_data';
 const MODELS_STORAGE_KEY = 'qoredb_ai_models';
+const BASE_URLS_STORAGE_KEY = 'qoredb_ai_base_urls';
 
 export interface AiPreferencesContextValue {
   preferredProvider: AiProvider;
   setPreferredProvider: (p: AiProvider) => void;
   preferredModels: Partial<Record<AiProvider, string>>;
   setPreferredModel: (provider: AiProvider, model: string) => void;
+  preferredBaseUrls: Partial<Record<AiProvider, string>>;
+  setPreferredBaseUrl: (provider: AiProvider, baseUrl: string) => void;
   providerStatuses: AiProviderStatus[];
+  localRuntimeStatus: LocalRuntimeStatus | null;
+  providerReady: Record<AiProvider, boolean>;
   isReady: boolean;
   refreshStatuses: () => Promise<void>;
   getConfig: () => AiConfig;
@@ -69,11 +77,25 @@ function loadSavedModels(): Partial<Record<AiProvider, string>> {
   return {};
 }
 
+function loadSavedBaseUrls(): Partial<Record<AiProvider, string>> {
+  try {
+    const saved = localStorage.getItem(BASE_URLS_STORAGE_KEY);
+    if (saved) return JSON.parse(saved) as Partial<Record<AiProvider, string>>;
+  } catch {
+    // ignore
+  }
+  return {};
+}
+
 export function AiPreferencesProvider({ children }: { children: ReactNode }) {
   const [preferredProvider, setPreferredProviderState] = useState<AiProvider>(loadSavedProvider);
   const [preferredModels, setPreferredModelsState] =
     useState<Partial<Record<AiProvider, string>>>(loadSavedModels);
+  const [preferredBaseUrls, setPreferredBaseUrlsState] =
+    useState<Partial<Record<AiProvider, string>>>(loadSavedBaseUrls);
   const [providerStatuses, setProviderStatuses] = useState<AiProviderStatus[]>([]);
+  const [localRuntimeStatus, setLocalRuntimeStatus] = useState<LocalRuntimeStatus | null>(null);
+  const [ollamaReady, setOllamaReady] = useState(false);
   const [includeSampleRows, setIncludeSampleRowsState] =
     useState<boolean>(loadSampleRowsPreference);
   const [allowSensitiveData, setAllowSensitiveDataState] = useState<boolean>(
@@ -81,16 +103,18 @@ export function AiPreferencesProvider({ children }: { children: ReactNode }) {
   );
 
   const refreshStatuses = useCallback(async () => {
-    try {
+    const [providers, localRuntime, ollama] = await Promise.allSettled([
       // Probe only the selected provider for users upgrading from the old
       // per-key scan. The backend remembers the result, so future launches do
       // not touch Keychain merely to render configuration badges.
-      const statuses = await aiGetProviderStatus(preferredProvider);
-      setProviderStatuses(statuses);
-    } catch {
-      // AI may not be available (Core build)
-    }
-  }, [preferredProvider]);
+      aiGetProviderStatus(preferredProvider),
+      aiGetLocalRuntimeStatus(),
+      aiCheckProvider('ollama', preferredBaseUrls.ollama),
+    ]);
+    if (providers.status === 'fulfilled') setProviderStatuses(providers.value);
+    if (localRuntime.status === 'fulfilled') setLocalRuntimeStatus(localRuntime.value);
+    setOllamaReady(ollama.status === 'fulfilled' && ollama.value);
+  }, [preferredProvider, preferredBaseUrls.ollama]);
 
   useEffect(() => {
     refreshStatuses();
@@ -109,6 +133,15 @@ export function AiPreferencesProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
+  const setPreferredBaseUrl = useCallback((provider: AiProvider, baseUrl: string) => {
+    setPreferredBaseUrlsState(prev => {
+      const next = { ...prev, [provider]: baseUrl };
+      if (!baseUrl) delete next[provider];
+      localStorage.setItem(BASE_URLS_STORAGE_KEY, JSON.stringify(next));
+      return next;
+    });
+  }, []);
+
   const setIncludeSampleRows = useCallback((enabled: boolean) => {
     setIncludeSampleRowsState(enabled);
     localStorage.setItem(SAMPLE_ROWS_STORAGE_KEY, String(enabled));
@@ -119,18 +152,32 @@ export function AiPreferencesProvider({ children }: { children: ReactNode }) {
     localStorage.setItem(SENSITIVE_DATA_STORAGE_KEY, String(enabled));
   }, []);
 
-  const providerInfo = AI_PROVIDERS.find(p => p.id === preferredProvider);
-  const isReady =
-    (providerInfo && !providerInfo.requiresKey) ||
-    (providerStatuses.find(s => s.provider === preferredProvider)?.has_key ?? false);
+  const providerReady = Object.fromEntries(
+    AI_PROVIDERS.map(provider => {
+      if (provider.kind === 'managed_local') {
+        return [
+          provider.id,
+          localRuntimeStatus?.state === 'ready' || localRuntimeStatus?.state === 'running',
+        ];
+      }
+      if (provider.kind === 'external_local') return [provider.id, ollamaReady];
+      if (!provider.requiresKey) return [provider.id, true];
+      return [
+        provider.id,
+        providerStatuses.find(status => status.provider === provider.id)?.has_key ?? false,
+      ];
+    })
+  ) as Record<AiProvider, boolean>;
+  const isReady = providerReady[preferredProvider];
 
   const getConfig = useCallback(
     (): AiConfig => ({
       provider: preferredProvider,
       model: preferredModels[preferredProvider],
+      base_url: preferredBaseUrls[preferredProvider] || undefined,
       allow_sensitive_data: allowSensitiveData,
     }),
-    [preferredProvider, preferredModels, allowSensitiveData]
+    [preferredProvider, preferredModels, preferredBaseUrls, allowSensitiveData]
   );
 
   return (
@@ -140,7 +187,11 @@ export function AiPreferencesProvider({ children }: { children: ReactNode }) {
         setPreferredProvider,
         preferredModels,
         setPreferredModel,
+        preferredBaseUrls,
+        setPreferredBaseUrl,
         providerStatuses,
+        localRuntimeStatus,
+        providerReady,
         isReady,
         refreshStatuses,
         getConfig,

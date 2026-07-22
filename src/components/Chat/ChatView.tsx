@@ -26,7 +26,7 @@ import {
   chatRenameConversation,
   chatSaveConversation,
 } from '@/lib/agent';
-import { AI_PROVIDERS, type AiModelInfo, type AiProvider, aiListModels } from '@/lib/ai';
+import { AI_PROVIDERS, type AiModelInfo, aiListModels } from '@/lib/ai';
 import { useAiPreferences } from '@/providers/AiPreferencesProvider';
 import { AgentPromptInput } from './AgentPromptInput';
 import { AgentThread, usageTotalTokens } from './AgentThread';
@@ -58,7 +58,9 @@ export function ChatView({ sessionId, connectionId, connectionName, environment 
     setPreferredProvider,
     preferredModels,
     setPreferredModel,
+    preferredBaseUrls,
     providerStatuses,
+    providerReady,
     isReady,
     getConfig,
   } = useAiPreferences();
@@ -98,7 +100,7 @@ export function ChatView({ sessionId, connectionId, connectionName, environment 
     let cancelled = false;
     const fallback = AI_PROVIDERS.find(p => p.id === preferredProvider)?.models ?? [];
     setModels(fallback);
-    aiListModels(preferredProvider)
+    aiListModels(preferredProvider, preferredBaseUrls[preferredProvider])
       .then(list => {
         if (!cancelled && list.length > 0) setModels(list);
       })
@@ -106,7 +108,7 @@ export function ChatView({ sessionId, connectionId, connectionName, environment 
     return () => {
       cancelled = true;
     };
-  }, [preferredProvider]);
+  }, [preferredProvider, preferredBaseUrls]);
 
   const selectedModel =
     preferredModels[preferredProvider] ??
@@ -200,16 +202,6 @@ export function ChatView({ sessionId, connectionId, connectionName, environment 
     [refreshList, handleNew]
   );
 
-  const providerHasKey = useMemo(() => {
-    const record = {} as Record<AiProvider, boolean>;
-    for (const p of AI_PROVIDERS) {
-      record[p.id] = p.requiresKey
-        ? (providerStatuses.find(s => s.provider === p.id)?.has_key ?? false)
-        : true;
-    }
-    return record;
-  }, [providerStatuses]);
-
   const disabled = !sessionId || !isReady;
 
   const conversationTokens = useMemo(
@@ -300,7 +292,7 @@ export function ChatView({ sessionId, connectionId, connectionName, environment 
               <AiProviderSelector
                 provider={preferredProvider}
                 onProviderChange={setPreferredProvider}
-                providerHasKey={providerHasKey}
+                providerReady={providerReady}
               />
             </div>
             <Select

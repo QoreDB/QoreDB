@@ -379,6 +379,12 @@ pub fn run() {
             commands::ai::ai_delete_api_key,
             commands::ai::ai_get_provider_status,
             commands::ai::ai_list_models,
+            commands::ai::ai_get_local_runtime_status,
+            commands::ai::ai_start_local_runtime,
+            commands::ai::ai_stop_local_runtime,
+            commands::ai::ai_install_local_runtime,
+            commands::ai::ai_cancel_local_runtime_installation,
+            commands::ai::ai_check_provider,
             commands::ai::ai_generate_filters,
             // Database Agent commands
             commands::agent::agent_send_message,

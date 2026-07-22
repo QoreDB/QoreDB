@@ -8,6 +8,7 @@ import { invoke } from '@/lib/transport';
 import type { ColumnFilter, Namespace } from './tauri';
 
 export type AiProvider =
+  | 'qore_local'
   | 'open_ai'
   | 'anthropic'
   | 'mistral_ai'
@@ -118,15 +119,65 @@ export interface AiProviderInfo {
   label: string;
   models: AiModelInfo[];
   requiresKey: boolean;
+  kind: 'managed_local' | 'external_local' | 'cloud';
+  defaultBaseUrl?: string;
+}
+
+export type LocalRuntimeState =
+  | 'unsupported'
+  | 'not_installed'
+  | 'installing'
+  | 'ready'
+  | 'running'
+  | 'error';
+
+export type LocalInstallPhase =
+  | 'downloading'
+  | 'verifying'
+  | 'installing'
+  | 'completed'
+  | 'cancelled'
+  | 'error';
+
+export type LocalInstallArtifact = 'runtime' | 'model';
+
+export interface LocalInstallProgress {
+  phase: LocalInstallPhase;
+  artifact?: LocalInstallArtifact;
+  downloaded_bytes: number;
+  total_bytes: number;
+  artifact_downloaded_bytes: number;
+  artifact_total_bytes: number;
+  error?: string;
+}
+
+export interface LocalRuntimeStatus {
+  state: LocalRuntimeState;
+  platform: string;
+  architecture: string;
+  runtime_installed: boolean;
+  model_installed: boolean;
+  endpoint?: string;
+  error?: string;
+  installation?: LocalInstallProgress;
+  required_download_bytes?: number;
 }
 
 // Curated Qore AI catalogs (mirrors src-tauri/src/ai/types.rs). The backend
 // intersects these with each provider's live model availability.
 export const AI_PROVIDERS: AiProviderInfo[] = [
   {
+    id: 'qore_local',
+    label: 'Qore AI Local',
+    requiresKey: false,
+    kind: 'managed_local',
+    models: [{ id: 'qore-qwen3-8b', label: 'Qwen 3 8B · Local' }],
+  },
+  {
     id: 'open_ai',
     label: 'OpenAI',
     requiresKey: true,
+    kind: 'cloud',
     models: [
       { id: 'gpt-5.6-terra', label: 'GPT-5.6 Terra · Balanced' },
       { id: 'gpt-5.6-sol', label: 'GPT-5.6 Sol · Best quality' },
@@ -137,6 +188,7 @@ export const AI_PROVIDERS: AiProviderInfo[] = [
     id: 'anthropic',
     label: 'Anthropic',
     requiresKey: true,
+    kind: 'cloud',
     models: [
       { id: 'claude-sonnet-5', label: 'Claude Sonnet 5' },
       { id: 'claude-opus-4-8', label: 'Claude Opus 4.8' },
@@ -147,6 +199,7 @@ export const AI_PROVIDERS: AiProviderInfo[] = [
     id: 'mistral_ai',
     label: 'Mistral AI',
     requiresKey: true,
+    kind: 'cloud',
     models: [
       { id: 'mistral-medium-latest', label: 'Mistral Medium' },
       { id: 'mistral-large-latest', label: 'Mistral Large' },
@@ -157,6 +210,7 @@ export const AI_PROVIDERS: AiProviderInfo[] = [
     id: 'google_gemini',
     label: 'Google Gemini',
     requiresKey: true,
+    kind: 'cloud',
     models: [
       { id: 'gemini-3.5-flash', label: 'Gemini 3.5 Flash' },
       { id: 'gemini-3.1-pro-preview', label: 'Gemini 3.1 Pro' },
@@ -167,6 +221,7 @@ export const AI_PROVIDERS: AiProviderInfo[] = [
     id: 'deep_seek',
     label: 'DeepSeek',
     requiresKey: true,
+    kind: 'cloud',
     models: [
       { id: 'deepseek-v4-flash', label: 'DeepSeek V4 Flash' },
       { id: 'deepseek-v4-pro', label: 'DeepSeek V4 Pro' },
@@ -176,6 +231,8 @@ export const AI_PROVIDERS: AiProviderInfo[] = [
     id: 'ollama',
     label: 'Ollama',
     requiresKey: false,
+    kind: 'external_local',
+    defaultBaseUrl: 'http://localhost:11434',
     models: [
       { id: 'qwen3', label: 'Qwen 3' },
       { id: 'llama3.3', label: 'Llama 3.3' },
@@ -227,6 +284,30 @@ export async function aiGetProviderStatus(probeProvider?: AiProvider): Promise<A
  *  falls back to the curated list when the endpoint or key is unavailable. */
 export async function aiListModels(provider: AiProvider, baseUrl?: string): Promise<AiModelInfo[]> {
   return invoke('ai_list_models', { provider, baseUrl });
+}
+
+export async function aiGetLocalRuntimeStatus(): Promise<LocalRuntimeStatus> {
+  return invoke('ai_get_local_runtime_status');
+}
+
+export async function aiStartLocalRuntime(): Promise<LocalRuntimeStatus> {
+  return invoke('ai_start_local_runtime');
+}
+
+export async function aiStopLocalRuntime(): Promise<LocalRuntimeStatus> {
+  return invoke('ai_stop_local_runtime');
+}
+
+export async function aiInstallLocalRuntime(): Promise<LocalRuntimeStatus> {
+  return invoke('ai_install_local_runtime');
+}
+
+export async function aiCancelLocalRuntimeInstallation(): Promise<boolean> {
+  return invoke('ai_cancel_local_runtime_installation');
+}
+
+export async function aiCheckProvider(provider: AiProvider, baseUrl?: string): Promise<boolean> {
+  return invoke('ai_check_provider', { provider, baseUrl });
 }
 
 /**

@@ -93,6 +93,57 @@ pub async fn ai_list_models(
 
 #[cfg(not(feature = "pro"))]
 #[tauri::command]
+pub async fn ai_get_local_runtime_status(
+    _state: State<'_, SharedState>,
+) -> Result<serde_json::Value, String> {
+    Err(PRO_REQUIRED.to_string())
+}
+
+#[cfg(not(feature = "pro"))]
+#[tauri::command]
+pub async fn ai_start_local_runtime(
+    _state: State<'_, SharedState>,
+) -> Result<serde_json::Value, String> {
+    Err(PRO_REQUIRED.to_string())
+}
+
+#[cfg(not(feature = "pro"))]
+#[tauri::command]
+pub async fn ai_stop_local_runtime(
+    _state: State<'_, SharedState>,
+) -> Result<serde_json::Value, String> {
+    Err(PRO_REQUIRED.to_string())
+}
+
+#[cfg(not(feature = "pro"))]
+#[tauri::command]
+pub async fn ai_install_local_runtime(
+    _state: State<'_, SharedState>,
+    _window: tauri::Window,
+) -> Result<serde_json::Value, String> {
+    Err(PRO_REQUIRED.to_string())
+}
+
+#[cfg(not(feature = "pro"))]
+#[tauri::command]
+pub async fn ai_cancel_local_runtime_installation(
+    _state: State<'_, SharedState>,
+) -> Result<bool, String> {
+    Err(PRO_REQUIRED.to_string())
+}
+
+#[cfg(not(feature = "pro"))]
+#[tauri::command]
+pub async fn ai_check_provider(
+    _state: State<'_, SharedState>,
+    _provider: String,
+    _base_url: Option<String>,
+) -> Result<bool, String> {
+    Err(PRO_REQUIRED.to_string())
+}
+
+#[cfg(not(feature = "pro"))]
+#[tauri::command]
 pub async fn ai_generate_filters(
     _state: State<'_, SharedState>,
     _session_id: String,
@@ -393,7 +444,10 @@ fn validate_api_key_shape(provider: &AiProvider, key: &str) -> Result<(), String
         AiProvider::Anthropic => Some("sk-ant-"),
         AiProvider::DeepSeek => Some("sk-"),
         // No fixed prefix or self-hosted — accept any non-empty string.
-        AiProvider::GoogleGemini | AiProvider::MistralAi | AiProvider::Ollama => None,
+        AiProvider::GoogleGemini
+        | AiProvider::MistralAi
+        | AiProvider::QoreLocal
+        | AiProvider::Ollama => None,
     };
     if let Some(prefix) = expected_prefix {
         if !trimmed.starts_with(prefix) {
@@ -449,7 +503,7 @@ pub async fn ai_list_models(
         Arc::clone(&s.ai_manager)
     };
 
-    if let Some(models) = ai_manager.cached_models(&provider) {
+    if let Some(models) = ai_manager.cached_models(&provider, base_url.as_deref()) {
         return Ok(models);
     }
 
@@ -462,13 +516,113 @@ pub async fn ai_list_models(
         String::new()
     };
 
+    let cache_base_url = base_url.clone();
     match crate::ai::provider::fetch_models(&provider, &api_key, base_url).await {
         Ok(models) if !models.is_empty() => {
-            ai_manager.cache_models(provider.clone(), models.clone());
+            ai_manager.cache_models(provider.clone(), cache_base_url.as_deref(), models.clone());
             Ok(models)
         }
         _ => Ok(provider.available_models_owned()),
     }
+}
+
+#[cfg(feature = "pro")]
+#[tauri::command]
+pub async fn ai_get_local_runtime_status(
+    state: State<'_, SharedState>,
+) -> Result<crate::ai::local_runtime::LocalRuntimeStatus, String> {
+    let runtime = {
+        let s = state.lock().await;
+        s.ai_manager.local_runtime()
+    };
+    Ok(runtime.status().await)
+}
+
+#[cfg(feature = "pro")]
+#[tauri::command]
+pub async fn ai_start_local_runtime(
+    state: State<'_, SharedState>,
+) -> Result<crate::ai::local_runtime::LocalRuntimeStatus, String> {
+    let runtime = {
+        let s = state.lock().await;
+        s.ai_manager.local_runtime()
+    };
+    runtime.ensure_running().await?;
+    Ok(runtime.status().await)
+}
+
+#[cfg(feature = "pro")]
+#[tauri::command]
+pub async fn ai_stop_local_runtime(
+    state: State<'_, SharedState>,
+) -> Result<crate::ai::local_runtime::LocalRuntimeStatus, String> {
+    let runtime = {
+        let s = state.lock().await;
+        s.ai_manager.local_runtime()
+    };
+    runtime.stop();
+    Ok(runtime.status().await)
+}
+
+#[cfg(feature = "pro")]
+#[tauri::command]
+pub async fn ai_install_local_runtime(
+    state: State<'_, SharedState>,
+    window: tauri::Window,
+) -> Result<crate::ai::local_runtime::LocalRuntimeStatus, String> {
+    let runtime = {
+        let s = state.lock().await;
+        s.ai_manager.local_runtime()
+    };
+    runtime
+        .install(move |progress| {
+            let _ = window.emit(
+                crate::ai::local_installer::INSTALL_PROGRESS_EVENT,
+                &progress,
+            );
+        })
+        .await
+}
+
+#[cfg(feature = "pro")]
+#[tauri::command]
+pub async fn ai_cancel_local_runtime_installation(
+    state: State<'_, SharedState>,
+) -> Result<bool, String> {
+    let runtime = {
+        let s = state.lock().await;
+        s.ai_manager.local_runtime()
+    };
+    Ok(runtime.cancel_installation())
+}
+
+#[cfg(feature = "pro")]
+#[tauri::command]
+pub async fn ai_check_provider(
+    state: State<'_, SharedState>,
+    provider: AiProvider,
+    base_url: Option<String>,
+) -> Result<bool, String> {
+    let ai_manager = {
+        let s = state.lock().await;
+        Arc::clone(&s.ai_manager)
+    };
+    if provider == AiProvider::QoreLocal {
+        let status = ai_manager.local_runtime().status().await;
+        return Ok(matches!(
+            status.state,
+            crate::ai::local_runtime::LocalRuntimeState::Ready
+                | crate::ai::local_runtime::LocalRuntimeState::Running
+        ));
+    }
+    let api_key = if provider.requires_api_key() {
+        ai_manager.get_api_key(&provider)?
+    } else {
+        String::new()
+    };
+    crate::ai::provider::fetch_models(&provider, &api_key, base_url)
+        .await
+        .map(|models| !models.is_empty())
 }
 
 /// Collect the full response from a streamed AI request (used for non-streaming commands)

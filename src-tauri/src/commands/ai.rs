@@ -101,6 +101,14 @@ pub async fn ai_get_local_runtime_status(
 
 #[cfg(not(feature = "pro"))]
 #[tauri::command]
+pub async fn ai_check_local_runtime_update(
+    _state: State<'_, SharedState>,
+) -> Result<serde_json::Value, String> {
+    Err(PRO_REQUIRED.to_string())
+}
+
+#[cfg(not(feature = "pro"))]
+#[tauri::command]
 pub async fn ai_start_local_runtime(
     _state: State<'_, SharedState>,
 ) -> Result<serde_json::Value, String> {
@@ -536,6 +544,18 @@ pub async fn ai_get_local_runtime_status(
         s.ai_manager.local_runtime()
     };
     Ok(runtime.status().await)
+}
+
+#[cfg(feature = "pro")]
+#[tauri::command]
+pub async fn ai_check_local_runtime_update(
+    state: State<'_, SharedState>,
+) -> Result<crate::ai::local_runtime::LocalRuntimeUpdateStatus, String> {
+    let runtime = {
+        let s = state.lock().await;
+        s.ai_manager.local_runtime()
+    };
+    runtime.check_for_update().await
 }
 
 #[cfg(feature = "pro")]

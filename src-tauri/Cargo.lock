@@ -5662,6 +5662,7 @@ dependencies = [
  "futures",
  "keyring",
  "mimalloc",
+ "minisign-verify",
  "mongodb",
  "notify",
  "parking_lot 0.12.5",

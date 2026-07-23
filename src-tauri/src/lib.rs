@@ -380,6 +380,7 @@ pub fn run() {
             commands::ai::ai_get_provider_status,
             commands::ai::ai_list_models,
             commands::ai::ai_get_local_runtime_status,
+            commands::ai::ai_check_local_runtime_update,
             commands::ai::ai_start_local_runtime,
             commands::ai::ai_stop_local_runtime,
             commands::ai::ai_install_local_runtime,

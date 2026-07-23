@@ -2401,6 +2401,8 @@
       "installComing": "Безопасная загрузка среды и модели пока недоступна в этой сборке.",
       "installDescription": "Загружает и проверяет локальный движок и модель ({{size}}). Прерванную загрузку можно продолжить.",
       "installLocal": "Установить Qore AI Local",
+      "updateDescription": "Доступно подписанное обновление Qore AI Local ({{version}}). Будет загружено и проверено {{size}}.",
+      "updateLocal": "Обновить Qore AI Local",
       "cancelInstall": "Отменить установку",
       "downloading": "Загрузка",
       "verifying": "Проверка",

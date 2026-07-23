@@ -12,8 +12,12 @@ use tokio_util::sync::CancellationToken;
 
 use super::local_installer::{
     LocalInstallPaths, LocalInstallPhase, LocalInstallProgress, install_artifacts,
+    read_installation_record, required_download_bytes,
 };
-use super::local_manifest::manifest_for_target;
+use super::local_manifest::{
+    LocalManifestSource, compare_manifest_versions, manifest_for_target,
+    resolve_manifest_for_target,
+};
 
 const MODEL_ID: &str = "qore-qwen3-8b";
 const MODEL_FILE: &str = "qwen3-8b-q4_k_m.gguf";
@@ -42,6 +46,15 @@ pub struct LocalRuntimeStatus {
     pub required_download_bytes: Option<u64>,
 }
 
+#[derive(Debug, Clone, Serialize)]
+pub struct LocalRuntimeUpdateStatus {
+    pub installed_version: Option<String>,
+    pub available_version: String,
+    pub update_available: bool,
+    pub required_download_bytes: u64,
+    pub source: LocalManifestSource,
+}
+
 struct ProcessState {
     child: Child,
     endpoint: String,
@@ -58,6 +71,7 @@ pub struct LocalAiRuntime {
     installation: Mutex<Option<InstallationState>>,
     last_install_error: Mutex<Option<String>>,
     client: reqwest::Client,
+    manifest_client: reqwest::Client,
     download_client: reqwest::Client,
 }
 
@@ -73,6 +87,13 @@ impl LocalAiRuntime {
                 .timeout(Duration::from_secs(2))
                 .build()
                 .unwrap_or_default(),
+            manifest_client: reqwest::Client::builder()
+                .https_only(true)
+                .connect_timeout(Duration::from_secs(5))
+                .timeout(Duration::from_secs(15))
+                .redirect(reqwest::redirect::Policy::limited(5))
+                .build()
+                .unwrap_or_default(),
             download_client: reqwest::Client::builder()
                 .https_only(true)
                 .connect_timeout(Duration::from_secs(20))
@@ -86,7 +107,7 @@ impl LocalAiRuntime {
     pub fn runtime_path(&self) -> PathBuf {
         let runtime_dir = self.runtime_dir();
         match manifest_for_target(std::env::consts::OS, std::env::consts::ARCH) {
-            Ok(manifest) => runtime_dir.join(manifest.runtime_relative_path),
+            Ok(manifest) => runtime_dir.join(&manifest.runtime_relative_path),
             Err(_) => runtime_dir.join(Self::runtime_filename()),
         }
     }
@@ -162,8 +183,17 @@ impl LocalAiRuntime {
     where
         F: Fn(LocalInstallProgress) + Send + Sync,
     {
-        let manifest = manifest_for_target(std::env::consts::OS, std::env::consts::ARCH)?;
-        let total_bytes = manifest.runtime.size + manifest.model.size;
+        let resolved = resolve_manifest_for_target(
+            &self.manifest_client,
+            std::env::consts::OS,
+            std::env::consts::ARCH,
+        )
+        .await?;
+        let manifest = resolved.manifest;
+        let runtime_path = self.runtime_path();
+        let model_path = self.model_path();
+        let total_bytes =
+            required_download_bytes(&self.root, &runtime_path, &model_path, &manifest).await;
         let cancel = CancellationToken::new();
         let initial = LocalInstallProgress::initial(total_bytes);
         {
@@ -187,8 +217,6 @@ impl LocalAiRuntime {
             notify(progress);
         };
         let runtime_dir = self.runtime_dir();
-        let runtime_path = self.runtime_path();
-        let model_path = self.model_path();
         let result = install_artifacts(
             LocalInstallPaths {
                 root: &self.root,
@@ -231,6 +259,44 @@ impl LocalAiRuntime {
         *self.installation.lock() = None;
         result?;
         Ok(self.status().await)
+    }
+
+    pub async fn check_for_update(&self) -> Result<LocalRuntimeUpdateStatus, String> {
+        if !Self::is_supported_target() {
+            return Err(format!(
+                "Qore AI Local is not supported on {}-{}",
+                std::env::consts::OS,
+                std::env::consts::ARCH
+            ));
+        }
+        let resolved = resolve_manifest_for_target(
+            &self.manifest_client,
+            std::env::consts::OS,
+            std::env::consts::ARCH,
+        )
+        .await?;
+        let installed = read_installation_record(&self.root).await;
+        let required_download_bytes = required_download_bytes(
+            &self.root,
+            &self.runtime_path(),
+            &self.model_path(),
+            &resolved.manifest,
+        )
+        .await;
+        let update_available = installed.as_ref().is_some_and(|record| {
+            compare_manifest_versions(&resolved.manifest.version, &record.manifest_version)
+                .is_ok_and(|ordering| ordering == std::cmp::Ordering::Greater)
+                || (ordering_is_equal(&resolved.manifest.version, &record.manifest_version)
+                    && !record.matches(&resolved.manifest))
+        }) && required_download_bytes > 0;
+
+        Ok(LocalRuntimeUpdateStatus {
+            installed_version: installed.map(|record| record.manifest_version),
+            available_version: resolved.manifest.version,
+            update_available,
+            required_download_bytes,
+            source: resolved.source,
+        })
     }
 
     pub fn cancel_installation(&self) -> bool {
@@ -396,6 +462,11 @@ impl LocalAiRuntime {
             "llama-server"
         }
     }
+}
+
+fn ordering_is_equal(left: &str, right: &str) -> bool {
+    compare_manifest_versions(left, right)
+        .is_ok_and(|ordering| ordering == std::cmp::Ordering::Equal)
 }
 
 impl Drop for LocalAiRuntime {

@@ -182,6 +182,14 @@ export interface LocalRuntimeStatus {
   required_download_bytes?: number;
 }
 
+export interface LocalRuntimeUpdateStatus {
+  installed_version?: string;
+  available_version: string;
+  update_available: boolean;
+  required_download_bytes: number;
+  source: 'embedded' | 'remote';
+}
+
 // Curated Qore AI catalogs (mirrors src-tauri/src/ai/types.rs). The backend
 // intersects these with each provider's live model availability.
 export const AI_PROVIDERS: AiProviderInfo[] = [
@@ -307,6 +315,10 @@ export async function aiListModels(provider: AiProvider, baseUrl?: string): Prom
 
 export async function aiGetLocalRuntimeStatus(): Promise<LocalRuntimeStatus> {
   return invoke('ai_get_local_runtime_status');
+}
+
+export async function aiCheckLocalRuntimeUpdate(): Promise<LocalRuntimeUpdateStatus> {
+  return invoke('ai_check_local_runtime_update');
 }
 
 export async function aiStartLocalRuntime(): Promise<LocalRuntimeStatus> {

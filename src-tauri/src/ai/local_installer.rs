@@ -7,12 +7,14 @@ use std::path::{Component, Path, PathBuf};
 use flate2::read::GzDecoder;
 use futures::StreamExt;
 use reqwest::header::{CONTENT_RANGE, RANGE};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio_util::sync::CancellationToken;
 
-use super::local_manifest::{ArchiveFormat, LocalArtifact, LocalArtifactManifest};
+use super::local_manifest::{
+    ArchiveFormat, LocalArtifact, LocalArtifactManifest, compare_manifest_versions,
+};
 
 pub const INSTALL_PROGRESS_EVENT: &str = "ai-local-install-progress";
 
@@ -73,14 +75,59 @@ pub async fn install_artifacts(
     cancel: &CancellationToken,
     notify: &(dyn Fn(LocalInstallProgress) + Send + Sync),
 ) -> Result<(), String> {
-    let total_bytes = manifest.runtime.size + manifest.model.size;
+    let installed = read_installation_record(paths.root).await;
+    if let Some(record) = installed.as_ref() {
+        match compare_manifest_versions(&record.manifest_version, &manifest.version)? {
+            std::cmp::Ordering::Greater => {
+                if paths.runtime_path.is_file() && paths.model_path.is_file() {
+                    emit(
+                        notify,
+                        LocalInstallProgress {
+                            phase: LocalInstallPhase::Completed,
+                            artifact: None,
+                            downloaded_bytes: 0,
+                            total_bytes: 0,
+                            artifact_downloaded_bytes: 0,
+                            artifact_total_bytes: 0,
+                            error: None,
+                        },
+                    );
+                    return Ok(());
+                }
+                return Err(
+                    "A newer Qore AI Local installation exists, but its signed manifest is unavailable"
+                        .to_string(),
+                );
+            }
+            std::cmp::Ordering::Equal if !record.matches(manifest) => {
+                return Err(
+                    "Qore AI manifest version was reused with different artifact hashes"
+                        .to_string(),
+                );
+            }
+            _ => {}
+        }
+    }
+
+    let runtime_current = paths.runtime_path.is_file()
+        && installed
+            .as_ref()
+            .is_some_and(|record| record.runtime_sha256 == manifest.runtime.sha256);
+    let model_current = paths.model_path.is_file()
+        && installed
+            .as_ref()
+            .is_some_and(|record| record.model_sha256 == manifest.model.sha256);
+    let total_bytes = (!runtime_current)
+        .then_some(manifest.runtime.size)
+        .unwrap_or(0)
+        + (!model_current).then_some(manifest.model.size).unwrap_or(0);
     let downloads_dir = paths.root.join(".downloads");
     tokio::fs::create_dir_all(&downloads_dir)
         .await
         .map_err(|error| format!("Could not create the Qore AI download directory: {error}"))?;
 
     let mut completed_bytes = 0;
-    if !paths.runtime_path.is_file() {
+    if !runtime_current {
         let archive = download_artifact(
             &downloads_dir,
             &manifest.runtime,
@@ -108,15 +155,17 @@ pub async fn install_artifacts(
             archive.clone(),
             paths.runtime_dir.to_path_buf(),
             manifest.runtime.format,
-            manifest.runtime_relative_path,
+            &manifest.runtime_relative_path,
         )
         .await?;
         let _ = tokio::fs::remove_file(archive).await;
     }
-    completed_bytes += manifest.runtime.size;
+    if !runtime_current {
+        completed_bytes += manifest.runtime.size;
+    }
 
     check_cancelled(cancel)?;
-    if !paths.model_path.is_file() {
+    if !model_current {
         let model_download = download_artifact(
             &downloads_dir,
             &manifest.model,
@@ -170,7 +219,11 @@ async fn download_artifact(
     cancel: &CancellationToken,
     notify: &(dyn Fn(LocalInstallProgress) + Send + Sync),
 ) -> Result<PathBuf, String> {
-    let partial_path = downloads_dir.join(format!("{}.partial", artifact.id));
+    let partial_path = downloads_dir.join(format!(
+        "{}-{}.partial",
+        artifact.id,
+        &artifact.sha256[..12]
+    ));
     let mut offset = tokio::fs::metadata(&partial_path)
         .await
         .map(|metadata| metadata.len())
@@ -196,14 +249,14 @@ async fn download_artifact(
                 error: None,
             },
         );
-        if let Err(error) = verify_sha256(&partial_path, artifact.sha256, cancel).await {
+        if let Err(error) = verify_sha256(&partial_path, &artifact.sha256, cancel).await {
             let _ = tokio::fs::remove_file(&partial_path).await;
             return Err(error);
         }
         return Ok(partial_path);
     }
 
-    let mut request = client.get(artifact.url);
+    let mut request = client.get(&artifact.url);
     if offset > 0 {
         request = request.header(RANGE, format!("bytes={offset}-"));
     }
@@ -321,7 +374,7 @@ async fn download_artifact(
             error: None,
         },
     );
-    if let Err(error) = verify_sha256(&partial_path, artifact.sha256, cancel).await {
+    if let Err(error) = verify_sha256(&partial_path, &artifact.sha256, cancel).await {
         let _ = tokio::fs::remove_file(&partial_path).await;
         return Err(error);
     }
@@ -384,7 +437,7 @@ async fn install_runtime_archive(
     archive_path: PathBuf,
     runtime_dir: PathBuf,
     format: ArchiveFormat,
-    runtime_relative_path: &'static str,
+    runtime_relative_path: &str,
 ) -> Result<(), String> {
     let staging = runtime_dir.with_extension("installing");
     let previous = runtime_dir.with_extension("previous");
@@ -537,15 +590,47 @@ async fn install_model_file(download: &Path, model_path: &Path) -> Result<(), St
     Ok(())
 }
 
-#[derive(Serialize)]
-struct InstallationRecord<'a> {
-    manifest_version: &'a str,
-    runtime_version: &'a str,
-    runtime_sha256: &'a str,
-    runtime_license: &'a str,
-    model_version: &'a str,
-    model_sha256: &'a str,
-    model_license: &'a str,
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub(crate) struct InstallationRecord {
+    pub manifest_version: String,
+    pub runtime_version: String,
+    pub runtime_sha256: String,
+    pub runtime_license: String,
+    pub model_version: String,
+    pub model_sha256: String,
+    pub model_license: String,
+}
+
+impl InstallationRecord {
+    pub fn matches(&self, manifest: &LocalArtifactManifest) -> bool {
+        self.runtime_sha256 == manifest.runtime.sha256 && self.model_sha256 == manifest.model.sha256
+    }
+}
+
+pub(crate) async fn read_installation_record(root: &Path) -> Option<InstallationRecord> {
+    let content = tokio::fs::read(root.join("installation.json")).await.ok()?;
+    serde_json::from_slice(&content).ok()
+}
+
+pub(crate) async fn required_download_bytes(
+    root: &Path,
+    runtime_path: &Path,
+    model_path: &Path,
+    manifest: &LocalArtifactManifest,
+) -> u64 {
+    let installed = read_installation_record(root).await;
+    let runtime_current = runtime_path.is_file()
+        && installed
+            .as_ref()
+            .is_some_and(|record| record.runtime_sha256 == manifest.runtime.sha256);
+    let model_current = model_path.is_file()
+        && installed
+            .as_ref()
+            .is_some_and(|record| record.model_sha256 == manifest.model.sha256);
+    (!runtime_current)
+        .then_some(manifest.runtime.size)
+        .unwrap_or(0)
+        + (!model_current).then_some(manifest.model.size).unwrap_or(0)
 }
 
 async fn write_installation_record(
@@ -553,13 +638,13 @@ async fn write_installation_record(
     manifest: &LocalArtifactManifest,
 ) -> Result<(), String> {
     let record = InstallationRecord {
-        manifest_version: manifest.version,
-        runtime_version: manifest.runtime.version,
-        runtime_sha256: manifest.runtime.sha256,
-        runtime_license: manifest.runtime.license,
-        model_version: manifest.model.version,
-        model_sha256: manifest.model.sha256,
-        model_license: manifest.model.license,
+        manifest_version: manifest.version.clone(),
+        runtime_version: manifest.runtime.version.clone(),
+        runtime_sha256: manifest.runtime.sha256.clone(),
+        runtime_license: manifest.runtime.license.clone(),
+        model_version: manifest.model.version.clone(),
+        model_sha256: manifest.model.sha256.clone(),
+        model_license: manifest.model.license.clone(),
     };
     let content = serde_json::to_vec_pretty(&record)
         .map_err(|error| format!("Could not serialize the AI installation record: {error}"))?;
@@ -636,6 +721,7 @@ fn emit(notify: &(dyn Fn(LocalInstallProgress) + Send + Sync), progress: LocalIn
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::ai::local_manifest::manifest_for_target;
     use wiremock::matchers::{header, method};
     use wiremock::{Mock, MockServer, ResponseTemplate};
 
@@ -690,17 +776,16 @@ mod tests {
             .await;
 
         let temp = tempfile::tempdir().unwrap();
-        let partial = temp.path().join("test-artifact.partial");
+        let partial = temp.path().join("test-artifact-dab4d342d323.partial");
         tokio::fs::write(&partial, b"qore-").await.unwrap();
-        let url: &'static str = Box::leak(server.uri().into_boxed_str());
         let artifact = LocalArtifact {
-            id: "test-artifact",
-            version: "test",
-            url,
+            id: "test-artifact".to_string(),
+            version: "test".to_string(),
+            url: server.uri(),
             size: 7,
-            sha256: "dab4d342d323f59113c04c5f4f5f24ac5f74e454bccc40ae248b8908da6b5042",
+            sha256: "dab4d342d323f59113c04c5f4f5f24ac5f74e454bccc40ae248b8908da6b5042".to_string(),
             format: ArchiveFormat::Raw,
-            license: "test",
+            license: "test".to_string(),
         };
 
         let path = download_artifact(
@@ -717,6 +802,101 @@ mod tests {
         .unwrap();
 
         assert_eq!(tokio::fs::read(path).await.unwrap(), b"qore-ai");
+    }
+
+    #[tokio::test]
+    async fn update_size_only_counts_changed_artifacts() {
+        let temp = tempfile::tempdir().unwrap();
+        let runtime_path = temp.path().join("runtime/llama-server");
+        let model_path = temp.path().join("models/model.gguf");
+        tokio::fs::create_dir_all(runtime_path.parent().unwrap())
+            .await
+            .unwrap();
+        tokio::fs::create_dir_all(model_path.parent().unwrap())
+            .await
+            .unwrap();
+        tokio::fs::write(&runtime_path, b"runtime").await.unwrap();
+        tokio::fs::write(&model_path, b"model").await.unwrap();
+        let manifest = manifest_for_target(std::env::consts::OS, std::env::consts::ARCH).unwrap();
+        write_installation_record(temp.path(), &manifest)
+            .await
+            .unwrap();
+        tokio::fs::remove_file(&model_path).await.unwrap();
+
+        assert_eq!(
+            required_download_bytes(temp.path(), &runtime_path, &model_path, &manifest).await,
+            manifest.model.size
+        );
+    }
+
+    #[tokio::test]
+    async fn same_manifest_version_cannot_change_artifact_hashes() {
+        let temp = tempfile::tempdir().unwrap();
+        let manifest = manifest_for_target(std::env::consts::OS, std::env::consts::ARCH).unwrap();
+        write_installation_record(temp.path(), &manifest)
+            .await
+            .unwrap();
+        let mut mutated = manifest;
+        mutated.model.sha256 = "0".repeat(64);
+        let runtime_dir = temp.path().join("runtime");
+        let runtime_path = runtime_dir.join("llama-server");
+        let model_path = temp.path().join("model.gguf");
+
+        let error = install_artifacts(
+            LocalInstallPaths {
+                root: temp.path(),
+                runtime_dir: &runtime_dir,
+                runtime_path: &runtime_path,
+                model_path: &model_path,
+            },
+            &mutated,
+            &reqwest::Client::new(),
+            &CancellationToken::new(),
+            &|_| {},
+        )
+        .await
+        .unwrap_err();
+        assert!(error.contains("version was reused"));
+    }
+
+    #[tokio::test]
+    async fn embedded_fallback_does_not_downgrade_a_newer_installation() {
+        let temp = tempfile::tempdir().unwrap();
+        let manifest = manifest_for_target(std::env::consts::OS, std::env::consts::ARCH).unwrap();
+        let mut installed = manifest.clone();
+        installed.version = "2026-07-23.1".to_string();
+        write_installation_record(temp.path(), &installed)
+            .await
+            .unwrap();
+        let runtime_dir = temp.path().join("runtime");
+        let runtime_path = runtime_dir.join("llama-server");
+        let model_path = temp.path().join("model.gguf");
+        tokio::fs::create_dir_all(&runtime_dir).await.unwrap();
+        tokio::fs::write(&runtime_path, b"runtime").await.unwrap();
+        tokio::fs::write(&model_path, b"model").await.unwrap();
+
+        install_artifacts(
+            LocalInstallPaths {
+                root: temp.path(),
+                runtime_dir: &runtime_dir,
+                runtime_path: &runtime_path,
+                model_path: &model_path,
+            },
+            &manifest,
+            &reqwest::Client::new(),
+            &CancellationToken::new(),
+            &|_| {},
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(
+            read_installation_record(temp.path())
+                .await
+                .unwrap()
+                .manifest_version,
+            "2026-07-23.1"
+        );
     }
 
     #[test]

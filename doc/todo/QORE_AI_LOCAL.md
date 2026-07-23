@@ -18,7 +18,7 @@ Le runtime est `llama-server`. Les poids ne sont pas inclus dans l'installeur Qo
 - [x] Manifest embarqué épinglant URL immuable, taille et SHA-256 pour chaque artefact.
 - [x] Téléchargement reprenable avec progression, annulation et vérification SHA-256.
 - [x] Extraction protégée et remplacement atomique des artefacts vérifiés.
-- [ ] Manifest distant signé pour publier des mises à jour sans nouvelle version de QoreDB.
+- [x] Manifest distant signé pour publier des mises à jour sans nouvelle version de QoreDB.
 - [ ] Builds reproductibles de `llama-server` pour toutes les cibles.
 - [ ] Sélection automatique du modèle selon la mémoire disponible.
 - [ ] Benchmark agentique multi-driver et seuils de publication.
@@ -48,7 +48,17 @@ Le téléchargement n'accepte aucune URL fournie par le frontend. Le backend lit
 - licence et fichier de notices ;
 - compatibilité minimale avec le format GGUF et le template de tool calling.
 
-Le manifest livré avec l'application constitue la source de confiance initiale. La première version épingle `llama.cpp` b10087 pour les six cibles et Qwen 3 8B Q4_K_M à la révision `212c964b8f97cb5edc203d411b767aaae707e653`. Un manifest distant ne pourra le remplacer qu'après ajout d'une signature vérifiée côté Rust.
+Le manifest livré avec l'application constitue la source de confiance initiale. La première version épingle `llama.cpp` b10087 pour les six cibles et Qwen 3 8B Q4_K_M à la révision `212c964b8f97cb5edc203d411b767aaae707e653`.
+
+Les mises à jour sont publiées sur la prerelease GitHub dédiée `qore-ai-local` sous la forme du JSON byte-exact et de sa signature `.sig`. Le backend vérifie la signature Minisign avec la même racine de confiance que l'auto-updater avant de parser le JSON. Le catalogue distant doit :
+
+- avoir une version strictement supérieure au catalogue embarqué ;
+- contenir exactement les six cibles supportées ;
+- conserver les chemins relatifs attendus du runtime ;
+- fournir uniquement des URL HTTPS, tailles bornées et SHA-256 minuscules ;
+- garder une version immuable pour un couple de hashes donné.
+
+Une signature invalide, une réponse trop grande, une cible manquante ou une panne réseau provoque un repli sur le catalogue embarqué. Le registre d'installation bloque ensuite tout downgrade si une version distante plus récente est déjà installée.
 
 Le téléchargement utilise HTTP Range lorsqu'un fichier partiel existe. Un serveur qui ne confirme pas la plage demandée provoque un redémarrage propre du fichier au lieu d'une concaténation ambiguë. Un artefact n'est extrait ou déplacé vers son chemin final qu'après vérification de sa taille et de son SHA-256.
 
@@ -67,6 +77,7 @@ Un modèle plus petit ne sera proposé qu'après validation agentique. La géné
 - Une interruption de téléchargement ne remplace jamais un artefact déjà vérifié ; le fichier partiel est conservé pour la reprise et les écritures finales utilisent un renommage atomique avec rollback.
 - Les archives refusent les chemins absolus et les traversées hors du répertoire de staging.
 - Les hashes, versions et licences sont enregistrés avec l'installation locale.
+- Le manifest distant est vérifié avant désérialisation et ne reçoit aucune URL du frontend.
 
 ## Critères de validation
 

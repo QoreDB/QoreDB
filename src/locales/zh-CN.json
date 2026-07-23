@@ -2401,6 +2401,8 @@
       "installComing": "此版本尚未提供安全的运行时和模型下载流程。",
       "installDescription": "下载并验证本地引擎和模型（{{size}}）。中断的下载可以继续。",
       "installLocal": "安装 Qore AI Local",
+      "updateDescription": "有可用的已签名 Qore AI Local 更新（{{version}}）。将下载并验证 {{size}}。",
+      "updateLocal": "更新 Qore AI Local",
       "cancelInstall": "取消安装",
       "downloading": "正在下载",
       "verifying": "正在验证",

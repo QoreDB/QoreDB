@@ -2440,6 +2440,8 @@
       "installComing": "Le téléchargement sécurisé du runtime et du modèle n’est pas encore disponible dans cette version.",
       "installDescription": "Télécharge et vérifie le moteur local et le modèle ({{size}}). Un téléchargement interrompu peut être repris.",
       "installLocal": "Installer Qore AI Local",
+      "updateDescription": "Une mise à jour signée de Qore AI Local ({{version}}) est disponible. {{size}} seront téléchargés et vérifiés.",
+      "updateLocal": "Mettre à jour Qore AI Local",
       "cancelInstall": "Annuler l’installation",
       "downloading": "Téléchargement",
       "verifying": "Vérification",

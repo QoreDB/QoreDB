@@ -34,12 +34,14 @@ import {
   type AiProvider,
   type AiProviderInfo,
   aiCancelLocalRuntimeInstallation,
+  aiCheckLocalRuntimeUpdate,
   aiDeleteApiKey,
   aiInstallLocalRuntime,
   aiSaveApiKey,
   aiStartLocalRuntime,
   aiStopLocalRuntime,
   type LocalInstallProgress,
+  type LocalRuntimeUpdateStatus,
 } from '@/lib/ai';
 import { listen } from '@/lib/transport';
 import { cn } from '@/lib/utils';
@@ -194,6 +196,7 @@ function ProviderRow({
   const [runtimeBusy, setRuntimeBusy] = useState(false);
   const [runtimeError, setRuntimeError] = useState<string | null>(null);
   const [installProgress, setInstallProgress] = useState<LocalInstallProgress | null>(null);
+  const [runtimeUpdate, setRuntimeUpdate] = useState<LocalRuntimeUpdateStatus | null>(null);
   const [endpointDraft, setEndpointDraft] = useState(preferredBaseUrls[provider.id] ?? '');
   const status = providerStatuses.find(item => item.provider === provider.id);
   const liveModels = availableModels[provider.id];
@@ -224,6 +227,27 @@ function ProviderRow({
     };
   }, [isManagedLocal]);
 
+  useEffect(() => {
+    if (
+      !isManagedLocal ||
+      !expanded ||
+      (localRuntimeStatus?.state !== 'ready' && localRuntimeStatus?.state !== 'running')
+    ) {
+      return;
+    }
+    let disposed = false;
+    void aiCheckLocalRuntimeUpdate()
+      .then(update => {
+        if (!disposed) setRuntimeUpdate(update);
+      })
+      .catch(() => {
+        // The embedded signed catalog remains available offline.
+      });
+    return () => {
+      disposed = true;
+    };
+  }, [expanded, isManagedLocal, localRuntimeStatus?.state]);
+
   const updateRuntime = async (start: boolean) => {
     setRuntimeBusy(true);
     setRuntimeError(null);
@@ -244,6 +268,16 @@ function ProviderRow({
     try {
       await aiInstallLocalRuntime();
       await refreshStatuses();
+      setRuntimeUpdate(current =>
+        current
+          ? {
+              ...current,
+              installed_version: current.available_version,
+              update_available: false,
+              required_download_bytes: 0,
+            }
+          : null
+      );
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       if (!message.toLowerCase().includes('cancel')) setRuntimeError(message);
@@ -267,6 +301,10 @@ function ProviderRow({
   const progressPercent = installProgress?.total_bytes
     ? Math.min(100, (installProgress.downloaded_bytes / installProgress.total_bytes) * 100)
     : 0;
+  const updateAvailable = runtimeUpdate?.update_available ?? false;
+  const requiredDownloadBytes = updateAvailable
+    ? (runtimeUpdate?.required_download_bytes ?? 0)
+    : (localRuntimeStatus?.required_download_bytes ?? 0);
 
   return (
     <div className={cn('rounded-lg border transition-colors', expanded && 'border-accent/40')}>
@@ -314,12 +352,18 @@ function ProviderRow({
               </p>
               {(localRuntimeStatus?.state === 'not_installed' ||
                 localRuntimeStatus?.state === 'error' ||
-                isInstalling) && (
+                isInstalling ||
+                updateAvailable) && (
                 <div className="mt-3 space-y-2">
                   <p>
-                    {t('ai.settings.installDescription', {
-                      size: formatBytes(localRuntimeStatus?.required_download_bytes ?? 0),
-                    })}
+                    {updateAvailable
+                      ? t('ai.settings.updateDescription', {
+                          version: runtimeUpdate?.available_version,
+                          size: formatBytes(requiredDownloadBytes),
+                        })
+                      : t('ai.settings.installDescription', {
+                          size: formatBytes(requiredDownloadBytes),
+                        })}
                   </p>
                   {isInstalling && installProgress && (
                     <div className="space-y-1.5">
@@ -361,7 +405,13 @@ function ProviderRow({
                     ) : (
                       <Download size={13} className="mr-1" />
                     )}
-                    {t(isInstalling ? 'ai.settings.cancelInstall' : 'ai.settings.installLocal')}
+                    {t(
+                      isInstalling
+                        ? 'ai.settings.cancelInstall'
+                        : updateAvailable
+                          ? 'ai.settings.updateLocal'
+                          : 'ai.settings.installLocal'
+                    )}
                   </Button>
                 </div>
               )}

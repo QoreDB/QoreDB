@@ -2401,6 +2401,8 @@
       "installComing": "안전한 런타임 및 모델 다운로드는 아직 이 빌드에서 사용할 수 없습니다.",
       "installDescription": "로컬 엔진과 모델({{size}})을 다운로드하고 검증합니다. 중단된 다운로드는 다시 시작할 수 있습니다.",
       "installLocal": "Qore AI Local 설치",
+      "updateDescription": "서명된 Qore AI Local 업데이트({{version}})가 있습니다. {{size}}를 다운로드하고 검증합니다.",
+      "updateLocal": "Qore AI Local 업데이트",
       "cancelInstall": "설치 취소",
       "downloading": "다운로드 중",
       "verifying": "검증 중",

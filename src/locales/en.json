@@ -2440,6 +2440,8 @@
       "installComing": "The secure runtime and model download flow is not available in this build yet.",
       "installDescription": "Downloads and verifies the local engine and model ({{size}}). Partial downloads can be resumed.",
       "installLocal": "Install Qore AI Local",
+      "updateDescription": "A signed Qore AI Local update ({{version}}) is available. {{size}} will be downloaded and verified.",
+      "updateLocal": "Update Qore AI Local",
       "cancelInstall": "Cancel installation",
       "downloading": "Downloading",
       "verifying": "Verifying",

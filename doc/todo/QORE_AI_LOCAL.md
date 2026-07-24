@@ -19,7 +19,7 @@ Le runtime est `llama-server`. Les poids ne sont pas inclus dans l'installeur Qo
 - [x] Téléchargement reprenable avec progression, annulation et vérification SHA-256.
 - [x] Extraction protégée et remplacement atomique des artefacts vérifiés.
 - [x] Manifest distant signé pour publier des mises à jour sans nouvelle version de QoreDB.
-- [ ] Builds reproductibles de `llama-server` pour toutes les cibles.
+- [x] Builds reproductibles de `llama-server` pour toutes les cibles.
 - [ ] Sélection automatique du modèle selon la mémoire disponible.
 - [ ] Benchmark agentique multi-driver et seuils de publication.
 
@@ -61,6 +61,22 @@ Les mises à jour sont publiées sur la prerelease GitHub dédiée `qore-ai-loca
 Une signature invalide, une réponse trop grande, une cible manquante ou une panne réseau provoque un repli sur le catalogue embarqué. Le registre d'installation bloque ensuite tout downgrade si une version distante plus récente est déjà installée.
 
 Le téléchargement utilise HTTP Range lorsqu'un fichier partiel existe. Un serveur qui ne confirme pas la plage demandée provoque un redémarrage propre du fichier au lieu d'une concaténation ambiguë. Un artefact n'est extrait ou déplacé vers son chemin final qu'après vérification de sa taille et de son SHA-256.
+
+## Builds du runtime
+
+La définition de build `packaging/qore-ai/runtime-build-v1.json` est la source de vérité pour les six cibles. Elle épingle le commit complet de `llama.cpp`, le commit BoringSSL, la date de source, les runners et les options CMake. L'interface web embarquée de `llama-server` est désactivée : QoreDB ne distribue que le serveur, ses bibliothèques d'exécution et les licences.
+
+Le workflow `build-ai-runtime.yml` compile chaque cible deux fois dans des répertoires indépendants, sans cache. Les chemins absolus sont remappés, les métadonnées d'archive sont normalisées et les deux archives doivent avoir le même SHA-256. Un écart arrête la cible et empêche l'assemblage global. La provenance adjacente enregistre la source, la cible, les options et les versions de toolchain réellement observées.
+
+La publication est atomique à l'échelle de la matrice :
+
+1. les six artefacts et leurs provenances doivent être présents ;
+2. chaque archive doit contenir `llama-server` au chemin déclaré ;
+3. un manifeste candidat est généré avec les URL, tailles et hashes calculés ;
+4. l'option manuelle `publish` crée la release immuable `qore-ai-runtime-b10087` et refuse de l'écraser ;
+5. le manifeste candidat validé remplace explicitement le catalogue embarqué, puis le workflow de publication le signe et le publie.
+
+Le manifeste embarqué continue de référencer les artefacts upstream tant qu'un candidat complet n'a pas été publié et signé. Les labels de runners hébergés peuvent évoluer ; le double build constitue le verrou bit-à-bit pour la toolchain publiée, tandis que la provenance rend toute dérive de toolchain observable.
 
 ## Modèle initial
 

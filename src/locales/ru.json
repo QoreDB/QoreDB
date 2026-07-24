@@ -1028,8 +1028,12 @@
     "lastPage": "Последняя страница",
     "infiniteScroll": {
       "loaded": "Загружено {{loaded}} из {{total}} строк",
+      "loadedUnknown": "Загружено {{loaded}} строк",
       "allLoaded": "Все {{total}} строк загружены",
       "loading": "Загрузка…",
+      "calculateTotal": "Рассчитать точное количество",
+      "countingTotal": "Подсчёт количества…",
+      "countTotalError": "Не удалось рассчитать точное количество",
       "complete": "Конец результатов"
     },
     "noData": "Нет данных для отображения",

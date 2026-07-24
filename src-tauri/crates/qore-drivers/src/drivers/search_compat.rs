@@ -603,6 +603,23 @@ const STREAM_PAGE: u64 = 1000;
 /// Tools semantics and run once.
 const STREAM_SIZE_THRESHOLD: u64 = 10_000;
 
+/// Assumed `index.max_result_window`. A cluster may raise it; we only use this
+/// to avoid *causing* a window error with the extra over-fetched row, never to
+/// refuse a request the cluster would have accepted.
+const DEFAULT_MAX_RESULT_WINDOW: u64 = 10_000;
+
+/// Trims the over-fetched row when `from + size` would cross the result window.
+///
+/// Returns the size to request and whether trimming occurred — in which case
+/// `has_more` cannot be derived from the response and the engine decides on the
+/// next page instead. Never returns 0: a zero-size search would report an empty
+/// page, which reads as "end of data" rather than "window exhausted".
+fn window_clamped_fetch_size(requested: u32, offset: u64) -> (u64, bool) {
+    let requested = u64::from(requested);
+    let clamped = requested.min(DEFAULT_MAX_RESULT_WINDOW.saturating_sub(offset).max(1));
+    (clamped, clamped < requested)
+}
+
 pub async fn execute_stream(
     map: &SessionMap,
     session: SessionId,
@@ -894,10 +911,15 @@ pub async fn query_table(
     let page_size = options.effective_page_size();
     let offset = page.saturating_sub(1) as u64 * page_size as u64;
 
+    let (fetch_size, overfetch_trimmed) = window_clamped_fetch_size(options.fetch_size(), offset);
+
     let mut body = JsonMap::new();
     body.insert("from".into(), json!(offset));
-    body.insert("size".into(), json!(page_size));
-    body.insert("track_total_hits".into(), json!(true));
+    body.insert("size".into(), json!(fetch_size));
+    body.insert(
+        "track_total_hits".into(),
+        json!(options.wants_exact_total()),
+    );
     body.insert("query".into(), json!({ "match_all": {} }));
 
     if let Some(col) = options.sort_column.as_ref() {
@@ -920,12 +942,17 @@ pub async fn query_table(
         .await?;
     let elapsed_ms = started.elapsed().as_micros() as f64 / 1000.0;
 
-    let total = json
-        .pointer("/hits/total/value")
-        .and_then(|v| v.as_u64())
-        .unwrap_or(0);
+    let total = options.wants_exact_total().then(|| {
+        json.pointer("/hits/total/value")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(0)
+    });
     let result = map_response(&json, elapsed_ms);
-    Ok(PaginatedQueryResult::new(result, total, page, page_size))
+    let mut paginated = PaginatedQueryResult::from_optional_total(result, total, page, page_size);
+    if overfetch_trimmed && paginated.result.rows.len() as u32 == page_size {
+        paginated.has_more = true;
+    }
+    Ok(paginated)
 }
 
 pub async fn insert_row(
@@ -1452,6 +1479,27 @@ fn matches_search(name: &str, search: &Option<String>) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn overfetch_is_kept_below_the_result_window() {
+        assert_eq!(window_clamped_fetch_size(101, 0), (101, false));
+        assert_eq!(window_clamped_fetch_size(101, 9_000), (101, false));
+    }
+
+    #[test]
+    fn overfetch_is_trimmed_at_the_window_boundary() {
+        // The page that used to fit exactly (9_900 + 100) must keep fitting:
+        // only the extra row is dropped, and `has_more` becomes undecidable.
+        assert_eq!(window_clamped_fetch_size(101, 9_900), (100, true));
+    }
+
+    #[test]
+    fn exhausted_window_still_asks_for_a_row() {
+        // Requesting size 0 would look like an empty last page; let the engine
+        // return its own window error instead.
+        assert_eq!(window_clamped_fetch_size(101, 10_000), (1, true));
+        assert_eq!(window_clamped_fetch_size(101, 50_000), (1, true));
+    }
 
     #[test]
     fn flavor_ids() {

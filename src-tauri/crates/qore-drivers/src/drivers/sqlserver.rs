@@ -1306,6 +1306,7 @@ impl DataEngine for SqlServerDriver {
 
         let page = options.effective_page();
         let page_size = options.effective_page_size();
+        let fetch_size = options.fetch_size();
         let offset = options.offset();
 
         let start = Instant::now();
@@ -1433,25 +1434,29 @@ impl DataEngine for SqlServerDriver {
             " ORDER BY (SELECT NULL)".to_string()
         };
 
-        let count_sql = format!("SELECT COUNT(*) FROM {}{}", table_ref, where_sql);
-        let count_stream = conn
-            .simple_query(&count_sql)
-            .await
-            .map_err(|e| EngineError::execution_error(e.to_string()))?;
-        let count_rows = count_stream
-            .into_first_result()
-            .await
-            .map_err(|e| EngineError::execution_error(e.to_string()))?;
+        let total_rows = if options.wants_exact_total() {
+            let count_sql = format!("SELECT COUNT_BIG(*) FROM {}{}", table_ref, where_sql);
+            let count_stream = conn
+                .simple_query(&count_sql)
+                .await
+                .map_err(|e| EngineError::execution_error(e.to_string()))?;
+            let count_rows = count_stream
+                .into_first_result()
+                .await
+                .map_err(|e| EngineError::execution_error(e.to_string()))?;
 
-        let total_rows: i64 = count_rows
-            .first()
-            .and_then(|row| row.get::<i32, _>(0).map(|v| v as i64))
-            .unwrap_or(0);
-        let total_rows = total_rows.max(0) as u64;
+            let total_rows = count_rows
+                .first()
+                .and_then(|row| row.get::<i64, _>(0))
+                .unwrap_or(0);
+            Some(total_rows.max(0) as u64)
+        } else {
+            None
+        };
 
         let data_sql = format!(
             "SELECT * FROM {}{}{} OFFSET {} ROWS FETCH NEXT {} ROWS ONLY",
-            table_ref, where_sql, order_sql, offset, page_size
+            table_ref, where_sql, order_sql, offset, fetch_size
         );
 
         let data_stream = conn
@@ -1479,7 +1484,7 @@ impl DataEngine for SqlServerDriver {
             execution_time_ms,
         };
 
-        Ok(PaginatedQueryResult::new(
+        Ok(PaginatedQueryResult::from_optional_total(
             result, total_rows, page, page_size,
         ))
     }

@@ -1028,8 +1028,12 @@
     "lastPage": "Letzte Seite",
     "infiniteScroll": {
       "loaded": "{{loaded}} von {{total}} Zeilen geladen",
+      "loadedUnknown": "{{loaded}} Zeilen geladen",
       "allLoaded": "Alle {{total}} Zeilen geladen",
       "loading": "Weitere werden geladen…",
+      "calculateTotal": "Exakte Gesamtzahl berechnen",
+      "countingTotal": "Gesamtzahl wird berechnet…",
+      "countTotalError": "Die exakte Gesamtzahl konnte nicht berechnet werden",
       "complete": "Ende der Ergebnisse"
     },
     "noData": "Keine Daten zum Anzeigen",

@@ -1127,7 +1127,7 @@ pub struct ColumnFilter {
 /// Options for querying table data with pagination, sorting, and filtering
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct TableQueryOptions {
-    /// Page number (0-indexed)
+    /// Page number (1-indexed; `0` also maps to the first page for compatibility)
     pub page: Option<u32>,
     /// Page size (default: 50, max: 10000)
     pub page_size: Option<u32>,
@@ -1139,6 +1139,13 @@ pub struct TableQueryOptions {
     pub filters: Option<Vec<ColumnFilter>>,
     /// Full-text search term (searches all string columns)
     pub search: Option<String>,
+    /// Whether the driver should compute an exact total row count.
+    ///
+    /// Defaults to `Exact` for backwards compatibility. Interactive table
+    /// browsing can request `None` and use `has_more` instead, avoiding an
+    /// expensive count on every page.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub count_mode: Option<CountMode>,
 }
 
 impl TableQueryOptions {
@@ -1158,6 +1165,35 @@ impl TableQueryOptions {
         let zero_indexed_page = if page > 0 { page - 1 } else { 0 };
         zero_indexed_page as u64 * self.effective_page_size() as u64
     }
+
+    pub fn effective_count_mode(&self) -> CountMode {
+        self.count_mode.unwrap_or_default()
+    }
+
+    pub fn wants_exact_total(&self) -> bool {
+        matches!(self.effective_count_mode(), CountMode::Exact)
+    }
+
+    /// Number of rows requested from the engine.
+    ///
+    /// Without an exact total, one extra row is fetched to derive `has_more`
+    /// without a separate count query.
+    pub fn fetch_size(&self) -> u32 {
+        let page_size = self.effective_page_size();
+        if self.wants_exact_total() {
+            page_size
+        } else {
+            page_size.saturating_add(1)
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Default, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum CountMode {
+    None,
+    #[default]
+    Exact,
 }
 
 /// Paginated query result with metadata
@@ -1165,31 +1201,77 @@ impl TableQueryOptions {
 pub struct PaginatedQueryResult {
     /// The data rows for the current page
     pub result: QueryResult,
-    /// Total number of rows matching the query
+    /// Exact total or discovered lower bound, as indicated by
+    /// `total_rows_exact`.
     pub total_rows: u64,
-    /// Current page (0-indexed)
+    /// Current page number
     pub page: u32,
     /// Page size used
     pub page_size: u32,
-    /// Total number of pages
+    /// Total number of pages, or `0` when the total is not known
     pub total_pages: u32,
+    /// Whether `total_rows` is an exact count rather than a lower bound.
+    #[serde(default = "default_true")]
+    pub total_rows_exact: bool,
+    /// Whether another page is available.
+    #[serde(default)]
+    pub has_more: bool,
 }
 
 impl PaginatedQueryResult {
     pub fn new(result: QueryResult, total_rows: u64, page: u32, page_size: u32) -> Self {
-        let total_pages = if page_size == 0 {
-            0
-        } else {
-            total_rows.div_ceil(page_size as u64) as u32
+        Self::from_optional_total(result, Some(total_rows), page, page_size)
+    }
+
+    /// Builds a page from either an exact total or an over-fetched result.
+    ///
+    /// When `total_rows` is `None`, callers must have requested
+    /// `page_size + 1` rows. The extra row is removed before returning.
+    pub fn from_optional_total(
+        mut result: QueryResult,
+        total_rows: Option<u64>,
+        page: u32,
+        page_size: u32,
+    ) -> Self {
+        let offset = page.saturating_sub(1) as u64 * page_size as u64;
+        let over_fetched = result.rows.len() > page_size as usize;
+        if over_fetched {
+            result.rows.truncate(page_size as usize);
+        }
+
+        let returned_rows = result.rows.len() as u64;
+        let (total_rows, total_pages, total_rows_exact, has_more) = match total_rows {
+            Some(total) => {
+                let total_pages = if page_size == 0 {
+                    0
+                } else {
+                    total.div_ceil(page_size as u64).min(u32::MAX as u64) as u32
+                };
+                let has_more = offset.saturating_add(returned_rows) < total;
+                (total, total_pages, true, has_more)
+            }
+            None => {
+                let lower_bound = offset
+                    .saturating_add(returned_rows)
+                    .saturating_add(u64::from(over_fetched));
+                (lower_bound, 0, false, over_fetched)
+            }
         };
+
         Self {
             result,
             total_rows,
             page,
             page_size,
             total_pages,
+            total_rows_exact,
+            has_more,
         }
     }
+}
+
+fn default_true() -> bool {
+    true
 }
 
 /// Type of maintenance operation available for a table
@@ -1287,4 +1369,84 @@ pub struct TruncateAllResult {
     pub execution_time_ms: f64,
     /// Whether the operation succeeded
     pub success: bool,
+}
+
+#[cfg(test)]
+mod pagination_tests {
+    use super::*;
+
+    fn result_with_rows(count: usize) -> QueryResult {
+        QueryResult {
+            columns: Vec::new(),
+            rows: (0..count)
+                .map(|index| Row {
+                    values: vec![Value::Int(index as i64)],
+                })
+                .collect(),
+            affected_rows: None,
+            execution_time_ms: 0.0,
+        }
+    }
+
+    #[test]
+    fn exact_count_remains_the_backwards_compatible_default() {
+        let options = TableQueryOptions::default();
+        assert_eq!(options.effective_count_mode(), CountMode::Exact);
+        assert_eq!(options.fetch_size(), 50);
+    }
+
+    #[test]
+    fn count_free_pages_overfetch_one_row() {
+        let options = TableQueryOptions {
+            page_size: Some(100),
+            count_mode: Some(CountMode::None),
+            ..Default::default()
+        };
+        assert_eq!(options.fetch_size(), 101);
+        assert_eq!(
+            serde_json::to_value(&options).unwrap()["count_mode"],
+            serde_json::json!("none")
+        );
+    }
+
+    #[test]
+    fn omitted_count_mode_deserializes_to_the_compatible_exact_behavior() {
+        let options: TableQueryOptions = serde_json::from_str("{}").unwrap();
+        assert_eq!(options.effective_count_mode(), CountMode::Exact);
+    }
+
+    #[test]
+    fn overfetched_page_reports_has_more_and_hides_the_extra_row() {
+        let page = PaginatedQueryResult::from_optional_total(
+            result_with_rows(101),
+            None,
+            2,
+            100,
+        );
+        assert_eq!(page.result.rows.len(), 100);
+        assert_eq!(page.total_rows, 201);
+        assert!(!page.total_rows_exact);
+        assert!(page.has_more);
+        assert_eq!(page.total_pages, 0);
+    }
+
+    #[test]
+    fn final_count_free_page_reports_the_discovered_row_count() {
+        let page =
+            PaginatedQueryResult::from_optional_total(result_with_rows(50), None, 3, 100);
+        assert_eq!(page.result.rows.len(), 50);
+        assert_eq!(page.total_rows, 250);
+        assert!(!page.total_rows_exact);
+        assert!(!page.has_more);
+    }
+
+    #[test]
+    fn exact_page_keeps_total_metadata() {
+        let page = PaginatedQueryResult::new(result_with_rows(100), 250, 2, 100);
+        assert_eq!(page.result.rows.len(), 100);
+        assert_eq!(page.total_rows, 250);
+        assert!(page.total_rows_exact);
+        assert!(page.has_more);
+        assert_eq!(page.total_pages, 3);
+    }
 }

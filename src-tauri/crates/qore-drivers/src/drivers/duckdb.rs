@@ -1499,6 +1499,7 @@ impl DataEngine for DuckDbDriver {
 
         let page = options.effective_page();
         let page_size = options.effective_page_size();
+        let fetch_size = options.fetch_size();
         let offset = options.offset();
 
         Self::with_conn(&duck_session, move |conn| {
@@ -1644,17 +1645,21 @@ impl DataEngine for DuckDbDriver {
                 String::new()
             };
 
-            let count_sql = format!("SELECT COUNT(*) AS cnt FROM {}{}", table_ref, where_sql);
-            let total_rows: i64 = conn
-                .query_row(&count_sql, params_from_iter(bind_values.iter()), |row| {
-                    row.get(0)
-                })
-                .map_err(|e| EngineError::execution_error(e.to_string()))?;
-            let total_rows = total_rows.max(0) as u64;
+            let total_rows = if options.wants_exact_total() {
+                let count_sql = format!("SELECT COUNT(*) AS cnt FROM {}{}", table_ref, where_sql);
+                let total_rows: i64 = conn
+                    .query_row(&count_sql, params_from_iter(bind_values.iter()), |row| {
+                        row.get(0)
+                    })
+                    .map_err(|e| EngineError::execution_error(e.to_string()))?;
+                Some(total_rows.max(0) as u64)
+            } else {
+                None
+            };
 
             let data_sql = format!(
                 "SELECT * FROM {}{}{} LIMIT {} OFFSET {}",
-                table_ref, where_sql, order_sql, page_size, offset
+                table_ref, where_sql, order_sql, fetch_size, offset
             );
 
             let mut stmt = conn
@@ -1689,7 +1694,7 @@ impl DataEngine for DuckDbDriver {
                 execution_time_ms,
             };
 
-            Ok(PaginatedQueryResult::new(
+            Ok(PaginatedQueryResult::from_optional_total(
                 result, total_rows, page, page_size,
             ))
         })
@@ -2380,7 +2385,7 @@ fn extract_index_columns(sql: Option<&str>) -> Vec<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use qore_core::types::{ColumnFilter, FilterOptions};
+    use qore_core::types::{ColumnFilter, CountMode, FilterOptions};
     use std::path::Path;
     use tokio::sync::mpsc;
 
@@ -2784,6 +2789,27 @@ mod tests {
             .await
             .unwrap();
 
+        let browse_page = driver
+            .query_table(
+                session,
+                &namespace,
+                "editor_rows",
+                TableQueryOptions {
+                    page: Some(1),
+                    page_size: Some(1),
+                    sort_column: Some("score".into()),
+                    sort_direction: Some(SortDirection::Desc),
+                    count_mode: Some(CountMode::None),
+                    ..Default::default()
+                },
+            )
+            .await
+            .unwrap();
+        assert_eq!(browse_page.total_rows, 2);
+        assert_eq!(browse_page.result.rows.len(), 1);
+        assert!(!browse_page.total_rows_exact);
+        assert!(browse_page.has_more);
+
         let page = driver
             .query_table(
                 session,
@@ -2801,11 +2827,14 @@ mod tests {
                         options: FilterOptions::default(),
                     }]),
                     search: Some("alp".into()),
+                    count_mode: Some(CountMode::None),
                 },
             )
             .await
             .unwrap();
         assert_eq!(page.total_rows, 1);
+        assert!(!page.total_rows_exact);
+        assert!(!page.has_more);
         assert_eq!(page.result.rows.len(), 1);
         assert!(matches!(&page.result.rows[0].values[1], Value::Text(value) if value == "Alpha"));
         assert!(

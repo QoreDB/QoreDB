@@ -67,6 +67,7 @@ import {
   executeQuery,
   generateMigrationSql,
   type Namespace,
+  queryTable,
   type RelationFilter,
   type SandboxChangeDto,
   type SearchFilter,
@@ -303,14 +304,17 @@ export function TableBrowser({
   const {
     data,
     totalRows,
+    totalRowsExact,
     loadedRows: infiniteLoadedRows,
     isLoading: loading,
     isFetchingMore,
+    isCountingTotal,
     isComplete,
     error,
     cached,
     cachedAgeMs,
     fetchNextChunk,
+    calculateExactTotal,
     reload,
     refresh,
   } = useInfiniteTableData({
@@ -852,10 +856,13 @@ export function TableBrowser({
             exportQuery={streamingExportQuery}
             exportNamespace={namespace}
             infiniteScrollTotalRows={totalRows}
+            infiniteScrollTotalRowsExact={totalRowsExact}
             infiniteScrollLoadedRows={infiniteLoadedRows}
             infiniteScrollIsFetchingMore={isFetchingMore}
+            infiniteScrollIsCountingTotal={isCountingTotal}
             infiniteScrollIsComplete={isComplete}
             onFetchMore={fetchNextChunk}
+            onCalculateExactTotal={calculateExactTotal}
             serverSortColumn={sortColumn}
             serverSortDirection={sortDirection}
             onServerSortChange={handleServerSortChange}
@@ -1138,12 +1145,17 @@ function TableInfoPanel({
             newStats.sizeFormatted = row[1] as string;
           }
 
-          // Row count (exact)
-          //TODO : count is heavy , may by have a fallack for larges databases
-          const countQuery = `SELECT COUNT(*) as cnt FROM "${schemaName}"."${tableName}"`;
-          const countResult = await executeQuery(sessionId, countQuery);
-          if (countResult.success && countResult.result?.rows[0]) {
-            newStats.rowCount = countResult.result.rows[0].values[0] as number;
+          // Row count (exact). Goes through query_table rather than raw SQL so
+          // the identifiers stay quoted by the driver and the safety policy
+          // applies. Still heavy on large tables — cf. the engine-estimate work
+          // in doc/todo/PAGINATION_DATA_RENDERING.md.
+          const countResult = await queryTable(sessionId, namespace, tableName, {
+            page: 1,
+            page_size: 1,
+            count_mode: 'exact',
+          });
+          if (countResult.success && countResult.result?.total_rows_exact) {
+            newStats.rowCount = countResult.result.total_rows;
           }
 
           // Indexes

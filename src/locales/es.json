@@ -1028,8 +1028,12 @@
     "lastPage": "Última página",
     "infiniteScroll": {
       "loaded": "{{loaded}} de {{total}} filas cargadas",
+      "loadedUnknown": "{{loaded}} filas cargadas",
       "allLoaded": "Todas las {{total}} filas cargadas",
       "loading": "Cargando más...",
+      "calculateTotal": "Calcular total exacto",
+      "countingTotal": "Calculando total...",
+      "countTotalError": "No se pudo calcular el total exacto",
       "complete": "Fin de los resultados"
     },
     "noData": "No hay datos para mostrar",

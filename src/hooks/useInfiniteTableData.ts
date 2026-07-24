@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { toast } from 'sonner';
 import type {
   ColumnFilter,
   ColumnInfo,
@@ -26,9 +28,11 @@ interface UseInfiniteTableDataOptions {
 interface UseInfiniteTableDataReturn {
   data: QueryResult | null;
   totalRows: number;
+  totalRowsExact: boolean;
   loadedRows: number;
   isLoading: boolean;
   isFetchingMore: boolean;
+  isCountingTotal: boolean;
   isComplete: boolean;
   error: string | null;
   /** True when the currently displayed data was served from the query cache. */
@@ -36,6 +40,7 @@ interface UseInfiniteTableDataReturn {
   /** Age of the cached entry in milliseconds, when served from cache. */
   cachedAgeMs: number | undefined;
   fetchNextChunk: () => void;
+  calculateExactTotal: () => void;
   reload: () => void;
   /** Like reload(), but forces fresh data even when a valid cache entry exists. */
   refresh: () => void;
@@ -52,11 +57,14 @@ export function useInfiniteTableData({
   filters,
   enabled = true,
 }: UseInfiniteTableDataOptions): UseInfiniteTableDataReturn {
+  const { t } = useTranslation();
   const [allRows, setAllRows] = useState<Row[]>([]);
   const [columns, setColumns] = useState<ColumnInfo[]>([]);
   const [totalRows, setTotalRows] = useState(0);
+  const [totalRowsExact, setTotalRowsExact] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isFetchingMore, setIsFetchingMore] = useState(false);
+  const [isCountingTotal, setIsCountingTotal] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -71,6 +79,8 @@ export function useInfiniteTableData({
   const currentPageRef = useRef(1);
   const generationRef = useRef(0);
   const fetchingRef = useRef(false);
+  const countingTotalRef = useRef(false);
+  const totalRowsExactRef = useRef(false);
   // Set by refresh() to make the next reload bypass the query cache.
   const bypassCacheRef = useRef(false);
 
@@ -98,6 +108,7 @@ export function useInfiniteTableData({
           sort_direction: sortDirection,
           search: searchTerm,
           filters,
+          count_mode: 'none',
         },
         bypassCacheRef.current
       );
@@ -120,19 +131,16 @@ export function useInfiniteTableData({
           if (newCols.length > 0) return prev.length === 0 ? newCols : prev;
           return prev;
         });
-        setAllRows(prev => {
-          const next = prev.concat(paginated.result.rows);
-          if (next.length >= paginated.total_rows) {
-            setIsComplete(true);
-          }
-          return next;
-        });
-        setTotalRows(paginated.total_rows);
-        currentPageRef.current = page + 1;
-
-        if (paginated.result.rows.length === 0) {
-          setIsComplete(true);
+        setAllRows(prev => prev.concat(paginated.result.rows));
+        setIsComplete(!paginated.has_more || paginated.result.rows.length === 0);
+        if (paginated.total_rows_exact) {
+          totalRowsExactRef.current = true;
+          setTotalRows(paginated.total_rows);
+          setTotalRowsExact(true);
+        } else if (!totalRowsExactRef.current) {
+          setTotalRows(prev => Math.max(prev, paginated.total_rows));
         }
+        currentPageRef.current = page + 1;
       } else if (result.success && !result.result) {
         setColumns([]);
         setAllRows([]);
@@ -164,15 +172,64 @@ export function useInfiniteTableData({
     filters,
   ]);
 
+  const calculateExactTotal = useCallback(async () => {
+    if (!enabled || countingTotalRef.current || totalRowsExactRef.current) return;
+    countingTotalRef.current = true;
+    setIsCountingTotal(true);
+    const generation = generationRef.current;
+
+    try {
+      const result = await queryTable(
+        sessionId,
+        namespace,
+        tableName,
+        {
+          page: 1,
+          page_size: 1,
+          search: searchTerm,
+          filters,
+          count_mode: 'exact',
+        },
+        true
+      );
+
+      if (generationRef.current !== generation) return;
+
+      if (result.success && result.result?.total_rows_exact) {
+        totalRowsExactRef.current = true;
+        setTotalRows(result.result.total_rows);
+        setTotalRowsExact(true);
+      } else {
+        toast.error(t('grid.infiniteScroll.countTotalError'), {
+          description: result.error,
+        });
+      }
+    } catch (err) {
+      if (generationRef.current !== generation) return;
+      toast.error(t('grid.infiniteScroll.countTotalError'), {
+        description: err instanceof Error ? err.message : undefined,
+      });
+    } finally {
+      if (generationRef.current === generation) {
+        countingTotalRef.current = false;
+        setIsCountingTotal(false);
+      }
+    }
+  }, [enabled, filters, namespace, searchTerm, sessionId, t, tableName]);
+
   const reset = useCallback(() => {
     generationRef.current += 1;
     currentPageRef.current = 1;
     fetchingRef.current = false;
+    countingTotalRef.current = false;
+    totalRowsExactRef.current = false;
     setAllRows([]);
     // Keep columns: table structure doesn't change between searches/sorts
     setTotalRows(0);
+    setTotalRowsExact(false);
     setIsLoading(true);
     setIsFetchingMore(false);
+    setIsCountingTotal(false);
     setIsComplete(false);
     setError(null);
     setExecutionTimeMs(0);
@@ -236,14 +293,17 @@ export function useInfiniteTableData({
   return {
     data,
     totalRows,
+    totalRowsExact,
     loadedRows: allRows.length,
     isLoading,
     isFetchingMore,
+    isCountingTotal,
     isComplete,
     error,
     cached,
     cachedAgeMs,
     fetchNextChunk,
+    calculateExactTotal,
     reload,
     refresh,
   };

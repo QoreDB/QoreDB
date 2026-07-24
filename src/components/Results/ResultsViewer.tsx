@@ -36,10 +36,13 @@ interface ResultsViewerProps {
   onOpenRelatedTable?: (namespace: Namespace, tableName: string) => void;
   onRowClick?: (row: Record<string, Value>) => void;
   infiniteScrollTotalRows?: number;
+  infiniteScrollTotalRowsExact?: boolean;
   infiniteScrollLoadedRows?: number;
   infiniteScrollIsFetchingMore?: boolean;
+  infiniteScrollIsCountingTotal?: boolean;
   infiniteScrollIsComplete?: boolean;
   onFetchMore?: () => void;
+  onCalculateExactTotal?: () => void;
   serverSortColumn?: string;
   serverSortDirection?: SortDirection;
   onServerSortChange?: (column?: string, direction?: SortDirection) => void;
@@ -82,10 +85,13 @@ export const ResultsViewer = memo(function ResultsViewer({
   onOpenRelatedTable,
   onRowClick,
   infiniteScrollTotalRows,
+  infiniteScrollTotalRowsExact,
   infiniteScrollLoadedRows,
   infiniteScrollIsFetchingMore,
+  infiniteScrollIsCountingTotal,
   infiniteScrollIsComplete,
   onFetchMore,
+  onCalculateExactTotal,
   serverSortColumn,
   serverSortDirection,
   onServerSortChange,
@@ -126,10 +132,13 @@ export const ResultsViewer = memo(function ResultsViewer({
         exportQuery={exportQuery}
         exportNamespace={exportNamespace}
         infiniteScrollTotalRows={infiniteScrollTotalRows}
+        infiniteScrollTotalRowsExact={infiniteScrollTotalRowsExact}
         infiniteScrollLoadedRows={infiniteScrollLoadedRows}
         infiniteScrollIsFetchingMore={infiniteScrollIsFetchingMore}
+        infiniteScrollIsCountingTotal={infiniteScrollIsCountingTotal}
         infiniteScrollIsComplete={infiniteScrollIsComplete}
         onFetchMore={onFetchMore}
+        onCalculateExactTotal={onCalculateExactTotal}
         serverSearchTerm={serverSearchTerm}
         onServerSearchChange={onServerSearchChange}
       />
@@ -157,10 +166,13 @@ export const ResultsViewer = memo(function ResultsViewer({
         onOpenRelatedTable={onOpenRelatedTable}
         onRowClick={onRowClick}
         infiniteScrollTotalRows={infiniteScrollTotalRows}
+        infiniteScrollTotalRowsExact={infiniteScrollTotalRowsExact}
         infiniteScrollLoadedRows={infiniteScrollLoadedRows}
         infiniteScrollIsFetchingMore={infiniteScrollIsFetchingMore}
+        infiniteScrollIsCountingTotal={infiniteScrollIsCountingTotal}
         infiniteScrollIsComplete={infiniteScrollIsComplete}
         onFetchMore={onFetchMore}
+        onCalculateExactTotal={onCalculateExactTotal}
         serverSortColumn={serverSortColumn}
         serverSortDirection={serverSortDirection}
         onServerSortChange={onServerSortChange}

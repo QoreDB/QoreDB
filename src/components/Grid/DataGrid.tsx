@@ -138,10 +138,13 @@ interface DataGridProps {
   ) => void;
   onSandboxDelete?: (primaryKey: Record<string, Value>, oldValues: Record<string, Value>) => void;
   infiniteScrollTotalRows?: number;
+  infiniteScrollTotalRowsExact?: boolean;
   infiniteScrollLoadedRows?: number;
   infiniteScrollIsFetchingMore?: boolean;
+  infiniteScrollIsCountingTotal?: boolean;
   infiniteScrollIsComplete?: boolean;
   onFetchMore?: () => void;
+  onCalculateExactTotal?: () => void;
   serverSortColumn?: string;
   serverSortDirection?: SortDirection;
   onServerSortChange?: (column?: string, direction?: SortDirection) => void;
@@ -177,10 +180,13 @@ export function DataGrid({
   onSandboxUpdate,
   onSandboxDelete,
   infiniteScrollTotalRows,
+  infiniteScrollTotalRowsExact,
   infiniteScrollLoadedRows,
   infiniteScrollIsFetchingMore,
+  infiniteScrollIsCountingTotal,
   infiniteScrollIsComplete,
   onFetchMore,
+  onCalculateExactTotal,
   serverSortColumn,
   serverSortDirection,
   onServerSortChange,
@@ -991,8 +997,11 @@ export function DataGrid({
         <DataGridStatusBar
           loadedRows={infiniteScrollLoadedRows ?? 0}
           totalRows={infiniteScrollTotalRows ?? 0}
+          totalRowsExact={infiniteScrollTotalRowsExact ?? false}
           isFetchingMore={infiniteScrollIsFetchingMore ?? false}
+          isCountingTotal={infiniteScrollIsCountingTotal ?? false}
           isComplete={infiniteScrollIsComplete ?? false}
+          onCalculateExactTotal={onCalculateExactTotal}
         />
       ) : resolvedFooterMode === 'pagination' ? (
         <DataGridPagination table={table} pagination={pagination} />

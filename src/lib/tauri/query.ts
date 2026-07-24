@@ -157,6 +157,7 @@ export interface TableQueryOptions {
   sort_direction?: SortDirection;
   filters?: ColumnFilter[];
   search?: string;
+  count_mode?: 'none' | 'exact';
 }
 
 export interface PaginatedQueryResult {
@@ -164,6 +165,9 @@ export interface PaginatedQueryResult {
   total_rows: number;
   page: number;
   page_size: number;
+  total_pages: number;
+  total_rows_exact: boolean;
+  has_more: boolean;
 }
 
 export async function queryTable(

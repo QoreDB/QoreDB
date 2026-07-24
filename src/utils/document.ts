@@ -18,10 +18,13 @@ export interface DocumentResultsProps {
   exportQuery?: string;
   exportNamespace?: Namespace;
   infiniteScrollTotalRows?: number;
+  infiniteScrollTotalRowsExact?: boolean;
   infiniteScrollLoadedRows?: number;
   infiniteScrollIsFetchingMore?: boolean;
+  infiniteScrollIsCountingTotal?: boolean;
   infiniteScrollIsComplete?: boolean;
   onFetchMore?: () => void;
+  onCalculateExactTotal?: () => void;
   serverSearchTerm?: string;
   onServerSearchChange?: (search: string) => void;
 }

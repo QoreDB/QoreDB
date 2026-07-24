@@ -399,6 +399,8 @@ pub trait DataEngine: Send + Sync {
     ) -> EngineResult<PaginatedQueryResult> {
         let page = options.effective_page();
         let page_size = options.effective_page_size();
+        // No over-fetch here: `preview_table` ignores the offset, so an extra
+        // row would only produce a `has_more` that means nothing.
         let result = self
             .preview_table(session, namespace, table, page_size)
             .await?;

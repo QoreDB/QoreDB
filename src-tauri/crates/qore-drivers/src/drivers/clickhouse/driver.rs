@@ -202,6 +202,7 @@ impl DataEngine for ClickHouseDriver {
     ) -> EngineResult<PaginatedQueryResult> {
         let page = options.effective_page();
         let page_size = options.effective_page_size();
+        let fetch_size = options.fetch_size();
         let offset = page.saturating_sub(1) as u64 * page_size as u64;
 
         let qualified = format!(
@@ -210,19 +211,25 @@ impl DataEngine for ClickHouseDriver {
             quote_ident(table)
         );
 
-        // MergeTree-family engines answer `count()` from a metadata counter, so do the count first.
-        let total_sql = format!("SELECT count() FROM {qualified}");
-        let total = self
-            .execute(session, &total_sql, QueryId::new())
-            .await?
-            .rows
-            .into_iter()
-            .next()
-            .and_then(|r| match r.values.into_iter().next() {
-                Some(Value::Int(i)) if i >= 0 => Some(i as u64),
-                _ => None,
-            })
-            .unwrap_or(0);
+        // MergeTree-family engines can answer `count()` cheaply, but it is
+        // still a separate network round-trip. Interactive browsing skips it.
+        let total = if options.wants_exact_total() {
+            let total_sql = format!("SELECT count() FROM {qualified}");
+            Some(
+                self.execute(session, &total_sql, QueryId::new())
+                    .await?
+                    .rows
+                    .into_iter()
+                    .next()
+                    .and_then(|r| match r.values.into_iter().next() {
+                        Some(Value::Int(i)) if i >= 0 => Some(i as u64),
+                        _ => None,
+                    })
+                    .unwrap_or(0),
+            )
+        } else {
+            None
+        };
 
         let mut sql = format!("SELECT * FROM {qualified}");
         if let Some(col) = options.sort_column.as_ref() {
@@ -232,10 +239,12 @@ impl DataEngine for ClickHouseDriver {
             };
             sql.push_str(&format!(" ORDER BY {} {dir}", quote_ident(col)));
         }
-        sql.push_str(&format!(" LIMIT {} OFFSET {}", page_size, offset));
+        sql.push_str(&format!(" LIMIT {} OFFSET {}", fetch_size, offset));
 
         let result = self.execute(session, &sql, QueryId::new()).await?;
-        Ok(PaginatedQueryResult::new(result, total, page, page_size))
+        Ok(PaginatedQueryResult::from_optional_total(
+            result, total, page, page_size,
+        ))
     }
 
     async fn cancel(&self, _session: SessionId, query_id: Option<QueryId>) -> EngineResult<()> {

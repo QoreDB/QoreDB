@@ -1060,6 +1060,7 @@ async fn query_table_with_dialect(
 
     let page = options.effective_page();
     let page_size = options.effective_page_size();
+    let fetch_size = options.fetch_size();
     let offset = options.offset();
 
     let mut where_clauses: Vec<String> = Vec::new();
@@ -1235,33 +1236,37 @@ async fn query_table_with_dialect(
         String::new()
     };
 
-    let count_sql = format!(
-        "SELECT COUNT(*)::bigint AS cnt FROM {}{}",
-        table_ref, where_sql
-    );
-    let mut count_query = sqlx::query(&count_sql);
-    for val in &bind_values {
-        count_query = bind_param(count_query, val);
-    }
-
-    let count_row: PgRow = {
-        let mut tx_guard = pg.transaction_conn.lock().await;
-        if let Some(ref mut conn) = *tx_guard {
-            count_query.fetch_one(&mut **conn).await
-        } else {
-            count_query.fetch_one(&pg.pool).await
+    let total_rows = if options.wants_exact_total() {
+        let count_sql = format!(
+            "SELECT COUNT(*)::bigint AS cnt FROM {}{}",
+            table_ref, where_sql
+        );
+        let mut count_query = sqlx::query(&count_sql);
+        for val in &bind_values {
+            count_query = bind_param(count_query, val);
         }
-    }
-    .map_err(|e| EngineError::execution_error(e.to_string()))?;
 
-    let total_rows: i64 = count_row
-        .try_get("cnt")
+        let count_row: PgRow = {
+            let mut tx_guard = pg.transaction_conn.lock().await;
+            if let Some(ref mut conn) = *tx_guard {
+                count_query.fetch_one(&mut **conn).await
+            } else {
+                count_query.fetch_one(&pg.pool).await
+            }
+        }
         .map_err(|e| EngineError::execution_error(e.to_string()))?;
-    let total_rows = total_rows.max(0) as u64;
+
+        let total_rows: i64 = count_row
+            .try_get("cnt")
+            .map_err(|e| EngineError::execution_error(e.to_string()))?;
+        Some(total_rows.max(0) as u64)
+    } else {
+        None
+    };
 
     let data_sql = format!(
         "SELECT * FROM {}{}{} LIMIT {} OFFSET {}",
-        table_ref, where_sql, order_sql, page_size, offset
+        table_ref, where_sql, order_sql, fetch_size, offset
     );
 
     let mut data_query = sqlx::query(&data_sql);
@@ -1339,7 +1344,7 @@ async fn query_table_with_dialect(
         }
     };
 
-    Ok(PaginatedQueryResult::new(
+    Ok(PaginatedQueryResult::from_optional_total(
         result, total_rows, page, page_size,
     ))
 }

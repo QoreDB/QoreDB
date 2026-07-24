@@ -2181,6 +2181,7 @@ impl DataEngine for MongoDriver {
 
         let page = options.effective_page();
         let page_size = options.effective_page_size();
+        let fetch_size = options.fetch_size();
         let offset = options.offset();
 
         tracing::info!(
@@ -2332,16 +2333,22 @@ impl DataEngine for MongoDriver {
                 }
             }
 
-            let total_rows = collection
-                .count_documents(filter_doc.clone())
-                .session(&mut *txn)
-                .await
-                .map_err(|e| EngineError::execution_error(e.to_string()))?;
+            let total_rows = if options.wants_exact_total() {
+                Some(
+                    collection
+                        .count_documents(filter_doc.clone())
+                        .session(&mut *txn)
+                        .await
+                        .map_err(|e| EngineError::execution_error(e.to_string()))?,
+                )
+            } else {
+                None
+            };
 
             use mongodb::options::FindOptions;
             let mut find_options = FindOptions::builder()
                 .skip(Some(offset))
-                .limit(Some(page_size as i64))
+                .limit(Some(fetch_size as i64))
                 .build();
 
             if let Some(sort_col) = &options.sort_column {
@@ -2395,15 +2402,21 @@ impl DataEngine for MongoDriver {
                 }
             }
 
-            let total_rows = collection
-                .count_documents(filter_doc.clone())
-                .await
-                .map_err(|e| EngineError::execution_error(e.to_string()))?;
+            let total_rows = if options.wants_exact_total() {
+                Some(
+                    collection
+                        .count_documents(filter_doc.clone())
+                        .await
+                        .map_err(|e| EngineError::execution_error(e.to_string()))?,
+                )
+            } else {
+                None
+            };
 
             use mongodb::options::FindOptions;
             let mut find_options = FindOptions::builder()
                 .skip(Some(offset))
-                .limit(Some(page_size as i64))
+                .limit(Some(fetch_size as i64))
                 .build();
 
             if let Some(sort_col) = &options.sort_column {
@@ -2430,7 +2443,7 @@ impl DataEngine for MongoDriver {
         };
 
         tracing::info!(
-            "MongoDB query_table: found {} documents, total_rows={}",
+            "MongoDB query_table: found {} documents, total_rows={:?}",
             documents.len(),
             total_rows
         );
@@ -2455,7 +2468,7 @@ impl DataEngine for MongoDriver {
             }
         };
 
-        Ok(PaginatedQueryResult::new(
+        Ok(PaginatedQueryResult::from_optional_total(
             result, total_rows, page, page_size,
         ))
     }

@@ -1028,8 +1028,12 @@
     "lastPage": "最後のページ",
     "infiniteScroll": {
       "loaded": "{{total}} 行中 {{loaded}} 行を読み込み済み",
+      "loadedUnknown": "{{loaded}} 行を読み込み済み",
       "allLoaded": "全 {{total}} 行を読み込み済み",
       "loading": "さらに読み込み中...",
+      "calculateTotal": "正確な合計を計算",
+      "countingTotal": "合計を計算中...",
+      "countTotalError": "正確な合計を計算できませんでした",
       "complete": "結果の最後です"
     },
     "noData": "表示するデータがありません",

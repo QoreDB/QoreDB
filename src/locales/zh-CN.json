@@ -1028,8 +1028,12 @@
     "lastPage": "最后一页",
     "infiniteScroll": {
       "loaded": "已加载 {{total}} 行中的 {{loaded}} 行",
+      "loadedUnknown": "已加载 {{loaded}} 行",
       "allLoaded": "已加载全部 {{total}} 行",
       "loading": "正在加载更多…",
+      "calculateTotal": "计算精确总数",
+      "countingTotal": "正在计算总数…",
+      "countTotalError": "无法计算精确总数",
       "complete": "结果已全部加载"
     },
     "noData": "无数据显示",

@@ -68,6 +68,11 @@ pub const PROJECT_ID: &str = "default";
 /// Default per-query timeout (ms) for the headless entry points.
 pub const QUERY_TIMEOUT_MS: u64 = 30_000;
 
+/// Backstop for an exact row count when the safety policy sets no duration.
+/// Deliberately generous: a count the user asked for on purpose should be
+/// allowed to finish, but never to hold a connection indefinitely.
+pub const EXACT_COUNT_TIMEOUT_MS: u64 = 120_000;
+
 /// Writes `contents` to `path` atomically: data is written to a sibling temp
 /// file first, then a rename swaps it in. A crash mid-write therefore leaves
 /// the previous file intact instead of a truncated, unparseable one.

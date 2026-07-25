@@ -153,6 +153,39 @@ impl MySqlDriver {
             .map_err(|e| EngineError::execution_error(e.to_string()))
     }
 
+    /// InnoDB's `table_rows` is sampled from the index statistics and drifts
+    /// from the truth by a wide margin — usable as an order of magnitude, never
+    /// as a total. MySQL exposes no refresh timestamp for it.
+    async fn table_row_estimate(pool: &MySqlPool, database: &str, table: &str) -> Option<u64> {
+        let rows: Option<(Option<u64>,)> = sqlx::query_as(
+            "SELECT table_rows FROM information_schema.tables \
+             WHERE table_schema = ? AND table_name = ?",
+        )
+        .bind(database)
+        .bind(table)
+        .fetch_optional(pool)
+        .await
+        .ok()
+        .flatten();
+        rows.and_then(|(count,)| count)
+    }
+
+    async fn track_query(session: &MySqlSession, query_id: Option<QueryId>, connection_id: u64) {
+        if let Some(qid) = query_id {
+            session
+                .active_queries
+                .lock()
+                .await
+                .insert(qid, connection_id);
+        }
+    }
+
+    async fn untrack_query(session: &MySqlSession, query_id: Option<QueryId>) {
+        if let Some(qid) = query_id {
+            session.active_queries.lock().await.remove(&qid);
+        }
+    }
+
     /// Resolve SSL mode from config: explicit ssl_mode string takes precedence over boolean.
     fn resolve_ssl_mode(config: &ConnectionConfig) -> MySqlSslMode {
         match config.ssl_mode.as_deref() {
@@ -2106,12 +2139,28 @@ impl DataEngine for MySqlDriver {
                 count_query = Self::bind_param(count_query, val);
             }
 
+            // Pinned to a single connection so its id can be registered under
+            // the caller's query id; otherwise `cancel` has nothing to KILL.
             let count_row: MySqlRow = {
                 let mut tx_guard = mysql_session.transaction_conn.lock().await;
                 if let Some(ref mut conn) = *tx_guard {
-                    count_query.fetch_one(&mut **conn).await
+                    let connection_id = Self::fetch_connection_id(conn).await?;
+                    Self::track_query(&mysql_session, options.query_id, connection_id).await;
+                    let outcome = count_query.fetch_one(&mut **conn).await;
+                    Self::untrack_query(&mysql_session, options.query_id).await;
+                    outcome
                 } else {
-                    count_query.fetch_one(&mysql_session.pool).await
+                    drop(tx_guard);
+                    let mut conn = mysql_session
+                        .pool
+                        .acquire()
+                        .await
+                        .map_err(|e| EngineError::connection_failed(e.to_string()))?;
+                    let connection_id = Self::fetch_connection_id(&mut conn).await?;
+                    Self::track_query(&mysql_session, options.query_id, connection_id).await;
+                    let outcome = count_query.fetch_one(&mut *conn).await;
+                    Self::untrack_query(&mysql_session, options.query_id).await;
+                    outcome
                 }
             }
             .map_err(|e| EngineError::execution_error(e.to_string()))?;
@@ -2197,9 +2246,17 @@ impl DataEngine for MySqlDriver {
             }
         };
 
-        Ok(PaginatedQueryResult::from_optional_total(
-            result, total_rows, page, page_size,
-        ))
+        let paginated =
+            PaginatedQueryResult::from_optional_total(result, total_rows, page, page_size);
+
+        if total_rows.is_none() && options.wants_any_total() && options.estimate_matches_scope() {
+            let estimate =
+                Self::table_row_estimate(&mysql_session.pool, namespace.database.as_str(), table)
+                    .await;
+            return Ok(paginated.with_estimate(estimate, None));
+        }
+
+        Ok(paginated)
     }
 
     async fn peek_foreign_key(

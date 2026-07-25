@@ -1,9 +1,9 @@
 # Plan produit — Pagination et rendu des données
 
-> Statut au 24 juillet 2026
+> Statut au 25 juillet 2026
 >
-> - Verticale 1 — chargement sans comptage bloquant : livrée, correctifs appliqués, dette de contrat ouverte
-> - Verticale 2 — total honnête et opérations annulables : à implémenter
+> - Verticale 1 — chargement sans comptage bloquant : livrée, correctifs appliqués, dette de contrat résorbée
+> - Verticale 2 — total honnête et opérations annulables : livrée
 > - Verticale 3 — coût du tri et de la recherche : à concevoir
 > - Verticale 4 — pagination stable par curseur : à concevoir
 > - Verticale 5 — mémoire et rendu progressif : à concevoir
@@ -45,14 +45,14 @@ Le produit doit éviter :
 
 Décisions prises une fois pour toutes, à ne pas rouvrir à chaque verticale.
 
-| Non-objectif | Raison |
-|---|---|
-| Sauter à la page N arbitraire en pagination par curseur | Incompatible avec le keyset ; le besoin réel est « aller à une valeur », pas « aller à un rang » |
-| Garantir une cohérence transactionnelle par défaut | Coût de connexion et de verrous disproportionné pour de la navigation ; réservé aux workflows qui le demandent |
-| Afficher un total exact systématiquement | C'est le coût qu'on cherche justement à supprimer |
-| Rendre `OFFSET` performant sur les pages profondes | Impossible côté client ; la réponse est le curseur, pas l'optimisation |
-| Unifier les garanties d'ordre entre moteurs relationnels et `SCAN` Redis | Techniquement impossible ; la réponse est une capacité déclarée, pas une abstraction qui ment |
-| Charger l'intégralité d'une table en mémoire pour un tri ou une recherche client | Ne passe pas l'échelle ; le tri et la recherche restent serveur |
+| Non-objectif                                                                     | Raison                                                                                                         |
+| -------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| Sauter à la page N arbitraire en pagination par curseur                          | Incompatible avec le keyset ; le besoin réel est « aller à une valeur », pas « aller à un rang »               |
+| Garantir une cohérence transactionnelle par défaut                               | Coût de connexion et de verrous disproportionné pour de la navigation ; réservé aux workflows qui le demandent |
+| Afficher un total exact systématiquement                                         | C'est le coût qu'on cherche justement à supprimer                                                              |
+| Rendre `OFFSET` performant sur les pages profondes                               | Impossible côté client ; la réponse est le curseur, pas l'optimisation                                         |
+| Unifier les garanties d'ordre entre moteurs relationnels et `SCAN` Redis         | Techniquement impossible ; la réponse est une capacité déclarée, pas une abstraction qui ment                  |
+| Charger l'intégralité d'une table en mémoire pour un tri ou une recherche client | Ne passe pas l'échelle ; le tri et la recherche restent serveur                                                |
 
 ## 3. Inventaire de l'existant
 
@@ -61,16 +61,15 @@ réfère plutôt qu'à des suppositions.
 
 ### 3.1 Où le produit affiche un nombre de lignes
 
-| Emplacement | Source | Nature |
-|---|---|---|
-| `DataGridStatusBar` | `useInfiniteTableData` | Lignes chargées, plus total exact après action explicite |
-| `DocumentResults` (entête) | `infiniteScrollLoadedRows`, ou le total exact une fois calculé | Lignes chargées tant que le total est inconnu |
-| Onglet Info, PostgreSQL | `query_table` en `count_mode: exact` | Total exact, non borné, pas encore annulable |
-| Onglet Info, MySQL et MariaDB | `information_schema.tables.table_rows` | Estimation moteur, affichée sans mention d'imprécision |
-| Onglet Info, MongoDB | `schema.row_count_estimate` | Estimation moteur, même remarque |
+| Emplacement                   | Source                                                         | Nature                                                   |
+| ----------------------------- | -------------------------------------------------------------- | -------------------------------------------------------- |
+| `DataGridStatusBar`           | `useInfiniteTableData`                                         | Lignes chargées, plus total exact après action explicite |
+| `DocumentResults` (entête)    | `infiniteScrollLoadedRows`, ou le total exact une fois calculé | Lignes chargées tant que le total est inconnu            |
+| Onglet Info, tous moteurs     | `query_table` en `count_mode: estimated`                       | Total étiqueté, exact ou estimé selon le moteur          |
 
-Le produit affiche donc déjà des estimations moteur, sans jamais l'indiquer.
-C'est une incohérence à corriger avant d'en introduire de nouvelles.
+Cet inventaire décrivait trois chemins divergents, dont deux affichaient une
+estimation moteur sans jamais l'indiquer. Ils sont unifiés depuis la
+verticale 2.
 
 ### 3.2 Chemins d'appel de `query_table`
 
@@ -84,13 +83,13 @@ initialement se réduit à une seule décision, celle du bridge.
 
 ### 3.3 Limites en vigueur
 
-| Limite | Valeur | Portée |
-|---|---|---|
-| `page_size` (`types.rs:1159`) | `clamp(1, 10000)`, défaut 50 | Contrat QoreDB. `fetch_size()` peut donc valoir 10001 |
-| `policy.max_result_rows` | `None` par défaut | Aucun plafond de lignes tant que l'utilisateur n'en configure pas |
-| `policy.max_query_duration_ms` | `None` par défaut | Idem pour le temps |
-| `index.max_result_window` | 10000, côté cluster | Limite Elasticsearch et OpenSearch sur `from + size` |
-| `STREAM_SIZE_THRESHOLD` (`search_compat.rs:604`) | 10000 | Seuil interne : au-delà, `_search` passe en PIT + `search_after` |
+| Limite                                           | Valeur                       | Portée                                                            |
+| ------------------------------------------------ | ---------------------------- | ----------------------------------------------------------------- |
+| `page_size` (`types.rs:1159`)                    | `clamp(1, 10000)`, défaut 50 | Contrat QoreDB. `fetch_size()` peut donc valoir 10001             |
+| `policy.max_result_rows`                         | `None` par défaut            | Aucun plafond de lignes tant que l'utilisateur n'en configure pas |
+| `policy.max_query_duration_ms`                   | `None` par défaut            | Idem pour le temps                                                |
+| `index.max_result_window`                        | 10000, côté cluster          | Limite Elasticsearch et OpenSearch sur `from + size`              |
+| `STREAM_SIZE_THRESHOLD` (`search_compat.rs:604`) | 10000                        | Seuil interne : au-delà, `_search` passe en PIT + `search_after`  |
 
 Les trois valeurs à 10000 sont indépendantes ; leur égalité est une
 coïncidence, sauf pour la dernière qui dérive de `max_result_window`.
@@ -115,18 +114,18 @@ coïncidence, sauf pour la dernière qui dérive de `max_result_window`.
 Chaque décision porte son coût. La colonne « Réponse produit » est ce qui rend
 la contrepartie acceptable ; sans elle, la décision n'est pas prise.
 
-| Décision | Gains | Contreparties | Réponse produit | Statut |
-|---|---|---|---|---|
-| Ne plus calculer le total au chargement standard | Première page plus rapide, un aller-retour en moins, moins de charge sur la base | Le total exact n'est pas immédiatement connu | Afficher les lignes chargées, puis un ordre de grandeur estimé, et un calcul exact explicite | Livré, estimation en verticale 2 |
-| Sur-lire une ligne pour produire `has_more` | Détection fiable de la page suivante sans comptage séparé | Une ligne de plus est lue, et le budget de lignes peut être dépassé d'une unité | Coût borné, invisible, sauf là où le moteur impose une fenêtre : la sur-lecture doit alors être clampée | Livré, clamp à faire |
-| Calculer le total exact à la demande | L'utilisateur garde le contrôle ; aucun coût pour ceux qui n'en ont pas besoin | Le comptage peut rester long sur une grande table | Action non bloquante, annulable, avec timeout par défaut, erreur non destructive | Livré, annulation en verticale 2 |
-| Afficher une estimation moteur | Un ordre de grandeur immédiat, coût quasi nul, meilleure réponse que le silence | Un nombre approché peut être pris pour un total | Provenance et fraîcheur affichées, marqueur d'imprécision systématique, jamais un nombre nu | Verticale 2 |
-| Rendre toute opération lourde annulable | L'utilisateur n'est jamais captif d'une action déclenchée par erreur | Un chemin d'annulation par driver, avec des garanties inégales | S'appuyer sur `CancelSupport` existant et déclarer honnêtement le niveau réel | Verticale 2 |
-| Traiter le coût du tri et de la recherche | C'est le premier coût ressenti, avant la pagination profonde | Certaines colonnes deviennent explicitement coûteuses à trier ou chercher | Capacité déclarée, avertissement avant exécution, proposition d'index | Verticale 3 |
-| Utiliser une pagination par curseur quand un ordre stable existe | Coût des pages profondes quasi constant, meilleure stabilité sous mutations | Pas de saut arbitraire vers la page N ; implémentation spécifique par moteur | Choix automatique par capacité, fallback explicite vers `OFFSET` | Verticale 4 |
-| Borner les lignes conservées par l'interface | Mémoire stable pendant les longues sessions | Les lignes anciennes doivent être rechargées, et la sélection perd son référentiel | Fenêtre glissante sur curseurs, sélection redéfinie comme prédicat, export relu depuis la source | Verticale 5 |
-| Limiter et charger progressivement les cellules lourdes | Moins de mémoire, de sérialisation et de blocage du rendu | Le contenu complet nécessite une action supplémentaire | Preview claire, taille affichée, chargement complet à la demande | Verticale 5 |
-| Uniformiser le contrat sans masquer les différences moteur | UX cohérente et API plus simple | Toutes les garanties ne sont pas possibles partout | Matrice de capacités et fallback honnête, jamais de fausse garantie | Transverse |
+| Décision                                                         | Gains                                                                            | Contreparties                                                                      | Réponse produit                                                                                         | Statut                           |
+| ---------------------------------------------------------------- | -------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- | -------------------------------- |
+| Ne plus calculer le total au chargement standard                 | Première page plus rapide, un aller-retour en moins, moins de charge sur la base | Le total exact n'est pas immédiatement connu                                       | Afficher les lignes chargées, puis un ordre de grandeur estimé, et un calcul exact explicite            | Livré, estimation en verticale 2 |
+| Sur-lire une ligne pour produire `has_more`                      | Détection fiable de la page suivante sans comptage séparé                        | Une ligne de plus est lue, et le budget de lignes peut être dépassé d'une unité    | Coût borné, invisible, sauf là où le moteur impose une fenêtre : la sur-lecture doit alors être clampée | Livré, clamp inclus              |
+| Calculer le total exact à la demande                             | L'utilisateur garde le contrôle ; aucun coût pour ceux qui n'en ont pas besoin   | Le comptage peut rester long sur une grande table                                  | Action non bloquante, annulable, avec timeout par défaut, erreur non destructive                        | Livré, annulation en verticale 2 |
+| Afficher une estimation moteur                                   | Un ordre de grandeur immédiat, coût quasi nul, meilleure réponse que le silence  | Un nombre approché peut être pris pour un total                                    | Provenance et fraîcheur affichées, marqueur d'imprécision systématique, jamais un nombre nu             | Verticale 2                      |
+| Rendre toute opération lourde annulable                          | L'utilisateur n'est jamais captif d'une action déclenchée par erreur             | Un chemin d'annulation par driver, avec des garanties inégales                     | S'appuyer sur `CancelSupport` existant et déclarer honnêtement le niveau réel                           | Verticale 2                      |
+| Traiter le coût du tri et de la recherche                        | C'est le premier coût ressenti, avant la pagination profonde                     | Certaines colonnes deviennent explicitement coûteuses à trier ou chercher          | Capacité déclarée, avertissement avant exécution, proposition d'index                                   | Verticale 3                      |
+| Utiliser une pagination par curseur quand un ordre stable existe | Coût des pages profondes quasi constant, meilleure stabilité sous mutations      | Pas de saut arbitraire vers la page N ; implémentation spécifique par moteur       | Choix automatique par capacité, fallback explicite vers `OFFSET`                                        | Verticale 4                      |
+| Borner les lignes conservées par l'interface                     | Mémoire stable pendant les longues sessions                                      | Les lignes anciennes doivent être rechargées, et la sélection perd son référentiel | Fenêtre glissante sur curseurs, sélection redéfinie comme prédicat, export relu depuis la source        | Verticale 5                      |
+| Limiter et charger progressivement les cellules lourdes          | Moins de mémoire, de sérialisation et de blocage du rendu                        | Le contenu complet nécessite une action supplémentaire                             | Preview claire, taille affichée, chargement complet à la demande                                        | Verticale 5                      |
+| Uniformiser le contrat sans masquer les différences moteur       | UX cohérente et API plus simple                                                  | Toutes les garanties ne sont pas possibles partout                                 | Matrice de capacités et fallback honnête, jamais de fausse garantie                                     | Transverse                       |
 
 ## 5. Objectifs mesurables
 
@@ -134,16 +133,16 @@ Aucune mesure de référence n'existe aujourd'hui. Le premier jalon de la
 verticale 2 est de produire ces mesures ; les seuils ci-dessous sont des cibles
 à confirmer, puis à figer comme critère de non-régression.
 
-| Indicateur | Cible | Conditions |
-|---|---|---|
-| Temps jusqu'à la première page | p95 < 400 ms | Table de 10 M lignes, sans filtre, réseau local |
-| Temps d'une page suivante | p95 < 250 ms | Même table, scroll continu |
-| Écart page 1 / page 100 | facteur < 2 | Avec une stratégie de curseur disponible |
-| Allers-retours par page | 1 | Sans recherche active ; 2 aujourd'hui avec recherche |
-| Mémoire par onglet | < 250 Mo | 100 000 lignes parcourues, 20 colonnes |
-| Première frappe de recherche | p95 < 800 ms | Table de 1 M lignes, 20 colonnes |
-| Taux de fallback curseur vers `OFFSET` | < 20 % | Sur un échantillon de schémas réels |
-| Comptages exacts abandonnés par timeout | < 5 % | Sinon le timeout est mal calibré |
+| Indicateur                              | Cible        | Conditions                                           |
+| --------------------------------------- | ------------ | ---------------------------------------------------- |
+| Temps jusqu'à la première page          | p95 < 400 ms | Table de 10 M lignes, sans filtre, réseau local      |
+| Temps d'une page suivante               | p95 < 250 ms | Même table, scroll continu                           |
+| Écart page 1 / page 100                 | facteur < 2  | Avec une stratégie de curseur disponible             |
+| Allers-retours par page                 | 1            | Sans recherche active ; 2 aujourd'hui avec recherche |
+| Mémoire par onglet                      | < 250 Mo     | 100 000 lignes parcourues, 20 colonnes               |
+| Première frappe de recherche            | p95 < 800 ms | Table de 1 M lignes, 20 colonnes                     |
+| Taux de fallback curseur vers `OFFSET`  | < 20 %       | Sur un échantillon de schémas réels                  |
+| Comptages exacts abandonnés par timeout | < 5 %        | Sinon le timeout est mal calibré                     |
 
 ## 6. Verticale 1 — Chargement sans comptage bloquant
 
@@ -169,47 +168,69 @@ TimescaleDB, CockroachDB), `mysql` (MySQL, MariaDB), `duckdb`, `sqlite`,
 `motherduck`, `sqlserver`, `mongodb`, `search_compat` (Elasticsearch,
 OpenSearch), `clickhouse`, `redis`.
 
-| Famille | Implémentation count-free |
-|---|---|
-| PostgreSQL compatible | `LIMIT page_size + 1`, sans requête `COUNT` |
-| MySQL compatible | `LIMIT page_size + 1`, sans requête `COUNT` |
-| Embarqué et analytique | Sur-lecture d'une ligne |
-| SQL Server | `FETCH NEXT page_size + 1` ; `COUNT_BIG` en mode exact |
-| Document | `limit(page_size + 1)` sans `count_documents` |
-| Search | `size = page_size + 1` et `track_total_hits = false` |
-| OLAP HTTP | `LIMIT page_size + 1` sans aller-retour `count()` |
-| Redis | Sur-lecture pour hash, list, set, zset et stream. Le type `string` conserve un total exact figé à 1, il n'y a rien à sur-lire |
+| Famille                | Implémentation count-free                                                                                                     |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| PostgreSQL compatible  | `LIMIT page_size + 1`, sans requête `COUNT`                                                                                   |
+| MySQL compatible       | `LIMIT page_size + 1`, sans requête `COUNT`                                                                                   |
+| Embarqué et analytique | Sur-lecture d'une ligne                                                                                                       |
+| SQL Server             | `FETCH NEXT page_size + 1` ; `COUNT_BIG` en mode exact                                                                        |
+| Document               | `limit(page_size + 1)` sans `count_documents`                                                                                 |
+| Search                 | `size = page_size + 1` et `track_total_hits = false`                                                                          |
+| OLAP HTTP              | `LIMIT page_size + 1` sans aller-retour `count()`                                                                             |
+| Redis                  | Sur-lecture pour hash, list, set, zset et stream. Le type `string` conserve un total exact figé à 1, il n'y a rien à sur-lire |
 
 Deux appels internes ont été migrés : lecture d'une ligne avant capture
 time-travel, échantillonnage des clés étrangères du générateur de données.
 
 ### 6.3 Défauts corrigés après audit
 
-| Défaut | Correctif |
-|---|---|
-| La vue document affichait la borne inférieure comme un total (« 101 ligne(s) » pour 100 documents) | `DocumentResults` affiche les lignes chargées tant que `total_rows_exact` est faux, comme la barre d'état |
+| Défaut                                                                                                  | Correctif                                                                                                                                                                                           |
+| ------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| La vue document affichait la borne inférieure comme un total (« 101 ligne(s) » pour 100 documents)      | `DocumentResults` affiche les lignes chargées tant que `total_rows_exact` est faux, comme la barre d'état                                                                                           |
 | La sur-lecture franchissait `max_result_window`, transformant la dernière page chargeable en erreur 400 | `window_clamped_fetch_size` rogne la ligne excédentaire au bord de la fenêtre ; `has_more` devient alors indécidable et reste vrai, le moteur tranchant à la page suivante. Couvert par trois tests |
-| L'implémentation par défaut du trait ignorait `count_mode` et fabriquait une borne fausse | Retour au comportement historique : pas de sur-lecture, `preview_table` ne connaissant pas l'offset, donc aucun `has_more` à en déduire |
-| L'onglet Info lançait un `COUNT(*)` brut avec les identifiants interpolés | Passe par `query_table` en `count_mode: exact` : identifiants échappés par le driver, politique de sécurité appliquée |
+| L'implémentation par défaut du trait ignorait `count_mode` et fabriquait une borne fausse               | Retour au comportement historique : pas de sur-lecture, `preview_table` ne connaissant pas l'offset, donc aucun `has_more` à en déduire                                                             |
+| L'onglet Info lançait un `COUNT(*)` brut avec les identifiants interpolés                               | Passe par `query_table` en `count_mode: exact` : identifiants échappés par le driver, politique de sécurité appliquée                                                                               |
 
 L'annulation et le timeout par défaut de ce comptage relèvent de la verticale 2.
 
-### 6.4 Dette de contrat
+### 6.4 Contrat resserré
 
-`total_rows` porte deux sémantiques distinguées par un booléen adjacent. Le
-défaut de `DocumentResults` en est la démonstration : rien n'oblige un
-consommateur à lire `total_rows_exact`. Le contrat cible est un total absent
-plutôt qu'un total ambigu, et l'abandon de `total_pages`, que personne ne lit :
+`total_rows` portait deux sémantiques distinguées par un booléen adjacent, que
+rien n'obligeait un consommateur à lire — le défaut de `DocumentResults` en
+était la démonstration. Le contrat livré rend le total absent plutôt
+qu'ambigu :
 
 ```text
-total_rows: number | null     // null tant que le total n'est pas connu
+total_rows: number | null              // null tant que le total n'est pas connu
+total_rows_source: exact | estimated   // null si et seulement si total_rows l'est
 has_more: boolean
 ```
 
-À faire avant que d'autres consommateurs ne se branchent sur le contrat actuel.
-Le bridge HTTP est le seul appelant externe, la fenêtre est encore ouverte.
+`total_pages` est supprimé : il n'était lu ni en Rust ni en TypeScript.
 
-### 6.5 Garanties et limites
+Pas de variante `lower_bound` dans `total_rows_source`, contrairement à ce que
+prévoyait le 7.1. La conserver imposait de continuer à émettre la borne
+inférieure, c'est-à-dire l'ambiguïté même que ce resserrement supprime. La
+borne inférieure devient l'absence de total ; l'interface connaît déjà ses
+lignes chargées et n'a jamais eu besoin que le backend les lui recompte.
+
+Conséquence côté interface : le mode scroll infini se déduisait de la présence
+du total, ce qui devient faux dès lors que l'absence de total est le cas
+normal. Il se déduit désormais du nombre de lignes chargées.
+
+### 6.5 Décision sur le bridge HTTP
+
+Le bridge conserve le droit de demander `count_mode: exact` sur une table
+arbitraire : l'accès y est déjà filtré par grant et par connexion, et un total
+exact est un besoin d'API légitime. Il hérite en revanche du `QUERY_TIMEOUT_MS`
+de 30 s que le bridge applique déjà à `execute_query`. Sans cela,
+`max_query_duration_ms` valant `None` par défaut, un `COUNT(*)` sur une grande
+table immobilisait une connexion sans borne de temps.
+
+C'est un plafond de transport, pas l'annulation demandée en 7.2 : l'opération
+n'est toujours pas interruptible côté application.
+
+### 6.6 Garanties et limites
 
 Garanties :
 
@@ -239,18 +260,26 @@ Limites :
   d'ordre d'une table relationnelle, et leur coût reste proportionnel à
   l'offset.
 
-### 6.6 Tests
+### 6.7 Tests
 
-Existant : tests unitaires sur `from_optional_total`, un test d'intégration
-DuckDB en mode `none`. Manquant : une couverture par famille, en priorité les
-deux chemins les plus fragiles, Redis (`SCAN`, ordre non garanti) et Search
-(fenêtre profonde). Un test par famille vérifiant qu'une page pleine signale
-`has_more` et que la page finale ne le signale pas.
+Tests unitaires sur `from_optional_total` et sur la sérialisation du total
+absent, plus un test d'intégration DuckDB en mode `none`.
+
+La couverture par famille passe par `assert_count_free_pages`, qui parcourt
+toutes les pages en `count_mode: none` et vérifie qu'une page pleine annonce la
+suivante, que la dernière ne l'annonce pas, qu'aucune page ne prétend connaître
+un total, que la ligne sur-lue n'atteint jamais l'appelant, et qu'aucune ligne
+n'est perdue ni dupliquée. Elle est branchée sur PostgreSQL, MySQL, MongoDB,
+ClickHouse, Redis (`LRANGE` exact et `HSCAN` approché) et Elasticsearch.
+
+Restent non couverts par cette voie : SQL Server, faute d'amorce de connexion
+dans le harnais d'intégration ; SQLite, DuckDB et MotherDuck, embarqués, dont
+DuckDB dispose déjà d'un test unitaire ; OpenSearch, qui partage
+l'implémentation `search_compat` déjà couverte par Elasticsearch.
 
 ## 7. Verticale 2 — Total honnête et opérations annulables
 
-Petite verticale, valeur immédiate. À livrer avant tout travail sur les
-curseurs.
+Livrée dans l'ordre du 13 : instrumentation, puis annulation, puis estimation.
 
 ### 7.1 Estimation moteur
 
@@ -258,17 +287,17 @@ Un « 100 lignes chargées » n'informe pas. Un « environ 2,4 millions de ligne
 situe immédiatement l'utilisateur, pour un coût quasi nul : la valeur provient
 des métadonnées, pas d'un parcours.
 
-| Moteur | Source | Coût |
-|---|---|---|
-| PostgreSQL et compatibles | `pg_class.reltuples` | Lecture de catalogue |
-| MySQL, MariaDB | `information_schema.tables.table_rows` | Lecture de catalogue |
-| SQL Server | `sys.dm_db_partition_stats` | Lecture de catalogue |
-| SQLite | Aucune estimation fiable | Pas d'estimation, total exact seulement |
-| DuckDB, MotherDuck | `COUNT(*)` reste peu coûteux en colonnaire | Comptage exact direct |
-| ClickHouse | `count()` MergeTree | Compteur de métadonnées |
-| MongoDB | `estimatedDocumentCount()` | Métadonnées de collection |
-| Elasticsearch, OpenSearch | `_count`, ou `hits.total` avec `track_total_hits` borné | Une requête légère |
-| Redis | `HLEN`, `LLEN`, `SCARD`, `ZCARD`, `XLEN` | O(1), déjà exact |
+| Moteur                    | Source                                                  | Coût                                    |
+| ------------------------- | ------------------------------------------------------- | --------------------------------------- |
+| PostgreSQL et compatibles | `pg_class.reltuples`                                    | Lecture de catalogue                    |
+| MySQL, MariaDB            | `information_schema.tables.table_rows`                  | Lecture de catalogue                    |
+| SQL Server                | `sys.dm_db_partition_stats`                             | Lecture de catalogue                    |
+| SQLite                    | Aucune estimation fiable                                | Pas d'estimation, total exact seulement |
+| DuckDB, MotherDuck        | `COUNT(*)` reste peu coûteux en colonnaire              | Comptage exact direct                   |
+| ClickHouse                | `count()` MergeTree                                     | Compteur de métadonnées                 |
+| MongoDB                   | `estimatedDocumentCount()`                              | Métadonnées de collection               |
+| Elasticsearch, OpenSearch | `_count`, ou `hits.total` avec `track_total_hits` borné | Une requête légère                      |
+| Redis                     | `HLEN`, `LLEN`, `SCARD`, `ZCARD`, `XLEN`                | O(1), déjà exact                        |
 
 Règles d'affichage :
 
@@ -279,36 +308,95 @@ Règles d'affichage :
 - une estimation absente ou nulle n'affiche rien, elle n'affiche pas zéro ;
 - l'estimation ne bloque jamais la première page, elle arrive après.
 
-Le contrat gagne `count_mode: estimated` et la réponse un
-`total_rows_source: exact | estimated | lower_bound`, qui remplace le booléen de
-la section 6.4.
+Livré. `count_mode: estimated` signifie « donne-moi un total bon marché »,
+pas « donne-moi un nombre approximatif ». La distinction porte tout le reste :
 
-Corollaire : l'onglet Info passe par ce chemin, et étiquette comme estimations
-les valeurs MySQL et MongoDB qu'il présente aujourd'hui comme des totaux.
+- les moteurs dont le total bon marché est déjà exact — DuckDB, MotherDuck,
+  ClickHouse, Redis, Search — répondent ce total avec
+  `total_rows_source: exact`. Dégrader un nombre juste en estimation serait un
+  mensonge par excès de prudence ;
+- les moteurs à statistiques de catalogue — PostgreSQL, MySQL, SQL Server,
+  MongoDB — répondent `estimated` ;
+- SQLite n'a pas de source fiable et ne répond aucun total, plutôt qu'un
+  chiffre inventé.
+
+Garde-fou important : une statistique de catalogue décrit la table entière. Elle
+n'est donc demandée que lorsque ni filtre ni recherche ne restreint la vue
+(`estimate_matches_scope`). Sans cela, une table de 2,4 M lignes filtrée sur
+trois résultats aurait affiché « ~2 400 000 ».
+
+La fraîcheur voyage avec le nombre : `total_rows_as_of` porte
+`GREATEST(last_analyze, last_autoanalyze)` sur PostgreSQL, le seul moteur qui
+l'expose à coût nul. Les autres laissent le champ vide plutôt que d'inventer une
+date.
+
+L'onglet Info passe par ce chemin. Les trois sources qu'il utilisait — un
+`COUNT(*)` exact sur PostgreSQL, `information_schema.tables.table_rows` en SQL
+interpolé sur MySQL, `schema.row_count_estimate` sur MongoDB — deviennent un
+seul appel `count_mode: estimated`. Ouvrir l'onglet ne déclenche donc plus de
+comptage non borné, la valeur porte son marqueur `~` et son infobulle, et une
+interpolation d'identifiants de moins subsiste (cf. 11.1).
 
 ### 7.2 Annulation
 
-Le comptage exact est déjà livré et n'est pas annulable. Un `COUNT(*)` lancé par
-erreur sur une table de plusieurs centaines de millions de lignes occupe une
-connexion jusqu'au timeout, lequel vaut `None` par défaut.
+Livrée. Le constat de départ : le comptage partait sur une connexion du pool
+sans identifiant de requête, alors que `cancel` cherche sa cible dans
+`active_queries`, une table que seul `execute` remplissait. Il n'y avait donc
+rien à annuler, pas même en best effort.
 
-- exposer un bouton d'annulation pendant le comptage, pas seulement un état
-  d'attente ;
-- brancher sur `CancelSupport` existant, et signaler honnêtement quand
-  l'annulation n'est que `BestEffort` ;
-- appliquer un timeout par défaut au comptage même quand
-  `max_query_duration_ms` est absent : une action explicite ne doit pas pouvoir
-  durer indéfiniment ;
-- même traitement pour le `COUNT(*)` de l'onglet Info, une fois unifié.
+`TableQueryOptions` gagne `query_id`. Il n'est jamais sérialisé : la clé du
+cache de requêtes dérive des options sérialisées, et un identifiant unique par
+appel y aurait transformé chaque lecture en défaut de cache.
+
+Chaque driver enregistre le comptage dans le registre qu'il utilise déjà :
+
+| Driver                    | Mécanisme                                      | Portée réelle     |
+| ------------------------- | ---------------------------------------------- | ----------------- |
+| PostgreSQL et compatibles | connexion épinglée, `pg_backend_pid`           | annulation vraie  |
+| MySQL, MariaDB            | connexion épinglée, `CONNECTION_ID()`          | annulation vraie  |
+| SQL Server                | `@@SPID` sur la connexion du comptage          | annulation vraie  |
+| ClickHouse                | `query_id` serveur, `KILL QUERY`               | annulation vraie  |
+| DuckDB, MotherDuck        | `with_query_conn`, handle d'interruption       | annulation vraie  |
+| Elasticsearch, OpenSearch | `X-Opaque-Id` sur la requête `_search`         | best effort       |
+| MongoDB                   | `AbortHandle` : la requête cesse d'être attendue | best effort     |
+| SQLite                    | aucun mécanisme                                 | non annulable     |
+
+L'interface ne prétend pas mieux que la réalité : le bouton porte « Annuler (au
+mieux) » et une explication en infobulle lorsque le driver déclare
+`CancelSupport::BestEffort`, et disparaît lorsqu'il déclare `None`.
+
+Garde-fou temporel : `EXACT_COUNT_TIMEOUT_MS` (120 s) borne le comptage quand la
+politique ne fixe aucune durée. Généreux à dessein — le seuil de la section 5
+demande moins de 5 % d'abandons — mais fini.
+
+L'onglet Info n'a plus de comptage à annuler : il lit désormais une estimation
+(cf. 7.1). L'annulation reste donc cantonnée à l'action explicite de la grille,
+qui est la seule à déclencher un parcours.
 
 ### 7.3 Instrumentation locale
 
-Les mesures de la section 5 ne peuvent exister sans point de collecte. QoreDB
-est une application de bureau : rien ne sort de la machine.
+Livrée. Les mesures de la section 5 n'existaient pas faute de point de collecte.
+QoreDB est une application de bureau : rien ne sort de la machine.
 
-- compteurs en mémoire par onglet, exposés dans un panneau de diagnostic ;
-- aucune donnée de cellule, aucun contenu de curseur, aucun nom de table ;
-- rétention limitée à la session, sauf export explicite pour un rapport de bug.
+La collecte est côté interface (`src/lib/diagnostics/paginationMetrics.ts`) et
+non côté moteur, parce que la section 5 mesure ce que l'utilisateur ressent —
+temps jusqu'à la première page, aller-retour compris — et non le temps serveur.
+Un compteur Rust n'aurait vu ni le transport ni l'attribution par onglet.
+
+Par onglet : pages chargées, lignes chargées, première page, p50 et p95 des
+pages, première recherche, comptages exacts et annulés, erreurs. Les durées sont
+conservées en anneau borné (200 échantillons, 32 onglets), ce qui donne des
+percentiles réels au lieu d'une moyenne trompeuse.
+
+Contrainte de confidentialité tenue par construction : un onglet est identifié
+par un ordinal opaque (« #3 »), jamais par le nom de la table. Il n'y avait pas
+d'identifiant d'onglet à disposition du hook, et en inventer un anonyme coûtait
+moins cher que de faire descendre le vrai — qu'il aurait de toute façon fallu
+taire.
+
+Panneau accessible depuis la barre d'état, à côté du journal d'erreurs. Rien
+n'est persisté ; « Copier le rapport » produit un JSON destiné à un rapport de
+bug.
 
 ## 8. Verticale 3 — Coût du tri et de la recherche
 
@@ -404,19 +492,19 @@ permet à l'appelant de clamper la sur-lecture plutôt que de heurter le mur.
 
 ### 9.4 Stratégie par driver
 
-| Drivers | Stratégie préférée | Fallback |
-|---|---|---|
-| PostgreSQL, Supabase, Neon, TimescaleDB, CockroachDB | Keyset sur clé primaire ou index unique, avec tie-breaker stable | `OFFSET` signalé comme dégradé |
-| MySQL, MariaDB | Keyset sur clé primaire ou index unique | `OFFSET` |
-| SQLite, DuckDB, MotherDuck | Keyset lorsque le schéma fournit une clé stable | `OFFSET` |
-| SQL Server | Keyset avec prédicats paramétrés et ordre unique | `OFFSET/FETCH` |
-| MongoDB | `_id` ou couple `(sort_value, _id)` | `skip` |
-| Elasticsearch, OpenSearch | `search_after`, avec PIT si une vue cohérente est requise ; le code existe déjà dans `stream_search` | `from/size` dans la fenêtre autorisée |
-| ClickHouse | Clé de tri ou clé primaire MergeTree lorsque disponible | `OFFSET` avec avertissement de coût |
-| Redis list | Index natif | Pagination actuelle |
-| Redis zset | Couple `(score, member)` | Index |
-| Redis stream | Identifiant de stream | Pagination actuelle |
-| Redis hash et set | Curseur `HSCAN` ou `SSCAN`, sans promettre un ordre stable | Scan depuis le début si nécessaire |
+| Drivers                                              | Stratégie préférée                                                                                   | Fallback                              |
+| ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------- | ------------------------------------- |
+| PostgreSQL, Supabase, Neon, TimescaleDB, CockroachDB | Keyset sur clé primaire ou index unique, avec tie-breaker stable                                     | `OFFSET` signalé comme dégradé        |
+| MySQL, MariaDB                                       | Keyset sur clé primaire ou index unique                                                              | `OFFSET`                              |
+| SQLite, DuckDB, MotherDuck                           | Keyset lorsque le schéma fournit une clé stable                                                      | `OFFSET`                              |
+| SQL Server                                           | Keyset avec prédicats paramétrés et ordre unique                                                     | `OFFSET/FETCH`                        |
+| MongoDB                                              | `_id` ou couple `(sort_value, _id)`                                                                  | `skip`                                |
+| Elasticsearch, OpenSearch                            | `search_after`, avec PIT si une vue cohérente est requise ; le code existe déjà dans `stream_search` | `from/size` dans la fenêtre autorisée |
+| ClickHouse                                           | Clé de tri ou clé primaire MergeTree lorsque disponible                                              | `OFFSET` avec avertissement de coût   |
+| Redis list                                           | Index natif                                                                                          | Pagination actuelle                   |
+| Redis zset                                           | Couple `(score, member)`                                                                             | Index                                 |
+| Redis stream                                         | Identifiant de stream                                                                                | Pagination actuelle                   |
+| Redis hash et set                                    | Curseur `HSCAN` ou `SSCAN`, sans promettre un ordre stable                                           | Scan depuis le début si nécessaire    |
 
 ### 9.5 Schémas sans clé stable
 
@@ -564,17 +652,17 @@ une connexion et doit être demandé par le workflow qui en a besoin.
 
 ## 12. Politique de settings
 
-| Option potentielle | Décision |
-|---|---|
-| Calculer toujours le total exact | Ne pas exposer ; conserver l'action à la demande |
-| Afficher une estimation moteur | Retenu, verticale 2, avec provenance et fraîcheur affichées |
-| Périmètre de la recherche (colonnes) | Retenu, verticale 3, visible dans la barre de recherche plutôt que dans les réglages |
-| Taille de page brute | Réglage avancé de diagnostic uniquement |
-| Profil Économe, Équilibré, Rapide | Écarté, cf. 10.3 |
-| Forcer cursor ou offset | Diagnostic avancé, par connexion ou table |
-| Budget mémoire par onglet | Retenu, réglages avancés, défaut sûr |
-| Taille maximale de preview d'une cellule | Retenu, avec plafond imposé par la politique de sécurité |
-| Niveau de cohérence ou snapshot | Exposé uniquement dans les workflows qui en ont besoin |
+| Option potentielle                       | Décision                                                                             |
+| ---------------------------------------- | ------------------------------------------------------------------------------------ |
+| Calculer toujours le total exact         | Ne pas exposer ; conserver l'action à la demande                                     |
+| Afficher une estimation moteur           | Retenu, verticale 2, avec provenance et fraîcheur affichées                          |
+| Périmètre de la recherche (colonnes)     | Retenu, verticale 3, visible dans la barre de recherche plutôt que dans les réglages |
+| Taille de page brute                     | Réglage avancé de diagnostic uniquement                                              |
+| Profil Économe, Équilibré, Rapide        | Écarté, cf. 10.3                                                                     |
+| Forcer cursor ou offset                  | Diagnostic avancé, par connexion ou table                                            |
+| Budget mémoire par onglet                | Retenu, réglages avancés, défaut sûr                                                 |
+| Taille maximale de preview d'une cellule | Retenu, avec plafond imposé par la politique de sécurité                             |
+| Niveau de cohérence ou snapshot          | Exposé uniquement dans les workflows qui en ont besoin                               |
 
 Une option n'est ajoutée que si plusieurs implémentations sont viables, qu'aucune
 ne domine clairement, que l'utilisateur en comprend la conséquence, que le choix
@@ -586,12 +674,10 @@ limite de sécurité administrateur.
 Séquencé par valeur rendue et par dépendance, en lots livrables indépendamment.
 
 1. Correctifs de la verticale 1 — appliqués, cf. section 6.3.
-2. Contrat resserré — `total_rows: number | null`, `total_rows_source`,
-   suppression de `total_pages`, décision sur le bridge. À faire tant qu'il n'y a
-   qu'un consommateur externe.
-3. Tests par famille de drivers, en commençant par Redis et Search.
-4. Verticale 2 — instrumentation d'abord, pour disposer de la mesure de
-   référence ; puis annulation ; puis estimation moteur.
+2. Contrat resserré — appliqué, cf. sections 6.4 et 6.5.
+3. Tests par famille de drivers — appliqués, cf. section 6.7.
+4. Verticale 2 — appliquée dans cet ordre : instrumentation, annulation,
+   estimation moteur, unification de l'onglet Info.
 5. Verticale 3 — cache du schéma de colonnes, puis périmètre de recherche, puis
    capacité de tri.
 6. Verticale 4 — capacité déclarée, keyset SQL, MongoDB, branchement de

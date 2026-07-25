@@ -1034,7 +1034,13 @@
       "calculateTotal": "Exakte Gesamtzahl berechnen",
       "countingTotal": "Gesamtzahl wird berechnet…",
       "countTotalError": "Die exakte Gesamtzahl konnte nicht berechnet werden",
-      "complete": "Ende der Ergebnisse"
+      "complete": "Ende der Ergebnisse",
+      "cancelCount": "Abbrechen",
+      "cancelCountBestEffortLabel": "Abbrechen (bestmöglich)",
+      "cancelCountBestEffort": "Dieser Treiber kann den Abbruch nicht garantieren: Die Zählung läuft serverseitig möglicherweise weiter.",
+      "loadedEstimated": "{{loaded}} von ~{{total}} Zeilen geladen (Schätzung)",
+      "estimateHint": "Schätzung der Engine, keine exakte Zählung.",
+      "estimateAsOf": "Statistiken zuletzt aktualisiert am {{date}}."
     },
     "noData": "Keine Daten zum Anzeigen",
     "noResults": "Keine Ergebnisse",
@@ -1423,6 +1429,24 @@
     "exportDiagnostic": "Diagnoseprotokolle exportieren (vollständig)",
     "exportSuccess": "Protokolle exportiert: {{name}}",
     "exportError": "Protokolle konnten nicht exportiert werden"
+  },
+  "paginationDiagnostics": {
+    "title": "Paginierungsdiagnose",
+    "description": "Messungen pro Tab für die aktuelle Sitzung. Es werden weder Tabellennamen noch Zellwerte oder Cursor gespeichert.",
+    "empty": "In dieser Sitzung wurde noch keine Tabelle durchsucht.",
+    "scope": "Tab",
+    "pages": "Seiten",
+    "rows": "Zeilen",
+    "firstPage": "Erste Seite",
+    "p50": "Seite p50",
+    "p95": "Seite p95",
+    "firstSearch": "Erste Suche",
+    "exactCounts": "Exakte Zählungen",
+    "errors": "Fehler",
+    "copy": "Bericht kopieren",
+    "copied": "Bericht in die Zwischenablage kopiert",
+    "copyError": "Bericht konnte nicht kopiert werden",
+    "reset": "Zurücksetzen"
   },
   "dbtree": {
     "emptyNamespaces": "Keine Datenbanken oder Schemas gefunden",

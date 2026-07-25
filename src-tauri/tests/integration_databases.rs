@@ -2,13 +2,13 @@
 
 use qoredb_lib::engine::{
     drivers::{
-        clickhouse::ClickHouseDriver, mongodb::MongoDriver, mysql::MySqlDriver,
-        postgres::PostgresDriver, redis::RedisDriver,
+        clickhouse::ClickHouseDriver, elasticsearch::ElasticsearchDriver, mongodb::MongoDriver,
+        mysql::MySqlDriver, postgres::PostgresDriver, redis::RedisDriver,
     },
     error::{EngineError, EngineResult},
     traits::DataEngine,
     types::{
-        CollectionListOptions, ConnectionConfig, Namespace, QueryId, RowData, SessionId,
+        CollectionListOptions, ConnectionConfig, CountMode, Namespace, QueryId, RowData, SessionId,
         TableQueryOptions, Value,
     },
 };
@@ -46,7 +46,11 @@ fn redis_test_required() -> bool {
     env_bool_or_default("QOREDB_TEST_REDIS_REQUIRED", false)
 }
 
-fn is_redis_unavailable(err: &EngineError) -> bool {
+fn search_test_required() -> bool {
+    env_bool_or_default("QOREDB_TEST_SEARCH_REQUIRED", false)
+}
+
+fn is_service_unavailable(err: &EngineError) -> bool {
     match err {
         EngineError::ConnectionFailed { message } | EngineError::ExecutionError { message } => {
             let lower = message.to_ascii_lowercase();
@@ -182,6 +186,32 @@ fn redis_config() -> ConnectionConfig {
     }
 }
 
+fn elasticsearch_config() -> ConnectionConfig {
+    ConnectionConfig {
+        driver: "elasticsearch".to_string(),
+        host: env_or_default("QOREDB_TEST_ES_HOST", "127.0.0.1"),
+        port: env_u16_or_default("QOREDB_TEST_ES_PORT", 9200),
+        username: env_or_default("QOREDB_TEST_ES_USER", ""),
+        // Empty by default: the driver refuses to send credentials over
+        // cleartext HTTP, and the docker-compose node runs with security off.
+        password: env_or_default("QOREDB_TEST_ES_PASSWORD", ""),
+        database: None,
+        ssl: false,
+        ssl_mode: None,
+        environment: "development".to_string(),
+        read_only: false,
+        ssh_tunnel: None,
+        pool_acquire_timeout_secs: None,
+        pool_max_connections: None,
+        pool_min_connections: None,
+        proxy: None,
+        mssql_auth: None,
+        clickhouse_cluster: None,
+        search_auth_mode: Some("none".to_string()),
+        ssl_ca_cert: None,
+    }
+}
+
 async fn wait_for_connection<D: DataEngine + ?Sized>(
     driver: &D,
     config: &ConnectionConfig,
@@ -227,6 +257,64 @@ fn unique_name(prefix: &str) -> String {
     format!("{}_{}", prefix, Uuid::new_v4().simple())
 }
 
+/// Walks every page of `table` in `count_mode: none` and checks the guarantees
+/// the driver families are supposed to share: a full page announces the next
+/// one, the last page does not, no page claims a total, and the over-fetched
+/// row never reaches the caller.
+async fn assert_count_free_pages<D: DataEngine + ?Sized>(
+    driver: &D,
+    session: SessionId,
+    namespace: &Namespace,
+    table: &str,
+    sort_column: Option<&str>,
+    total: usize,
+    page_size: u32,
+) -> EngineResult<()> {
+    let pages = total.div_ceil(page_size as usize);
+    let mut seen = 0usize;
+
+    for page in 1..=pages {
+        let result = driver
+            .query_table(
+                session,
+                namespace,
+                table,
+                TableQueryOptions {
+                    page: Some(page as u32),
+                    page_size: Some(page_size),
+                    sort_column: sort_column.map(str::to_string),
+                    count_mode: Some(CountMode::None),
+                    ..Default::default()
+                },
+            )
+            .await?;
+
+        assert!(
+            result.result.rows.len() <= page_size as usize,
+            "{table}: page {page} leaked the over-fetched row ({} rows for a page size of {page_size})",
+            result.result.rows.len()
+        );
+        assert_eq!(
+            result.total_rows, None,
+            "{table}: page {page} reported a total in count-free mode"
+        );
+        assert_eq!(result.total_rows_source, None);
+        assert_eq!(
+            result.has_more,
+            page < pages,
+            "{table}: wrong has_more on page {page} of {pages}"
+        );
+
+        seen += result.result.rows.len();
+    }
+
+    assert_eq!(
+        seen, total,
+        "{table}: count-free paging lost or duplicated rows"
+    );
+    Ok(())
+}
+
 fn assert_count(result: &qoredb_lib::engine::types::QueryResult, expected: i64) {
     let value = result
         .rows
@@ -269,6 +357,15 @@ async fn connect_mongo() -> EngineResult<(Arc<MongoDriver>, SessionId, Connectio
 async fn connect_redis() -> EngineResult<(Arc<RedisDriver>, SessionId, ConnectionConfig)> {
     let config = redis_config();
     let driver = Arc::new(RedisDriver::new());
+    wait_for_connection(driver.as_ref(), &config).await?;
+    let session = driver.connect(&config).await?;
+    Ok((driver, session, config))
+}
+
+async fn connect_elasticsearch()
+-> EngineResult<(Arc<ElasticsearchDriver>, SessionId, ConnectionConfig)> {
+    let config = elasticsearch_config();
+    let driver = Arc::new(ElasticsearchDriver::new());
     wait_for_connection(driver.as_ref(), &config).await?;
     let session = driver.connect(&config).await?;
     Ok((driver, session, config))
@@ -394,6 +491,17 @@ async fn postgres_e2e() -> EngineResult<()> {
         .await?;
     assert_count(&count, 2);
 
+    assert_count_free_pages(
+        driver.as_ref(),
+        session,
+        &namespace,
+        &table,
+        Some("id"),
+        2,
+        1,
+    )
+    .await?;
+
     let _ = driver
         .execute(session, &format!("DROP TABLE {}", table), QueryId::new())
         .await;
@@ -515,6 +623,17 @@ async fn mysql_e2e() -> EngineResult<()> {
         .await?;
     assert_count(&count, 2);
 
+    assert_count_free_pages(
+        driver.as_ref(),
+        session,
+        &namespace,
+        &table,
+        Some("id"),
+        2,
+        1,
+    )
+    .await?;
+
     let _ = driver
         .execute(session, &format!("DROP TABLE {}", table), QueryId::new())
         .await;
@@ -539,6 +658,16 @@ async fn mongodb_e2e() -> EngineResult<()> {
     driver
         .insert_row(session, &namespace, &collection, &data)
         .await?;
+    driver
+        .insert_row(
+            session,
+            &namespace,
+            &collection,
+            &RowData::new()
+                .with_column("name", Value::Text("beta".to_string()))
+                .with_column("value", Value::Int(2)),
+        )
+        .await?;
 
     let namespaces = driver.list_namespaces(session).await?;
     assert!(namespaces.iter().any(|ns| ns.database == db_name));
@@ -557,6 +686,17 @@ async fn mongodb_e2e() -> EngineResult<()> {
     let result = driver.execute(session, &query, QueryId::new()).await?;
     assert!(!result.rows.is_empty());
 
+    assert_count_free_pages(
+        driver.as_ref(),
+        session,
+        &namespace,
+        &collection,
+        Some("value"),
+        2,
+        1,
+    )
+    .await?;
+
     driver.disconnect(session).await?;
     Ok(())
 }
@@ -565,7 +705,7 @@ async fn mongodb_e2e() -> EngineResult<()> {
 async fn redis_e2e() -> EngineResult<()> {
     let (driver, session, _config) = match connect_redis().await {
         Ok(conn) => conn,
-        Err(err) if !redis_test_required() && is_redis_unavailable(&err) => {
+        Err(err) if !redis_test_required() && is_service_unavailable(&err) => {
             eprintln!(
                 "redis_e2e skipped: Redis is unavailable (set QOREDB_TEST_REDIS_REQUIRED=true to fail instead): {}",
                 err
@@ -685,16 +825,105 @@ async fn redis_e2e() -> EngineResult<()> {
     assert!(collections.collections.iter().any(|c| c.name == key));
     assert!(collections.collections.iter().any(|c| c.name == stream));
 
+    let list_key = unique_name("qoredb_redis_list");
+    let hash_key = unique_name("qoredb_redis_hash");
+    driver
+        .execute_in_namespace(
+            session,
+            Some(ns0.clone()),
+            &format!("RPUSH {} a b c", list_key),
+            QueryId::new(),
+        )
+        .await?;
+    driver
+        .execute_in_namespace(
+            session,
+            Some(ns0.clone()),
+            &format!("HSET {} f1 v1 f2 v2 f3 v3", hash_key),
+            QueryId::new(),
+        )
+        .await?;
+
+    // Two distinct paging paths: LRANGE gives an exact window, HSCAN only
+    // approximates one and is the fragile side of the family.
+    assert_count_free_pages(driver.as_ref(), session, &ns0, &list_key, None, 3, 2).await?;
+    assert_count_free_pages(driver.as_ref(), session, &ns0, &hash_key, None, 3, 2).await?;
+
     let _ = driver
         .execute_in_namespace(
             session,
             Some(ns0),
-            &format!("DEL {} {}", key, stream),
+            &format!("DEL {} {} {} {}", key, stream, list_key, hash_key),
             QueryId::new(),
         )
         .await;
     let _ = driver
         .execute_in_namespace(session, Some(ns1), &format!("DEL {}", key), QueryId::new())
+        .await;
+    driver.disconnect(session).await?;
+    Ok(())
+}
+
+/// Search is the other fragile family: `from + size` is bounded by
+/// `max_result_window`, so the over-fetched row has to be clamped at the edge
+/// rather than sent to the engine.
+#[tokio::test]
+async fn elasticsearch_count_free_pagination() -> EngineResult<()> {
+    let (driver, session, _config) = match connect_elasticsearch().await {
+        Ok(conn) => conn,
+        Err(err) if !search_test_required() && is_service_unavailable(&err) => {
+            eprintln!(
+                "elasticsearch_count_free_pagination skipped: Elasticsearch is unavailable (set QOREDB_TEST_SEARCH_REQUIRED=true to fail instead): {}",
+                err
+            );
+            return Ok(());
+        }
+        Err(err) => return Err(err),
+    };
+
+    let index = unique_name("qoredb_es");
+    driver
+        .execute(
+            session,
+            &format!(
+                "PUT /{index}\n{{\"mappings\":{{\"properties\":{{\"n\":{{\"type\":\"integer\"}}}}}}}}"
+            ),
+            QueryId::new(),
+        )
+        .await?;
+
+    let mut bulk = String::new();
+    for n in 1..=5 {
+        bulk.push_str(&format!(
+            "{{\"index\":{{\"_id\":\"{n}\"}}}}\n{{\"n\":{n}}}\n"
+        ));
+    }
+    driver
+        .execute(
+            session,
+            &format!("POST /{index}/_bulk\n{bulk}"),
+            QueryId::new(),
+        )
+        .await?;
+    // Indexing is near-real-time: without a refresh the docs are not searchable.
+    driver
+        .execute(session, &format!("POST /{index}/_refresh"), QueryId::new())
+        .await?;
+
+    let namespace = Namespace::new("elasticsearch");
+    assert_count_free_pages(
+        driver.as_ref(),
+        session,
+        &namespace,
+        &index,
+        Some("n"),
+        5,
+        2,
+    )
+    .await?;
+
+    let _ = driver
+        .execute(session, &format!("DELETE /{index}"), QueryId::new())
         .await;
     driver.disconnect(session).await?;
     Ok(())
@@ -950,7 +1179,18 @@ async fn clickhouse_e2e() -> EngineResult<()> {
         .query_table(session, &namespace, &table, opts)
         .await?;
     assert_eq!(paged.result.rows.len(), 1);
-    assert_eq!(paged.total_rows, 2);
+    assert_eq!(paged.total_rows, Some(2));
+
+    assert_count_free_pages(
+        driver.as_ref(),
+        session,
+        &namespace,
+        &table,
+        Some("id"),
+        2,
+        1,
+    )
+    .await?;
 
     // Cleanup.
     let _ = driver

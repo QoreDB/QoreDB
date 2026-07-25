@@ -1435,17 +1435,31 @@ impl DataEngine for SqlServerDriver {
         };
 
         let total_rows = if options.wants_exact_total() {
-            let count_sql = format!("SELECT COUNT_BIG(*) FROM {}{}", table_ref, where_sql);
-            let count_stream = conn
-                .simple_query(&count_sql)
-                .await
-                .map_err(|e| EngineError::execution_error(e.to_string()))?;
-            let count_rows = count_stream
-                .into_first_result()
-                .await
-                .map_err(|e| EngineError::execution_error(e.to_string()))?;
+            // Registered under the caller's query id so `cancel` can KILL the
+            // right SPID; an unregistered count would run to completion.
+            if let Some(qid) = options.query_id {
+                let spid = fetch_spid(&mut conn).await?;
+                register_active_query(&mssql_session, qid, spid).await;
+            }
 
-            let total_rows = count_rows
+            let count_sql = format!("SELECT COUNT_BIG(*) FROM {}{}", table_ref, where_sql);
+            let counted = async {
+                let count_stream = conn
+                    .simple_query(&count_sql)
+                    .await
+                    .map_err(|e| EngineError::execution_error(e.to_string()))?;
+                count_stream
+                    .into_first_result()
+                    .await
+                    .map_err(|e| EngineError::execution_error(e.to_string()))
+            }
+            .await;
+
+            if let Some(qid) = options.query_id {
+                unregister_active_query(&mssql_session, qid).await;
+            }
+
+            let total_rows = counted?
                 .first()
                 .and_then(|row| row.get::<i64, _>(0))
                 .unwrap_or(0);
@@ -1484,9 +1498,15 @@ impl DataEngine for SqlServerDriver {
             execution_time_ms,
         };
 
-        Ok(PaginatedQueryResult::from_optional_total(
-            result, total_rows, page, page_size,
-        ))
+        let paginated =
+            PaginatedQueryResult::from_optional_total(result, total_rows, page, page_size);
+
+        if total_rows.is_none() && options.wants_any_total() && options.estimate_matches_scope() {
+            let estimate = partition_row_estimate(&mut conn, schema, table).await;
+            return Ok(paginated.with_estimate(estimate, None));
+        }
+
+        Ok(paginated)
     }
 
     async fn peek_foreign_key(
@@ -2002,6 +2022,28 @@ async fn fetch_spid(conn: &mut MssqlClient) -> EngineResult<u16> {
     let spid: Option<i16> = row.get(0);
     let spid = spid.ok_or_else(|| EngineError::execution_error("@@SPID was NULL"))?;
     Ok(spid as u16)
+}
+
+/// Row count maintained by the storage engine per partition. Cheap, but it
+/// lags behind writes, so it is only ever reported as an estimate.
+async fn partition_row_estimate(conn: &mut MssqlClient, schema: &str, table: &str) -> Option<u64> {
+    let sql = format!(
+        "SELECT SUM(p.row_count) FROM sys.dm_db_partition_stats p \
+         JOIN sys.objects o ON o.object_id = p.object_id \
+         JOIN sys.schemas s ON s.schema_id = o.schema_id \
+         WHERE s.name = N'{}' AND o.name = N'{}' AND p.index_id IN (0, 1)",
+        schema.replace('\'', "''"),
+        table.replace('\'', "''")
+    );
+    let rows = conn
+        .simple_query(&sql)
+        .await
+        .ok()?
+        .into_first_result()
+        .await
+        .ok()?;
+    let value: Option<i64> = rows.first().and_then(|row| row.get(0));
+    value.filter(|count| *count >= 0).map(|count| count as u64)
 }
 
 async fn register_active_query(session: &SqlServerSession, query_id: QueryId, spid: u16) {

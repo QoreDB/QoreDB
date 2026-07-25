@@ -916,10 +916,7 @@ pub async fn query_table(
     let mut body = JsonMap::new();
     body.insert("from".into(), json!(offset));
     body.insert("size".into(), json!(fetch_size));
-    body.insert(
-        "track_total_hits".into(),
-        json!(options.wants_exact_total()),
-    );
+    body.insert("track_total_hits".into(), json!(options.wants_any_total()));
     body.insert("query".into(), json!({ "match_all": {} }));
 
     if let Some(col) = options.sort_column.as_ref() {
@@ -933,16 +930,20 @@ pub async fn query_table(
     }
 
     let started = Instant::now();
+    // Tagged with the caller's query id so `cancel` can find the search task:
+    // with `track_total_hits` on, this single request is also the count.
+    let opaque = options.query_id.map(|qid| qid.0.to_string());
     let json = s
-        .request(
+        .send(
             Method::POST,
             &format!("/{index}/_search"),
             Some(Json::Object(body).to_string()),
+            opaque.as_deref(),
         )
         .await?;
     let elapsed_ms = started.elapsed().as_micros() as f64 / 1000.0;
 
-    let total = options.wants_exact_total().then(|| {
+    let total = options.wants_any_total().then(|| {
         json.pointer("/hits/total/value")
             .and_then(|v| v.as_u64())
             .unwrap_or(0)

@@ -213,10 +213,12 @@ impl DataEngine for ClickHouseDriver {
 
         // MergeTree-family engines can answer `count()` cheaply, but it is
         // still a separate network round-trip. Interactive browsing skips it.
-        let total = if options.wants_exact_total() {
+        let total = if options.wants_any_total() {
             let total_sql = format!("SELECT count() FROM {qualified}");
+            // Reuses the caller's query id so the count lands in the tracking
+            // map and `cancel` can KILL it server-side.
             Some(
-                self.execute(session, &total_sql, QueryId::new())
+                self.execute(session, &total_sql, options.query_id.unwrap_or_default())
                     .await?
                     .rows
                     .into_iter()

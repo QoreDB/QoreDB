@@ -2304,7 +2304,7 @@ impl DataEngine for MongoDriver {
         }
 
         let mut tx_guard = mongo_session.transaction_session.lock().await;
-        let (total_rows, documents) = if let Some(txn) = tx_guard.as_mut() {
+        let (total_rows, estimate, documents) = if let Some(txn) = tx_guard.as_mut() {
             if let Some(ref search_term) = options.search {
                 if !search_term.trim().is_empty() {
                     let escaped_term = Self::escape_regex(search_term);
@@ -2372,7 +2372,7 @@ impl DataEngine for MongoDriver {
                 documents.push(doc);
             }
 
-            (total_rows, documents)
+            (total_rows, None, documents)
         } else {
             drop(tx_guard);
 
@@ -2403,12 +2403,31 @@ impl DataEngine for MongoDriver {
             }
 
             let total_rows = if options.wants_exact_total() {
-                Some(
-                    collection
-                        .count_documents(filter_doc.clone())
+                // Registered like any other operation so `cancel` can abort the
+                // wait. MongoDB keeps counting server-side, which is exactly
+                // what `CancelSupport::BestEffort` announces.
+                let (abort_handle, abort_reg) = AbortHandle::new_pair();
+                if let Some(qid) = options.query_id {
+                    self.active_queries
+                        .lock()
                         .await
-                        .map_err(|e| EngineError::execution_error(e.to_string()))?,
+                        .insert(qid, (session, abort_handle));
+                }
+                let counted = Abortable::new(
+                    std::future::IntoFuture::into_future(
+                        collection.count_documents(filter_doc.clone()),
+                    ),
+                    abort_reg,
                 )
+                .await;
+                if let Some(qid) = options.query_id {
+                    self.active_queries.lock().await.remove(&qid);
+                }
+                match counted {
+                    Ok(Ok(count)) => Some(count),
+                    Ok(Err(e)) => return Err(EngineError::execution_error(e.to_string())),
+                    Err(_) => return Err(EngineError::execution_error("Count cancelled")),
+                }
             } else {
                 None
             };
@@ -2439,7 +2458,18 @@ impl DataEngine for MongoDriver {
                 .await
                 .map_err(|e| EngineError::execution_error(e.to_string()))?;
 
-            (total_rows, documents)
+            // `estimatedDocumentCount` reads collection metadata and ignores
+            // any filter, so it is only asked for when nothing narrows the view.
+            let estimate = if total_rows.is_none()
+                && options.wants_any_total()
+                && options.estimate_matches_scope()
+            {
+                collection.estimated_document_count().await.ok()
+            } else {
+                None
+            };
+
+            (total_rows, estimate, documents)
         };
 
         tracing::info!(
@@ -2468,9 +2498,10 @@ impl DataEngine for MongoDriver {
             }
         };
 
-        Ok(PaginatedQueryResult::from_optional_total(
-            result, total_rows, page, page_size,
-        ))
+        Ok(
+            PaginatedQueryResult::from_optional_total(result, total_rows, page, page_size)
+                .with_estimate(estimate, None),
+        )
     }
 
     async fn cancel(&self, session: SessionId, query_id: Option<QueryId>) -> EngineResult<()> {

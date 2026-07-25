@@ -3,6 +3,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
+import {
+  openPaginationScope,
+  recordPaginationError,
+  recordPaginationExactCount,
+  recordPaginationPage,
+} from '@/lib/diagnostics/paginationMetrics';
 import type {
   ColumnFilter,
   ColumnInfo,
@@ -10,8 +16,9 @@ import type {
   QueryResult,
   Row,
   SortDirection,
+  TotalRowsSource,
 } from '@/lib/tauri';
-import { queryTable } from '@/lib/tauri';
+import { cancelQuery, queryTable } from '@/lib/tauri';
 
 interface UseInfiniteTableDataOptions {
   sessionId: string;
@@ -27,8 +34,12 @@ interface UseInfiniteTableDataOptions {
 
 interface UseInfiniteTableDataReturn {
   data: QueryResult | null;
-  totalRows: number;
-  totalRowsExact: boolean;
+  /** Null while the total is unknown; never a lower bound. */
+  totalRows: number | null;
+  /** How `totalRows` was obtained. Null whenever `totalRows` is. */
+  totalRowsSource: TotalRowsSource | null;
+  /** Unix ms of the statistics behind an estimate, when the engine exposes it. */
+  totalRowsAsOf: number | null;
   loadedRows: number;
   isLoading: boolean;
   isFetchingMore: boolean;
@@ -41,6 +52,8 @@ interface UseInfiniteTableDataReturn {
   cachedAgeMs: number | undefined;
   fetchNextChunk: () => void;
   calculateExactTotal: () => void;
+  /** Interrupts a running exact count. No-op when none is running. */
+  cancelExactTotal: () => void;
   reload: () => void;
   /** Like reload(), but forces fresh data even when a valid cache entry exists. */
   refresh: () => void;
@@ -60,8 +73,9 @@ export function useInfiniteTableData({
   const { t } = useTranslation();
   const [allRows, setAllRows] = useState<Row[]>([]);
   const [columns, setColumns] = useState<ColumnInfo[]>([]);
-  const [totalRows, setTotalRows] = useState(0);
-  const [totalRowsExact, setTotalRowsExact] = useState(false);
+  const [totalRows, setTotalRows] = useState<number | null>(null);
+  const [totalRowsSource, setTotalRowsSource] = useState<TotalRowsSource | null>(null);
+  const [totalRowsAsOf, setTotalRowsAsOf] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isFetchingMore, setIsFetchingMore] = useState(false);
   const [isCountingTotal, setIsCountingTotal] = useState(false);
@@ -80,9 +94,48 @@ export function useInfiniteTableData({
   const generationRef = useRef(0);
   const fetchingRef = useRef(false);
   const countingTotalRef = useRef(false);
-  const totalRowsExactRef = useRef(false);
+  const knownTotalRef = useRef<number | null>(null);
+  const countQueryIdRef = useRef<string | null>(null);
+  const countCancelledRef = useRef(false);
+  // Created on the first page rather than on mount, so a scope never exists
+  // without a measurement in it.
+  const scopeRef = useRef<string | null>(null);
+  const scope = useCallback(() => (scopeRef.current ??= openPaginationScope()), []);
   // Set by refresh() to make the next reload bypass the query cache.
   const bypassCacheRef = useRef(false);
+
+  // Fired after the first page, never before it: an order of magnitude is
+  // worth having, but not at the cost of delaying the rows.
+  const fetchEstimate = useCallback(
+    async (generation: number) => {
+      if (knownTotalRef.current !== null) return;
+      try {
+        const result = await queryTable(sessionId, namespace, tableName, {
+          page: 1,
+          page_size: 1,
+          search: searchTerm,
+          filters,
+          count_mode: 'estimated',
+        });
+
+        if (generationRef.current !== generation) return;
+        // An exact total may have landed while the estimate was in flight.
+        if (knownTotalRef.current !== null) return;
+
+        const total = result.result?.total_rows;
+        const source = result.result?.total_rows_source;
+        if (!result.success || typeof total !== 'number' || !source) return;
+
+        if (source === 'exact') knownTotalRef.current = total;
+        setTotalRows(total);
+        setTotalRowsSource(source);
+        setTotalRowsAsOf(result.result?.total_rows_as_of ?? null);
+      } catch {
+        // A missing estimate is not a failure the user needs to hear about.
+      }
+    },
+    [filters, namespace, searchTerm, sessionId, tableName]
+  );
 
   const fetchNextChunk = useCallback(async () => {
     if (fetchingRef.current || isComplete || !enabled) return;
@@ -95,7 +148,7 @@ export function useInfiniteTableData({
     const isFirstChunk = page === 1;
 
     try {
-      const startTime = isFirstChunk ? performance.now() : 0;
+      const startTime = performance.now();
 
       const result = await queryTable(
         sessionId,
@@ -117,13 +170,15 @@ export function useInfiniteTableData({
 
       if (result.success && result.result) {
         const paginated = result.result;
+        const elapsedMs = performance.now() - startTime;
+        recordPaginationPage(scope(), elapsedMs, paginated.result.rows.length, Boolean(searchTerm));
 
         if (isFirstChunk) {
-          const endTime = performance.now();
           setExecutionTimeMs(paginated.result.execution_time_ms);
-          setTotalTimeMs(endTime - startTime);
+          setTotalTimeMs(elapsedMs);
           setCached(result.cached ?? false);
           setCachedAgeMs(result.cached_age_ms);
+          void fetchEstimate(generation);
         }
 
         setColumns(prev => {
@@ -133,24 +188,26 @@ export function useInfiniteTableData({
         });
         setAllRows(prev => prev.concat(paginated.result.rows));
         setIsComplete(!paginated.has_more || paginated.result.rows.length === 0);
-        if (paginated.total_rows_exact) {
-          totalRowsExactRef.current = true;
+        if (paginated.total_rows !== null) {
+          knownTotalRef.current = paginated.total_rows;
           setTotalRows(paginated.total_rows);
-          setTotalRowsExact(true);
-        } else if (!totalRowsExactRef.current) {
-          setTotalRows(prev => Math.max(prev, paginated.total_rows));
+          setTotalRowsSource(paginated.total_rows_source);
+          setTotalRowsAsOf(paginated.total_rows_as_of);
         }
         currentPageRef.current = page + 1;
       } else if (result.success && !result.result) {
         setColumns([]);
         setAllRows([]);
-        setTotalRows(0);
+        setTotalRows(null);
+        setTotalRowsSource(null);
         setIsComplete(true);
       } else if (result.error) {
+        recordPaginationError(scope());
         setError(result.error);
       }
     } catch (err) {
       if (generationRef.current !== generation) return;
+      recordPaginationError(scope());
       setError(err instanceof Error ? err.message : 'Failed to load data');
     } finally {
       if (generationRef.current === generation) {
@@ -170,13 +227,18 @@ export function useInfiniteTableData({
     sortDirection,
     searchTerm,
     filters,
+    scope,
+    fetchEstimate,
   ]);
 
   const calculateExactTotal = useCallback(async () => {
-    if (!enabled || countingTotalRef.current || totalRowsExactRef.current) return;
+    if (!enabled || countingTotalRef.current || knownTotalRef.current !== null) return;
     countingTotalRef.current = true;
     setIsCountingTotal(true);
     const generation = generationRef.current;
+    const queryId = crypto.randomUUID();
+    countQueryIdRef.current = queryId;
+    countCancelledRef.current = false;
 
     try {
       const result = await queryTable(
@@ -189,44 +251,61 @@ export function useInfiniteTableData({
           search: searchTerm,
           filters,
           count_mode: 'exact',
+          query_id: queryId,
         },
         true
       );
 
       if (generationRef.current !== generation) return;
 
-      if (result.success && result.result?.total_rows_exact) {
-        totalRowsExactRef.current = true;
-        setTotalRows(result.result.total_rows);
-        setTotalRowsExact(true);
-      } else {
+      recordPaginationExactCount(scope(), countCancelledRef.current);
+      const total = result.result?.total_rows;
+      if (result.success && typeof total === 'number') {
+        knownTotalRef.current = total;
+        setTotalRows(total);
+        setTotalRowsSource('exact');
+        setTotalRowsAsOf(null);
+      } else if (!countCancelledRef.current) {
         toast.error(t('grid.infiniteScroll.countTotalError'), {
           description: result.error,
         });
       }
     } catch (err) {
       if (generationRef.current !== generation) return;
-      toast.error(t('grid.infiniteScroll.countTotalError'), {
-        description: err instanceof Error ? err.message : undefined,
-      });
+      if (!countCancelledRef.current) {
+        toast.error(t('grid.infiniteScroll.countTotalError'), {
+          description: err instanceof Error ? err.message : undefined,
+        });
+      }
     } finally {
       if (generationRef.current === generation) {
         countingTotalRef.current = false;
+        countQueryIdRef.current = null;
         setIsCountingTotal(false);
       }
     }
-  }, [enabled, filters, namespace, searchTerm, sessionId, t, tableName]);
+  }, [enabled, filters, namespace, scope, searchTerm, sessionId, t, tableName]);
+
+  const cancelExactTotal = useCallback(() => {
+    const queryId = countQueryIdRef.current;
+    if (!queryId) return;
+    // Marked before the round-trip so the count's own rejection is not
+    // reported to the user as a failure.
+    countCancelledRef.current = true;
+    cancelQuery(sessionId, queryId).catch(() => {});
+  }, [sessionId]);
 
   const reset = useCallback(() => {
     generationRef.current += 1;
     currentPageRef.current = 1;
     fetchingRef.current = false;
     countingTotalRef.current = false;
-    totalRowsExactRef.current = false;
+    knownTotalRef.current = null;
     setAllRows([]);
     // Keep columns: table structure doesn't change between searches/sorts
-    setTotalRows(0);
-    setTotalRowsExact(false);
+    setTotalRows(null);
+    setTotalRowsSource(null);
+    setTotalRowsAsOf(null);
     setIsLoading(true);
     setIsFetchingMore(false);
     setIsCountingTotal(false);
@@ -293,7 +372,8 @@ export function useInfiniteTableData({
   return {
     data,
     totalRows,
-    totalRowsExact,
+    totalRowsSource,
+    totalRowsAsOf,
     loadedRows: allRows.length,
     isLoading,
     isFetchingMore,
@@ -304,6 +384,7 @@ export function useInfiniteTableData({
     cachedAgeMs,
     fetchNextChunk,
     calculateExactTotal,
+    cancelExactTotal,
     reload,
     refresh,
   };

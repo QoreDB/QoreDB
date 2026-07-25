@@ -1034,7 +1034,13 @@
       "calculateTotal": "정확한 합계 계산",
       "countingTotal": "합계 계산 중...",
       "countTotalError": "정확한 합계를 계산할 수 없습니다",
-      "complete": "결과 끝"
+      "complete": "결과 끝",
+      "cancelCount": "취소",
+      "cancelCountBestEffortLabel": "취소 (최선 노력)",
+      "cancelCountBestEffort": "이 드라이버는 취소를 보장하지 못합니다. 서버에서 개수 계산이 계속될 수 있습니다.",
+      "loadedEstimated": "{{total}}행 중 {{loaded}}행 로드됨 (추정)",
+      "estimateHint": "엔진 추정치이며 정확한 개수가 아닙니다.",
+      "estimateAsOf": "통계 마지막 갱신: {{date}}"
     },
     "noData": "표시할 데이터가 없습니다",
     "noResults": "결과 없음",
@@ -1423,6 +1429,24 @@
     "exportDiagnostic": "진단 로그 내보내기 (전체)",
     "exportSuccess": "로그 내보내기 완료: {{name}}",
     "exportError": "로그 내보내기에 실패했습니다"
+  },
+  "paginationDiagnostics": {
+    "title": "페이지네이션 진단",
+    "description": "현재 세션의 탭별 측정값입니다. 테이블 이름, 셀 값, 커서는 기록하지 않습니다.",
+    "empty": "이 세션에서 아직 탐색한 테이블이 없습니다.",
+    "scope": "탭",
+    "pages": "페이지",
+    "rows": "행",
+    "firstPage": "첫 페이지",
+    "p50": "페이지 p50",
+    "p95": "페이지 p95",
+    "firstSearch": "첫 검색",
+    "exactCounts": "정확한 개수",
+    "errors": "오류",
+    "copy": "보고서 복사",
+    "copied": "보고서를 클립보드에 복사했습니다",
+    "copyError": "보고서를 복사하지 못했습니다",
+    "reset": "초기화"
   },
   "dbtree": {
     "emptyNamespaces": "ë°ì´í°ë² ì´ì¤ ëë ì¤í¤ë§ê° ììµëë¤",

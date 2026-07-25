@@ -1146,6 +1146,12 @@ pub struct TableQueryOptions {
     /// expensive count on every page.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub count_mode: Option<CountMode>,
+    /// Handle a caller can later pass to `cancel` to interrupt an exact count.
+    ///
+    /// Never serialized: the query cache keys on the serialized options, and a
+    /// per-call identifier there would turn every lookup into a miss.
+    #[serde(default, skip_serializing)]
+    pub query_id: Option<QueryId>,
 }
 
 impl TableQueryOptions {
@@ -1174,6 +1180,23 @@ impl TableQueryOptions {
         matches!(self.effective_count_mode(), CountMode::Exact)
     }
 
+    /// True when the caller wants a total at all, exact or approximate.
+    ///
+    /// Drivers whose cheap total happens to be exact (columnar engines, Redis
+    /// cardinality commands) answer `Estimated` with an exact number rather
+    /// than degrading it — an honest total is never worse than an estimate.
+    pub fn wants_any_total(&self) -> bool {
+        !matches!(self.effective_count_mode(), CountMode::None)
+    }
+
+    /// Whether a table-level engine estimate would describe the rows actually
+    /// returned. Catalog statistics count the whole table, so they must not be
+    /// presented as the total of a filtered or searched view.
+    pub fn estimate_matches_scope(&self) -> bool {
+        self.search.as_deref().unwrap_or("").is_empty()
+            && self.filters.as_deref().unwrap_or(&[]).is_empty()
+    }
+
     /// Number of rows requested from the engine.
     ///
     /// Without an exact total, one extra row is fetched to derive `has_more`
@@ -1192,8 +1215,19 @@ impl TableQueryOptions {
 #[serde(rename_all = "snake_case")]
 pub enum CountMode {
     None,
+    /// Engine metadata rather than a scan. Cheap, and approximate by nature:
+    /// a driver with no trustworthy source answers `None` instead of guessing.
+    Estimated,
     #[default]
     Exact,
+}
+
+/// Provenance of a known `total_rows`.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum TotalRowsSource {
+    Exact,
+    Estimated,
 }
 
 /// Paginated query result with metadata
@@ -1201,18 +1235,22 @@ pub enum CountMode {
 pub struct PaginatedQueryResult {
     /// The data rows for the current page
     pub result: QueryResult,
-    /// Exact total or discovered lower bound, as indicated by
-    /// `total_rows_exact`.
-    pub total_rows: u64,
+    /// Total row count, or `None` when it is unknown. Never a lower bound: a
+    /// consumer that ignores the provenance still cannot mistake it for a
+    /// total.
+    #[serde(default)]
+    pub total_rows: Option<u64>,
+    /// Provenance of `total_rows`. `Some` if and only if `total_rows` is.
+    #[serde(default)]
+    pub total_rows_source: Option<TotalRowsSource>,
+    /// When the engine last refreshed the statistics behind an estimate, as a
+    /// Unix timestamp in milliseconds. Only engines that expose it fill it in.
+    #[serde(default)]
+    pub total_rows_as_of: Option<i64>,
     /// Current page number
     pub page: u32,
     /// Page size used
     pub page_size: u32,
-    /// Total number of pages, or `0` when the total is not known
-    pub total_pages: u32,
-    /// Whether `total_rows` is an exact count rather than a lower bound.
-    #[serde(default = "default_true")]
-    pub total_rows_exact: bool,
     /// Whether another page is available.
     #[serde(default)]
     pub has_more: bool,
@@ -1240,38 +1278,35 @@ impl PaginatedQueryResult {
         }
 
         let returned_rows = result.rows.len() as u64;
-        let (total_rows, total_pages, total_rows_exact, has_more) = match total_rows {
-            Some(total) => {
-                let total_pages = if page_size == 0 {
-                    0
-                } else {
-                    total.div_ceil(page_size as u64).min(u32::MAX as u64) as u32
-                };
-                let has_more = offset.saturating_add(returned_rows) < total;
-                (total, total_pages, true, has_more)
-            }
-            None => {
-                let lower_bound = offset
-                    .saturating_add(returned_rows)
-                    .saturating_add(u64::from(over_fetched));
-                (lower_bound, 0, false, over_fetched)
-            }
+        let has_more = match total_rows {
+            Some(total) => offset.saturating_add(returned_rows) < total,
+            None => over_fetched,
         };
 
         Self {
             result,
             total_rows,
+            total_rows_source: total_rows.map(|_| TotalRowsSource::Exact),
+            total_rows_as_of: None,
             page,
             page_size,
-            total_pages,
-            total_rows_exact,
             has_more,
         }
     }
-}
 
-fn default_true() -> bool {
-    true
+    /// Attaches an engine estimate. Never overrides an exact total: an
+    /// approximation must not replace a number the caller paid a scan for.
+    pub fn with_estimate(mut self, estimate: Option<u64>, as_of: Option<i64>) -> Self {
+        if self.total_rows_source == Some(TotalRowsSource::Exact) {
+            return self;
+        }
+        if let Some(value) = estimate {
+            self.total_rows = Some(value);
+            self.total_rows_source = Some(TotalRowsSource::Estimated);
+            self.total_rows_as_of = as_of;
+        }
+        self
+    }
 }
 
 /// Type of maintenance operation available for a table
@@ -1416,27 +1451,31 @@ mod pagination_tests {
     }
 
     #[test]
-    fn overfetched_page_reports_has_more_and_hides_the_extra_row() {
-        let page = PaginatedQueryResult::from_optional_total(
-            result_with_rows(101),
-            None,
-            2,
-            100,
+    fn query_id_is_accepted_but_kept_out_of_the_cache_key() {
+        let raw = r#"{"query_id":"7c9e6679-7425-40de-944b-e07fc1f90ae7"}"#;
+        let options: TableQueryOptions = serde_json::from_str(raw).unwrap();
+        assert!(options.query_id.is_some());
+        assert!(
+            !serde_json::to_string(&options)
+                .unwrap()
+                .contains("query_id")
         );
-        assert_eq!(page.result.rows.len(), 100);
-        assert_eq!(page.total_rows, 201);
-        assert!(!page.total_rows_exact);
-        assert!(page.has_more);
-        assert_eq!(page.total_pages, 0);
     }
 
     #[test]
-    fn final_count_free_page_reports_the_discovered_row_count() {
-        let page =
-            PaginatedQueryResult::from_optional_total(result_with_rows(50), None, 3, 100);
+    fn overfetched_page_reports_has_more_and_hides_the_extra_row() {
+        let page = PaginatedQueryResult::from_optional_total(result_with_rows(101), None, 2, 100);
+        assert_eq!(page.result.rows.len(), 100);
+        assert_eq!(page.total_rows, None);
+        assert_eq!(page.total_rows_source, None);
+        assert!(page.has_more);
+    }
+
+    #[test]
+    fn final_count_free_page_reports_no_total() {
+        let page = PaginatedQueryResult::from_optional_total(result_with_rows(50), None, 3, 100);
         assert_eq!(page.result.rows.len(), 50);
-        assert_eq!(page.total_rows, 250);
-        assert!(!page.total_rows_exact);
+        assert_eq!(page.total_rows, None);
         assert!(!page.has_more);
     }
 
@@ -1444,9 +1483,48 @@ mod pagination_tests {
     fn exact_page_keeps_total_metadata() {
         let page = PaginatedQueryResult::new(result_with_rows(100), 250, 2, 100);
         assert_eq!(page.result.rows.len(), 100);
-        assert_eq!(page.total_rows, 250);
-        assert!(page.total_rows_exact);
+        assert_eq!(page.total_rows, Some(250));
+        assert_eq!(page.total_rows_source, Some(TotalRowsSource::Exact));
         assert!(page.has_more);
-        assert_eq!(page.total_pages, 3);
+    }
+
+    #[test]
+    fn an_estimate_fills_an_unknown_total_but_never_replaces_an_exact_one() {
+        let unknown = PaginatedQueryResult::from_optional_total(result_with_rows(10), None, 1, 100)
+            .with_estimate(Some(2_400_000), Some(1_700_000_000_000));
+        assert_eq!(unknown.total_rows, Some(2_400_000));
+        assert_eq!(unknown.total_rows_source, Some(TotalRowsSource::Estimated));
+        assert_eq!(unknown.total_rows_as_of, Some(1_700_000_000_000));
+
+        let exact = PaginatedQueryResult::new(result_with_rows(10), 42, 1, 100)
+            .with_estimate(Some(2_400_000), None);
+        assert_eq!(exact.total_rows, Some(42));
+        assert_eq!(exact.total_rows_source, Some(TotalRowsSource::Exact));
+    }
+
+    #[test]
+    fn a_table_estimate_is_not_offered_for_a_filtered_or_searched_view() {
+        let plain = TableQueryOptions {
+            count_mode: Some(CountMode::Estimated),
+            ..Default::default()
+        };
+        assert!(plain.wants_any_total());
+        assert!(!plain.wants_exact_total());
+        assert!(plain.estimate_matches_scope());
+
+        let searched = TableQueryOptions {
+            search: Some("alpha".into()),
+            ..plain.clone()
+        };
+        assert!(!searched.estimate_matches_scope());
+    }
+
+    #[test]
+    fn unknown_total_serializes_as_null_rather_than_a_missing_field() {
+        let page = PaginatedQueryResult::from_optional_total(result_with_rows(10), None, 1, 100);
+        let json = serde_json::to_value(&page).unwrap();
+        assert!(json["total_rows"].is_null());
+        assert!(json["total_rows_source"].is_null());
+        assert_eq!(json["has_more"], serde_json::json!(false));
     }
 }

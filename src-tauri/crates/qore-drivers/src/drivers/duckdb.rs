@@ -1501,8 +1501,11 @@ impl DataEngine for DuckDbDriver {
         let page_size = options.effective_page_size();
         let fetch_size = options.fetch_size();
         let offset = options.offset();
+        // Registers the statement so `cancel` can reach the interrupt handle;
+        // without it an exact count would run to completion.
+        let query_id = options.query_id.unwrap_or_default();
 
-        Self::with_conn(&duck_session, move |conn| {
+        Self::with_query_conn(&duck_session, query_id, move |conn| {
             let start = Instant::now();
             let table_ref = format!(
                 "{}.{}",
@@ -1645,7 +1648,7 @@ impl DataEngine for DuckDbDriver {
                 String::new()
             };
 
-            let total_rows = if options.wants_exact_total() {
+            let total_rows = if options.wants_any_total() {
                 let count_sql = format!("SELECT COUNT(*) AS cnt FROM {}{}", table_ref, where_sql);
                 let total_rows: i64 = conn
                     .query_row(&count_sql, params_from_iter(bind_values.iter()), |row| {
@@ -2805,9 +2808,8 @@ mod tests {
             )
             .await
             .unwrap();
-        assert_eq!(browse_page.total_rows, 2);
+        assert_eq!(browse_page.total_rows, None);
         assert_eq!(browse_page.result.rows.len(), 1);
-        assert!(!browse_page.total_rows_exact);
         assert!(browse_page.has_more);
 
         let page = driver
@@ -2828,12 +2830,12 @@ mod tests {
                     }]),
                     search: Some("alp".into()),
                     count_mode: Some(CountMode::None),
+                    query_id: None,
                 },
             )
             .await
             .unwrap();
-        assert_eq!(page.total_rows, 1);
-        assert!(!page.total_rows_exact);
+        assert_eq!(page.total_rows, None);
         assert!(!page.has_more);
         assert_eq!(page.result.rows.len(), 1);
         assert!(matches!(&page.result.rows[0].values[1], Value::Text(value) if value == "Alpha"));

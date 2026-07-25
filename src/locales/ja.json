@@ -1034,7 +1034,13 @@
       "calculateTotal": "正確な合計を計算",
       "countingTotal": "合計を計算中...",
       "countTotalError": "正確な合計を計算できませんでした",
-      "complete": "結果の最後です"
+      "complete": "結果の最後です",
+      "cancelCount": "キャンセル",
+      "cancelCountBestEffortLabel": "キャンセル（ベストエフォート）",
+      "cancelCountBestEffort": "このドライバーはキャンセルを保証できません。サーバー側で件数の計算が続く場合があります。",
+      "loadedEstimated": "{{loaded}} / 約 {{total}} 行を読み込み（推定）",
+      "estimateHint": "エンジンによる推定値であり、正確な件数ではありません。",
+      "estimateAsOf": "統計の最終更新: {{date}}"
     },
     "noData": "表示するデータがありません",
     "noResults": "結果なし",
@@ -1423,6 +1429,24 @@
     "exportDiagnostic": "診断ログをエクスポート（完全版）",
     "exportSuccess": "ログをエクスポートしました: {{name}}",
     "exportError": "ログのエクスポートに失敗しました"
+  },
+  "paginationDiagnostics": {
+    "title": "ページネーション診断",
+    "description": "現在のセッションのタブ単位の計測値です。テーブル名、セルの値、カーソルは記録されません。",
+    "empty": "このセッションではまだテーブルを閲覧していません。",
+    "scope": "タブ",
+    "pages": "ページ数",
+    "rows": "行数",
+    "firstPage": "最初のページ",
+    "p50": "ページ p50",
+    "p95": "ページ p95",
+    "firstSearch": "最初の検索",
+    "exactCounts": "正確な件数",
+    "errors": "エラー",
+    "copy": "レポートをコピー",
+    "copied": "レポートをクリップボードにコピーしました",
+    "copyError": "レポートをコピーできませんでした",
+    "reset": "リセット"
   },
   "dbtree": {
     "emptyNamespaces": "ãã¼ã¿ãã¼ã¹ã¾ãã¯ã¹ã­ã¼ããè¦ã¤ããã¾ãã",

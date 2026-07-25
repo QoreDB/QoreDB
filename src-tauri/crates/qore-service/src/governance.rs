@@ -54,7 +54,16 @@ pub async fn with_timeout<F, T>(policy: &SafetyPolicy, fut: F) -> Result<T, Stri
 where
     F: Future<Output = T>,
 {
-    match policy.max_query_duration_ms {
+    with_timeout_ms(policy.max_query_duration_ms, fut).await
+}
+
+/// Like [`with_timeout`], but with an explicit budget. Callers use it for
+/// operations that must stay bounded even when the policy sets no duration.
+pub async fn with_timeout_ms<F, T>(max_ms: Option<u64>, fut: F) -> Result<T, String>
+where
+    F: Future<Output = T>,
+{
+    match max_ms {
         Some(ms) => match timeout(Duration::from_millis(ms), fut).await {
             Ok(value) => Ok(value),
             Err(_) => Err(format!("Operation timed out after {}ms", ms)),

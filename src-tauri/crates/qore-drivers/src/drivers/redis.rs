@@ -1452,7 +1452,7 @@ impl DataEngine for RedisDriver {
             }
             "hash" => {
                 let start = Instant::now();
-                let total = if options.wants_exact_total() {
+                let total = if options.wants_any_total() {
                     Some(
                         redis::cmd("HLEN")
                             .arg(key)
@@ -1488,7 +1488,7 @@ impl DataEngine for RedisDriver {
                 ))
             }
             "list" => {
-                let total = if options.wants_exact_total() {
+                let total = if options.wants_any_total() {
                     Some(
                         redis::cmd("LLEN")
                             .arg(key)
@@ -1506,7 +1506,7 @@ impl DataEngine for RedisDriver {
             }
             "set" => {
                 let start = Instant::now();
-                let total = if options.wants_exact_total() {
+                let total = if options.wants_any_total() {
                     Some(
                         redis::cmd("SCARD")
                             .arg(key)
@@ -1534,7 +1534,7 @@ impl DataEngine for RedisDriver {
                 ))
             }
             "zset" => {
-                let total = if options.wants_exact_total() {
+                let total = if options.wants_any_total() {
                     Some(
                         redis::cmd("ZCARD")
                             .arg(key)
@@ -1551,7 +1551,7 @@ impl DataEngine for RedisDriver {
                 ))
             }
             "stream" => {
-                let total = if options.wants_exact_total() {
+                let total = if options.wants_any_total() {
                     Some(
                         redis::cmd("XLEN")
                             .arg(key)

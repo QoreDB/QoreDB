@@ -1034,7 +1034,13 @@
       "calculateTotal": "Calcular total exato",
       "countingTotal": "Calculando total...",
       "countTotalError": "Não foi possível calcular o total exato",
-      "complete": "Fim dos resultados"
+      "complete": "Fim dos resultados",
+      "cancelCount": "Cancelar",
+      "cancelCountBestEffortLabel": "Cancelar (melhor esforço)",
+      "cancelCountBestEffort": "Este driver não garante o cancelamento: a contagem pode continuar no servidor.",
+      "loadedEstimated": "{{loaded}} de ~{{total}} linhas carregadas (estimativa)",
+      "estimateHint": "Estimativa do motor, não é uma contagem exata.",
+      "estimateAsOf": "Estatísticas atualizadas pela última vez em {{date}}."
     },
     "noData": "Nenhum dado para exibir",
     "noResults": "Sem resultados",
@@ -1423,6 +1429,24 @@
     "exportDiagnostic": "Exportar logs de diagnóstico (completo)",
     "exportSuccess": "Logs exportados: {{name}}",
     "exportError": "Falha ao exportar logs"
+  },
+  "paginationDiagnostics": {
+    "title": "Diagnóstico de paginação",
+    "description": "Medições por aba da sessão atual. Nenhum nome de tabela, valor de célula ou cursor é registrado.",
+    "empty": "Nenhuma tabela navegada nesta sessão.",
+    "scope": "Aba",
+    "pages": "Páginas",
+    "rows": "Linhas",
+    "firstPage": "Primeira página",
+    "p50": "Página p50",
+    "p95": "Página p95",
+    "firstSearch": "Primeira busca",
+    "exactCounts": "Contagens exatas",
+    "errors": "Erros",
+    "copy": "Copiar relatório",
+    "copied": "Relatório copiado para a área de transferência",
+    "copyError": "Falha ao copiar o relatório",
+    "reset": "Redefinir"
   },
   "dbtree": {
     "emptyNamespaces": "Nenhum banco de dados ou esquema encontrado",

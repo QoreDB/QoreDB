@@ -29,6 +29,7 @@ import {
   setContractsOpen,
   setInstantApiOpen,
   setLogsOpen,
+  setPaginationMetricsOpen,
   setProDiscoveryOpen,
   setSettingsOpen,
   useModalStore,
@@ -50,6 +51,7 @@ import {
 } from '../../lib/tauri';
 import { BackupDialog, ImportSqlDialog, RestoreDialog } from '../Backup';
 import { ContractsPanel } from '../Contracts';
+import { PaginationMetricsPanel } from '../Diagnostics/PaginationMetricsPanel';
 import { InstantApiPanel } from '../InstantApi';
 import { AuditLogModal } from '../Interceptor';
 import { ErrorLogPanel } from '../Logs/ErrorLogPanel';
@@ -129,6 +131,7 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(function Sidebar(
   const { tier, status } = useLicense();
   const { projectId } = useWorkspace();
   const logsOpen = useModalStore(s => s.logsOpen);
+  const paginationMetricsOpen = useModalStore(s => s.paginationMetricsOpen);
   const auditLogOpen = useModalStore(s => s.auditLogOpen);
   const contractsOpen = useModalStore(s => s.contractsOpen);
   const instantApiOpen = useModalStore(s => s.instantApiOpen);
@@ -470,6 +473,10 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(function Sidebar(
       </footer>
 
       <ErrorLogPanel isOpen={logsOpen} onClose={() => setLogsOpen(false)} />
+      <PaginationMetricsPanel
+        isOpen={paginationMetricsOpen}
+        onClose={() => setPaginationMetricsOpen(false)}
+      />
       <AuditLogModal isOpen={auditLogOpen} onClose={() => setAuditLogOpen(false)} />
       <ContractsPanel
         open={contractsOpen}

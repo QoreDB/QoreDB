@@ -1034,7 +1034,13 @@
       "calculateTotal": "计算精确总数",
       "countingTotal": "正在计算总数…",
       "countTotalError": "无法计算精确总数",
-      "complete": "结果已全部加载"
+      "complete": "结果已全部加载",
+      "cancelCount": "取消",
+      "cancelCountBestEffortLabel": "取消（尽力而为）",
+      "cancelCountBestEffort": "该驱动无法保证取消：计数可能仍在服务端继续运行。",
+      "loadedEstimated": "已加载 {{loaded}} 行，共约 {{total}} 行（估算）",
+      "estimateHint": "这是引擎估算值，并非精确计数。",
+      "estimateAsOf": "统计信息最后更新于 {{date}}。"
     },
     "noData": "无数据显示",
     "noResults": "无结果",
@@ -1423,6 +1429,24 @@
     "exportDiagnostic": "导出诊断日志（完整）",
     "exportSuccess": "日志已导出：{{name}}",
     "exportError": "导出日志失败"
+  },
+  "paginationDiagnostics": {
+    "title": "分页诊断",
+    "description": "当前会话按标签页的测量值。不记录表名、单元格值和游标。",
+    "empty": "本次会话尚未浏览任何表。",
+    "scope": "标签页",
+    "pages": "页数",
+    "rows": "行数",
+    "firstPage": "首页",
+    "p50": "页面 p50",
+    "p95": "页面 p95",
+    "firstSearch": "首次搜索",
+    "exactCounts": "精确计数",
+    "errors": "错误",
+    "copy": "复制报告",
+    "copied": "报告已复制到剪贴板",
+    "copyError": "复制报告失败",
+    "reset": "重置"
   },
   "dbtree": {
     "emptyNamespaces": "æªæ¾å°æ°æ®åºææ¶æ",

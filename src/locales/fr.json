@@ -1069,7 +1069,13 @@
       "calculateTotal": "Calculer le total exact",
       "countingTotal": "Calcul du total...",
       "countTotalError": "Impossible de calculer le total exact",
-      "complete": "Fin des résultats"
+      "complete": "Fin des résultats",
+      "cancelCount": "Annuler",
+      "cancelCountBestEffortLabel": "Annuler (au mieux)",
+      "cancelCountBestEffort": "Ce driver ne garantit pas l'annulation : le comptage peut continuer côté serveur.",
+      "loadedEstimated": "{{loaded}} lignes chargées sur ~{{total}} (estimation)",
+      "estimateHint": "Estimation du moteur, ce n'est pas un comptage exact.",
+      "estimateAsOf": "Statistiques mises à jour le {{date}}."
     },
     "noData": "Aucune donnée à afficher",
     "noResults": "Aucun résultat",
@@ -1462,6 +1468,24 @@
     "exportDiagnostic": "Exporter les logs de diagnostic (complet)",
     "exportSuccess": "Logs exportés : {{name}}",
     "exportError": "Échec de l'export des logs"
+  },
+  "paginationDiagnostics": {
+    "title": "Diagnostic de pagination",
+    "description": "Mesures par onglet pour la session en cours. Aucun nom de table, aucune valeur de cellule et aucun curseur n'est enregistré.",
+    "empty": "Aucune table parcourue dans cette session.",
+    "scope": "Onglet",
+    "pages": "Pages",
+    "rows": "Lignes",
+    "firstPage": "Première page",
+    "p50": "Page p50",
+    "p95": "Page p95",
+    "firstSearch": "Première recherche",
+    "exactCounts": "Comptages exacts",
+    "errors": "Erreurs",
+    "copy": "Copier le rapport",
+    "copied": "Rapport copié dans le presse-papiers",
+    "copyError": "Échec de la copie du rapport",
+    "reset": "Réinitialiser"
   },
   "dbtree": {
     "emptyNamespaces": "Aucune base de donnÃ©es ou schÃ©ma",

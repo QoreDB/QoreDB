@@ -1034,7 +1034,13 @@
       "calculateTotal": "Calcular total exacto",
       "countingTotal": "Calculando total...",
       "countTotalError": "No se pudo calcular el total exacto",
-      "complete": "Fin de los resultados"
+      "complete": "Fin de los resultados",
+      "cancelCount": "Cancelar",
+      "cancelCountBestEffortLabel": "Cancelar (en la medida de lo posible)",
+      "cancelCountBestEffort": "Este controlador no garantiza la cancelación: el recuento puede seguir ejecutándose en el servidor.",
+      "loadedEstimated": "{{loaded}} de ~{{total}} filas cargadas (estimación)",
+      "estimateHint": "Estimación del motor, no es un recuento exacto.",
+      "estimateAsOf": "Estadísticas actualizadas por última vez el {{date}}."
     },
     "noData": "No hay datos para mostrar",
     "noResults": "Sin resultados",
@@ -1423,6 +1429,24 @@
     "exportDiagnostic": "Exportar registros de diagnóstico (completos)",
     "exportSuccess": "Registros exportados: {{name}}",
     "exportError": "Error al exportar los registros"
+  },
+  "paginationDiagnostics": {
+    "title": "Diagnóstico de paginación",
+    "description": "Mediciones por pestaña de la sesión actual. No se registra ningún nombre de tabla, valor de celda ni cursor.",
+    "empty": "Todavía no se ha explorado ninguna tabla en esta sesión.",
+    "scope": "Pestaña",
+    "pages": "Páginas",
+    "rows": "Filas",
+    "firstPage": "Primera página",
+    "p50": "Página p50",
+    "p95": "Página p95",
+    "firstSearch": "Primera búsqueda",
+    "exactCounts": "Recuentos exactos",
+    "errors": "Errores",
+    "copy": "Copiar informe",
+    "copied": "Informe copiado al portapapeles",
+    "copyError": "No se pudo copiar el informe",
+    "reset": "Restablecer"
   },
   "dbtree": {
     "emptyNamespaces": "No se encontraron bases de datos ni esquemas",

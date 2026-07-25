@@ -73,6 +73,7 @@ import {
   type SearchFilter,
   type SortDirection,
   type TableSchema,
+  type TotalRowsSource,
   type Value,
 } from '../../lib/tauri';
 import { DocumentEditorModal } from '../Editor/DocumentEditorModal';
@@ -304,7 +305,8 @@ export function TableBrowser({
   const {
     data,
     totalRows,
-    totalRowsExact,
+    totalRowsSource,
+    totalRowsAsOf,
     loadedRows: infiniteLoadedRows,
     isLoading: loading,
     isFetchingMore,
@@ -315,6 +317,7 @@ export function TableBrowser({
     cachedAgeMs,
     fetchNextChunk,
     calculateExactTotal,
+    cancelExactTotal,
     reload,
     refresh,
   } = useInfiniteTableData({
@@ -856,13 +859,16 @@ export function TableBrowser({
             exportQuery={streamingExportQuery}
             exportNamespace={namespace}
             infiniteScrollTotalRows={totalRows}
-            infiniteScrollTotalRowsExact={totalRowsExact}
+            infiniteScrollTotalRowsSource={totalRowsSource}
+            infiniteScrollTotalRowsAsOf={totalRowsAsOf}
             infiniteScrollLoadedRows={infiniteLoadedRows}
             infiniteScrollIsFetchingMore={isFetchingMore}
             infiniteScrollIsCountingTotal={isCountingTotal}
             infiniteScrollIsComplete={isComplete}
             onFetchMore={fetchNextChunk}
             onCalculateExactTotal={calculateExactTotal}
+            onCancelExactTotal={cancelExactTotal}
+            infiniteScrollCancelSupport={driverCapabilities?.cancel}
             serverSortColumn={sortColumn}
             serverSortDirection={sortDirection}
             onServerSortChange={handleServerSortChange}
@@ -1082,6 +1088,7 @@ interface TableStats {
   sizeBytes?: number;
   sizeFormatted?: string;
   rowCount?: number;
+  rowCountSource?: TotalRowsSource;
   indexCount?: number;
   indexes?: Array<{
     name: string;
@@ -1130,6 +1137,19 @@ function TableInfoPanel({
       const schemaName = namespace.schema || 'public';
       const newStats: TableStats = {};
 
+      // One cheap, labelled count for every driver. Opening the tab must not
+      // fire an unbounded COUNT(*), and the engine estimates that MySQL and
+      // MongoDB used to surface here were presented as exact totals.
+      const countResult = await queryTable(sessionId, namespace, tableName, {
+        page: 1,
+        page_size: 1,
+        count_mode: 'estimated',
+      });
+      if (countResult.success && countResult.result?.total_rows != null) {
+        newStats.rowCount = countResult.result.total_rows;
+        newStats.rowCountSource = countResult.result.total_rows_source ?? undefined;
+      }
+
       if (driverMeta.supportsSQL) {
         // PostgreSQL stats query
         if (driver === Driver.Postgres) {
@@ -1143,19 +1163,6 @@ function TableInfoPanel({
             const row = sizeResult.result.rows[0].values;
             newStats.sizeBytes = row[0] as number;
             newStats.sizeFormatted = row[1] as string;
-          }
-
-          // Row count (exact). Goes through query_table rather than raw SQL so
-          // the identifiers stay quoted by the driver and the safety policy
-          // applies. Still heavy on large tables — cf. the engine-estimate work
-          // in doc/todo/PAGINATION_DATA_RENDERING.md.
-          const countResult = await queryTable(sessionId, namespace, tableName, {
-            page: 1,
-            page_size: 1,
-            count_mode: 'exact',
-          });
-          if (countResult.success && countResult.result?.total_rows_exact) {
-            newStats.rowCount = countResult.result.total_rows;
           }
 
           // Indexes
@@ -1190,7 +1197,7 @@ function TableInfoPanel({
         // MySQL/MariaDB
         else if (driver === Driver.Mysql) {
           const statsQuery = `
-            SELECT data_length + index_length as total_bytes, table_rows
+            SELECT data_length + index_length as total_bytes
             FROM information_schema.tables 
             WHERE table_schema = '${namespace.database}' AND table_name = '${tableName}'
           `;
@@ -1199,7 +1206,6 @@ function TableInfoPanel({
             const row = statsResult.result.rows[0].values;
             newStats.sizeBytes = row[0] as number;
             newStats.sizeFormatted = formatBytes(row[0] as number);
-            newStats.rowCount = row[1] as number;
           }
 
           // Indexes
@@ -1221,7 +1227,6 @@ function TableInfoPanel({
           }
         }
       } else if (driver === Driver.Mongodb && schema) {
-        newStats.rowCount = schema.row_count_estimate ?? undefined;
         newStats.indexes = schema.indexes.map(idx => ({
           name: idx.name,
           columns: idx.columns.join(', '),
@@ -1271,7 +1276,16 @@ function TableInfoPanel({
         <StatCard
           icon={<List size={16} />}
           label={t('tableInfo.rowCount')}
-          value={stats.rowCount !== undefined ? stats.rowCount.toLocaleString() : '—'}
+          value={
+            stats.rowCount === undefined
+              ? '—'
+              : stats.rowCountSource === 'estimated'
+                ? `~${stats.rowCount.toLocaleString()}`
+                : stats.rowCount.toLocaleString()
+          }
+          hint={
+            stats.rowCountSource === 'estimated' ? t('grid.infiniteScroll.estimateHint') : undefined
+          }
         />
         <StatCard
           icon={<Key size={16} />}
@@ -1421,11 +1435,15 @@ interface StatCardProps {
   icon: React.ReactNode;
   label: string;
   value: string;
+  hint?: string;
 }
 
-function StatCard({ icon, label, value }: StatCardProps) {
+function StatCard({ icon, label, value, hint }: StatCardProps) {
   return (
-    <div className="flex items-center gap-3 p-3 rounded-md border border-border bg-muted/20">
+    <div
+      title={hint}
+      className="flex items-center gap-3 p-3 rounded-md border border-border bg-muted/20"
+    >
       <div className="text-muted-foreground">{icon}</div>
       <div>
         <div className="text-xs text-muted-foreground">{label}</div>

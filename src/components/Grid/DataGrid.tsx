@@ -38,6 +38,7 @@ import type { ExportConfig } from '@/lib/export';
 import { applyOverlay, emptyOverlayResult, type OverlayResult } from '@/lib/sandbox/sandboxOverlay';
 import type { SandboxChange, SandboxDeleteDisplay } from '@/lib/sandbox/sandboxTypes';
 import type {
+  CancelSupport,
   ColumnFilter,
   Environment,
   Namespace,
@@ -45,6 +46,7 @@ import type {
   RelationFilter,
   SortDirection,
   TableSchema,
+  TotalRowsSource,
   Value,
 } from '@/lib/tauri';
 import { useAiPreferences } from '@/providers/AiPreferencesProvider';
@@ -137,14 +139,17 @@ interface DataGridProps {
     newValues: Record<string, Value>
   ) => void;
   onSandboxDelete?: (primaryKey: Record<string, Value>, oldValues: Record<string, Value>) => void;
-  infiniteScrollTotalRows?: number;
-  infiniteScrollTotalRowsExact?: boolean;
+  infiniteScrollTotalRows?: number | null;
+  infiniteScrollTotalRowsSource?: TotalRowsSource | null;
+  infiniteScrollTotalRowsAsOf?: number | null;
   infiniteScrollLoadedRows?: number;
   infiniteScrollIsFetchingMore?: boolean;
   infiniteScrollIsCountingTotal?: boolean;
   infiniteScrollIsComplete?: boolean;
   onFetchMore?: () => void;
   onCalculateExactTotal?: () => void;
+  onCancelExactTotal?: () => void;
+  infiniteScrollCancelSupport?: CancelSupport;
   serverSortColumn?: string;
   serverSortDirection?: SortDirection;
   onServerSortChange?: (column?: string, direction?: SortDirection) => void;
@@ -180,13 +185,16 @@ export function DataGrid({
   onSandboxUpdate,
   onSandboxDelete,
   infiniteScrollTotalRows,
-  infiniteScrollTotalRowsExact,
+  infiniteScrollTotalRowsSource,
+  infiniteScrollTotalRowsAsOf,
   infiniteScrollLoadedRows,
   infiniteScrollIsFetchingMore,
   infiniteScrollIsCountingTotal,
   infiniteScrollIsComplete,
   onFetchMore,
   onCalculateExactTotal,
+  onCancelExactTotal,
+  infiniteScrollCancelSupport,
   serverSortColumn,
   serverSortDirection,
   onServerSortChange,
@@ -207,7 +215,8 @@ export function DataGrid({
   });
   const [internalGlobalFilter, setInternalGlobalFilter] = useState(initialFilter ?? '');
   const initialFilterRef = useRef<string | undefined>(undefined);
-  const isInfiniteScrollMode = infiniteScrollTotalRows !== undefined;
+  // Keyed on the loaded count, not the total: a count-free page has no total.
+  const isInfiniteScrollMode = infiniteScrollLoadedRows !== undefined;
   const isServerSideMode = isInfiniteScrollMode;
   const resolvedFooterMode =
     footerMode === 'auto' ? (isInfiniteScrollMode ? 'infinite' : 'pagination') : footerMode;
@@ -996,12 +1005,15 @@ export function DataGrid({
       {resolvedFooterMode === 'infinite' ? (
         <DataGridStatusBar
           loadedRows={infiniteScrollLoadedRows ?? 0}
-          totalRows={infiniteScrollTotalRows ?? 0}
-          totalRowsExact={infiniteScrollTotalRowsExact ?? false}
+          totalRows={infiniteScrollTotalRows ?? null}
+          totalRowsSource={infiniteScrollTotalRowsSource}
+          totalRowsAsOf={infiniteScrollTotalRowsAsOf}
           isFetchingMore={infiniteScrollIsFetchingMore ?? false}
           isCountingTotal={infiniteScrollIsCountingTotal ?? false}
           isComplete={infiniteScrollIsComplete ?? false}
           onCalculateExactTotal={onCalculateExactTotal}
+          onCancelExactTotal={onCancelExactTotal}
+          cancelSupport={infiniteScrollCancelSupport}
         />
       ) : resolvedFooterMode === 'pagination' ? (
         <DataGridPagination table={table} pagination={pagination} />

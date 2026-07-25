@@ -231,8 +231,16 @@ pub async fn query_table(
 
     let driver = session_manager.get_driver(session).await?;
 
-    match governance::with_timeout(
-        policy,
+    // An exact count stays bounded even when the policy configures no duration:
+    // it is an explicit user action, not a licence to hold a connection forever.
+    let budget = policy.max_query_duration_ms.or_else(|| {
+        options
+            .wants_exact_total()
+            .then_some(crate::paths::EXACT_COUNT_TIMEOUT_MS)
+    });
+
+    match governance::with_timeout_ms(
+        budget,
         driver.query_table(session, namespace, table, options),
     )
     .await

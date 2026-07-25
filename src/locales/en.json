@@ -1069,7 +1069,13 @@
       "calculateTotal": "Calculate exact total",
       "countingTotal": "Calculating total...",
       "countTotalError": "Unable to calculate the exact total",
-      "complete": "End of results"
+      "complete": "End of results",
+      "cancelCount": "Cancel",
+      "cancelCountBestEffortLabel": "Cancel (best effort)",
+      "cancelCountBestEffort": "This driver cannot guarantee the cancellation: the count may keep running on the server.",
+      "loadedEstimated": "{{loaded}} of ~{{total}} rows loaded (estimate)",
+      "estimateHint": "Engine estimate, not an exact count.",
+      "estimateAsOf": "Statistics last refreshed on {{date}}."
     },
     "noData": "No data to display",
     "noResults": "No results",
@@ -1462,6 +1468,24 @@
     "exportDiagnostic": "Export diagnostic logs (full)",
     "exportSuccess": "Logs exported: {{name}}",
     "exportError": "Failed to export logs"
+  },
+  "paginationDiagnostics": {
+    "title": "Pagination diagnostics",
+    "description": "Per-tab measurements for the current session. No table name, cell value or cursor is recorded.",
+    "empty": "No table browsed yet in this session.",
+    "scope": "Tab",
+    "pages": "Pages",
+    "rows": "Rows",
+    "firstPage": "First page",
+    "p50": "Page p50",
+    "p95": "Page p95",
+    "firstSearch": "First search",
+    "exactCounts": "Exact counts",
+    "errors": "Errors",
+    "copy": "Copy report",
+    "copied": "Report copied to the clipboard",
+    "copyError": "Failed to copy the report",
+    "reset": "Reset"
   },
   "dbtree": {
     "emptyNamespaces": "No databases or schemas found",

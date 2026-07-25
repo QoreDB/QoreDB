@@ -179,13 +179,16 @@ export function DocumentResults({
   exportQuery,
   exportNamespace,
   infiniteScrollTotalRows,
-  infiniteScrollTotalRowsExact,
+  infiniteScrollTotalRowsSource,
+  infiniteScrollTotalRowsAsOf,
   infiniteScrollLoadedRows,
   infiniteScrollIsFetchingMore,
   infiniteScrollIsCountingTotal,
   infiniteScrollIsComplete,
   onFetchMore,
   onCalculateExactTotal,
+  onCancelExactTotal,
+  infiniteScrollCancelSupport,
   serverSearchTerm,
   onServerSearchChange,
 }: DocumentResultsProps) {
@@ -206,11 +209,9 @@ export function DocumentResults({
   const resolvedNamespace =
     exportNamespace ?? (database ? { database, schema: undefined } : undefined);
 
-  const isInfiniteScrollMode = infiniteScrollTotalRows !== undefined;
-  const totalRows = isInfiniteScrollMode ? infiniteScrollTotalRows : result.rows.length;
-  // In count-free mode `total_rows` is only a lower bound, so it must never be
-  // shown as a total: fall back to what is actually loaded.
-  const hasKnownTotal = !isInfiniteScrollMode || (infiniteScrollTotalRowsExact ?? false);
+  const isInfiniteScrollMode = infiniteScrollLoadedRows !== undefined;
+  const totalRows = isInfiniteScrollMode ? (infiniteScrollTotalRows ?? 0) : result.rows.length;
+  const hasKnownTotal = !isInfiniteScrollMode || infiniteScrollTotalRows != null;
   const loadedRows = infiniteScrollLoadedRows ?? result.rows.length;
 
   // In infinite-scroll mode the backend searches the full collection, so the box
@@ -478,12 +479,15 @@ export function DocumentResults({
       {isInfiniteScrollMode && (
         <DataGridStatusBar
           loadedRows={infiniteScrollLoadedRows ?? 0}
-          totalRows={infiniteScrollTotalRows ?? 0}
-          totalRowsExact={infiniteScrollTotalRowsExact ?? false}
+          totalRows={infiniteScrollTotalRows ?? null}
+          totalRowsSource={infiniteScrollTotalRowsSource}
+          totalRowsAsOf={infiniteScrollTotalRowsAsOf}
           isFetchingMore={infiniteScrollIsFetchingMore ?? false}
           isCountingTotal={infiniteScrollIsCountingTotal ?? false}
           isComplete={infiniteScrollIsComplete ?? false}
           onCalculateExactTotal={onCalculateExactTotal}
+          onCancelExactTotal={onCancelExactTotal}
+          cancelSupport={infiniteScrollCancelSupport}
         />
       )}
 

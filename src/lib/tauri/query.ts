@@ -157,16 +157,22 @@ export interface TableQueryOptions {
   sort_direction?: SortDirection;
   filters?: ColumnFilter[];
   search?: string;
-  count_mode?: 'none' | 'exact';
+  count_mode?: 'none' | 'estimated' | 'exact';
+  /** Handle to pass to `cancelQuery` to interrupt an exact count. */
+  query_id?: string;
 }
+
+export type TotalRowsSource = 'exact' | 'estimated';
 
 export interface PaginatedQueryResult {
   result: QueryResult;
-  total_rows: number;
+  /** Null when the total is unknown. Never a lower bound. */
+  total_rows: number | null;
+  total_rows_source: TotalRowsSource | null;
+  /** Unix ms of the statistics behind an estimate, when the engine exposes it. */
+  total_rows_as_of: number | null;
   page: number;
   page_size: number;
-  total_pages: number;
-  total_rows_exact: boolean;
   has_more: boolean;
 }
 

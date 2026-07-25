@@ -334,6 +334,18 @@ pub async fn apply_namespace_on_conn(
     Ok(())
 }
 
+async fn track_query(pg: &PgCompatSession, query_id: Option<QueryId>, backend_pid: i32) {
+    if let Some(qid) = query_id {
+        pg.active_queries.lock().await.insert(qid, backend_pid);
+    }
+}
+
+async fn untrack_query(pg: &PgCompatSession, query_id: Option<QueryId>) {
+    if let Some(qid) = query_id {
+        pg.active_queries.lock().await.remove(&qid);
+    }
+}
+
 pub async fn fetch_backend_pid(conn: &mut PoolConnection<Postgres>) -> EngineResult<i32> {
     sqlx::query_scalar("SELECT pg_backend_pid()")
         .fetch_one(&mut **conn)
@@ -1236,7 +1248,11 @@ async fn query_table_with_dialect(
         String::new()
     };
 
-    let total_rows = if options.wants_exact_total() {
+    // MotherDuck speaks the PostgreSQL wire but stores columnar data, where an
+    // exact count is cheap enough to answer an estimate request outright.
+    let exact_count = options.wants_exact_total() || (duckdb_dialect && options.wants_any_total());
+
+    let total_rows = if exact_count {
         let count_sql = format!(
             "SELECT COUNT(*)::bigint AS cnt FROM {}{}",
             table_ref, where_sql
@@ -1246,12 +1262,29 @@ async fn query_table_with_dialect(
             count_query = bind_param(count_query, val);
         }
 
+        // Pinned to a single connection, whose backend PID is registered under
+        // the caller's query id: without it `cancel` has nothing to target and
+        // an accidental count on a huge table runs to completion.
         let count_row: PgRow = {
             let mut tx_guard = pg.transaction_conn.lock().await;
             if let Some(ref mut conn) = *tx_guard {
-                count_query.fetch_one(&mut **conn).await
+                let pid = fetch_backend_pid(conn).await?;
+                track_query(&pg, options.query_id, pid).await;
+                let outcome = count_query.fetch_one(&mut **conn).await;
+                untrack_query(&pg, options.query_id).await;
+                outcome
             } else {
-                count_query.fetch_one(&pg.pool).await
+                drop(tx_guard);
+                let mut conn = pg
+                    .pool
+                    .acquire()
+                    .await
+                    .map_err(|e| EngineError::connection_failed(e.to_string()))?;
+                let pid = fetch_backend_pid(&mut conn).await?;
+                track_query(&pg, options.query_id, pid).await;
+                let outcome = count_query.fetch_one(&mut *conn).await;
+                untrack_query(&pg, options.query_id).await;
+                outcome
             }
         }
         .map_err(|e| EngineError::execution_error(e.to_string()))?;
@@ -1344,9 +1377,44 @@ async fn query_table_with_dialect(
         }
     };
 
-    Ok(PaginatedQueryResult::from_optional_total(
-        result, total_rows, page, page_size,
-    ))
+    let paginated = PaginatedQueryResult::from_optional_total(result, total_rows, page, page_size);
+
+    if !exact_count && options.wants_any_total() && options.estimate_matches_scope() {
+        let (estimate, as_of) = pg_row_estimate(&pg.pool, schema_name, table).await;
+        return Ok(paginated.with_estimate(estimate, as_of));
+    }
+
+    Ok(paginated)
+}
+
+/// Planner row estimate from the catalog, with the freshness of the statistics
+/// behind it. `reltuples` is -1 on a table that was never analyzed, and stale
+/// after a bulk load — hence the timestamp travelling with the number.
+async fn pg_row_estimate(pool: &PgPool, schema: &str, table: &str) -> (Option<u64>, Option<i64>) {
+    let row: Option<(f32, Option<chrono::DateTime<chrono::Utc>>)> = sqlx::query_as(
+        r#"
+        SELECT c.reltuples,
+               GREATEST(s.last_analyze, s.last_autoanalyze) AS analyzed_at
+        FROM pg_class c
+        JOIN pg_namespace n ON n.oid = c.relnamespace
+        LEFT JOIN pg_stat_all_tables s ON s.relid = c.oid
+        WHERE n.nspname = $1 AND c.relname = $2
+        "#,
+    )
+    .bind(schema)
+    .bind(table)
+    .fetch_optional(pool)
+    .await
+    .ok()
+    .flatten();
+
+    match row {
+        Some((reltuples, analyzed_at)) if reltuples >= 0.0 => (
+            Some(reltuples as u64),
+            analyzed_at.map(|ts| ts.timestamp_millis()),
+        ),
+        _ => (None, None),
+    }
 }
 
 // Describe Table

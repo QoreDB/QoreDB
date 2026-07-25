@@ -53,6 +53,7 @@ pub async fn fetch_row_by_pk(
         filters: Some(filters),
         search: None,
         count_mode: Some(CountMode::None),
+        query_id: None,
     };
 
     // 2s ceiling so a slow driver can't stall the mutation path.

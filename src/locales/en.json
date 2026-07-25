@@ -1048,7 +1048,8 @@
       "indexed": "Indexed",
       "indexComposite": "Indexed (composite: {{name}})",
       "unique": "Unique constraint",
-      "copySuccess": "Row copied to clipboard"
+      "copySuccess": "Row copied to clipboard",
+      "sortScansTable": "Sorting on this column has no index to follow: the engine sorts the whole table."
     },
     "rowsSelected": "{{count}} row(s) selected",
     "rowsTotal": "{{count}} row(s)",
@@ -1144,7 +1145,22 @@
       "generate": "Generate",
       "apply": "Apply filters",
       "empty": "No filter could be derived from this request."
-    }
+    },
+    "searchScope": {
+      "title": "Search scope",
+      "description": "Columns the search covers, and how the term is matched.",
+      "mode": {
+        "contains": "Contains",
+        "starts_with": "Starts with"
+      },
+      "cost": {
+        "leading_wildcard": "A \"contains\" search cannot use an index: the engine reads every row.",
+        "multi_column": "Searching several columns at once cannot use an index.",
+        "no_index": "This column has no index a prefix search could follow."
+      }
+    },
+    "createIndexForSort": "Create an index on this column",
+    "createIndexUnsupported": "This driver does not support creating indexes."
   },
   "export": {
     "dialogTitle": "Streaming export",

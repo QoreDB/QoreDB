@@ -1013,7 +1013,8 @@
       "indexed": "インデックス付き",
       "indexComposite": "インデックス付き（複合: {{name}}）",
       "unique": "ユニーク制約",
-      "copySuccess": "行をクリップボードにコピーしました"
+      "copySuccess": "行をクリップボードにコピーしました",
+      "sortScansTable": "この列での並べ替えは利用できるインデックスがなく、テーブル全体が並べ替えられます。"
     },
     "rowsSelected": "{{count}} 行を選択中",
     "rowsTotal": "{{count}} 行",
@@ -1109,7 +1110,22 @@
       "generate": "生成",
       "apply": "フィルタを適用",
       "empty": "このリクエストからフィルタを導出できませんでした。"
-    }
+    },
+    "searchScope": {
+      "title": "検索範囲",
+      "description": "検索対象の列と、語の照合方法です。",
+      "mode": {
+        "contains": "部分一致",
+        "starts_with": "前方一致"
+      },
+      "cost": {
+        "leading_wildcard": "部分一致検索はインデックスを使えません。エンジンが全行を読みます。",
+        "multi_column": "複数の列を同時に検索するとインデックスは使えません。",
+        "no_index": "この列には前方一致検索が利用できるインデックスがありません。"
+      }
+    },
+    "createIndexForSort": "この列にインデックスを作成",
+    "createIndexUnsupported": "このドライバーはインデックスの作成に対応していません。"
   },
   "export": {
     "dialogTitle": "ストリーミングエクスポート",

@@ -1013,7 +1013,8 @@
       "indexed": "已索引",
       "indexComposite": "已索引（复合索引：{{name}}）",
       "unique": "唯一约束",
-      "copySuccess": "行已复制到剪贴板"
+      "copySuccess": "行已复制到剪贴板",
+      "sortScansTable": "按该列排序没有可用索引：引擎将对整张表排序。"
     },
     "rowsSelected": "已选择 {{count}} 行",
     "rowsTotal": "共 {{count}} 行",
@@ -1109,7 +1110,22 @@
       "generate": "生成",
       "apply": "应用筛选",
       "empty": "无法从该请求推导出筛选条件。"
-    }
+    },
+    "searchScope": {
+      "title": "搜索范围",
+      "description": "搜索覆盖的列，以及词条的匹配方式。",
+      "mode": {
+        "contains": "包含",
+        "starts_with": "开头匹配"
+      },
+      "cost": {
+        "leading_wildcard": "“包含”搜索无法使用索引：引擎需读取每一行。",
+        "multi_column": "同时搜索多个列无法使用索引。",
+        "no_index": "该列没有可供前缀搜索使用的索引。"
+      }
+    },
+    "createIndexForSort": "为该列创建索引",
+    "createIndexUnsupported": "该驱动不支持创建索引。"
   },
   "export": {
     "dialogTitle": "流式导出",

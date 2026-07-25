@@ -22,11 +22,7 @@ use tokio::sync::{Mutex, RwLock};
 use crate::mongo_pipeline::{assert_no_forbidden_operators, validate_pipeline};
 
 /// Hard ceiling on the number of documents the non-streaming `execute` path
-/// will accumulate in memory from a single MongoDB query. Without this cap,
-/// `find` / `aggregate` on a 100M-document collection drives the client OOM
-/// instantly because everything is pushed into `Vec<Document>` before
-/// returning (cf. audit B4-C5). The command layer can apply tighter limits
-/// via `SafetyPolicy.max_result_rows`; this is the last-resort fuse.
+/// will accumulate in memory from a single MongoDB query.
 const MAX_NON_STREAMING_ROWS: usize = 1_000_000;
 
 fn too_many_rows_error() -> EngineError {
@@ -39,8 +35,9 @@ use qore_core::types::{
     CancelSupport, Collection, CollectionList, CollectionListOptions, CollectionType, ColumnInfo,
     ConnectionConfig, FilterOperator, MaintenanceMessage, MaintenanceMessageLevel,
     MaintenanceOperationInfo, MaintenanceOperationType, MaintenanceRequest, MaintenanceResult,
-    Namespace, PaginatedQueryResult, QueryId, QueryResult, Row as QRow, SessionId, SortDirection,
-    TableColumn, TableIndex, TableQueryOptions, TableSchema, TruncateAllResult, Value,
+    Namespace, PaginatedQueryResult, QueryId, QueryResult, Row as QRow, SearchMode, SessionId,
+    SortDirection, TableColumn, TableIndex, TableQueryOptions, TableSchema, TruncateAllResult,
+    Value,
 };
 
 pub struct MongoSession {
@@ -246,6 +243,26 @@ impl MongoDriver {
             doc.insert(key, Self::value_to_bson(value));
         }
         doc
+    }
+
+    /// Builds the `$or` regex conditions for a search term over `fields`.
+    /// Anchored mode emits `^term`, which lets an index on the field be used;
+    /// the default substring form cannot.
+    fn regex_conditions<'a>(
+        options: &TableQueryOptions,
+        term: &str,
+        fields: impl Iterator<Item = &'a str>,
+    ) -> Vec<Document> {
+        let escaped = Self::escape_regex(term);
+        let anchored = options.effective_search_mode() == SearchMode::StartsWith;
+        let pattern = if anchored {
+            format!("^{escaped}")
+        } else {
+            escaped
+        };
+        fields
+            .map(|field| doc! { field: { "$regex": pattern.as_str(), "$options": "i" } })
+            .collect()
     }
 
     fn escape_regex(term: &str) -> String {
@@ -2305,31 +2322,33 @@ impl DataEngine for MongoDriver {
 
         let mut tx_guard = mongo_session.transaction_session.lock().await;
         let (total_rows, estimate, documents) = if let Some(txn) = tx_guard.as_mut() {
-            if let Some(ref search_term) = options.search {
-                if !search_term.trim().is_empty() {
-                    let escaped_term = Self::escape_regex(search_term);
-                    // Sample one document to discover which fields are strings.
+            if let Some(search_term) = options.effective_search() {
+                let conditions = if let Some(scope) = options.effective_search_columns() {
+                    // Caller-supplied scope: no sampling round-trip, and no
+                    // dependency on the first document happening to carry every
+                    // field a heterogeneous collection may hold.
+                    Self::regex_conditions(&options, search_term, scope.iter().map(String::as_str))
+                } else {
                     let sample_doc = collection
                         .find_one(doc! {})
                         .session(&mut *txn)
                         .await
                         .map_err(|e| EngineError::execution_error(e.to_string()))?;
+                    let keys: Vec<String> = sample_doc
+                        .map(|doc| {
+                            doc.iter()
+                                .filter(|(_, value)| {
+                                    matches!(value, mongodb::bson::Bson::String(_))
+                                })
+                                .map(|(key, _)| key.to_string())
+                                .collect()
+                        })
+                        .unwrap_or_default();
+                    Self::regex_conditions(&options, search_term, keys.iter().map(String::as_str))
+                };
 
-                    let mut search_conditions: Vec<Document> = Vec::new();
-
-                    if let Some(doc) = sample_doc {
-                        for (key, value) in doc.iter() {
-                            if matches!(value, mongodb::bson::Bson::String(_)) {
-                                search_conditions.push(doc! {
-                                    key: { "$regex": escaped_term.as_str(), "$options": "i" }
-                                });
-                            }
-                        }
-                    }
-
-                    if !search_conditions.is_empty() {
-                        filter_doc.insert("$or", search_conditions);
-                    }
+                if !conditions.is_empty() {
+                    filter_doc.insert("$or", conditions);
                 }
             }
 
@@ -2376,29 +2395,29 @@ impl DataEngine for MongoDriver {
         } else {
             drop(tx_guard);
 
-            if let Some(ref search_term) = options.search {
-                if !search_term.trim().is_empty() {
-                    let escaped_term = Self::escape_regex(search_term);
+            if let Some(search_term) = options.effective_search() {
+                let conditions = if let Some(scope) = options.effective_search_columns() {
+                    Self::regex_conditions(&options, search_term, scope.iter().map(String::as_str))
+                } else {
                     let sample_doc = collection
                         .find_one(doc! {})
                         .await
                         .map_err(|e| EngineError::execution_error(e.to_string()))?;
+                    let keys: Vec<String> = sample_doc
+                        .map(|doc| {
+                            doc.iter()
+                                .filter(|(_, value)| {
+                                    matches!(value, mongodb::bson::Bson::String(_))
+                                })
+                                .map(|(key, _)| key.to_string())
+                                .collect()
+                        })
+                        .unwrap_or_default();
+                    Self::regex_conditions(&options, search_term, keys.iter().map(String::as_str))
+                };
 
-                    let mut search_conditions: Vec<Document> = Vec::new();
-
-                    if let Some(doc) = sample_doc {
-                        for (key, value) in doc.iter() {
-                            if matches!(value, mongodb::bson::Bson::String(_)) {
-                                search_conditions.push(doc! {
-                                    key: { "$regex": escaped_term.as_str(), "$options": "i" }
-                                });
-                            }
-                        }
-                    }
-
-                    if !search_conditions.is_empty() {
-                        filter_doc.insert("$or", search_conditions);
-                    }
+                if !conditions.is_empty() {
+                    filter_doc.insert("$or", conditions);
                 }
             }
 

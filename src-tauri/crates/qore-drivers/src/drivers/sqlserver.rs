@@ -39,9 +39,9 @@ use qore_core::types::{
     MaintenanceOperationInfo, MaintenanceOperationType, MaintenanceRequest, MaintenanceResult,
     MssqlAuthMode, Namespace, PaginatedQueryResult, QueryId, QueryResult, Routine,
     RoutineDefinition, RoutineList, RoutineListOptions, RoutineOperationResult, RoutineType,
-    Row as QRow, RowData, SessionId, SortDirection, TableColumn, TableIndex, TableQueryOptions,
-    TableSchema, Trigger, TriggerDefinition, TriggerEvent, TriggerList, TriggerListOptions,
-    TriggerOperationResult, TriggerTiming, Value,
+    Row as QRow, RowData, SearchMode, SessionId, SortDirection, TableColumn, TableIndex,
+    TableQueryOptions, TableSchema, Trigger, TriggerDefinition, TriggerEvent, TriggerList,
+    TriggerListOptions, TriggerOperationResult, TriggerTiming, Value,
 };
 use qore_sql::safety;
 
@@ -1379,8 +1379,26 @@ impl DataEngine for SqlServerDriver {
             }
         }
 
-        if let Some(ref search_term) = options.search {
-            if !search_term.trim().is_empty() {
+        if let Some(search_term) = options.effective_search() {
+            if let Some(scope) = options.effective_search_columns() {
+                // Caller-supplied scope: no INFORMATION_SCHEMA round-trip.
+                let pattern = options.search_pattern(search_term).replace('\'', "''");
+                let anchored = options.effective_search_mode() == SearchMode::StartsWith;
+                let search_clauses: Vec<String> = scope
+                    .iter()
+                    .map(|col| {
+                        let col_ident = Self::quote_ident(col);
+                        if anchored {
+                            format!("{} LIKE '{}'", col_ident, pattern)
+                        } else {
+                            format!("CAST({} AS NVARCHAR(MAX)) LIKE '{}'", col_ident, pattern)
+                        }
+                    })
+                    .collect();
+                if !search_clauses.is_empty() {
+                    where_clauses.push(format!("({})", search_clauses.join(" OR ")));
+                }
+            } else {
                 let search_sql = "SELECT COLUMN_NAME, DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS \
                      WHERE TABLE_SCHEMA = @P1 AND TABLE_NAME = @P2";
                 if let Ok(stream) = conn.query(search_sql, &[&schema, &table]).await {

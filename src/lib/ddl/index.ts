@@ -10,6 +10,7 @@ export { buildAlterTableStatements } from './alterTableBuilders';
 export {
   type BuildResult,
   buildColumnSQL,
+  buildCreateIndexSQL,
   buildCreateTableSQL,
   buildCreateTableStatements,
 } from './createTable';

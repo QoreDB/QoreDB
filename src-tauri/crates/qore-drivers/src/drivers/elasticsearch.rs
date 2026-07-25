@@ -9,7 +9,8 @@ use qore_core::error::{EngineError, EngineResult};
 use qore_core::traits::{DataEngine, StreamSender};
 use qore_core::types::{
     CancelSupport, CollectionList, CollectionListOptions, ConnectionConfig, Namespace,
-    PaginatedQueryResult, QueryId, QueryResult, RowData, SessionId, TableQueryOptions, TableSchema,
+    PaginatedQueryResult, PaginationCapability, QueryId, QueryResult, RowData, SessionId,
+    TableQueryOptions, TableSchema,
     Value,
 };
 
@@ -102,6 +103,10 @@ impl DataEngine for ElasticsearchDriver {
 
     async fn cancel(&self, session: SessionId, query_id: Option<QueryId>) -> EngineResult<()> {
         search_compat::cancel(&self.sessions, session, query_id).await
+    }
+
+    fn pagination_capability(&self) -> PaginationCapability {
+        search_compat::pagination_capability()
     }
 
     fn cancel_support(&self) -> CancelSupport {

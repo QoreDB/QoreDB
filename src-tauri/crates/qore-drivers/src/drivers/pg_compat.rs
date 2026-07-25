@@ -29,10 +29,10 @@ use qore_core::types::{
     ConnectionConfig, FilterOperator, ForeignKey, MaintenanceMessage, MaintenanceMessageLevel,
     MaintenanceOperationInfo, MaintenanceOperationType, MaintenanceRequest, MaintenanceResult,
     Namespace, PaginatedQueryResult, QueryId, QueryResult, Routine, RoutineDefinition, RoutineList,
-    RoutineListOptions, RoutineOperationResult, RoutineType, RowData, SessionId, SortDirection,
-    TableColumn, TableIndex, TableQueryOptions, TableSchema, Trigger, TriggerDefinition,
-    TriggerEvent, TriggerList, TriggerListOptions, TriggerOperationResult, TriggerTiming,
-    TruncateAllResult, Value,
+    RoutineListOptions, RoutineOperationResult, RoutineType, RowData, SearchMode, SessionId,
+    SortDirection, TableColumn, TableIndex, TableQueryOptions, TableSchema, Trigger,
+    TriggerDefinition, TriggerEvent, TriggerList, TriggerListOptions, TriggerOperationResult,
+    TriggerTiming, TruncateAllResult, Value,
 };
 use qore_sql::safety;
 
@@ -1164,8 +1164,32 @@ async fn query_table_with_dialect(
         }
     }
 
-    if let Some(ref search_term) = options.search {
-        if !search_term.trim().is_empty() {
+    if let Some(search_term) = options.effective_search() {
+        // A caller-supplied scope removes the catalog round-trip this branch
+        // would otherwise pay on every page and every debounced keystroke. The
+        // cast is unconditional: the pattern is unanchored, so no index applies
+        // to a text column either, and the driver has no column types here.
+        if let Some(scope) = options.effective_search_columns() {
+            let anchored = options.effective_search_mode() == SearchMode::StartsWith;
+            let mut search_clauses: Vec<String> = Vec::new();
+            for col_name in scope {
+                bind_values.push(Value::Text(options.search_pattern(search_term)));
+                // Anchored mode drops both the cast and the case folding: either
+                // one makes the expression stop matching an index on the column.
+                search_clauses.push(if anchored {
+                    format!("{} LIKE ${}", quote_ident(col_name), bind_values.len())
+                } else {
+                    format!(
+                        "{}::text ILIKE ${}",
+                        quote_ident(col_name),
+                        bind_values.len()
+                    )
+                });
+            }
+            if !search_clauses.is_empty() {
+                where_clauses.push(format!("({})", search_clauses.join(" OR ")));
+            }
+        } else {
             let columns_sql = "SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = $1 AND table_name = $2";
             let columns_rows: Vec<PgRow> = {
                 let mut tx_guard = pg.transaction_conn.lock().await;

@@ -15,6 +15,7 @@ import type {
   Namespace,
   QueryResult,
   Row,
+  SearchMode,
   SortDirection,
   TotalRowsSource,
 } from '@/lib/tauri';
@@ -28,6 +29,11 @@ interface UseInfiniteTableDataOptions {
   sortColumn?: string;
   sortDirection?: SortDirection;
   searchTerm?: string;
+  /** Columns the search covers; omitted lets the driver discover them. */
+  searchColumns?: string[];
+  /** Highest `offset + limit` the engine serves, when it caps it at all. */
+  maxOffsetWindow?: number | null;
+  searchMode?: SearchMode;
   filters?: ColumnFilter[];
   enabled?: boolean;
 }
@@ -45,10 +51,11 @@ interface UseInfiniteTableDataReturn {
   isFetchingMore: boolean;
   isCountingTotal: boolean;
   isComplete: boolean;
+  /** True when scrolling stopped at the engine's deep-window limit, not at the
+   *  end of the data. */
+  windowExhausted: boolean;
   error: string | null;
-  /** True when the currently displayed data was served from the query cache. */
   cached: boolean;
-  /** Age of the cached entry in milliseconds, when served from cache. */
   cachedAgeMs: number | undefined;
   fetchNextChunk: () => void;
   calculateExactTotal: () => void;
@@ -67,6 +74,9 @@ export function useInfiniteTableData({
   sortColumn,
   sortDirection,
   searchTerm,
+  searchColumns,
+  searchMode,
+  maxOffsetWindow,
   filters,
   enabled = true,
 }: UseInfiniteTableDataOptions): UseInfiniteTableDataReturn {
@@ -80,6 +90,7 @@ export function useInfiniteTableData({
   const [isFetchingMore, setIsFetchingMore] = useState(false);
   const [isCountingTotal, setIsCountingTotal] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
+  const [windowExhausted, setWindowExhausted] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Timing: captured from the first chunk only
@@ -114,6 +125,8 @@ export function useInfiniteTableData({
           page: 1,
           page_size: 1,
           search: searchTerm,
+          search_columns: searchColumns,
+          search_mode: searchMode,
           filters,
           count_mode: 'estimated',
         });
@@ -134,7 +147,7 @@ export function useInfiniteTableData({
         // A missing estimate is not a failure the user needs to hear about.
       }
     },
-    [filters, namespace, searchTerm, sessionId, tableName]
+    [filters, namespace, searchColumns, searchMode, searchTerm, sessionId, tableName]
   );
 
   const fetchNextChunk = useCallback(async () => {
@@ -146,6 +159,19 @@ export function useInfiniteTableData({
     const generation = generationRef.current;
     const page = currentPageRef.current;
     const isFirstChunk = page === 1;
+
+    // Stop at the engine's deep-window limit rather than walk into its error:
+    // the driver declares the ceiling, so it does not have to be discovered by
+    // failing.
+    const offset = (page - 1) * chunkSize;
+    if (maxOffsetWindow != null && offset >= maxOffsetWindow) {
+      fetchingRef.current = false;
+      setIsFetchingMore(false);
+      setIsLoading(false);
+      setWindowExhausted(true);
+      setIsComplete(true);
+      return;
+    }
 
     try {
       const startTime = performance.now();
@@ -160,6 +186,8 @@ export function useInfiniteTableData({
           sort_column: sortColumn,
           sort_direction: sortDirection,
           search: searchTerm,
+          search_columns: searchColumns,
+          search_mode: searchMode,
           filters,
           count_mode: 'none',
         },
@@ -226,6 +254,9 @@ export function useInfiniteTableData({
     sortColumn,
     sortDirection,
     searchTerm,
+    searchColumns,
+    searchMode,
+    maxOffsetWindow,
     filters,
     scope,
     fetchEstimate,
@@ -249,6 +280,8 @@ export function useInfiniteTableData({
           page: 1,
           page_size: 1,
           search: searchTerm,
+          search_columns: searchColumns,
+          search_mode: searchMode,
           filters,
           count_mode: 'exact',
           query_id: queryId,
@@ -284,7 +317,18 @@ export function useInfiniteTableData({
         setIsCountingTotal(false);
       }
     }
-  }, [enabled, filters, namespace, scope, searchTerm, sessionId, t, tableName]);
+  }, [
+    enabled,
+    filters,
+    namespace,
+    scope,
+    searchColumns,
+    searchMode,
+    searchTerm,
+    sessionId,
+    t,
+    tableName,
+  ]);
 
   const cancelExactTotal = useCallback(() => {
     const queryId = countQueryIdRef.current;
@@ -302,7 +346,6 @@ export function useInfiniteTableData({
     countingTotalRef.current = false;
     knownTotalRef.current = null;
     setAllRows([]);
-    // Keep columns: table structure doesn't change between searches/sorts
     setTotalRows(null);
     setTotalRowsSource(null);
     setTotalRowsAsOf(null);
@@ -310,6 +353,7 @@ export function useInfiniteTableData({
     setIsFetchingMore(false);
     setIsCountingTotal(false);
     setIsComplete(false);
+    setWindowExhausted(false);
     setError(null);
     setExecutionTimeMs(0);
     setTotalTimeMs(undefined);
@@ -321,6 +365,8 @@ export function useInfiniteTableData({
   const sortColumnRef = useRef(sortColumn);
   const sortDirectionRef = useRef(sortDirection);
   const searchTermRef = useRef(searchTerm);
+  const searchColumnsRef = useRef(searchColumns);
+  const searchModeRef = useRef(searchMode);
   const filtersRef = useRef(filters);
 
   useEffect(() => {
@@ -328,17 +374,24 @@ export function useInfiniteTableData({
       sortColumnRef.current !== sortColumn || sortDirectionRef.current !== sortDirection;
     const searchChanged = searchTermRef.current !== searchTerm;
     const filtersChanged = filtersRef.current !== filters;
+    // The scope arrives with the table schema, after the first page. Reloading
+    // for it only matters while a search is actually narrowing the results.
+    const scopeChanged =
+      (searchColumnsRef.current !== searchColumns || searchModeRef.current !== searchMode) &&
+      Boolean(searchTerm);
 
     sortColumnRef.current = sortColumn;
     sortDirectionRef.current = sortDirection;
     searchTermRef.current = searchTerm;
+    searchColumnsRef.current = searchColumns;
+    searchModeRef.current = searchMode;
     filtersRef.current = filters;
 
-    if (sortChanged || searchChanged || filtersChanged) {
+    if (sortChanged || searchChanged || filtersChanged || scopeChanged) {
       bypassCacheRef.current = false;
       reset();
     }
-  }, [sortColumn, sortDirection, searchTerm, filters, reset]);
+  }, [sortColumn, sortDirection, searchTerm, searchColumns, searchMode, filters, reset]);
 
   // Auto-fetch first chunk on mount or after reset
   useEffect(() => {
@@ -379,6 +432,7 @@ export function useInfiniteTableData({
     isFetchingMore,
     isCountingTotal,
     isComplete,
+    windowExhausted,
     error,
     cached,
     cachedAgeMs,

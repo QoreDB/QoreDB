@@ -16,6 +16,7 @@ import type {
   Value,
 } from '@/lib/tauri';
 import { DataGrid } from '../Grid/DataGrid';
+import type { SearchScopeState } from '../Grid/SearchScopeControl';
 import { ErrorBoundary } from '../ui/error-boundary';
 import { DocumentResults } from './DocumentResults';
 
@@ -48,6 +49,8 @@ interface ResultsViewerProps {
   onCalculateExactTotal?: () => void;
   onCancelExactTotal?: () => void;
   infiniteScrollCancelSupport?: CancelSupport;
+  searchScope?: SearchScopeState;
+  onCreateIndex?: (column: string) => void;
   serverSortColumn?: string;
   serverSortDirection?: SortDirection;
   onServerSortChange?: (column?: string, direction?: SortDirection) => void;
@@ -100,6 +103,8 @@ export const ResultsViewer = memo(function ResultsViewer({
   onCalculateExactTotal,
   onCancelExactTotal,
   infiniteScrollCancelSupport,
+  searchScope,
+  onCreateIndex,
   serverSortColumn,
   serverSortDirection,
   onServerSortChange,
@@ -185,6 +190,8 @@ export const ResultsViewer = memo(function ResultsViewer({
         onCalculateExactTotal={onCalculateExactTotal}
         onCancelExactTotal={onCancelExactTotal}
         infiniteScrollCancelSupport={infiniteScrollCancelSupport}
+        searchScope={searchScope}
+        onCreateIndex={onCreateIndex}
         serverSortColumn={serverSortColumn}
         serverSortDirection={serverSortDirection}
         onServerSortChange={onServerSortChange}

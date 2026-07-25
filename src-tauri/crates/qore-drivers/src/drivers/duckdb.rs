@@ -45,10 +45,10 @@ use qore_core::types::{
     ConnectionConfig, FilterOperator, ForeignKey, MaintenanceMessage, MaintenanceMessageLevel,
     MaintenanceOperationInfo, MaintenanceOperationType, MaintenanceRequest, MaintenanceResult,
     Namespace, PaginatedQueryResult, QueryId, QueryResult, Routine, RoutineDefinition, RoutineList,
-    RoutineListOptions, RoutineOperationResult, RoutineType, Row as QRow, RowData, Sequence,
-    SequenceDefinition, SequenceList, SequenceListOptions, SequenceOperationResult, SessionId,
-    SortDirection, TableColumn, TableIndex, TableQueryOptions, TableSchema, TruncateAllResult,
-    Value,
+    RoutineListOptions, RoutineOperationResult, RoutineType, Row as QRow, RowData, SearchMode,
+    Sequence, SequenceDefinition, SequenceList, SequenceListOptions, SequenceOperationResult,
+    SessionId, SortDirection, TableColumn, TableIndex, TableQueryOptions, TableSchema,
+    TruncateAllResult, Value,
 };
 use qore_sql::safety;
 
@@ -1588,44 +1588,56 @@ impl DataEngine for DuckDbDriver {
                 }
             }
 
-            if let Some(ref search_term) = options.search {
-                if !search_term.trim().is_empty() {
-                    if let Ok(mut col_stmt) = conn.prepare(
-                        "SELECT column_name, data_type FROM information_schema.columns \
+            if let Some(search_term) = options.effective_search() {
+                if let Some(scope) = options.effective_search_columns() {
+                    // Caller-supplied scope: no information_schema round-trip.
+                    let anchored = options.effective_search_mode() == SearchMode::StartsWith;
+                    let mut search_clauses: Vec<String> = Vec::new();
+                    for col_name in scope {
+                        bind_values.push(DuckValue::Text(options.search_pattern(search_term)));
+                        let col_ident = Self::quote_ident(col_name);
+                        search_clauses.push(if anchored {
+                            format!("{} LIKE ?", col_ident)
+                        } else {
+                            format!("CAST({} AS VARCHAR) ILIKE ?", col_ident)
+                        });
+                    }
+                    if !search_clauses.is_empty() {
+                        where_clauses.push(format!("({})", search_clauses.join(" OR ")));
+                    }
+                } else if let Ok(mut col_stmt) = conn.prepare(
+                    "SELECT column_name, data_type FROM information_schema.columns \
                          WHERE table_schema = ?1 AND table_name = ?2",
-                    ) {
-                        if let Ok(col_rows) = col_stmt.query_map([&schema_name, &table], |row| {
-                            let name: String = row.get(0)?;
-                            let dtype: String = row.get(1)?;
-                            Ok((name, dtype))
-                        }) {
-                            let mut search_clauses: Vec<String> = Vec::new();
-                            for row in col_rows {
-                                if let Ok((col_name, dtype)) = row {
-                                    let upper = dtype.to_uppercase();
-                                    if upper.contains("BLOB") {
-                                        continue;
-                                    }
+                ) {
+                    if let Ok(col_rows) = col_stmt.query_map([&schema_name, &table], |row| {
+                        let name: String = row.get(0)?;
+                        let dtype: String = row.get(1)?;
+                        Ok((name, dtype))
+                    }) {
+                        let mut search_clauses: Vec<String> = Vec::new();
+                        for row in col_rows {
+                            if let Ok((col_name, dtype)) = row {
+                                let upper = dtype.to_uppercase();
+                                if upper.contains("BLOB") {
+                                    continue;
+                                }
 
-                                    let col_ident = Self::quote_ident(&col_name);
-                                    bind_values.push(DuckValue::Text(format!("%{}%", search_term)));
+                                let col_ident = Self::quote_ident(&col_name);
+                                bind_values.push(DuckValue::Text(format!("%{}%", search_term)));
 
-                                    if upper.contains("VARCHAR")
-                                        || upper.contains("TEXT")
-                                        || upper.contains("CHAR")
-                                    {
-                                        search_clauses.push(format!("{} ILIKE ?", col_ident));
-                                    } else {
-                                        search_clauses.push(format!(
-                                            "CAST({} AS VARCHAR) ILIKE ?",
-                                            col_ident
-                                        ));
-                                    }
+                                if upper.contains("VARCHAR")
+                                    || upper.contains("TEXT")
+                                    || upper.contains("CHAR")
+                                {
+                                    search_clauses.push(format!("{} ILIKE ?", col_ident));
+                                } else {
+                                    search_clauses
+                                        .push(format!("CAST({} AS VARCHAR) ILIKE ?", col_ident));
                                 }
                             }
-                            if !search_clauses.is_empty() {
-                                where_clauses.push(format!("({})", search_clauses.join(" OR ")));
-                            }
+                        }
+                        if !search_clauses.is_empty() {
+                            where_clauses.push(format!("({})", search_clauses.join(" OR ")));
                         }
                     }
                 }
@@ -2829,6 +2841,8 @@ mod tests {
                         options: FilterOptions::default(),
                     }]),
                     search: Some("alp".into()),
+                    search_columns: None,
+                    search_mode: None,
                     count_mode: Some(CountMode::None),
                     query_id: None,
                 },

@@ -35,6 +35,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
+import { SearchScopeControl, type SearchScopeState } from './SearchScopeControl';
 import type { RowData } from './utils/dataGridUtils';
 
 interface DataGridToolbarProps {
@@ -54,6 +55,7 @@ interface DataGridToolbarProps {
   aiExplainLoading?: boolean;
   onDismissAiExplanation?: () => void;
   onGenerateData?: () => void;
+  searchScope?: SearchScopeState;
 }
 
 export function DataGridToolbar({
@@ -73,6 +75,7 @@ export function DataGridToolbar({
   aiExplainLoading,
   onDismissAiExplanation,
   onGenerateData,
+  searchScope,
 }: DataGridToolbarProps) {
   const { t } = useTranslation();
 
@@ -102,6 +105,7 @@ export function DataGridToolbar({
           </button>
         )}
       </div>
+      {searchScope && <SearchScopeControl scope={searchScope} />}
       {/* Filter Toggle */}
       <Button
         variant="ghost"

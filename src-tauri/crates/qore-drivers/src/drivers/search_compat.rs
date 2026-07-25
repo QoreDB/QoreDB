@@ -21,7 +21,8 @@ use qore_core::traits::{StreamEvent, StreamSender};
 use qore_core::types::{
     Collection, CollectionList, CollectionListOptions, CollectionType, ColumnInfo,
     ConnectionConfig, Namespace, PaginatedQueryResult, QueryId, QueryResult, Row, RowData,
-    SessionId, SortDirection, TableColumn, TableQueryOptions, TableSchema, Value,
+    PaginationCapability, SearchMode, SessionId, SnapshotSupport, SortDirection, TableColumn,
+    TableQueryOptions, TableSchema, Value,
 };
 use reqwest::header::{AUTHORIZATION, CONTENT_TYPE, HeaderMap, HeaderName, HeaderValue};
 use reqwest::{Client as HttpClient, Method, Url};
@@ -608,6 +609,21 @@ const STREAM_SIZE_THRESHOLD: u64 = 10_000;
 /// refuse a request the cluster would have accepted.
 const DEFAULT_MAX_RESULT_WINDOW: u64 = 10_000;
 
+/// What the search engines can promise about walking a result set.
+///
+/// `max_offset_window` is the point of declaring this today: the deep-window
+/// limit used to be invisible to callers, so the only way to discover it was to
+/// hit the engine's error on the next page.
+pub fn pagination_capability() -> PaginationCapability {
+    PaginationCapability {
+        keyset: false,
+        requires_unique_key: false,
+        supports_backward: false,
+        snapshot: SnapshotSupport::Pit,
+        max_offset_window: Some(DEFAULT_MAX_RESULT_WINDOW),
+    }
+}
+
 /// Trims the over-fetched row when `from + size` would cross the result window.
 ///
 /// Returns the size to request and whether trimming occurred — in which case
@@ -917,7 +933,37 @@ pub async fn query_table(
     body.insert("from".into(), json!(offset));
     body.insert("size".into(), json!(fetch_size));
     body.insert("track_total_hits".into(), json!(options.wants_any_total()));
-    body.insert("query".into(), json!({ "match_all": {} }));
+    // A real `multi_match` rather than a LIKE emulation: the analyzers the
+    // index was built with are the whole reason to run a search engine.
+    // `prefix` keeps the anchored mode meaningful on a keyword-ish field.
+    body.insert(
+        "query".into(),
+        match options.effective_search() {
+            None => json!({ "match_all": {} }),
+            Some(term) => {
+                let fields = match options.effective_search_columns() {
+                    Some(cols) => cols.to_vec(),
+                    None => vec!["*".to_string()],
+                };
+                match options.effective_search_mode() {
+                    SearchMode::StartsWith => json!({
+                        "multi_match": {
+                            "query": term,
+                            "fields": fields,
+                            "type": "phrase_prefix",
+                        }
+                    }),
+                    SearchMode::Contains => json!({
+                        "multi_match": {
+                            "query": term,
+                            "fields": fields,
+                            "type": "best_fields",
+                        }
+                    }),
+                }
+            }
+        },
+    );
 
     if let Some(col) = options.sort_column.as_ref() {
         if !META_FIELDS.contains(&col.as_str()) {

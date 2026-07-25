@@ -630,6 +630,7 @@ impl DataEngine for MariaDbDriver {
             streaming: true,
             explain: true,
             maintenance: true,
+            pagination: self.pagination_capability(),
         }
     }
 }

@@ -1013,7 +1013,8 @@
       "indexed": "Indexado",
       "indexComposite": "Indexado (composto: {{name}})",
       "unique": "Restrição de unicidade",
-      "copySuccess": "Linha copiada para a área de transferência"
+      "copySuccess": "Linha copiada para a área de transferência",
+      "sortScansTable": "Ordenar por esta coluna não segue nenhum índice: o motor ordena a tabela inteira."
     },
     "rowsSelected": "{{count}} linha(s) selecionada(s)",
     "rowsTotal": "{{count}} linha(s)",
@@ -1109,7 +1110,22 @@
       "generate": "Gerar",
       "apply": "Aplicar filtros",
       "empty": "Nenhum filtro pôde ser derivado desta solicitação."
-    }
+    },
+    "searchScope": {
+      "title": "Escopo da busca",
+      "description": "Colunas que a busca cobre e como o termo é comparado.",
+      "mode": {
+        "contains": "Contém",
+        "starts_with": "Começa com"
+      },
+      "cost": {
+        "leading_wildcard": "Uma busca \"contém\" não pode usar índice: o motor lê todas as linhas.",
+        "multi_column": "Buscar em várias colunas ao mesmo tempo não pode usar índice.",
+        "no_index": "Esta coluna não tem índice que uma busca por prefixo possa seguir."
+      }
+    },
+    "createIndexForSort": "Criar um índice nesta coluna",
+    "createIndexUnsupported": "Este driver não suporta a criação de índices."
   },
   "export": {
     "dialogTitle": "Exportação em streaming",

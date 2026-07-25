@@ -31,9 +31,11 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { useTourManager } from '@/hooks/useTourManager';
-import { buildQualifiedTableName } from '@/lib/ddl';
+import { buildCreateIndexSQL, buildQualifiedTableName } from '@/lib/ddl';
 import { onTableChange } from '@/lib/events/tableEvents';
 import { UI_EVENT_REFRESH_TABLE } from '@/lib/events/uiEvents';
+import { type SearchMode, searchCost } from '@/lib/query/indexCost';
+import { defaultSearchColumns } from '@/lib/query/searchScope';
 import {
   activateSandbox,
   clearSandboxBackup,
@@ -152,6 +154,8 @@ interface TableBrowserProps {
   onClose: () => void;
   onOpenTimeTravel?: (namespace: Namespace, tableName: string) => void;
   onOpenRelatedTable?: (namespace: Namespace, tableName: string) => void;
+  /** Opens a query tab pre-filled with `sql`. */
+  onOpenQuery?: (sql: string, namespace: Namespace) => void;
   relationFilter?: RelationFilter;
   searchFilter?: SearchFilter;
   initialTab?: TableBrowserTab;
@@ -172,6 +176,7 @@ export function TableBrowser({
   onClose,
   onOpenTimeTravel,
   onOpenRelatedTable,
+  onOpenQuery,
   relationFilter,
   searchFilter,
   initialTab,
@@ -302,6 +307,55 @@ export function TableBrowser({
 
   const schemaCache = useSchemaCache(sessionId, connectionId);
 
+  // The schema is already loaded for this table, so the driver never has to
+  // rediscover the columns on every page and every debounced keystroke.
+  const [searchMode, setSearchMode] = useState<SearchMode>('contains');
+  const [scopeOverride, setScopeOverride] = useState<string[] | null>(null);
+
+  // A manual scope belongs to the table it was chosen on. Reset during render
+  // rather than in an effect, so the first render of the new table already uses
+  // the default scope instead of briefly searching the previous one.
+  const scopeTableKey = `${namespace.database}\u0000${namespace.schema ?? ''}\u0000${tableName}`;
+  const [lastScopeTableKey, setLastScopeTableKey] = useState(scopeTableKey);
+  if (lastScopeTableKey !== scopeTableKey) {
+    setLastScopeTableKey(scopeTableKey);
+    setScopeOverride(null);
+    setSearchMode('contains');
+  }
+
+  const searchColumns = useMemo(() => {
+    const columns = scopeOverride ?? defaultSearchColumns(schema?.columns);
+    return columns.length > 0 ? columns : undefined;
+  }, [schema, scopeOverride]);
+
+  // The index is proposed, never created here: DDL belongs to the query tab,
+  // where the statement is visible and the usual guards apply.
+  const handleCreateIndex = useCallback(
+    (column: string) => {
+      if (!onOpenQuery) return;
+      const qualified = buildQualifiedTableName(namespace, tableName, driver);
+      const sql = buildCreateIndexSQL(qualified, column, driver);
+      if (!sql) {
+        toast.error(t('grid.createIndexUnsupported'));
+        return;
+      }
+      onOpenQuery(sql, namespace);
+    },
+    [driver, namespace, onOpenQuery, t, tableName]
+  );
+
+  const searchScope = useMemo(
+    () => ({
+      columns: schema?.columns ?? [],
+      selected: searchColumns ?? [],
+      mode: searchMode,
+      cost: searchCost(schema, searchColumns, searchMode),
+      onSelectedChange: setScopeOverride,
+      onModeChange: setSearchMode,
+    }),
+    [schema, searchColumns, searchMode]
+  );
+
   const {
     data,
     totalRows,
@@ -328,6 +382,8 @@ export function TableBrowser({
     sortColumn,
     sortDirection,
     searchTerm: debouncedSearchTerm,
+    searchColumns,
+    searchMode,
     filters: infiniteScrollFilters,
   });
 
@@ -869,6 +925,8 @@ export function TableBrowser({
             onCalculateExactTotal={calculateExactTotal}
             onCancelExactTotal={cancelExactTotal}
             infiniteScrollCancelSupport={driverCapabilities?.cancel}
+            searchScope={searchScope}
+            onCreateIndex={onOpenQuery ? handleCreateIndex : undefined}
             serverSortColumn={sortColumn}
             serverSortDirection={sortDirection}
             onServerSortChange={handleServerSortChange}

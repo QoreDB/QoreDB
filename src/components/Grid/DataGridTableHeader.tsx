@@ -3,7 +3,7 @@
 /** biome-ignore-all lint/a11y/noStaticElementInteractions: header cells intentionally support mouse-only grid interactions */
 
 import { flexRender, type Header, type Table } from '@tanstack/react-table';
-import { Pin, PinOff } from 'lucide-react';
+import { Pin, PinOff, Zap } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import {
   ContextMenu,
@@ -18,6 +18,9 @@ import type { RowData } from './utils/dataGridUtils';
 export interface DataGridTableHeaderProps {
   table: Table<RowData>;
   showFilters: boolean;
+  /** Columns whose server-side sort has no index to follow. */
+  sortScansTable?: (column: string) => boolean;
+  onCreateIndex?: (column: string) => void;
 }
 
 /** Compute the left offset for a pinned column by summing widths of all pinned columns before it. */
@@ -35,7 +38,12 @@ function getPinnedLeftOffset(
   return offset;
 }
 
-export function DataGridTableHeader({ table, showFilters }: DataGridTableHeaderProps) {
+export function DataGridTableHeader({
+  table,
+  showFilters,
+  sortScansTable,
+  onCreateIndex,
+}: DataGridTableHeaderProps) {
   return (
     <thead className="sticky top-0 z-10 bg-muted shadow-sm">
       {table.getHeaderGroups().map(headerGroup => (
@@ -46,6 +54,8 @@ export function DataGridTableHeader({ table, showFilters }: DataGridTableHeaderP
               header={header}
               headers={headerGroup.headers}
               showFilters={showFilters}
+              sortScansTable={sortScansTable}
+              onCreateIndex={onCreateIndex}
             />
           ))}
         </tr>
@@ -58,9 +68,17 @@ interface DataGridTableHeaderCellProps {
   header: Header<RowData, unknown>;
   headers: Header<RowData, unknown>[];
   showFilters: boolean;
+  sortScansTable?: (column: string) => boolean;
+  onCreateIndex?: (column: string) => void;
 }
 
-function DataGridTableHeaderCell({ header, headers, showFilters }: DataGridTableHeaderCellProps) {
+function DataGridTableHeaderCell({
+  header,
+  headers,
+  showFilters,
+  sortScansTable,
+  onCreateIndex,
+}: DataGridTableHeaderCellProps) {
   const { t } = useTranslation();
   const isPinned = header.column.getIsPinned();
   const isDataColumn = header.column.id !== 'select' && header.column.id !== 'actions';
@@ -118,6 +136,12 @@ function DataGridTableHeaderCell({ header, headers, showFilters }: DataGridTable
           <ContextMenuItem onClick={() => header.column.pin('left')}>
             <Pin size={14} />
             {t('grid.pinColumnLeft')}
+          </ContextMenuItem>
+        )}
+        {onCreateIndex && sortScansTable?.(header.column.id) && (
+          <ContextMenuItem onClick={() => onCreateIndex(header.column.id)}>
+            <Zap size={14} />
+            {t('grid.createIndexForSort')}
           </ContextMenuItem>
         )}
       </ContextMenuContent>

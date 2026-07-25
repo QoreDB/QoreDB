@@ -10,6 +10,7 @@ use crate::error::{EngineError, EngineResult};
 use crate::types::{
     CancelSupport, CollectionList, CollectionListOptions, ColumnInfo, ConnectionConfig,
     CreationOptions, DriverCapabilities, EventDefinition, EventList, EventListOptions,
+    PaginationCapability,
     EventOperationResult, ForeignKey, MaintenanceOperationInfo, MaintenanceRequest,
     MaintenanceResult, Namespace, PaginatedQueryResult, QueryId, QueryResult, RoutineDefinition,
     RoutineList, RoutineListOptions, RoutineOperationResult, RoutineType, Row, RowData,
@@ -443,6 +444,14 @@ pub trait DataEngine: Send + Sync {
         true
     }
 
+    /// What this driver can promise about walking a result set.
+    ///
+    /// The conservative default is offset-only with no snapshot: every driver
+    /// can do that. Promising more is an explicit act.
+    fn pagination_capability(&self) -> PaginationCapability {
+        PaginationCapability::default()
+    }
+
     /// Aggregated driver capabilities.
     fn capabilities(&self) -> DriverCapabilities {
         DriverCapabilities {
@@ -454,6 +463,7 @@ pub trait DataEngine: Send + Sync {
             streaming: self.supports_streaming(),
             explain: self.supports_explain(),
             maintenance: self.supports_maintenance(),
+            pagination: self.pagination_capability(),
         }
     }
 

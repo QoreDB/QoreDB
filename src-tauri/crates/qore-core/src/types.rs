@@ -278,6 +278,52 @@ pub struct DriverCapabilities {
     pub streaming: bool,
     pub explain: bool,
     pub maintenance: bool,
+    #[serde(default)]
+    pub pagination: PaginationCapability,
+}
+
+/// Snapshot a driver can hold across pages of the same browsing session.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Default, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum SnapshotSupport {
+    /// Each page is an independent read; concurrent writes are visible.
+    #[default]
+    None,
+    /// Point-in-time reader, as offered by the search engines.
+    Pit,
+    /// An open transaction pins the view, at the cost of holding a connection.
+    Transaction,
+}
+
+/// What a driver can promise about walking a result set.
+///
+/// Declared rather than inferred: strategy selection has to read this from one
+/// stable place, otherwise each driver improvises its own answer.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+pub struct PaginationCapability {
+    /// Keyset (cursor) pagination is implemented by this driver.
+    pub keyset: bool,
+    /// Keyset needs a unique key; without one the driver falls back to offset.
+    pub requires_unique_key: bool,
+    pub supports_backward: bool,
+    pub snapshot: SnapshotSupport,
+    /// Highest `offset + limit` the engine will serve, when it caps it at all.
+    /// Lets the caller clamp instead of walking into the engine's error.
+    pub max_offset_window: Option<u64>,
+}
+
+impl Default for PaginationCapability {
+    /// Offset-only, no snapshot, no window cap: what every driver could always
+    /// do. A driver that promises more says so explicitly.
+    fn default() -> Self {
+        Self {
+            keyset: false,
+            requires_unique_key: true,
+            supports_backward: false,
+            snapshot: SnapshotSupport::None,
+            max_offset_window: None,
+        }
+    }
 }
 
 /// Driver metadata exposed to the frontend.
@@ -1139,6 +1185,16 @@ pub struct TableQueryOptions {
     pub filters: Option<Vec<ColumnFilter>>,
     /// Full-text search term (searches all string columns)
     pub search: Option<String>,
+    /// Columns the search applies to. When absent the driver falls back to
+    /// reading the catalog and searching everything, which costs a round-trip
+    /// per call — callers that already hold the schema should send the scope
+    /// rather than make the driver rediscover it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub search_columns: Option<Vec<String>>,
+    /// How the search term matches. Defaults to the substring behaviour the
+    /// product has always had.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub search_mode: Option<SearchMode>,
     /// Whether the driver should compute an exact total row count.
     ///
     /// Defaults to `Exact` for backwards compatibility. Interactive table
@@ -1189,6 +1245,36 @@ impl TableQueryOptions {
         !matches!(self.effective_count_mode(), CountMode::None)
     }
 
+    /// Non-empty search term, if any.
+    pub fn effective_search(&self) -> Option<&str> {
+        self.search
+            .as_deref()
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+    }
+
+    /// Caller-supplied search scope, ignoring an empty list — which would mean
+    /// "search nothing" and silently return no rows.
+    pub fn effective_search_columns(&self) -> Option<&[String]> {
+        self.search_columns
+            .as_deref()
+            .filter(|cols| !cols.is_empty())
+    }
+
+    pub fn effective_search_mode(&self) -> SearchMode {
+        self.search_mode.unwrap_or_default()
+    }
+
+    /// `LIKE` pattern for `term` under the requested mode. The anchored form
+    /// omits the leading wildcard, which is the whole reason an index can be
+    /// considered at all.
+    pub fn search_pattern(&self, term: &str) -> String {
+        match self.effective_search_mode() {
+            SearchMode::StartsWith => format!("{term}%"),
+            SearchMode::Contains => format!("%{term}%"),
+        }
+    }
+
     /// Whether a table-level engine estimate would describe the rows actually
     /// returned. Catalog statistics count the whole table, so they must not be
     /// presented as the total of a filtered or searched view.
@@ -1220,6 +1306,18 @@ pub enum CountMode {
     Estimated,
     #[default]
     Exact,
+}
+
+/// How a search term is matched against a column.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Default, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum SearchMode {
+    /// Substring match. Never uses an index: the pattern starts with a
+    /// wildcard, so the engine has to read every row.
+    #[default]
+    Contains,
+    /// Prefix match. Index-eligible on a text column, which is the point.
+    StartsWith,
 }
 
 /// Provenance of a known `total_rows`.
@@ -1500,6 +1598,36 @@ mod pagination_tests {
             .with_estimate(Some(2_400_000), None);
         assert_eq!(exact.total_rows, Some(42));
         assert_eq!(exact.total_rows_source, Some(TotalRowsSource::Exact));
+    }
+
+    #[test]
+    fn an_empty_search_scope_falls_back_to_catalog_discovery() {
+        let none = TableQueryOptions {
+            search: Some("  ".into()),
+            ..Default::default()
+        };
+        assert_eq!(none.effective_search(), None);
+        assert_eq!(none.effective_search_columns(), None);
+
+        // An empty list would otherwise mean "search no column at all", which
+        // silently returns nothing instead of falling back.
+        let empty_scope = TableQueryOptions {
+            search: Some("alpha".into()),
+            search_columns: Some(Vec::new()),
+            ..Default::default()
+        };
+        assert_eq!(empty_scope.effective_search(), Some("alpha"));
+        assert_eq!(empty_scope.effective_search_columns(), None);
+
+        let scoped = TableQueryOptions {
+            search: Some("alpha".into()),
+            search_columns: Some(vec!["name".into()]),
+            ..Default::default()
+        };
+        assert_eq!(
+            scoped.effective_search_columns().map(<[String]>::len),
+            Some(1)
+        );
     }
 
     #[test]

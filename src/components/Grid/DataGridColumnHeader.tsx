@@ -19,6 +19,8 @@ export interface DataGridColumnHeaderProps {
   isUnique?: boolean;
   indexName?: string;
   isCompositeIndex?: boolean;
+  /** Server-side sort on this column has no index to follow. */
+  sortScansTable?: boolean;
 }
 
 export function DataGridColumnHeader({
@@ -32,6 +34,7 @@ export function DataGridColumnHeader({
   isUnique = false,
   indexName,
   isCompositeIndex = false,
+  sortScansTable = false,
 }: DataGridColumnHeaderProps) {
   const { t } = useTranslation();
 
@@ -94,6 +97,16 @@ export function DataGridColumnHeader({
         <ArrowUp size={14} className="shrink-0 text-accent" />
       ) : column.getIsSorted() === 'desc' ? (
         <ArrowDown size={14} className="shrink-0 text-accent" />
+      ) : sortScansTable ? (
+        // Announced before the sort runs, not after it has been paid for.
+        <TooltipRoot>
+          <TooltipTrigger asChild>
+            <ArrowUpDown size={14} className="shrink-0 text-warning opacity-70" />
+          </TooltipTrigger>
+          <TooltipContent side="bottom" className="z-50">
+            {t('grid.columnIndicators.sortScansTable')}
+          </TooltipContent>
+        </TooltipRoot>
       ) : (
         <ArrowUpDown size={14} className="shrink-0 opacity-30" />
       )}

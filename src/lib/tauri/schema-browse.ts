@@ -97,6 +97,18 @@ export interface TableColumn {
 
 export type CancelSupport = 'none' | 'best_effort' | 'driver';
 
+export type SnapshotSupport = 'none' | 'pit' | 'transaction';
+
+/** What a driver can promise about walking a result set. */
+export interface PaginationCapability {
+  keyset: boolean;
+  requires_unique_key: boolean;
+  supports_backward: boolean;
+  snapshot: SnapshotSupport;
+  /** Highest `offset + limit` the engine serves, when it caps it at all. */
+  max_offset_window: number | null;
+}
+
 export interface DriverCapabilities {
   transactions: boolean;
   mutations: boolean;
@@ -106,6 +118,7 @@ export interface DriverCapabilities {
   streaming: boolean;
   explain: boolean;
   maintenance: boolean;
+  pagination: PaginationCapability;
 }
 
 export interface DriverInfo {

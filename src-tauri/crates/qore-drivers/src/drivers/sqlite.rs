@@ -35,10 +35,10 @@ use qore_core::types::{
     CancelSupport, Collection, CollectionList, CollectionListOptions, CollectionType, ColumnInfo,
     ConnectionConfig, FilterOperator, ForeignKey, MaintenanceMessage, MaintenanceMessageLevel,
     MaintenanceOperationInfo, MaintenanceOperationType, MaintenanceRequest, MaintenanceResult,
-    Namespace, PaginatedQueryResult, QueryId, QueryResult, Row as QRow, RowData, SessionId,
-    SortDirection, TableColumn, TableIndex, TableQueryOptions, TableSchema, Trigger, TriggerEvent,
-    TriggerList, TriggerListOptions, TriggerOperationResult, TriggerTiming, TruncateAllResult,
-    Value,
+    Namespace, PaginatedQueryResult, QueryId, QueryResult, Row as QRow, RowData, SearchMode,
+    SessionId, SortDirection, TableColumn, TableIndex, TableQueryOptions, TableSchema, Trigger,
+    TriggerEvent, TriggerList, TriggerListOptions, TriggerOperationResult, TriggerTiming,
+    TruncateAllResult, Value,
 };
 use qore_sql::safety;
 
@@ -1093,8 +1093,26 @@ impl DataEngine for SqliteDriver {
             }
         }
 
-        if let Some(ref search_term) = options.search {
-            if !search_term.trim().is_empty() {
+        if let Some(search_term) = options.effective_search() {
+            if let Some(scope) = options.effective_search_columns() {
+                // Caller-supplied scope: no PRAGMA round-trip. The cast covers
+                // every non-blob type; anchored mode drops it so an index on the
+                // column stays reachable.
+                let anchored = options.effective_search_mode() == SearchMode::StartsWith;
+                let mut search_clauses: Vec<String> = Vec::new();
+                for col_name in scope {
+                    bind_values.push(Value::Text(options.search_pattern(search_term)));
+                    let col_ident = Self::quote_ident(col_name);
+                    search_clauses.push(if anchored {
+                        format!("{} LIKE ?", col_ident)
+                    } else {
+                        format!("CAST({} AS TEXT) LIKE ?", col_ident)
+                    });
+                }
+                if !search_clauses.is_empty() {
+                    where_clauses.push(format!("({})", search_clauses.join(" OR ")));
+                }
+            } else {
                 let pragma_query = format!("PRAGMA table_info({})", table_ident);
                 let columns_rows: Vec<(i64, String, String, i64, Option<String>, i64)> =
                     sqlx::query_as(&pragma_query)

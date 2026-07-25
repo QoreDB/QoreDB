@@ -35,6 +35,7 @@ import { BULK_EDIT_CORE_LIMIT } from '@/lib/bulkEdit';
 import type { Driver } from '@/lib/connection/drivers';
 import { type ExportDataDetail, UI_EVENT_EXPORT_DATA } from '@/lib/events/uiEvents';
 import type { ExportConfig } from '@/lib/export';
+import { indexedLeadingColumns } from '@/lib/query/indexCost';
 import { applyOverlay, emptyOverlayResult, type OverlayResult } from '@/lib/sandbox/sandboxOverlay';
 import type { SandboxChange, SandboxDeleteDisplay } from '@/lib/sandbox/sandboxTypes';
 import type {
@@ -69,6 +70,7 @@ import { useDataGridExport } from './hooks/useDataGridExport';
 import { useForeignKeyPeek } from './hooks/useForeignKeyPeek';
 import { useInlineEdit } from './hooks/useInlineEdit';
 import { NaturalLanguageFilterBar } from './NaturalLanguageFilterBar';
+import type { SearchScopeState } from './SearchScopeControl';
 import { convertToRowData, formatValue, type RowData } from './utils/dataGridUtils';
 
 const EMPTY_OVERLAY_RESULT: OverlayResult = {
@@ -150,6 +152,8 @@ interface DataGridProps {
   onCalculateExactTotal?: () => void;
   onCancelExactTotal?: () => void;
   infiniteScrollCancelSupport?: CancelSupport;
+  searchScope?: SearchScopeState;
+  onCreateIndex?: (column: string) => void;
   serverSortColumn?: string;
   serverSortDirection?: SortDirection;
   onServerSortChange?: (column?: string, direction?: SortDirection) => void;
@@ -195,6 +199,8 @@ export function DataGrid({
   onCalculateExactTotal,
   onCancelExactTotal,
   infiniteScrollCancelSupport,
+  searchScope,
+  onCreateIndex,
   serverSortColumn,
   serverSortDirection,
   onServerSortChange,
@@ -394,6 +400,14 @@ export function DataGrid({
     };
   }, [primaryKey]);
 
+  // Server-side sorting hits the engine, so a column with no index to follow
+  // means sorting the whole table. Client-side sorting works on loaded rows and
+  // costs nothing worth warning about.
+  const sortableWithIndex = useMemo(
+    () => indexedLeadingColumns(tableSchema?.indexes),
+    [tableSchema?.indexes]
+  );
+
   const { indexedColumns, uniqueColumns, indexInfoMap } = useMemo(() => {
     const indexedColumns = new Set<string>();
     const uniqueColumns = new Set<string>();
@@ -576,6 +590,7 @@ export function DataGrid({
             isUnique={uniqueColumns.has(col.name)}
             indexName={indexInfoMap.get(col.name)?.name}
             isCompositeIndex={indexInfoMap.get(col.name)?.isComposite}
+            sortScansTable={isServerSideSorting && !sortableWithIndex.has(col.name)}
           />
         ),
         cell: info => {
@@ -968,6 +983,7 @@ export function DataGrid({
           aiExplainLoading={aiExplainLoading}
           onDismissAiExplanation={() => setAiExplanation(null)}
           onGenerateData={canGenerateData ? () => setDataGenDialogOpen(true) : undefined}
+          searchScope={isServerSideMode ? searchScope : undefined}
         />
       </div>
 
@@ -991,7 +1007,14 @@ export function DataGrid({
             width: `max(100%, ${table.getTotalSize()}px)`,
           }}
         >
-          <DataGridTableHeader table={table} showFilters={showFilters} />
+          <DataGridTableHeader
+            table={table}
+            showFilters={showFilters}
+            sortScansTable={
+              isServerSideSorting ? column => !sortableWithIndex.has(column) : undefined
+            }
+            onCreateIndex={onCreateIndex}
+          />
           <DataGridTableBody
             rows={rows}
             rowVirtualizer={rowVirtualizer}

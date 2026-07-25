@@ -1013,7 +1013,8 @@
       "indexed": "인덱스됨",
       "indexComposite": "인덱스됨 (복합: {{name}})",
       "unique": "유니크 제약 조건",
-      "copySuccess": "행이 클립보드에 복사되었습니다"
+      "copySuccess": "행이 클립보드에 복사되었습니다",
+      "sortScansTable": "이 열로 정렬하면 따라갈 인덱스가 없어 엔진이 테이블 전체를 정렬합니다."
     },
     "rowsSelected": "{{count}}개 행 선택됨",
     "rowsTotal": "{{count}}개 행",
@@ -1109,7 +1110,22 @@
       "generate": "생성",
       "apply": "필터 적용",
       "empty": "이 요청에서 필터를 도출할 수 없습니다."
-    }
+    },
+    "searchScope": {
+      "title": "검색 범위",
+      "description": "검색이 다루는 열과 용어를 비교하는 방식입니다.",
+      "mode": {
+        "contains": "포함",
+        "starts_with": "시작 문자"
+      },
+      "cost": {
+        "leading_wildcard": "포함 검색은 인덱스를 사용할 수 없습니다. 엔진이 모든 행을 읽습니다.",
+        "multi_column": "여러 열을 동시에 검색하면 인덱스를 사용할 수 없습니다.",
+        "no_index": "이 열에는 접두사 검색이 따라갈 인덱스가 없습니다."
+      }
+    },
+    "createIndexForSort": "이 열에 인덱스 만들기",
+    "createIndexUnsupported": "이 드라이버는 인덱스 생성을 지원하지 않습니다."
   },
   "export": {
     "dialogTitle": "스트리밍 내보내기",

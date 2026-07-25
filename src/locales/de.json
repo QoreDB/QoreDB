@@ -1013,7 +1013,8 @@
       "indexed": "Indiziert",
       "indexComposite": "Indiziert (zusammengesetzt: {{name}})",
       "unique": "Eindeutige Einschränkung",
-      "copySuccess": "Zeile in Zwischenablage kopiert"
+      "copySuccess": "Zeile in Zwischenablage kopiert",
+      "sortScansTable": "Das Sortieren dieser Spalte folgt keinem Index: Die Engine sortiert die gesamte Tabelle."
     },
     "rowsSelected": "{{count}} Zeile(n) ausgewählt",
     "rowsTotal": "{{count}} Zeile(n)",
@@ -1109,7 +1110,22 @@
       "generate": "Generieren",
       "apply": "Filter anwenden",
       "empty": "Aus dieser Anfrage konnte kein Filter abgeleitet werden."
-    }
+    },
+    "searchScope": {
+      "title": "Suchbereich",
+      "description": "Spalten, die die Suche abdeckt, und wie der Begriff verglichen wird.",
+      "mode": {
+        "contains": "Enthält",
+        "starts_with": "Beginnt mit"
+      },
+      "cost": {
+        "leading_wildcard": "Eine „Enthält“-Suche kann keinen Index nutzen: Die Engine liest jede Zeile.",
+        "multi_column": "Die Suche über mehrere Spalten gleichzeitig kann keinen Index nutzen.",
+        "no_index": "Diese Spalte hat keinen Index, dem eine Präfixsuche folgen könnte."
+      }
+    },
+    "createIndexForSort": "Index für diese Spalte erstellen",
+    "createIndexUnsupported": "Dieser Treiber unterstützt das Erstellen von Indizes nicht."
   },
   "export": {
     "dialogTitle": "Streaming-Export",

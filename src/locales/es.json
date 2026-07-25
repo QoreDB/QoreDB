@@ -1013,7 +1013,8 @@
       "indexed": "Indexado",
       "indexComposite": "Indexado (compuesto: {{name}})",
       "unique": "Restricción única",
-      "copySuccess": "Fila copiada al portapapeles"
+      "copySuccess": "Fila copiada al portapapeles",
+      "sortScansTable": "Ordenar por esta columna no sigue ningún índice: el motor ordena toda la tabla."
     },
     "rowsSelected": "{{count}} fila(s) seleccionada(s)",
     "rowsTotal": "{{count}} fila(s)",
@@ -1109,7 +1110,22 @@
       "generate": "Generar",
       "apply": "Aplicar filtros",
       "empty": "No se pudo derivar ningún filtro de esta solicitud."
-    }
+    },
+    "searchScope": {
+      "title": "Ámbito de búsqueda",
+      "description": "Columnas que cubre la búsqueda y cómo se compara el término.",
+      "mode": {
+        "contains": "Contiene",
+        "starts_with": "Empieza por"
+      },
+      "cost": {
+        "leading_wildcard": "Una búsqueda «contiene» no puede usar un índice: el motor lee todas las filas.",
+        "multi_column": "Buscar en varias columnas a la vez no puede usar un índice.",
+        "no_index": "Esta columna no tiene ningún índice que una búsqueda por prefijo pueda seguir."
+      }
+    },
+    "createIndexForSort": "Crear un índice en esta columna",
+    "createIndexUnsupported": "Este controlador no admite la creación de índices."
   },
   "export": {
     "dialogTitle": "Exportación en streaming",

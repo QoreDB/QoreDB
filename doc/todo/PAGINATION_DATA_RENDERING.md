@@ -4,7 +4,7 @@
 >
 > - Verticale 1 — chargement sans comptage bloquant : livrée, correctifs appliqués, dette de contrat résorbée
 > - Verticale 2 — total honnête et opérations annulables : livrée
-> - Verticale 3 — coût du tri et de la recherche : à concevoir
+> - Verticale 3 — coût du tri et de la recherche : livrée
 > - Verticale 4 — pagination stable par curseur : à concevoir
 > - Verticale 5 — mémoire et rendu progressif : à concevoir
 > - Verticale 6 — cohérence et sécurité : transverse
@@ -406,29 +406,58 @@ des deux n'est traité aujourd'hui.
 
 ### 8.1 Recherche
 
-État actuel, chemin PostgreSQL (`pg_compat.rs:1155-1200`), représentatif des
-autres drivers SQL :
+État initial, identique sur PostgreSQL, SQLite, DuckDB et SQL Server :
 
-- une requête `information_schema.columns` est émise à chaque appel, donc à
-  chaque page du scroll infini et à chaque frappe débouncée ;
+- une lecture de catalogue (`information_schema.columns`, `PRAGMA table_info`)
+  était émise à chaque appel, donc à chaque page du scroll infini et à chaque
+  frappe débouncée ;
 - le prédicat est un `OR` de `LIKE '%terme%'` sur toutes les colonnes non
   binaires, avec un paramètre par colonne ;
 - le motif commence par un joker : aucun index B-tree n'est utilisable ;
 - sur une table large, cela produit des dizaines de prédicats et un parcours
   complet.
 
-Direction :
+Livré : `search_columns` dans le contrat. Quand l'appelant fournit le périmètre,
+le driver ne lit plus le catalogue.
 
-- mettre en cache le schéma de colonnes par table et par session, il est déjà
-  chargé ailleurs par `describe_table` ;
-- restreindre par défaut la recherche aux colonnes textuelles, et rendre le
-  périmètre visible et modifiable ;
-- proposer une recherche ciblée sur une colonne, qui redevient indexable en
-  ancrant le motif (`terme%`) ;
-- avertir explicitement lorsque la recherche ne peut pas utiliser d'index, avec
-  la raison ;
-- pour Elasticsearch et OpenSearch, utiliser une vraie requête `match` plutôt
-  qu'une émulation de `LIKE`.
+C'est un écart assumé par rapport à la formulation « mettre en cache le schéma
+de colonnes par table et par session ». Sa justification était « il est déjà
+chargé ailleurs par `describe_table` » — or l'endroit où il est déjà chargé,
+c'est l'interface. Le lui faire descendre supprime l'aller-retour au lieu de
+l'amortir, et évite un cache qu'il aurait fallu invalider sur DDL, faute de quoi
+une colonne supprimée aurait fait échouer la recherche. Le chemin catalogue
+subsiste en repli pour les appelants sans périmètre, le bridge HTTP en
+particulier ; un périmètre vide y retombe aussi, plutôt que de signifier
+« ne cherche dans rien » et de ne rien renvoyer.
+
+Le périmètre par défaut est celui des colonnes textuelles
+(`src/lib/query/searchScope.ts`), avec repli sur les colonnes non binaires quand
+la table n'en a aucune. Caster chaque colonne numérique, date et booléenne en
+texte multipliait les prédicats sans jamais répondre à ce que l'utilisateur
+cherche.
+
+Le périmètre est visible et modifiable depuis la barre de recherche
+(`SearchScopeControl`), avec le mode de comparaison et, le cas échéant, la
+raison pour laquelle la recherche ne peut pas utiliser d'index.
+
+`search_mode` complète le contrat : `contains` (comportement historique) et
+`starts_with`. En mode ancré, les drivers SQL abandonnent le cast **et** le
+repli insensible à la casse : l'un comme l'autre suffit à rendre l'expression
+inéligible à un index sur la colonne. Le prix est que le mode ancré n'a de sens
+que sur une colonne textuelle, ce que l'interface sait puisqu'elle a les types.
+
+MongoDB n'échantillonne plus de document quand le périmètre est fourni, et le
+mode ancré y devient `^terme`. L'échantillonnage subsistait de toute façon d'un
+défaut plus profond : il déduisait les champs textuels du premier document, donc
+d'un seul document dans une collection hétérogène.
+
+Elasticsearch et OpenSearch appliquent enfin une recherche : `query_table` y
+émettait un `match_all` inconditionnel, la recherche était simplement ignorée.
+C'est un `multi_match` — `best_fields`, ou `phrase_prefix` en mode ancré — sur
+le périmètre demandé ou sur `*`, donc les analyseurs de l'index sont utilisés
+plutôt qu'émulés.
+
+La proposition d'index est livrée, cf. 8.2.
 
 ### 8.2 Tri
 
@@ -436,16 +465,40 @@ Direction :
 chaque page. Le keyset de la verticale 4 n'y change rien : il exige justement
 une clé indexée.
 
-Direction :
+Livré. La capacité de tri est dérivée des index déjà exposés par
+`describe_table`, sans aucun aller-retour supplémentaire
+(`src/lib/query/indexCost.ts`).
 
-- déclarer une capacité de tri par colonne, dérivée des index déjà exposés par
-  `describe_table` ;
-- signaler dans l'entête de colonne qu'un tri sera coûteux, avant de le
-  déclencher ;
-- proposer la création de l'index correspondant, le produit sait déjà le faire
-  depuis l'onglet Info ;
-- ne jamais trier silencieusement côté client sur un sous-ensemble chargé, ce
-  qui produirait un ordre faux.
+Seule la **colonne de tête** de chaque index compte : un B-tree sur `(a, b)`
+n'accélère pas un tri sur `b` seul. Les index de hachage sont écartés, ils ne
+répondent qu'à l'égalité. L'indicateur `isIndexed` déjà présent dans la grille
+ne convenait donc pas : il est vrai pour toute colonne apparaissant dans un
+index, quelle que soit sa position.
+
+L'entête de colonne marque un tri coûteux avant qu'il ne soit déclenché, avec
+la raison en infobulle. Le marquage ne s'affiche qu'en mode serveur : un tri
+client porte sur les lignes déjà chargées et ne coûte rien qui mérite un
+avertissement.
+
+Le dernier point était déjà tenu : `manualSorting` est actif dès que le mode
+serveur l'est, donc la grille ne retrie jamais en silence un sous-ensemble
+chargé.
+
+La création de l'index est proposée depuis le menu contextuel de l'entête, là
+où le tri est déjà coûteux — pas dans l'infobulle, qui disparaît au clic.
+
+L'action **n'exécute rien** : elle ouvre un onglet de requête pré-rempli avec le
+`CREATE INDEX`. Créer un index depuis un écran de consultation serait une
+mutation déclenchée depuis une surface de lecture, sur une table potentiellement
+en production ; l'onglet de requête est la surface prévue pour ça et porte déjà
+ses garde-fous. L'utilisateur voit l'instruction exacte avant de la lancer.
+
+Le SQL vient du générateur Core `buildCreateIndexSQL`, extrait de
+`src/lib/ddl/createTable.ts`, qui connaît déjà les dialectes, les capacités
+d'index par driver et les index partiels. Le `CREATE INDEX` de
+`indexSuggestions.ts` (Premium) est un doublon appauvri : ce qui relève du
+Premium dans « Index Suggestions », c'est l'inférence depuis un plan EXPLAIN,
+pas la génération de l'instruction.
 
 ### 8.3 Critères d'acceptation
 
@@ -678,8 +731,7 @@ Séquencé par valeur rendue et par dépendance, en lots livrables indépendamme
 3. Tests par famille de drivers — appliqués, cf. section 6.7.
 4. Verticale 2 — appliquée dans cet ordre : instrumentation, annulation,
    estimation moteur, unification de l'onglet Info.
-5. Verticale 3 — cache du schéma de colonnes, puis périmètre de recherche, puis
-   capacité de tri.
+5. Verticale 3 — livrée, cf. 8.1 et 8.2.
 6. Verticale 4 — capacité déclarée, keyset SQL, MongoDB, branchement de
    `search_after` sur `query_table`, stratégies Redis, fallback et diagnostics.
 7. Verticale 5 — décisions sélection et export d'abord, puis fenêtre bornée,

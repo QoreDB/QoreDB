@@ -1048,7 +1048,8 @@
       "indexed": "Indexé",
       "indexComposite": "Indexé (composite: {{name}})",
       "unique": "Contrainte unique",
-      "copySuccess": "Ligne copiée dans le presse-papiers"
+      "copySuccess": "Ligne copiée dans le presse-papiers",
+      "sortScansTable": "Trier sur cette colonne ne suit aucun index : le moteur trie toute la table."
     },
     "rowsSelected": "{{count}} ligne(s) sélectionnée(s)",
     "rowsTotal": "{{count}} ligne(s)",
@@ -1144,7 +1145,22 @@
       "generate": "Générer",
       "apply": "Appliquer les filtres",
       "empty": "Aucun filtre n’a pu être déduit de cette demande."
-    }
+    },
+    "searchScope": {
+      "title": "Périmètre de recherche",
+      "description": "Colonnes couvertes par la recherche, et façon dont le terme est comparé.",
+      "mode": {
+        "contains": "Contient",
+        "starts_with": "Commence par"
+      },
+      "cost": {
+        "leading_wildcard": "Une recherche « contient » ne peut pas utiliser d’index : le moteur lit toutes les lignes.",
+        "multi_column": "Chercher dans plusieurs colonnes à la fois ne peut pas utiliser d’index.",
+        "no_index": "Cette colonne n’a aucun index qu’une recherche par préfixe pourrait suivre."
+      }
+    },
+    "createIndexForSort": "Créer un index sur cette colonne",
+    "createIndexUnsupported": "Ce driver ne gère pas la création d’index."
   },
   "export": {
     "dialogTitle": "Export en continu",

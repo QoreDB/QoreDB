@@ -52,6 +52,8 @@ pub async fn fetch_row_by_pk(
         sort_direction: None,
         filters: Some(filters),
         search: None,
+        search_columns: None,
+        search_mode: None,
         count_mode: Some(CountMode::None),
         query_id: None,
     };

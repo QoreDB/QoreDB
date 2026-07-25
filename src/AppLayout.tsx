@@ -1212,6 +1212,7 @@ function AppContent({
         connectionId={activeConnection?.id}
         onOpenRelatedTable={onTableSelect}
         onOpenTimeTravel={(ns, table) => onOpenTab(createTimeTravelTab(ns, table))}
+        onOpenQuery={(sql, ns) => onOpenTab(createQueryTab(sql, ns))}
         relationFilter={activeTab.relationFilter}
         searchFilter={activeTab.searchFilter}
         initialTab={tableBrowserTabs[activeTab.id]}

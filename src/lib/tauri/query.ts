@@ -157,10 +157,15 @@ export interface TableQueryOptions {
   sort_direction?: SortDirection;
   filters?: ColumnFilter[];
   search?: string;
+  /** Columns the search covers. Omitted, the driver reads the catalog itself. */
+  search_columns?: string[];
+  search_mode?: SearchMode;
   count_mode?: 'none' | 'estimated' | 'exact';
   /** Handle to pass to `cancelQuery` to interrupt an exact count. */
   query_id?: string;
 }
+
+export type SearchMode = 'contains' | 'starts_with';
 
 export type TotalRowsSource = 'exact' | 'estimated';
 

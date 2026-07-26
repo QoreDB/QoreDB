@@ -13,6 +13,8 @@ import type {
   ColumnFilter,
   ColumnInfo,
   Namespace,
+  OrderingGuarantee,
+  PaginationStrategy,
   QueryResult,
   Row,
   SearchMode,
@@ -33,6 +35,8 @@ interface UseInfiniteTableDataOptions {
   searchColumns?: string[];
   /** Highest `offset + limit` the engine serves, when it caps it at all. */
   maxOffsetWindow?: number | null;
+  /** Unique key the driver may use as a keyset tie-breaker. */
+  keysetColumns?: string[];
   searchMode?: SearchMode;
   filters?: ColumnFilter[];
   enabled?: boolean;
@@ -54,6 +58,10 @@ interface UseInfiniteTableDataReturn {
   /** True when scrolling stopped at the engine's deep-window limit, not at the
    *  end of the data. */
   windowExhausted: boolean;
+  /** How the last page was walked, as reported by the driver. */
+  paginationStrategy: PaginationStrategy;
+  /** Whether rows can be relied on to appear exactly once across pages. */
+  orderingGuarantee: OrderingGuarantee;
   error: string | null;
   cached: boolean;
   cachedAgeMs: number | undefined;
@@ -77,6 +85,7 @@ export function useInfiniteTableData({
   searchColumns,
   searchMode,
   maxOffsetWindow,
+  keysetColumns,
   filters,
   enabled = true,
 }: UseInfiniteTableDataOptions): UseInfiniteTableDataReturn {
@@ -91,6 +100,8 @@ export function useInfiniteTableData({
   const [isCountingTotal, setIsCountingTotal] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
   const [windowExhausted, setWindowExhausted] = useState(false);
+  const [paginationStrategy, setPaginationStrategy] = useState<PaginationStrategy>('offset');
+  const [orderingGuarantee, setOrderingGuarantee] = useState<OrderingGuarantee>('none');
   const [error, setError] = useState<string | null>(null);
 
   // Timing: captured from the first chunk only
@@ -102,6 +113,12 @@ export function useInfiniteTableData({
   const [cachedAgeMs, setCachedAgeMs] = useState<number | undefined>(undefined);
 
   const currentPageRef = useRef(1);
+  const nextCursorRef = useRef<string | null>(null);
+  // Pinned for the whole walk. The table schema arrives after the first page,
+  // so reading the live value would start on offset and switch to keyset at
+  // page 2 — which drops the offset and serves the first page again.
+  const keysetColumnsRef = useRef<string[] | undefined>(undefined);
+  const keysetPinnedRef = useRef(false);
   const generationRef = useRef(0);
   const fetchingRef = useRef(false);
   const countingTotalRef = useRef(false);
@@ -164,13 +181,18 @@ export function useInfiniteTableData({
     // the driver declares the ceiling, so it does not have to be discovered by
     // failing.
     const offset = (page - 1) * chunkSize;
-    if (maxOffsetWindow != null && offset >= maxOffsetWindow) {
+    if (nextCursorRef.current === null && maxOffsetWindow != null && offset >= maxOffsetWindow) {
       fetchingRef.current = false;
       setIsFetchingMore(false);
       setIsLoading(false);
       setWindowExhausted(true);
       setIsComplete(true);
       return;
+    }
+
+    if (isFirstChunk) {
+      keysetColumnsRef.current = keysetColumns;
+      keysetPinnedRef.current = true;
     }
 
     try {
@@ -188,6 +210,8 @@ export function useInfiniteTableData({
           search: searchTerm,
           search_columns: searchColumns,
           search_mode: searchMode,
+          keyset_columns: keysetPinnedRef.current ? keysetColumnsRef.current : keysetColumns,
+          cursor: nextCursorRef.current ?? undefined,
           filters,
           count_mode: 'none',
         },
@@ -222,6 +246,9 @@ export function useInfiniteTableData({
           setTotalRowsSource(paginated.total_rows_source);
           setTotalRowsAsOf(paginated.total_rows_as_of);
         }
+        nextCursorRef.current = paginated.next_cursor;
+        setPaginationStrategy(paginated.pagination_strategy);
+        setOrderingGuarantee(paginated.ordering_guarantee);
         currentPageRef.current = page + 1;
       } else if (result.success && !result.result) {
         setColumns([]);
@@ -257,6 +284,7 @@ export function useInfiniteTableData({
     searchColumns,
     searchMode,
     maxOffsetWindow,
+    keysetColumns,
     filters,
     scope,
     fetchEstimate,
@@ -342,6 +370,9 @@ export function useInfiniteTableData({
   const reset = useCallback(() => {
     generationRef.current += 1;
     currentPageRef.current = 1;
+    nextCursorRef.current = null;
+    keysetColumnsRef.current = undefined;
+    keysetPinnedRef.current = false;
     fetchingRef.current = false;
     countingTotalRef.current = false;
     knownTotalRef.current = null;
@@ -354,6 +385,8 @@ export function useInfiniteTableData({
     setIsCountingTotal(false);
     setIsComplete(false);
     setWindowExhausted(false);
+    setPaginationStrategy('offset');
+    setOrderingGuarantee('none');
     setError(null);
     setExecutionTimeMs(0);
     setTotalTimeMs(undefined);
@@ -379,6 +412,12 @@ export function useInfiniteTableData({
     const scopeChanged =
       (searchColumnsRef.current !== searchColumns || searchModeRef.current !== searchMode) &&
       Boolean(searchTerm);
+    // The schema lands after the first page. Restarting once, while only the
+    // first page is loaded, buys a stable order for the rest of the walk.
+    const keysetBecameAvailable =
+      keysetColumnsRef.current === undefined &&
+      keysetColumns !== undefined &&
+      currentPageRef.current <= 2;
 
     sortColumnRef.current = sortColumn;
     sortDirectionRef.current = sortDirection;
@@ -387,11 +426,20 @@ export function useInfiniteTableData({
     searchModeRef.current = searchMode;
     filtersRef.current = filters;
 
-    if (sortChanged || searchChanged || filtersChanged || scopeChanged) {
+    if (sortChanged || searchChanged || filtersChanged || scopeChanged || keysetBecameAvailable) {
       bypassCacheRef.current = false;
       reset();
     }
-  }, [sortColumn, sortDirection, searchTerm, searchColumns, searchMode, filters, reset]);
+  }, [
+    sortColumn,
+    sortDirection,
+    searchTerm,
+    searchColumns,
+    searchMode,
+    keysetColumns,
+    filters,
+    reset,
+  ]);
 
   // Auto-fetch first chunk on mount or after reset
   useEffect(() => {
@@ -433,6 +481,8 @@ export function useInfiniteTableData({
     isCountingTotal,
     isComplete,
     windowExhausted,
+    paginationStrategy,
+    orderingGuarantee,
     error,
     cached,
     cachedAgeMs,

@@ -2,11 +2,13 @@
 
 //! QoreCore — universal database engine abstraction: types, traits, errors.
 
+pub mod cursor;
 pub mod error;
 pub mod registry;
 pub mod traits;
 pub mod types;
 
+pub use cursor::{Cursor, CursorKey};
 pub use error::{EngineError, EngineResult, sanitize_error_message};
 pub use registry::DriverRegistry;
 pub use traits::{DataEngine, StreamEvent, StreamSender};

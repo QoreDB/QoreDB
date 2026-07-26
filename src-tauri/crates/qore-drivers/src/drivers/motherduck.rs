@@ -21,9 +21,10 @@ use qore_core::types::{
     CancelSupport, Collection, CollectionList, CollectionListOptions, CollectionType,
     ConnectionConfig, ForeignKey, MaintenanceMessage, MaintenanceMessageLevel,
     MaintenanceOperationInfo, MaintenanceOperationType, MaintenanceRequest, MaintenanceResult,
-    Namespace, PaginatedQueryResult, QueryId, QueryResult, Routine, RoutineDefinition, RoutineList,
-    RoutineListOptions, RoutineOperationResult, RoutineType, RowData, Sequence, SequenceDefinition,
-    SequenceList, SequenceListOptions, SequenceOperationResult, SessionId, TableColumn, TableIndex,
+    Namespace, PaginatedQueryResult, PaginationCapability, QueryId, QueryResult, Routine,
+    RoutineDefinition, RoutineList, RoutineListOptions, RoutineOperationResult, RoutineType,
+    RowData, Sequence, SequenceDefinition, SequenceList, SequenceListOptions,
+    SequenceOperationResult, SessionId, SnapshotSupport, TableColumn, TableIndex,
     TableQueryOptions, TableSchema, Value,
 };
 use qore_sql::safety;
@@ -865,6 +866,16 @@ impl DataEngine for MotherDuckDriver {
 
     async fn cancel(&self, session: SessionId, query_id: Option<QueryId>) -> EngineResult<()> {
         pg_compat::cancel(&self.sessions, session, query_id).await
+    }
+
+    fn pagination_capability(&self) -> PaginationCapability {
+        PaginationCapability {
+            keyset: true,
+            requires_unique_key: true,
+            supports_backward: false,
+            snapshot: SnapshotSupport::Transaction,
+            max_offset_window: None,
+        }
     }
 
     fn cancel_support(&self) -> CancelSupport {

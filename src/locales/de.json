@@ -1041,7 +1041,8 @@
       "cancelCountBestEffort": "Dieser Treiber kann den Abbruch nicht garantieren: Die Zählung läuft serverseitig möglicherweise weiter.",
       "loadedEstimated": "{{loaded}} von ~{{total}} Zeilen geladen (Schätzung)",
       "estimateHint": "Schätzung der Engine, keine exakte Zählung.",
-      "estimateAsOf": "Statistiken zuletzt aktualisiert am {{date}}."
+      "estimateAsOf": "Statistiken zuletzt aktualisiert am {{date}}.",
+      "windowExhausted": "{{loaded}} Zeilen geladen — die Engine liefert in dieser Tiefe keine weiteren Seiten"
     },
     "noData": "Keine Daten zum Anzeigen",
     "noResults": "Keine Ergebnisse",
@@ -1125,7 +1126,11 @@
       }
     },
     "createIndexForSort": "Index für diese Spalte erstellen",
-    "createIndexUnsupported": "Dieser Treiber unterstützt das Erstellen von Indizes nicht."
+    "createIndexUnsupported": "Dieser Treiber unterstützt das Erstellen von Indizes nicht.",
+    "pagination": {
+      "unstableOrder": "instabile Reihenfolge",
+      "unstableOrderHint": "Diese Tabelle hat keinen eindeutigen Schlüssel zum Blättern: Eine Zeile kann doppelt erscheinen oder übersprungen werden, wenn sich die Daten beim Scrollen ändern."
+    }
   },
   "export": {
     "dialogTitle": "Streaming-Export",

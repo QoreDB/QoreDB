@@ -1041,7 +1041,8 @@
       "cancelCountBestEffort": "Este controlador no garantiza la cancelación: el recuento puede seguir ejecutándose en el servidor.",
       "loadedEstimated": "{{loaded}} de ~{{total}} filas cargadas (estimación)",
       "estimateHint": "Estimación del motor, no es un recuento exacto.",
-      "estimateAsOf": "Estadísticas actualizadas por última vez el {{date}}."
+      "estimateAsOf": "Estadísticas actualizadas por última vez el {{date}}.",
+      "windowExhausted": "{{loaded}} filas cargadas: el motor no sirve más páginas a esta profundidad"
     },
     "noData": "No hay datos para mostrar",
     "noResults": "Sin resultados",
@@ -1125,7 +1126,11 @@
       }
     },
     "createIndexForSort": "Crear un índice en esta columna",
-    "createIndexUnsupported": "Este controlador no admite la creación de índices."
+    "createIndexUnsupported": "Este controlador no admite la creación de índices.",
+    "pagination": {
+      "unstableOrder": "orden inestable",
+      "unstableOrderHint": "Esta tabla no tiene una clave única para paginar: una fila puede aparecer dos veces u omitirse si los datos cambian mientras te desplazas."
+    }
   },
   "export": {
     "dialogTitle": "Exportación en streaming",

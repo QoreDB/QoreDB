@@ -1041,7 +1041,8 @@
       "cancelCountBestEffort": "이 드라이버는 취소를 보장하지 못합니다. 서버에서 개수 계산이 계속될 수 있습니다.",
       "loadedEstimated": "{{total}}행 중 {{loaded}}행 로드됨 (추정)",
       "estimateHint": "엔진 추정치이며 정확한 개수가 아닙니다.",
-      "estimateAsOf": "통계 마지막 갱신: {{date}}"
+      "estimateAsOf": "통계 마지막 갱신: {{date}}",
+      "windowExhausted": "{{loaded}}행 로드됨 — 이 깊이에서는 엔진이 더 이상 페이지를 제공하지 않습니다"
     },
     "noData": "표시할 데이터가 없습니다",
     "noResults": "결과 없음",
@@ -1125,7 +1126,11 @@
       }
     },
     "createIndexForSort": "이 열에 인덱스 만들기",
-    "createIndexUnsupported": "이 드라이버는 인덱스 생성을 지원하지 않습니다."
+    "createIndexUnsupported": "이 드라이버는 인덱스 생성을 지원하지 않습니다.",
+    "pagination": {
+      "unstableOrder": "불안정한 순서",
+      "unstableOrderHint": "이 테이블에는 페이징에 사용할 고유 키가 없습니다. 스크롤 중 데이터가 바뀌면 행이 중복되거나 누락될 수 있습니다."
+    }
   },
   "export": {
     "dialogTitle": "스트리밍 내보내기",

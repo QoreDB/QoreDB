@@ -31,17 +31,18 @@ use tokio::net::TcpStream;
 use tokio::sync::{Mutex, RwLock};
 use tokio_util::compat::{Compat, TokioAsyncWriteCompatExt};
 
+use qore_core::cursor::KeysetPlan;
 use qore_core::error::{EngineError, EngineResult};
 use qore_core::traits::{DataEngine, StreamEvent, StreamSender};
 use qore_core::types::{
     CancelSupport, Collection, CollectionList, CollectionListOptions, CollectionType, ColumnInfo,
     ConnectionConfig, FilterOperator, ForeignKey, MaintenanceMessage, MaintenanceMessageLevel,
     MaintenanceOperationInfo, MaintenanceOperationType, MaintenanceRequest, MaintenanceResult,
-    MssqlAuthMode, Namespace, PaginatedQueryResult, QueryId, QueryResult, Routine,
-    RoutineDefinition, RoutineList, RoutineListOptions, RoutineOperationResult, RoutineType,
-    Row as QRow, RowData, SearchMode, SessionId, SortDirection, TableColumn, TableIndex,
-    TableQueryOptions, TableSchema, Trigger, TriggerDefinition, TriggerEvent, TriggerList,
-    TriggerListOptions, TriggerOperationResult, TriggerTiming, Value,
+    MssqlAuthMode, Namespace, PaginatedQueryResult, PaginationCapability, QueryId, QueryResult,
+    Routine, RoutineDefinition, RoutineList, RoutineListOptions, RoutineOperationResult,
+    RoutineType, Row as QRow, RowData, SearchMode, SessionId, SnapshotSupport, SortDirection,
+    TableColumn, TableIndex, TableQueryOptions, TableSchema, Trigger, TriggerDefinition,
+    TriggerEvent, TriggerList, TriggerListOptions, TriggerOperationResult, TriggerTiming, Value,
 };
 use qore_sql::safety;
 
@@ -1486,10 +1487,50 @@ impl DataEngine for SqlServerDriver {
             None
         };
 
-        let data_sql = format!(
-            "SELECT * FROM {}{}{} OFFSET {} ROWS FETCH NEXT {} ROWS ONLY",
-            table_ref, where_sql, order_sql, offset, fetch_size
-        );
+        // This driver inlines literals rather than binding, so the keyset
+        // boundary is rendered through the same escaping as every filter value.
+        let keyset = options
+            .keyset_applies()
+            .then(|| {
+                KeysetPlan::new(
+                    options.sort_column.as_deref(),
+                    matches!(options.sort_direction, Some(SortDirection::Desc)),
+                    options.effective_keyset_columns(),
+                )
+            })
+            .flatten();
+        let cursor_values = match (keyset.as_ref(), options.cursor.as_deref()) {
+            (Some(plan), Some(encoded)) => plan.decode(encoded)?.values,
+            _ => Vec::new(),
+        };
+
+        let data_sql = if let Some(plan) = keyset.as_ref() {
+            let cursor_sql = if cursor_values.is_empty() {
+                String::new()
+            } else {
+                plan.predicate(
+                    |col| Self::quote_ident(col),
+                    |index| format_filter_value(&cursor_values[index]),
+                )
+            };
+            let data_where = match (where_sql.is_empty(), cursor_sql.is_empty()) {
+                (_, true) => where_sql.clone(),
+                (true, false) => format!(" WHERE {}", cursor_sql),
+                (false, false) => format!("{} AND {}", where_sql, cursor_sql),
+            };
+            format!(
+                "SELECT TOP {} * FROM {} {} ORDER BY {}",
+                fetch_size,
+                table_ref,
+                data_where,
+                plan.order_by(|col| Self::quote_ident(col))
+            )
+        } else {
+            format!(
+                "SELECT * FROM {}{}{} OFFSET {} ROWS FETCH NEXT {} ROWS ONLY",
+                table_ref, where_sql, order_sql, offset, fetch_size
+            )
+        };
 
         let data_stream = conn
             .simple_query(&data_sql)
@@ -1516,8 +1557,25 @@ impl DataEngine for SqlServerDriver {
             execution_time_ms,
         };
 
-        let paginated =
+        let mut paginated =
             PaginatedQueryResult::from_optional_total(result, total_rows, page, page_size);
+
+        if let Some(plan) = keyset.as_ref() {
+            let next_cursor = paginated
+                .has_more
+                .then(|| {
+                    let last = paginated.result.rows.last()?;
+                    let columns: Vec<String> = paginated
+                        .result
+                        .columns
+                        .iter()
+                        .map(|col| col.name.to_string())
+                        .collect();
+                    plan.mint(&columns, &last.values)
+                })
+                .flatten();
+            paginated = paginated.with_keyset(next_cursor);
+        }
 
         if total_rows.is_none() && options.wants_any_total() && options.estimate_matches_scope() {
             let estimate = partition_row_estimate(&mut conn, schema, table).await;
@@ -1819,6 +1877,16 @@ impl DataEngine for SqlServerDriver {
         }
 
         Ok(())
+    }
+
+    fn pagination_capability(&self) -> PaginationCapability {
+        PaginationCapability {
+            keyset: true,
+            requires_unique_key: true,
+            supports_backward: false,
+            snapshot: SnapshotSupport::Transaction,
+            max_offset_window: None,
+        }
     }
 
     fn cancel_support(&self) -> CancelSupport {

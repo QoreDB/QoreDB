@@ -19,6 +19,7 @@ use tokio::sync::{Mutex, RwLock};
 use uuid::Uuid;
 
 use futures::StreamExt;
+use qore_core::cursor::KeysetPlan;
 use qore_core::error::{EngineError, EngineResult};
 use qore_core::traits::DataEngine;
 use qore_core::traits::{StreamEvent, StreamSender};
@@ -28,11 +29,11 @@ use qore_core::types::{
     EventList, EventListOptions, EventOperationResult, EventStatus, FilterOperator, ForeignKey,
     MaintenanceMessage, MaintenanceMessageLevel, MaintenanceOperationInfo,
     MaintenanceOperationType, MaintenanceRequest, MaintenanceResult, Namespace,
-    PaginatedQueryResult, QueryId, QueryResult, Routine, RoutineDefinition, RoutineList,
-    RoutineListOptions, RoutineOperationResult, RoutineType, Row as QRow, RowData, SessionId,
-    SortDirection, TableColumn, TableIndex, TableQueryOptions, TableSchema, Trigger,
-    TriggerDefinition, TriggerEvent, TriggerList, TriggerListOptions, TriggerOperationResult,
-    TriggerTiming, TruncateAllResult, Value,
+    PaginatedQueryResult, PaginationCapability, QueryId, QueryResult, Routine, RoutineDefinition,
+    RoutineList, RoutineListOptions, RoutineOperationResult, RoutineType, Row as QRow, RowData,
+    SessionId, SnapshotSupport, SortDirection, TableColumn, TableIndex, TableQueryOptions,
+    TableSchema, Trigger, TriggerDefinition, TriggerEvent, TriggerList, TriggerListOptions,
+    TriggerOperationResult, TriggerTiming, TruncateAllResult, Value,
 };
 use qore_sql::safety;
 
@@ -2132,6 +2133,26 @@ impl DataEngine for MySqlDriver {
             String::new()
         };
 
+        // Keyset when the caller supplies a unique key; the cursor binds stay
+        // out of `bind_values` so the count keeps counting the filtered set and
+        // not what is left after the boundary.
+        let keyset = options
+            .keyset_applies()
+            .then(|| {
+                KeysetPlan::new(
+                    options.sort_column.as_deref(),
+                    matches!(options.sort_direction, Some(SortDirection::Desc)),
+                    options.effective_keyset_columns(),
+                )
+            })
+            .flatten();
+        let mut cursor_values: Vec<Value> = Vec::new();
+        let mut cursor_sql = String::new();
+        if let (Some(plan), Some(encoded)) = (keyset.as_ref(), options.cursor.as_deref()) {
+            cursor_sql = plan.predicate(|col| Self::quote_ident(col), |_| "?".to_string());
+            cursor_values = plan.decode(encoded)?.values;
+        }
+
         let total_rows = if options.wants_exact_total() {
             let count_sql = format!("SELECT COUNT(*) AS cnt FROM {}{}", table_ref, where_sql);
             let mut count_query = sqlx::query(&count_sql);
@@ -2173,13 +2194,31 @@ impl DataEngine for MySqlDriver {
             None
         };
 
-        let data_sql = format!(
-            "SELECT * FROM {}{}{} LIMIT {} OFFSET {}",
-            table_ref, where_sql, order_sql, fetch_size, offset
-        );
+        let data_sql = if let Some(plan) = keyset.as_ref() {
+            let data_where = match (where_sql.is_empty(), cursor_sql.is_empty()) {
+                (_, true) => where_sql.clone(),
+                (true, false) => format!(" WHERE {}", cursor_sql),
+                (false, false) => format!("{} AND {}", where_sql, cursor_sql),
+            };
+            format!(
+                "SELECT * FROM {} {} ORDER BY {} LIMIT {}",
+                table_ref,
+                data_where,
+                plan.order_by(|col| Self::quote_ident(col)),
+                fetch_size
+            )
+        } else {
+            format!(
+                "SELECT * FROM {}{}{} LIMIT {} OFFSET {}",
+                table_ref, where_sql, order_sql, fetch_size, offset
+            )
+        };
 
         let mut data_query = sqlx::query(&data_sql);
         for val in &bind_values {
+            data_query = Self::bind_param(data_query, val);
+        }
+        for val in &cursor_values {
             data_query = Self::bind_param(data_query, val);
         }
 
@@ -2246,8 +2285,27 @@ impl DataEngine for MySqlDriver {
             }
         };
 
-        let paginated =
+        let mut paginated =
             PaginatedQueryResult::from_optional_total(result, total_rows, page, page_size);
+
+        if let Some(plan) = keyset.as_ref() {
+            // From the last row after truncation: the over-fetched row would
+            // otherwise become the boundary and skip a row on every page.
+            let next_cursor = paginated
+                .has_more
+                .then(|| {
+                    let last = paginated.result.rows.last()?;
+                    let columns: Vec<String> = paginated
+                        .result
+                        .columns
+                        .iter()
+                        .map(|col| col.name.to_string())
+                        .collect();
+                    plan.mint(&columns, &last.values)
+                })
+                .flatten();
+            paginated = paginated.with_keyset(next_cursor);
+        }
 
         if total_rows.is_none() && options.wants_any_total() && options.estimate_matches_scope() {
             let estimate =
@@ -2352,6 +2410,16 @@ impl DataEngine for MySqlDriver {
         }
 
         Ok(())
+    }
+
+    fn pagination_capability(&self) -> PaginationCapability {
+        PaginationCapability {
+            keyset: true,
+            requires_unique_key: true,
+            supports_backward: false,
+            snapshot: SnapshotSupport::Transaction,
+            max_offset_window: None,
+        }
     }
 
     fn cancel_support(&self) -> CancelSupport {

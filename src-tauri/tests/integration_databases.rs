@@ -8,8 +8,8 @@ use qoredb_lib::engine::{
     error::{EngineError, EngineResult},
     traits::DataEngine,
     types::{
-        CollectionListOptions, ConnectionConfig, CountMode, Namespace, QueryId, RowData, SessionId,
-        TableQueryOptions, Value,
+        CollectionListOptions, ConnectionConfig, CountMode, Namespace, OrderingGuarantee,
+        PaginationStrategy, QueryId, RowData, SessionId, SortDirection, TableQueryOptions, Value,
     },
 };
 use serde_json::json;
@@ -859,6 +859,344 @@ async fn redis_e2e() -> EngineResult<()> {
         .await;
     let _ = driver
         .execute_in_namespace(session, Some(ns1), &format!("DEL {}", key), QueryId::new())
+        .await;
+    driver.disconnect(session).await?;
+    Ok(())
+}
+
+/// Walks a table by cursor and checks the guarantees keyset pagination is
+/// supposed to buy: a total order, every row exactly once, and — the point of
+/// the whole exercise — rows already seen that do not reappear when the table
+/// is written to between two pages.
+async fn assert_keyset_pagination<D: DataEngine + ?Sized>(
+    driver: &D,
+    session: SessionId,
+    namespace: &Namespace,
+    table: &str,
+    unique_key: &[&str],
+    sort_column: Option<&str>,
+    sort_direction: Option<SortDirection>,
+    page_size: u32,
+    expected_ids: &[i64],
+    id_column: &str,
+    // Statements run after the first page, to write to the table mid-walk.
+    // A slice rather than one string: a prepared statement takes one command.
+    disturb: &[String],
+) -> EngineResult<Vec<i64>> {
+    let keyset: Vec<String> = unique_key.iter().map(|col| col.to_string()).collect();
+    let mut cursor: Option<String> = None;
+    let mut seen: Vec<i64> = Vec::new();
+    let mut pages = 0;
+
+    loop {
+        pages += 1;
+        assert!(pages < 50, "{table}: keyset walk did not terminate");
+
+        let page = driver
+            .query_table(
+                session,
+                namespace,
+                table,
+                TableQueryOptions {
+                    page_size: Some(page_size),
+                    sort_column: sort_column.map(str::to_string),
+                    sort_direction,
+                    keyset_columns: Some(keyset.clone()),
+                    cursor: cursor.clone(),
+                    count_mode: Some(CountMode::None),
+                    ..Default::default()
+                },
+            )
+            .await?;
+
+        assert_eq!(
+            page.pagination_strategy,
+            PaginationStrategy::Keyset,
+            "{table}: driver fell back to offset despite a unique key"
+        );
+        assert_eq!(
+            page.ordering_guarantee,
+            OrderingGuarantee::Stable,
+            "{table}: keyset must announce a stable order"
+        );
+        assert!(
+            page.result.rows.len() <= page_size as usize,
+            "{table}: the over-fetched row reached the caller"
+        );
+
+        let id_index = page
+            .result
+            .columns
+            .iter()
+            .position(|col| col.name == id_column)
+            .unwrap_or_else(|| panic!("{table}: {id_column} missing from the projection"));
+        for row in &page.result.rows {
+            match &row.values[id_index] {
+                Value::Int(id) => seen.push(*id),
+                other => panic!("{table}: unexpected id value {other:?}"),
+            }
+        }
+
+        if pages == 1 {
+            for sql in disturb {
+                driver.execute(session, sql, QueryId::new()).await?;
+            }
+        }
+
+        if !page.has_more {
+            assert!(
+                page.next_cursor.is_none(),
+                "{table}: last page still handed out a cursor"
+            );
+            break;
+        }
+        cursor = Some(
+            page.next_cursor
+                .clone()
+                .unwrap_or_else(|| panic!("{table}: has_more without a cursor")),
+        );
+    }
+
+    let mut unique = seen.clone();
+    unique.sort_unstable();
+    unique.dedup();
+    assert_eq!(
+        unique.len(),
+        seen.len(),
+        "{table}: keyset returned a row twice: {seen:?}"
+    );
+    for id in expected_ids {
+        assert!(
+            seen.contains(id),
+            "{table}: row {id} was skipped, saw {seen:?}"
+        );
+    }
+
+    Ok(seen)
+}
+
+/// Keyset pagination end to end on PostgreSQL: simple key, composite key,
+/// mixed sort directions, and a table written to between two pages.
+#[tokio::test]
+async fn postgres_keyset_pagination() -> EngineResult<()> {
+    let (driver, session, config) = connect_postgres().await?;
+    let table = unique_name("qoredb_keyset");
+    let db_name = config
+        .database
+        .clone()
+        .unwrap_or_else(|| "postgres".to_string());
+    let namespace = Namespace::with_schema(db_name, "public");
+
+    driver
+        .execute(
+            session,
+            &format!("CREATE TABLE {table} (id INT PRIMARY KEY, bucket INT NOT NULL, label TEXT)"),
+            QueryId::new(),
+        )
+        .await?;
+    driver
+        .execute(
+            session,
+            &format!(
+                "INSERT INTO {table} (id, bucket, label) VALUES \
+                 (1,1,'a'),(2,1,'b'),(3,2,'c'),(4,2,'d'),(5,3,'e'),(6,3,'f'),(7,4,'g')"
+            ),
+            QueryId::new(),
+        )
+        .await?;
+
+    let all: Vec<i64> = (1..=7).collect();
+
+    // Simple key, no sort: the primary key alone orders the walk.
+    let seen = assert_keyset_pagination(
+        driver.as_ref(),
+        session,
+        &namespace,
+        &table,
+        &["id"],
+        None,
+        None,
+        2,
+        &all,
+        "id",
+        &[],
+    )
+    .await?;
+    assert_eq!(seen, all, "keyset must preserve the key order");
+
+    // Sort on a non-unique column: the key breaks the ties, so rows in the same
+    // bucket cannot be served twice or skipped across the page boundary.
+    let seen = assert_keyset_pagination(
+        driver.as_ref(),
+        session,
+        &namespace,
+        &table,
+        &["id"],
+        Some("bucket"),
+        Some(SortDirection::Asc),
+        2,
+        &all,
+        "id",
+        &[],
+    )
+    .await?;
+    assert_eq!(seen.len(), all.len());
+
+    // Descending: the comparison has to flip with the direction, otherwise the
+    // second page walks the wrong way and returns nothing.
+    let seen = assert_keyset_pagination(
+        driver.as_ref(),
+        session,
+        &namespace,
+        &table,
+        &["id"],
+        Some("bucket"),
+        Some(SortDirection::Desc),
+        3,
+        &all,
+        "id",
+        &[],
+    )
+    .await?;
+    assert_eq!(seen.len(), all.len());
+
+    // Composite key.
+    let seen = assert_keyset_pagination(
+        driver.as_ref(),
+        session,
+        &namespace,
+        &table,
+        &["bucket", "id"],
+        None,
+        None,
+        2,
+        &all,
+        "id",
+        &[],
+    )
+    .await?;
+    assert_eq!(seen.len(), all.len());
+
+    // Written to mid-walk: a row inserted before the boundary must not push the
+    // window backwards, and a deleted row must not shift the rest into a gap —
+    // both of which OFFSET does.
+    let disturb = [
+        format!("INSERT INTO {table} (id, bucket, label) VALUES (0,0,'z')"),
+        format!("DELETE FROM {table} WHERE id = 7"),
+    ];
+    let seen = assert_keyset_pagination(
+        driver.as_ref(),
+        session,
+        &namespace,
+        &table,
+        &["id"],
+        None,
+        None,
+        2,
+        &[3, 4, 5, 6],
+        "id",
+        &disturb,
+    )
+    .await?;
+    assert!(
+        !seen.contains(&0),
+        "a row inserted behind the cursor reappeared: {seen:?}"
+    );
+
+    // Regression: the schema lands after the first page, so page 2 can arrive
+    // with a unique key but no cursor. Answering that with a keyset drops the
+    // offset and serves the first page again — the whole table read as a loop.
+    let page_two_without_cursor = driver
+        .query_table(
+            session,
+            &namespace,
+            &table,
+            TableQueryOptions {
+                page: Some(2),
+                page_size: Some(3),
+                keyset_columns: Some(vec!["id".to_string()]),
+                count_mode: Some(CountMode::None),
+                ..Default::default()
+            },
+        )
+        .await?;
+    assert_eq!(
+        page_two_without_cursor.pagination_strategy,
+        PaginationStrategy::Offset,
+        "a cursorless later page must stay on offset"
+    );
+    let first_id = match &page_two_without_cursor.result.rows[0].values[0] {
+        Value::Int(id) => *id,
+        other => panic!("unexpected id {other:?}"),
+    };
+    assert_ne!(first_id, 1, "page 2 restarted from the first row");
+
+    // No unique key declared: the driver must say so rather than pretend.
+    let offset_page = driver
+        .query_table(
+            session,
+            &namespace,
+            &table,
+            TableQueryOptions {
+                page_size: Some(2),
+                count_mode: Some(CountMode::None),
+                ..Default::default()
+            },
+        )
+        .await?;
+    assert_eq!(offset_page.pagination_strategy, PaginationStrategy::Offset);
+    assert_eq!(offset_page.ordering_guarantee, OrderingGuarantee::None);
+    assert!(offset_page.next_cursor.is_none());
+
+    let _ = driver
+        .execute(session, &format!("DROP TABLE {table}"), QueryId::new())
+        .await;
+    driver.disconnect(session).await?;
+    Ok(())
+}
+
+/// The same contract on MySQL, whose driver builds the predicate with `?`
+/// placeholders rather than numbered ones.
+#[tokio::test]
+async fn mysql_keyset_pagination() -> EngineResult<()> {
+    let (driver, session, config) = connect_mysql().await?;
+    let table = unique_name("qoredb_keyset");
+    let namespace = Namespace::new(config.database.clone().unwrap_or_else(|| DEFAULT_DB.into()));
+
+    driver
+        .execute(
+            session,
+            &format!("CREATE TABLE {table} (id INT PRIMARY KEY, bucket INT NOT NULL)"),
+            QueryId::new(),
+        )
+        .await?;
+    driver
+        .execute(
+            session,
+            &format!("INSERT INTO {table} (id, bucket) VALUES (1,1),(2,1),(3,2),(4,2),(5,3)"),
+            QueryId::new(),
+        )
+        .await?;
+
+    let all: Vec<i64> = (1..=5).collect();
+    let seen = assert_keyset_pagination(
+        driver.as_ref(),
+        session,
+        &namespace,
+        &table,
+        &["id"],
+        Some("bucket"),
+        Some(SortDirection::Asc),
+        2,
+        &all,
+        "id",
+        &[],
+    )
+    .await?;
+    assert_eq!(seen.len(), all.len());
+
+    let _ = driver
+        .execute(session, &format!("DROP TABLE {table}"), QueryId::new())
         .await;
     driver.disconnect(session).await?;
     Ok(())

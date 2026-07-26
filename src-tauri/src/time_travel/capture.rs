@@ -54,6 +54,8 @@ pub async fn fetch_row_by_pk(
         search: None,
         search_columns: None,
         search_mode: None,
+        keyset_columns: None,
+        cursor: None,
         count_mode: Some(CountMode::None),
         query_id: None,
     };

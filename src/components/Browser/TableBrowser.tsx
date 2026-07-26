@@ -344,6 +344,15 @@ export function TableBrowser({
     [driver, namespace, onOpenQuery, t, tableName]
   );
 
+  // Keyset needs a total order. Only a primary key qualifies here: it is unique
+  // and NOT NULL by definition, where a "unique" index may still be nullable and
+  // would drop rows from the comparison.
+  const keysetColumns = useMemo(() => {
+    if (!driverCapabilities?.pagination?.keyset) return undefined;
+    const pk = schema?.primary_key;
+    return pk && pk.length > 0 ? pk : undefined;
+  }, [driverCapabilities, schema]);
+
   const searchScope = useMemo(
     () => ({
       columns: schema?.columns ?? [],
@@ -366,6 +375,8 @@ export function TableBrowser({
     isFetchingMore,
     isCountingTotal,
     isComplete,
+    windowExhausted,
+    orderingGuarantee,
     error,
     cached,
     cachedAgeMs,
@@ -384,6 +395,8 @@ export function TableBrowser({
     searchTerm: debouncedSearchTerm,
     searchColumns,
     searchMode,
+    maxOffsetWindow: driverCapabilities?.pagination?.max_offset_window,
+    keysetColumns,
     filters: infiniteScrollFilters,
   });
 
@@ -921,6 +934,8 @@ export function TableBrowser({
             infiniteScrollIsFetchingMore={isFetchingMore}
             infiniteScrollIsCountingTotal={isCountingTotal}
             infiniteScrollIsComplete={isComplete}
+            infiniteScrollWindowExhausted={windowExhausted}
+            infiniteScrollOrderingGuarantee={orderingGuarantee}
             onFetchMore={fetchNextChunk}
             onCalculateExactTotal={calculateExactTotal}
             onCancelExactTotal={cancelExactTotal}

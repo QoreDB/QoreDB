@@ -6,6 +6,7 @@ import type {
   CancelSupport,
   Environment,
   Namespace,
+  OrderingGuarantee,
   QueryResult,
   TotalRowsSource,
   Value,
@@ -31,6 +32,8 @@ export interface DocumentResultsProps {
   infiniteScrollIsFetchingMore?: boolean;
   infiniteScrollIsCountingTotal?: boolean;
   infiniteScrollIsComplete?: boolean;
+  infiniteScrollWindowExhausted?: boolean;
+  infiniteScrollOrderingGuarantee?: OrderingGuarantee;
   onFetchMore?: () => void;
   onCalculateExactTotal?: () => void;
   onCancelExactTotal?: () => void;

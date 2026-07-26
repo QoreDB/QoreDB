@@ -5,7 +5,7 @@
 > - Verticale 1 — chargement sans comptage bloquant : livrée, correctifs appliqués, dette de contrat résorbée
 > - Verticale 2 — total honnête et opérations annulables : livrée
 > - Verticale 3 — coût du tri et de la recherche : livrée
-> - Verticale 4 — pagination stable par curseur : à concevoir
+> - Verticale 4 — pagination stable par curseur : livrée, sauf l'édition sous curseur (9.6) et le forçage de stratégie (9.7)
 > - Verticale 5 — mémoire et rendu progressif : à concevoir
 > - Verticale 6 — cohérence et sécurité : transverse
 >
@@ -61,11 +61,11 @@ réfère plutôt qu'à des suppositions.
 
 ### 3.1 Où le produit affiche un nombre de lignes
 
-| Emplacement                   | Source                                                         | Nature                                                   |
-| ----------------------------- | -------------------------------------------------------------- | -------------------------------------------------------- |
-| `DataGridStatusBar`           | `useInfiniteTableData`                                         | Lignes chargées, plus total exact après action explicite |
-| `DocumentResults` (entête)    | `infiniteScrollLoadedRows`, ou le total exact une fois calculé | Lignes chargées tant que le total est inconnu            |
-| Onglet Info, tous moteurs     | `query_table` en `count_mode: estimated`                       | Total étiqueté, exact ou estimé selon le moteur          |
+| Emplacement                | Source                                                         | Nature                                                   |
+| -------------------------- | -------------------------------------------------------------- | -------------------------------------------------------- |
+| `DataGridStatusBar`        | `useInfiniteTableData`                                         | Lignes chargées, plus total exact après action explicite |
+| `DocumentResults` (entête) | `infiniteScrollLoadedRows`, ou le total exact une fois calculé | Lignes chargées tant que le total est inconnu            |
+| Onglet Info, tous moteurs  | `query_table` en `count_mode: estimated`                       | Total étiqueté, exact ou estimé selon le moteur          |
 
 Cet inventaire décrivait trois chemins divergents, dont deux affichaient une
 estimation moteur sans jamais l'indiquer. Ils sont unifiés depuis la
@@ -250,10 +250,10 @@ Limites :
   moteurs ;
 - un total exact est une photographie au moment du comptage, pas un verrou ;
 - Elasticsearch et OpenSearch conservent leurs limites de fenêtre profonde tant
-  que `search_after` n'est pas branché sur `query_table` : au bord de la
-  fenêtre, `has_more` n'est plus déductible et le moteur renvoie son erreur à la
-  page suivante. Le contrat n'a pas de moyen d'exprimer « il y a peut-être plus,
-  mais je ne peux pas aller voir » ; c'est `max_offset_window` en verticale 4 ;
+  que `search_after` n'est pas branché sur `query_table`. Au bord de la fenêtre,
+  `has_more` n'est plus déductible ; la différence est que la limite est
+  désormais déclarée (`max_offset_window`, cf. 9.3), donc l'interface s'arrête
+  en l'annonçant au lieu de heurter l'erreur du moteur ;
 - la fenêtre supposée vaut 10000 : un cluster qui l'a relevée n'est jamais bridé
   par QoreDB, mais un cluster qui l'a abaissée verra l'erreur arriver plus tôt ;
 - les structures Redis basées sur `SCAN` ne fournissent pas les garanties
@@ -350,16 +350,16 @@ appel y aurait transformé chaque lecture en défaut de cache.
 
 Chaque driver enregistre le comptage dans le registre qu'il utilise déjà :
 
-| Driver                    | Mécanisme                                      | Portée réelle     |
-| ------------------------- | ---------------------------------------------- | ----------------- |
-| PostgreSQL et compatibles | connexion épinglée, `pg_backend_pid`           | annulation vraie  |
-| MySQL, MariaDB            | connexion épinglée, `CONNECTION_ID()`          | annulation vraie  |
-| SQL Server                | `@@SPID` sur la connexion du comptage          | annulation vraie  |
-| ClickHouse                | `query_id` serveur, `KILL QUERY`               | annulation vraie  |
-| DuckDB, MotherDuck        | `with_query_conn`, handle d'interruption       | annulation vraie  |
-| Elasticsearch, OpenSearch | `X-Opaque-Id` sur la requête `_search`         | best effort       |
-| MongoDB                   | `AbortHandle` : la requête cesse d'être attendue | best effort     |
-| SQLite                    | aucun mécanisme                                 | non annulable     |
+| Driver                    | Mécanisme                                        | Portée réelle    |
+| ------------------------- | ------------------------------------------------ | ---------------- |
+| PostgreSQL et compatibles | connexion épinglée, `pg_backend_pid`             | annulation vraie |
+| MySQL, MariaDB            | connexion épinglée, `CONNECTION_ID()`            | annulation vraie |
+| SQL Server                | `@@SPID` sur la connexion du comptage            | annulation vraie |
+| ClickHouse                | `query_id` serveur, `KILL QUERY`                 | annulation vraie |
+| DuckDB, MotherDuck        | `with_query_conn`, handle d'interruption         | annulation vraie |
+| Elasticsearch, OpenSearch | `X-Opaque-Id` sur la requête `_search`           | best effort      |
+| MongoDB                   | `AbortHandle` : la requête cesse d'être attendue | best effort      |
+| SQLite                    | aucun mécanisme                                  | non annulable    |
 
 L'interface ne prétend pas mieux que la réalité : le bouton porte « Annuler (au
 mieux) » et une explication en infobulle lorsque le driver déclare
@@ -515,14 +515,30 @@ pas la génération de l'instruction.
 Supprimer le coût croissant de `OFFSET` et réduire les doublons ou omissions
 lorsque les données changent entre deux chargements.
 
-### 9.2 Contrat cible
+### 9.2 Contrat
 
-Requête : `cursor`, `direction: forward | backward`, `page_size`.
-Réponse : `next_cursor`, `previous_cursor`, `has_more`, `pagination_strategy`,
+Requête : `cursor`, `keyset_columns`, `page_size`.
+Réponse : `next_cursor`, `has_more`, `pagination_strategy`,
 `ordering_guarantee`.
 
-Le curseur ne doit jamais contenir un fragment SQL fourni par le client. Il est
-décodé, typé, borné et validé avant d'être transformé en paramètres de requête.
+`direction` et `previous_cursor` ne sont pas implémentés : le scroll infini est
+une chaîne avant seulement, et rien ne les lirait. Les ajouter maintenant
+recréerait un champ mort. `supports_backward` reste donc à `false`.
+
+Le curseur ne contient aucun SQL. Il porte les clés d'ordonnancement et les
+valeurs de la ligne frontière ; le driver reconstruit le prédicat à partir de
+l'ordre qu'il a lui-même décidé, et le curseur ne fournit que des valeurs
+liées. Il est borné (4096 octets encodés, 8 clés, 1024 octets par valeur
+textuelle) et validé.
+
+La validation la plus importante n'est pas syntaxique : un curseur frappé pour
+un autre ordre est **rejeté**, jamais réinterprété. Ses valeurs pointeraient les
+bonnes bornes sur les mauvaises colonnes, ce qui se lit comme une perte de
+données et non comme une erreur.
+
+`keyset_columns` suit le même principe que `search_columns` : l'appelant tient
+déjà le schéma, il fournit la clé unique. Le driver n'a donc aucune lecture de
+catalogue à faire, y compris sur la première page.
 
 ### 9.3 Capacité déclarée
 
@@ -543,35 +559,118 @@ PaginationCapability {
 `max_offset_window` rend explicite la limite Elasticsearch de la section 3.3, et
 permet à l'appelant de clamper la sur-lecture plutôt que de heurter le mur.
 
+État : la structure est posée (`PaginationCapability`, agrégée dans
+`DriverCapabilities` comme les autres capacités) et exposée au frontend. Seuls
+les champs qui ont un consommateur sont renseignés aujourd'hui — le reste garde
+le défaut conservateur `keyset: false`, plutôt que de déclarer une promesse que
+rien ne tient encore.
+
+Le champ renseigné est `max_offset_window`, à 10000 pour Elasticsearch et
+OpenSearch. Il corrige le défaut listé en 6.6 : la limite de fenêtre profonde
+n'était visible nulle part, et la seule façon de la découvrir était l'erreur du
+moteur à la page suivante. Le scroll infini s'arrête maintenant au bord de la
+fenêtre et le dit — « le moteur ne sert plus de pages à cette profondeur » —
+au lieu d'échouer.
+
 ### 9.4 Stratégie par driver
 
 | Drivers                                              | Stratégie préférée                                                                                   | Fallback                              |
 | ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------- | ------------------------------------- |
-| PostgreSQL, Supabase, Neon, TimescaleDB, CockroachDB | Keyset sur clé primaire ou index unique, avec tie-breaker stable                                     | `OFFSET` signalé comme dégradé        |
-| MySQL, MariaDB                                       | Keyset sur clé primaire ou index unique                                                              | `OFFSET`                              |
-| SQLite, DuckDB, MotherDuck                           | Keyset lorsque le schéma fournit une clé stable                                                      | `OFFSET`                              |
-| SQL Server                                           | Keyset avec prédicats paramétrés et ordre unique                                                     | `OFFSET/FETCH`                        |
-| MongoDB                                              | `_id` ou couple `(sort_value, _id)`                                                                  | `skip`                                |
-| Elasticsearch, OpenSearch                            | `search_after`, avec PIT si une vue cohérente est requise ; le code existe déjà dans `stream_search` | `from/size` dans la fenêtre autorisée |
-| ClickHouse                                           | Clé de tri ou clé primaire MergeTree lorsque disponible                                              | `OFFSET` avec avertissement de coût   |
+| PostgreSQL, Supabase, Neon, TimescaleDB, CockroachDB | **Livré.** Keyset sur clé primaire, avec tie-breaker stable                                          | `OFFSET` signalé comme dégradé        |
+| MySQL, MariaDB                                       | **Livré.** Keyset sur la clé fournie                                                                | `OFFSET`                              |
+| SQLite, DuckDB, MotherDuck                           | **Livré.** Keyset lorsque le schéma fournit une clé stable                                          | `OFFSET`                              |
+| SQL Server                                           | **Livré.** Keyset avec `TOP` et ordre unique                                                        | `OFFSET/FETCH`                        |
+| MongoDB                                              | **Livré.** `_id`, ou couple `(valeur de tri, _id)`                                                  | `skip`                                |
+| Elasticsearch, OpenSearch                            | **Livré.** `search_after` sur une clé unique déclarée ; sans PIT, cf. ci-dessous                     | `from/size` dans la fenêtre autorisée |
+| ClickHouse                                           | **Livré.** Keyset sur la clé fournie                                                                | `OFFSET` avec avertissement de coût   |
 | Redis list                                           | Index natif                                                                                          | Pagination actuelle                   |
 | Redis zset                                           | Couple `(score, member)`                                                                             | Index                                 |
 | Redis stream                                         | Identifiant de stream                                                                                | Pagination actuelle                   |
 | Redis hash et set                                    | Curseur `HSCAN` ou `SSCAN`, sans promettre un ordre stable                                           | Scan depuis le début si nécessaire    |
 
+Redis garde le défaut `keyset: false`. Ses structures paginent déjà nativement
+par index (`LRANGE`) ou par curseur de scan ; il n'y a pas de clé unique sur
+laquelle poser un keyset, et prétendre le contraire aurait été une déclaration
+fausse. Les stratégies par type listées plus haut restent à écrire, mais elles
+relèvent d'un autre modèle que celui de cette verticale.
+
+Elasticsearch et OpenSearch méritent une note. `search_after` exige un ordre
+total, et sans lecteur PIT le moteur n'offre aucun tie-breaker inter-shards :
+`_shard_doc` en demande un, et `_doc` n'ordonne qu'à l'intérieur d'un shard.
+Le keyset y repose donc entièrement sur une clé unique déclarée par l'appelant.
+Quand elle existe, `from` disparaît au profit de `search_after`, ce qui lève
+aussi la limite de fenêtre profonde sur ce chemin.
+
+Un piège corrigé après un essai en conditions réelles, qui vaut d'être écrit :
+le schéma d'une table arrive **après** sa première page. L'interface partait donc
+en `OFFSET`, puis envoyait la clé unique à partir de la page 2 — et le driver,
+voyant un keyset sans curseur, supprimait l'`OFFSET` et resservait la première
+page. La table entière se lisait en boucle.
+
+Deux garde-fous, l'un vaut pour tout appelant :
+
+- côté contrat, `keyset_applies()` : une page au-delà de la première **sans**
+  curseur n'est pas un parcours par curseur, c'est de la pagination par offset,
+  et elle est servie comme telle. Sans cela le bridge HTTP aurait le même bug ;
+- côté interface, la clé de keyset est figée pour toute la durée du parcours, et
+  son arrivée tardive ne provoque qu'un seul rechargement, tant qu'une seule
+  page est chargée.
+
+Trois décisions d'implémentation qui ne se voient pas dans le tableau :
+
+- la clé retenue est la **clé primaire uniquement**, pas n'importe quel index
+  unique. Un index unique peut porter sur des colonnes nullables, et une
+  comparaison sur `NULL` est `NULL` : la ligne sort du prédicat et disparaît
+  silencieusement de la pagination. La clé primaire est unique _et_ non nulle
+  par définition ;
+- le prédicat est écrit en forme développée
+  (`k1 > v1 OR (k1 = v1 AND k2 > v2)`) plutôt qu'avec un constructeur de ligne
+  `(k1, k2) > (v1, v2)`. Ce dernier est plus lisible et plus indexable, mais il
+  ne sait pas mélanger `ASC` et `DESC`, que le §9.8 demande de couvrir ;
+- la construction du prédicat, de l'ordre et de la frappe du curseur vit dans un
+  seul `KeysetPlan` (`qore-core/src/cursor.rs`), paramétré par une fonction de
+  quoting et une fonction de rendu de paramètre. C'est la partie facile à rater
+  de façon subtile, et une erreur subtile ici saute des lignes au lieu
+  d'échouer. Les drivers qui inlinent leurs littéraux — SQL Server, ClickHouse —
+  passent leur propre formateur, ceux qui lient passent `?` ou `$n`.
+
+MongoDB a demandé un traitement à part : `query_table` y projette une unique
+colonne `document` contenant tout le JSON, donc la frappe générique du curseur
+n'y aurait jamais trouvé les champs clés et le keyset serait resté
+silencieusement inactif. La borne est lue depuis le document BSON.
+
 ### 9.5 Schémas sans clé stable
 
 C'est le cas fréquent, pas l'exception : vues, vues matérialisées sans index,
 tables sans clé primaire, résultats de requête ad hoc. Le comportement par
-défaut y est `OFFSET`, avec `ordering_guarantee: none` remonté à l'interface et
-affiché comme tel. Une table partitionnée ou une clé composite nullable relève
-du même traitement tant que l'unicité n'est pas démontrée.
+défaut y est `OFFSET`, avec `ordering_guarantee: none`.
+
+Livré : la barre d'état affiche « ordre instable » avec, en infobulle, ce que ça
+coûte concrètement — une ligne peut apparaître deux fois ou être sautée si les
+données changent pendant le défilement. C'est la formulation qui compte : dire
+« pas de clé unique » n'apprend rien à qui n'a pas le modèle en tête.
+
+Une table partitionnée ou une clé composite nullable relève du même traitement
+tant que l'unicité n'est pas démontrée. Côté interface, seule la clé primaire
+est proposée comme clé de keyset, jamais un index unique quelconque : un index
+unique peut porter sur des colonnes nullables.
 
 ### 9.6 Interaction avec l'édition
 
 Une ligne modifiée localement peut changer de position dans l'ordre keyset et
-donc réapparaître ou disparaître de la fenêtre. À trancher dans cette verticale,
-pas dans la suivante :
+donc réapparaître ou disparaître de la fenêtre.
+
+Constat après lecture du code : le produit ne connaît aujourd'hui qu'une seule
+réponse à une édition. `useInlineEdit` écrit côté serveur puis appelle
+`onRowsUpdated`, que `TableBrowser` branche sur `reload` — le scroll entier est
+jeté et refetché depuis la page 1. Il n'y a aucune mise à jour optimiste : la
+grille dépend de ce rechargement pour afficher la nouvelle valeur.
+
+Cette base est **correcte** sous keyset : repartir de zéro ne peut ni dupliquer
+ni sauter de ligne. Elle est en revanche brutale — dix pages parcourues sont
+perdues à chaque cellule modifiée — et elle rend les trois règles ci-dessous
+inapplicables telles quelles, puisqu'elles supposent toutes que les lignes
+chargées survivent à l'édition :
 
 - une ligne éditée reste ancrée à sa position d'origine jusqu'au prochain
   rechargement explicite ;
@@ -579,6 +678,20 @@ pas dans la suivante :
   masquée silencieusement ;
 - une ligne insérée localement reste visible jusqu'au rechargement, même si le
   curseur l'aurait placée ailleurs.
+
+Les trois demandent la même primitive absente : muter en place le jeu de lignes
+chargées, en localisant la ligne par sa clé primaire. Cela implique de changer
+la signature de `onRowsUpdated` pour qu'elle porte la clé et les valeurs
+modifiées, de la propager depuis `useInlineEdit`, et — pour la deuxième règle —
+d'évaluer les filtres de colonne côté client afin de marquer la ligne qui en
+sort. La recherche serveur, elle, ne peut pas être réévaluée localement : la
+règle ne peut donc porter que sur les filtres de colonne, et doit le dire.
+
+Non livré. C'est le seul point de cette verticale que je laisse ouvert, et
+délibérément : la réécriture porte sur le chemin d'édition, qu'aucun test ne
+couvre ici, et une erreur y afficherait des valeurs périmées sans rien signaler.
+La base actuelle étant correcte, le risque de la refonte dépasse le gain tant
+qu'elle n'est pas vérifiable.
 
 ### 9.7 Décision de setting
 
@@ -590,18 +703,42 @@ Un réglage avancé « Forcer la stratégie de pagination » ne devient pertinen
 pour diagnostiquer un schéma atypique, contourner temporairement un bug moteur,
 comparer des performances, ou préserver un comportement historique dans une
 intégration. Il reste par connexion ou par table, jamais une préférence
-générale. Il suppose un stockage de réglages par connexion, à vérifier avant de
-s'engager.
+générale.
+
+Prérequis vérifié, et il n'est pas rempli : `SavedConnection` est une structure
+fixe du coffre, sans espace de réglages libre. Ajouter un champ persisté pour un
+réglage de diagnostic supposerait de toucher la sérialisation du coffre et sa
+migration — disproportionné pour un usage que le paragraphe ci-dessus qualifie
+lui-même d'exceptionnel.
+
+Ce que la verticale apporte à la place couvre les deux premiers usages cités :
+la stratégie est désormais **observable**, puisque `pagination_strategy` et
+`ordering_guarantee` reviennent dans chaque réponse et que l'ordre instable est
+affiché. Diagnostiquer un schéma atypique ne demande plus de forcer quoi que ce
+soit. Le forçage proprement dit reste non livré.
 
 ### 9.8 Critères d'acceptation
 
-- ordre déterministe, ou indication explicite qu'il ne l'est pas ;
-- aucune concaténation de valeur de curseur dans le SQL ;
-- filtres et tris identiques entre les pages ;
-- couverture des clés simples, composites, nullables et des directions mixtes ;
-- tests avec insertions et suppressions entre deux pages ;
-- fallback contrôlé lorsque la clé de tri n'est pas unique ;
-- pas de régression sur l'édition, la sélection ou l'export.
+| Critère                                                | État                                                                                      |
+| ------------------------------------------------------ | ----------------------------------------------------------------------------------------- |
+| Ordre déterministe, ou indication explicite du contraire | Tenu. `ordering_guarantee` remonte et s'affiche                                          |
+| Aucune concaténation de valeur de curseur dans le SQL   | Tenu. Les drivers qui lient passent des paramètres ; SQL Server et ClickHouse inlinent par leur formateur d'échappement, comme pour toute autre valeur |
+| Filtres et tris identiques entre les pages             | Tenu par construction : un curseur frappé pour un autre ordre est rejeté                   |
+| Clés simples, composites, directions mixtes            | Testé sur PostgreSQL contre une base réelle                                               |
+| Clés nullables                                         | Écarté par conception : seule la clé primaire sert de clé de keyset, cf. 9.5               |
+| Insertions et suppressions entre deux pages            | Testé sur PostgreSQL : une ligne insérée derrière la borne ne réapparaît pas               |
+| Fallback contrôlé sans clé unique                      | Testé : `pagination_strategy: offset`, `ordering_guarantee: none`, aucun curseur émis      |
+| Pas de régression sur l'édition, la sélection, l'export | Non vérifié — aucun test ne couvre ces chemins                                            |
+
+Les tests d'intégration (`postgres_keyset_pagination`, `mysql_keyset_pagination`)
+parcourent toutes les pages par curseur et vérifient qu'aucune ligne n'est
+rendue deux fois ni sautée. `postgres_keyset_pagination` a été exécuté contre
+PostgreSQL ; le test MySQL est écrit mais n'a pas pu tourner, le port 3306 étant
+déjà occupé sur la machine de développement.
+
+Les six autres implémentations — SQL Server, SQLite, DuckDB, MotherDuck,
+MongoDB, ClickHouse, Elasticsearch — compilent et suivent le même `KeysetPlan`
+testé unitairement, mais leur SQL n'a pas été exécuté.
 
 ## 10. Verticale 5 — Mémoire et rendu progressif
 
@@ -732,8 +869,8 @@ Séquencé par valeur rendue et par dépendance, en lots livrables indépendamme
 4. Verticale 2 — appliquée dans cet ordre : instrumentation, annulation,
    estimation moteur, unification de l'onglet Info.
 5. Verticale 3 — livrée, cf. 8.1 et 8.2.
-6. Verticale 4 — capacité déclarée, keyset SQL, MongoDB, branchement de
-   `search_after` sur `query_table`, stratégies Redis, fallback et diagnostics.
+6. Verticale 4 — livrée, cf. 9.2 à 9.8. Restent l'édition sous curseur (9.6) et
+   le forçage de stratégie (9.7), tous deux documentés avec leur raison.
 7. Verticale 5 — décisions sélection et export d'abord, puis fenêtre bornée,
    chunk adaptatif, rendu progressif des cellules, types sans perte.
 

@@ -43,6 +43,7 @@ import type {
   ColumnFilter,
   Environment,
   Namespace,
+  OrderingGuarantee,
   QueryResult,
   RelationFilter,
   SortDirection,
@@ -148,6 +149,8 @@ interface DataGridProps {
   infiniteScrollIsFetchingMore?: boolean;
   infiniteScrollIsCountingTotal?: boolean;
   infiniteScrollIsComplete?: boolean;
+  infiniteScrollWindowExhausted?: boolean;
+  infiniteScrollOrderingGuarantee?: OrderingGuarantee;
   onFetchMore?: () => void;
   onCalculateExactTotal?: () => void;
   onCancelExactTotal?: () => void;
@@ -195,6 +198,8 @@ export function DataGrid({
   infiniteScrollIsFetchingMore,
   infiniteScrollIsCountingTotal,
   infiniteScrollIsComplete,
+  infiniteScrollWindowExhausted,
+  infiniteScrollOrderingGuarantee,
   onFetchMore,
   onCalculateExactTotal,
   onCancelExactTotal,
@@ -1034,6 +1039,8 @@ export function DataGrid({
           isFetchingMore={infiniteScrollIsFetchingMore ?? false}
           isCountingTotal={infiniteScrollIsCountingTotal ?? false}
           isComplete={infiniteScrollIsComplete ?? false}
+          windowExhausted={infiniteScrollWindowExhausted}
+          orderingGuarantee={infiniteScrollOrderingGuarantee}
           onCalculateExactTotal={onCalculateExactTotal}
           onCancelExactTotal={onCancelExactTotal}
           cancelSupport={infiniteScrollCancelSupport}

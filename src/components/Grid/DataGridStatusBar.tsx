@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Loader2 } from 'lucide-react';
+import { AlertTriangle, Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import type { CancelSupport, TotalRowsSource } from '@/lib/tauri';
+import type { CancelSupport, OrderingGuarantee, TotalRowsSource } from '@/lib/tauri';
 
 interface DataGridStatusBarProps {
   loadedRows: number;
@@ -12,6 +12,10 @@ interface DataGridStatusBarProps {
   isFetchingMore: boolean;
   isCountingTotal: boolean;
   isComplete: boolean;
+  /** Scrolling stopped at the engine's window, not at the end of the data. */
+  windowExhausted?: boolean;
+  /** Whether rows appear exactly once across pages. */
+  orderingGuarantee?: OrderingGuarantee;
   /** What the driver can actually promise when the count is cancelled. */
   cancelSupport?: CancelSupport;
   onCalculateExactTotal?: () => void;
@@ -26,6 +30,8 @@ export function DataGridStatusBar({
   isFetchingMore,
   isCountingTotal,
   isComplete,
+  windowExhausted,
+  orderingGuarantee,
   cancelSupport,
   onCalculateExactTotal,
   onCancelExactTotal,
@@ -60,7 +66,9 @@ export function DataGridStatusBar({
           }
         >
           {isComplete
-            ? t('grid.infiniteScroll.allLoaded', { total: loadedRows.toLocaleString() })
+            ? windowExhausted
+              ? t('grid.infiniteScroll.windowExhausted', { loaded: loadedRows.toLocaleString() })
+              : t('grid.infiniteScroll.allLoaded', { total: loadedRows.toLocaleString() })
             : totalRows === null
               ? t('grid.infiniteScroll.loadedUnknown', {
                   loaded: loadedRows.toLocaleString(),
@@ -75,6 +83,15 @@ export function DataGridStatusBar({
                     total: totalRows.toLocaleString(),
                   })}
         </span>
+        {orderingGuarantee === 'none' && loadedRows > 0 && (
+          <span
+            className="flex items-center gap-1 text-warning/90"
+            title={t('grid.pagination.unstableOrderHint')}
+          >
+            <AlertTriangle size={12} />
+            {t('grid.pagination.unstableOrder')}
+          </span>
+        )}
         {!isComplete && showProgress && (
           <div className="w-24 h-1.5 bg-muted rounded-full overflow-hidden">
             <div

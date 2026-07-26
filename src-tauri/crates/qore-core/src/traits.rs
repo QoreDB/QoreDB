@@ -10,12 +10,11 @@ use crate::error::{EngineError, EngineResult};
 use crate::types::{
     CancelSupport, CollectionList, CollectionListOptions, ColumnInfo, ConnectionConfig,
     CreationOptions, DriverCapabilities, EventDefinition, EventList, EventListOptions,
-    PaginationCapability,
     EventOperationResult, ForeignKey, MaintenanceOperationInfo, MaintenanceRequest,
-    MaintenanceResult, Namespace, PaginatedQueryResult, QueryId, QueryResult, RoutineDefinition,
-    RoutineList, RoutineListOptions, RoutineOperationResult, RoutineType, Row, RowData,
-    SequenceDefinition, SequenceList, SequenceListOptions, SequenceOperationResult, SessionId,
-    TableQueryOptions, TableSchema, TriggerDefinition, TriggerList, TriggerListOptions,
+    MaintenanceResult, Namespace, PaginatedQueryResult, PaginationCapability, QueryId, QueryResult,
+    RoutineDefinition, RoutineList, RoutineListOptions, RoutineOperationResult, RoutineType, Row,
+    RowData, SequenceDefinition, SequenceList, SequenceListOptions, SequenceOperationResult,
+    SessionId, TableQueryOptions, TableSchema, TriggerDefinition, TriggerList, TriggerListOptions,
     TriggerOperationResult, TruncateAllResult, Value,
 };
 

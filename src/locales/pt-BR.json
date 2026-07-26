@@ -1041,7 +1041,8 @@
       "cancelCountBestEffort": "Este driver não garante o cancelamento: a contagem pode continuar no servidor.",
       "loadedEstimated": "{{loaded}} de ~{{total}} linhas carregadas (estimativa)",
       "estimateHint": "Estimativa do motor, não é uma contagem exata.",
-      "estimateAsOf": "Estatísticas atualizadas pela última vez em {{date}}."
+      "estimateAsOf": "Estatísticas atualizadas pela última vez em {{date}}.",
+      "windowExhausted": "{{loaded}} linhas carregadas — o motor não serve mais páginas nesta profundidade"
     },
     "noData": "Nenhum dado para exibir",
     "noResults": "Sem resultados",
@@ -1125,7 +1126,11 @@
       }
     },
     "createIndexForSort": "Criar um índice nesta coluna",
-    "createIndexUnsupported": "Este driver não suporta a criação de índices."
+    "createIndexUnsupported": "Este driver não suporta a criação de índices.",
+    "pagination": {
+      "unstableOrder": "ordem instável",
+      "unstableOrderHint": "Esta tabela não tem chave única para paginar: uma linha pode aparecer duas vezes ou ser pulada se os dados mudarem durante a rolagem."
+    }
   },
   "export": {
     "dialogTitle": "Exportação em streaming",

@@ -1041,7 +1041,8 @@
       "cancelCountBestEffort": "该驱动无法保证取消：计数可能仍在服务端继续运行。",
       "loadedEstimated": "已加载 {{loaded}} 行，共约 {{total}} 行（估算）",
       "estimateHint": "这是引擎估算值，并非精确计数。",
-      "estimateAsOf": "统计信息最后更新于 {{date}}。"
+      "estimateAsOf": "统计信息最后更新于 {{date}}。",
+      "windowExhausted": "已加载 {{loaded}} 行 — 在此深度引擎不再返回更多页"
     },
     "noData": "无数据显示",
     "noResults": "无结果",
@@ -1125,7 +1126,11 @@
       }
     },
     "createIndexForSort": "为该列创建索引",
-    "createIndexUnsupported": "该驱动不支持创建索引。"
+    "createIndexUnsupported": "该驱动不支持创建索引。",
+    "pagination": {
+      "unstableOrder": "顺序不稳定",
+      "unstableOrderHint": "该表没有可用于分页的唯一键：滚动期间数据发生变化时，某行可能重复出现或被跳过。"
+    }
   },
   "export": {
     "dialogTitle": "流式导出",

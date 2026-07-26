@@ -1202,6 +1202,15 @@ pub struct TableQueryOptions {
     /// expensive count on every page.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub count_mode: Option<CountMode>,
+    /// Unique key the driver may use as a keyset tie-breaker. Supplied by the
+    /// caller, which already holds the schema; without it the driver has no
+    /// total order to rely on and stays on `OFFSET`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub keyset_columns: Option<Vec<String>>,
+    /// Opaque keyset cursor from a previous page. When present the driver
+    /// walks from that boundary and ignores `page`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cursor: Option<String>,
     /// Handle a caller can later pass to `cancel` to interrupt an exact count.
     ///
     /// Never serialized: the query cache keys on the serialized options, and a
@@ -1257,6 +1266,23 @@ impl TableQueryOptions {
     /// "search nothing" and silently return no rows.
     pub fn effective_search_columns(&self) -> Option<&[String]> {
         self.search_columns
+            .as_deref()
+            .filter(|cols| !cols.is_empty())
+    }
+
+    /// Whether a keyset walk applies to this request.
+    ///
+    /// A cursor means the caller is walking a chain; the first page starts one.
+    /// A later page *without* a cursor means the caller is paging by offset,
+    /// and answering it with a keyset would drop the offset and silently serve
+    /// the first page again.
+    pub fn keyset_applies(&self) -> bool {
+        self.cursor.is_some() || self.effective_page() <= 1
+    }
+
+    /// Caller-supplied unique key, ignoring an empty list.
+    pub fn effective_keyset_columns(&self) -> Option<&[String]> {
+        self.keyset_columns
             .as_deref()
             .filter(|cols| !cols.is_empty())
     }
@@ -1320,6 +1346,30 @@ pub enum SearchMode {
     StartsWith,
 }
 
+/// How a page was walked.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Default, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum PaginationStrategy {
+    /// `OFFSET`: cost grows with depth, and concurrent writes shift rows
+    /// between pages.
+    #[default]
+    Offset,
+    /// Keyset on a unique ordering: constant cost, stable under writes.
+    Keyset,
+}
+
+/// What the ordering of a page can be relied on for.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Default, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum OrderingGuarantee {
+    /// No total order: rows may repeat or be skipped across pages. The common
+    /// case for views and tables without a unique key.
+    #[default]
+    None,
+    /// Total order via a unique tie-breaker, so every row appears exactly once.
+    Stable,
+}
+
 /// Provenance of a known `total_rows`.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -1352,6 +1402,14 @@ pub struct PaginatedQueryResult {
     /// Whether another page is available.
     #[serde(default)]
     pub has_more: bool,
+    /// Cursor for the page after this one. `None` when the driver paged by
+    /// offset, or when this is the last page.
+    #[serde(default)]
+    pub next_cursor: Option<String>,
+    #[serde(default)]
+    pub pagination_strategy: PaginationStrategy,
+    #[serde(default)]
+    pub ordering_guarantee: OrderingGuarantee,
 }
 
 impl PaginatedQueryResult {
@@ -1389,7 +1447,19 @@ impl PaginatedQueryResult {
             page,
             page_size,
             has_more,
+            next_cursor: None,
+            pagination_strategy: PaginationStrategy::Offset,
+            ordering_guarantee: OrderingGuarantee::None,
         }
+    }
+
+    /// Marks the page as keyset-walked. `next_cursor` is `None` on the last
+    /// page, which is what `has_more` already says.
+    pub fn with_keyset(mut self, next_cursor: Option<String>) -> Self {
+        self.next_cursor = next_cursor;
+        self.pagination_strategy = PaginationStrategy::Keyset;
+        self.ordering_guarantee = OrderingGuarantee::Stable;
+        self
     }
 
     /// Attaches an engine estimate. Never overrides an exact total: an
@@ -1598,6 +1668,37 @@ mod pagination_tests {
             .with_estimate(Some(2_400_000), None);
         assert_eq!(exact.total_rows, Some(42));
         assert_eq!(exact.total_rows_source, Some(TotalRowsSource::Exact));
+    }
+
+    #[test]
+    fn a_later_page_without_a_cursor_is_not_a_keyset_walk() {
+        let unique = Some(vec!["id".to_string()]);
+
+        // First page: starts the chain.
+        let first = TableQueryOptions {
+            page: Some(1),
+            keyset_columns: unique.clone(),
+            ..Default::default()
+        };
+        assert!(first.keyset_applies());
+
+        // Later page carrying a cursor: continues the chain.
+        let walking = TableQueryOptions {
+            page: Some(4),
+            cursor: Some("opaque".into()),
+            keyset_columns: unique.clone(),
+            ..Default::default()
+        };
+        assert!(walking.keyset_applies());
+
+        // Later page with no cursor: the caller is paging by offset. Serving a
+        // keyset here drops the offset and repeats the first page.
+        let offset_paging = TableQueryOptions {
+            page: Some(4),
+            keyset_columns: unique,
+            ..Default::default()
+        };
+        assert!(!offset_paging.keyset_applies());
     }
 
     #[test]

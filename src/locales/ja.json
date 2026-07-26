@@ -1041,7 +1041,8 @@
       "cancelCountBestEffort": "このドライバーはキャンセルを保証できません。サーバー側で件数の計算が続く場合があります。",
       "loadedEstimated": "{{loaded}} / 約 {{total}} 行を読み込み（推定）",
       "estimateHint": "エンジンによる推定値であり、正確な件数ではありません。",
-      "estimateAsOf": "統計の最終更新: {{date}}"
+      "estimateAsOf": "統計の最終更新: {{date}}",
+      "windowExhausted": "{{loaded}} 行を読み込み — この深さではエンジンがこれ以上のページを返しません"
     },
     "noData": "表示するデータがありません",
     "noResults": "結果なし",
@@ -1125,7 +1126,11 @@
       }
     },
     "createIndexForSort": "この列にインデックスを作成",
-    "createIndexUnsupported": "このドライバーはインデックスの作成に対応していません。"
+    "createIndexUnsupported": "このドライバーはインデックスの作成に対応していません。",
+    "pagination": {
+      "unstableOrder": "不安定な順序",
+      "unstableOrderHint": "このテーブルにはページングに使える一意キーがありません。スクロール中にデータが変わると、行が重複したり抜け落ちたりすることがあります。"
+    }
   },
   "export": {
     "dialogTitle": "ストリーミングエクスポート",

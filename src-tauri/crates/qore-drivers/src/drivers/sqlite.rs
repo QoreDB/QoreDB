@@ -29,16 +29,17 @@ use sqlx::sqlite::{
 use sqlx::{Column, Row, TypeInfo, ValueRef};
 use tokio::sync::{Mutex, RwLock};
 
+use qore_core::cursor::KeysetPlan;
 use qore_core::error::{EngineError, EngineResult};
 use qore_core::traits::{DataEngine, StreamEvent, StreamSender};
 use qore_core::types::{
     CancelSupport, Collection, CollectionList, CollectionListOptions, CollectionType, ColumnInfo,
     ConnectionConfig, FilterOperator, ForeignKey, MaintenanceMessage, MaintenanceMessageLevel,
     MaintenanceOperationInfo, MaintenanceOperationType, MaintenanceRequest, MaintenanceResult,
-    Namespace, PaginatedQueryResult, QueryId, QueryResult, Row as QRow, RowData, SearchMode,
-    SessionId, SortDirection, TableColumn, TableIndex, TableQueryOptions, TableSchema, Trigger,
-    TriggerEvent, TriggerList, TriggerListOptions, TriggerOperationResult, TriggerTiming,
-    TruncateAllResult, Value,
+    Namespace, PaginatedQueryResult, PaginationCapability, QueryId, QueryResult, Row as QRow,
+    RowData, SearchMode, SessionId, SnapshotSupport, SortDirection, TableColumn, TableIndex,
+    TableQueryOptions, TableSchema, Trigger, TriggerEvent, TriggerList, TriggerListOptions,
+    TriggerOperationResult, TriggerTiming, TruncateAllResult, Value,
 };
 use qore_sql::safety;
 
@@ -1165,6 +1166,25 @@ impl DataEngine for SqliteDriver {
             String::new()
         };
 
+        // Cursor binds stay out of `bind_values`: the count must keep counting
+        // the filtered set, not what is left after the boundary.
+        let keyset = options
+            .keyset_applies()
+            .then(|| {
+                KeysetPlan::new(
+                    options.sort_column.as_deref(),
+                    matches!(options.sort_direction, Some(SortDirection::Desc)),
+                    options.effective_keyset_columns(),
+                )
+            })
+            .flatten();
+        let mut cursor_values: Vec<Value> = Vec::new();
+        let mut cursor_sql = String::new();
+        if let (Some(plan), Some(encoded)) = (keyset.as_ref(), options.cursor.as_deref()) {
+            cursor_sql = plan.predicate(|col| Self::quote_ident(col), |_| "?".to_string());
+            cursor_values = plan.decode(encoded)?.values;
+        }
+
         let total_rows = if options.wants_exact_total() {
             let count_sql = format!("SELECT COUNT(*) AS cnt FROM {}{}", table_ident, where_sql);
             let mut count_query = sqlx::query(&count_sql);
@@ -1191,13 +1211,31 @@ impl DataEngine for SqliteDriver {
         };
 
         // Execute data query with pagination
-        let data_sql = format!(
-            "SELECT * FROM {}{}{} LIMIT {} OFFSET {}",
-            table_ident, where_sql, order_sql, fetch_size, offset
-        );
+        let data_sql = if let Some(plan) = keyset.as_ref() {
+            let data_where = match (where_sql.is_empty(), cursor_sql.is_empty()) {
+                (_, true) => where_sql.clone(),
+                (true, false) => format!(" WHERE {}", cursor_sql),
+                (false, false) => format!("{} AND {}", where_sql, cursor_sql),
+            };
+            format!(
+                "SELECT * FROM {} {} ORDER BY {} LIMIT {}",
+                table_ident,
+                data_where,
+                plan.order_by(|col| Self::quote_ident(col)),
+                fetch_size
+            )
+        } else {
+            format!(
+                "SELECT * FROM {}{}{} LIMIT {} OFFSET {}",
+                table_ident, where_sql, order_sql, fetch_size, offset
+            )
+        };
 
         let mut data_query = sqlx::query(&data_sql);
         for val in &bind_values {
+            data_query = Self::bind_param(data_query, val);
+        }
+        for val in &cursor_values {
             data_query = Self::bind_param(data_query, val);
         }
 
@@ -1252,9 +1290,29 @@ impl DataEngine for SqliteDriver {
             }
         };
 
-        Ok(PaginatedQueryResult::from_optional_total(
-            result, total_rows, page, page_size,
-        ))
+        let mut paginated =
+            PaginatedQueryResult::from_optional_total(result, total_rows, page, page_size);
+
+        if let Some(plan) = keyset.as_ref() {
+            // Minted after truncation: the over-fetched row would otherwise
+            // become the boundary and skip one row per page.
+            let next_cursor = paginated
+                .has_more
+                .then(|| {
+                    let last = paginated.result.rows.last()?;
+                    let columns: Vec<String> = paginated
+                        .result
+                        .columns
+                        .iter()
+                        .map(|col| col.name.to_string())
+                        .collect();
+                    plan.mint(&columns, &last.values)
+                })
+                .flatten();
+            paginated = paginated.with_keyset(next_cursor);
+        }
+
+        Ok(paginated)
     }
 
     async fn peek_foreign_key(
@@ -1319,6 +1377,16 @@ impl DataEngine for SqliteDriver {
         Err(EngineError::not_supported(
             "SQLite does not support query cancellation",
         ))
+    }
+
+    fn pagination_capability(&self) -> PaginationCapability {
+        PaginationCapability {
+            keyset: true,
+            requires_unique_key: true,
+            supports_backward: false,
+            snapshot: SnapshotSupport::Transaction,
+            max_offset_window: None,
+        }
     }
 
     fn cancel_support(&self) -> CancelSupport {

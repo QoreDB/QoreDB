@@ -10,8 +10,7 @@ use qore_core::traits::{DataEngine, StreamSender};
 use qore_core::types::{
     CancelSupport, CollectionList, CollectionListOptions, ConnectionConfig, Namespace,
     PaginatedQueryResult, PaginationCapability, QueryId, QueryResult, RowData, SessionId,
-    TableQueryOptions, TableSchema,
-    Value,
+    TableQueryOptions, TableSchema, Value,
 };
 
 pub struct ElasticsearchDriver {

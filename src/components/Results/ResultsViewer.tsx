@@ -9,6 +9,7 @@ import type {
   ColumnFilter,
   Environment,
   Namespace,
+  OrderingGuarantee,
   QueryResult,
   SortDirection,
   TableSchema,
@@ -45,6 +46,8 @@ interface ResultsViewerProps {
   infiniteScrollIsFetchingMore?: boolean;
   infiniteScrollIsCountingTotal?: boolean;
   infiniteScrollIsComplete?: boolean;
+  infiniteScrollWindowExhausted?: boolean;
+  infiniteScrollOrderingGuarantee?: OrderingGuarantee;
   onFetchMore?: () => void;
   onCalculateExactTotal?: () => void;
   onCancelExactTotal?: () => void;
@@ -99,6 +102,8 @@ export const ResultsViewer = memo(function ResultsViewer({
   infiniteScrollIsFetchingMore,
   infiniteScrollIsCountingTotal,
   infiniteScrollIsComplete,
+  infiniteScrollWindowExhausted,
+  infiniteScrollOrderingGuarantee,
   onFetchMore,
   onCalculateExactTotal,
   onCancelExactTotal,
@@ -151,6 +156,8 @@ export const ResultsViewer = memo(function ResultsViewer({
         infiniteScrollIsFetchingMore={infiniteScrollIsFetchingMore}
         infiniteScrollIsCountingTotal={infiniteScrollIsCountingTotal}
         infiniteScrollIsComplete={infiniteScrollIsComplete}
+        infiniteScrollWindowExhausted={infiniteScrollWindowExhausted}
+        infiniteScrollOrderingGuarantee={infiniteScrollOrderingGuarantee}
         onFetchMore={onFetchMore}
         onCalculateExactTotal={onCalculateExactTotal}
         onCancelExactTotal={onCancelExactTotal}
@@ -186,6 +193,8 @@ export const ResultsViewer = memo(function ResultsViewer({
         infiniteScrollIsFetchingMore={infiniteScrollIsFetchingMore}
         infiniteScrollIsCountingTotal={infiniteScrollIsCountingTotal}
         infiniteScrollIsComplete={infiniteScrollIsComplete}
+        infiniteScrollWindowExhausted={infiniteScrollWindowExhausted}
+        infiniteScrollOrderingGuarantee={infiniteScrollOrderingGuarantee}
         onFetchMore={onFetchMore}
         onCalculateExactTotal={onCalculateExactTotal}
         onCancelExactTotal={onCancelExactTotal}

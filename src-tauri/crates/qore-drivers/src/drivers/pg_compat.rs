@@ -22,6 +22,7 @@ use crate::drivers::postgres_utils::{
     EnumLabelMap, PgDecoder, bind_param, build_decoders, collect_enum_type_oids, columns_and_rows,
     convert_row_with_decoders, get_column_info, load_enum_labels,
 };
+use qore_core::cursor::KeysetPlan;
 use qore_core::error::{EngineError, EngineResult};
 use qore_core::traits::{StreamEvent, StreamSender};
 use qore_core::types::{
@@ -1261,6 +1262,34 @@ async fn query_table_with_dialect(
         format!(" WHERE {}", where_clauses.join(" AND "))
     };
 
+    // Keyset needs a total order. The caller supplies the unique key — it holds
+    // the schema already — so the driver reads no catalog, not even on the
+    // first page. Without a unique key there is no total order and `OFFSET`
+    // stays the honest answer.
+    let keyset = options
+        .keyset_applies()
+        .then(|| {
+            KeysetPlan::new(
+                options.sort_column.as_deref(),
+                matches!(options.sort_direction, Some(SortDirection::Desc)),
+                options.effective_keyset_columns(),
+            )
+        })
+        .flatten();
+
+    // Cursor binds live apart from `bind_values`: the count must stay a count of
+    // the filtered set, not of what is left after the boundary.
+    let mut cursor_values: Vec<Value> = Vec::new();
+    let mut cursor_sql = String::new();
+    if let (Some(plan), Some(encoded)) = (keyset.as_ref(), options.cursor.as_deref()) {
+        let base = bind_values.len();
+        cursor_sql = plan.predicate(
+            |col| quote_ident(col),
+            |index| format!("${}", base + index + 1),
+        );
+        cursor_values = plan.decode(encoded)?.values;
+    }
+
     let order_sql = if let Some(sort_col) = &options.sort_column {
         let sort_ident = quote_ident(sort_col);
         let direction = match options.sort_direction.unwrap_or_default() {
@@ -1321,13 +1350,31 @@ async fn query_table_with_dialect(
         None
     };
 
-    let data_sql = format!(
-        "SELECT * FROM {}{}{} LIMIT {} OFFSET {}",
-        table_ref, where_sql, order_sql, fetch_size, offset
-    );
+    let data_sql = if let Some(plan) = keyset.as_ref() {
+        let data_where = match (where_sql.is_empty(), cursor_sql.is_empty()) {
+            (_, true) => where_sql.clone(),
+            (true, false) => format!(" WHERE {}", cursor_sql),
+            (false, false) => format!("{} AND {}", where_sql, cursor_sql),
+        };
+        format!(
+            "SELECT * FROM {} {} ORDER BY {} LIMIT {}",
+            table_ref,
+            data_where,
+            plan.order_by(|col| quote_ident(col)),
+            fetch_size
+        )
+    } else {
+        format!(
+            "SELECT * FROM {}{}{} LIMIT {} OFFSET {}",
+            table_ref, where_sql, order_sql, fetch_size, offset
+        )
+    };
 
     let mut data_query = sqlx::query(&data_sql);
     for val in &bind_values {
+        data_query = bind_param(data_query, val);
+    }
+    for val in &cursor_values {
         data_query = bind_param(data_query, val);
     }
 
@@ -1401,7 +1448,19 @@ async fn query_table_with_dialect(
         }
     };
 
-    let paginated = PaginatedQueryResult::from_optional_total(result, total_rows, page, page_size);
+    let mut paginated =
+        PaginatedQueryResult::from_optional_total(result, total_rows, page, page_size);
+
+    if let Some(plan) = keyset.as_ref() {
+        // Minted from the last row actually returned, so the over-fetched row
+        // that `from_optional_total` trimmed never becomes a boundary — it
+        // would skip one row per page.
+        let next_cursor = paginated
+            .has_more
+            .then(|| next_cursor_for(&paginated.result, plan))
+            .flatten();
+        paginated = paginated.with_keyset(next_cursor);
+    }
 
     if !exact_count && options.wants_any_total() && options.estimate_matches_scope() {
         let (estimate, as_of) = pg_row_estimate(&pg.pool, schema_name, table).await;
@@ -1409,6 +1468,17 @@ async fn query_table_with_dialect(
     }
 
     Ok(paginated)
+}
+
+/// Cursor for the page after `result`, or `None` when it cannot be built.
+fn next_cursor_for(result: &QueryResult, plan: &KeysetPlan) -> Option<String> {
+    let last = result.rows.last()?;
+    let columns: Vec<String> = result
+        .columns
+        .iter()
+        .map(|col| col.name.to_string())
+        .collect();
+    plan.mint(&columns, &last.values)
 }
 
 /// Planner row estimate from the catalog, with the freshness of the statistics

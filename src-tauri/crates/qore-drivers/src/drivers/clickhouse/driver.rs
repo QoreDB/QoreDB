@@ -11,14 +11,16 @@ use qore_core::error::{EngineError, EngineResult};
 use qore_core::traits::DataEngine;
 use qore_core::types::{
     CancelSupport, CollectionList, CollectionListOptions, ConnectionConfig, Namespace,
-    PaginatedQueryResult, QueryId, QueryResult, RowData, SessionId, TableQueryOptions, TableSchema,
-    Value,
+    PaginatedQueryResult, PaginationCapability, QueryId, QueryResult, RowData, SessionId,
+    SnapshotSupport, TableQueryOptions, TableSchema, Value,
 };
 use tokio::sync::{Mutex, RwLock};
 use uuid::Uuid;
 
 use super::client::ClickHouseClient;
 use super::describe::{describe_table, list_databases, list_tables, ping};
+use qore_core::cursor::KeysetPlan;
+
 use super::literal::format_literal;
 use super::response::parse_query_result;
 
@@ -233,20 +235,75 @@ impl DataEngine for ClickHouseDriver {
             None
         };
 
+        // Literals are inlined here, so the keyset boundary goes through the
+        // same formatter as every other value.
+        let keyset = options
+            .keyset_applies()
+            .then(|| {
+                KeysetPlan::new(
+                    options.sort_column.as_deref(),
+                    matches!(
+                        options.sort_direction,
+                        Some(qore_core::types::SortDirection::Desc)
+                    ),
+                    options.effective_keyset_columns(),
+                )
+            })
+            .flatten();
+        let cursor_values = match (keyset.as_ref(), options.cursor.as_deref()) {
+            (Some(plan), Some(encoded)) => plan.decode(encoded)?.values,
+            _ => Vec::new(),
+        };
+
         let mut sql = format!("SELECT * FROM {qualified}");
-        if let Some(col) = options.sort_column.as_ref() {
-            let dir = match options.sort_direction {
-                Some(qore_core::types::SortDirection::Desc) => "DESC",
-                _ => "ASC",
-            };
-            sql.push_str(&format!(" ORDER BY {} {dir}", quote_ident(col)));
+        if let Some(plan) = keyset.as_ref() {
+            if !cursor_values.is_empty() {
+                sql.push_str(&format!(
+                    " WHERE {}",
+                    plan.predicate(
+                        |col| quote_ident(col),
+                        |index| format_literal(&cursor_values[index]),
+                    )
+                ));
+            }
+            sql.push_str(&format!(
+                " ORDER BY {}",
+                plan.order_by(|col| quote_ident(col))
+            ));
+            sql.push_str(&format!(" LIMIT {}", fetch_size));
+        } else {
+            if let Some(col) = options.sort_column.as_ref() {
+                let dir = match options.sort_direction {
+                    Some(qore_core::types::SortDirection::Desc) => "DESC",
+                    _ => "ASC",
+                };
+                sql.push_str(&format!(" ORDER BY {} {dir}", quote_ident(col)));
+            }
+            sql.push_str(&format!(" LIMIT {} OFFSET {}", fetch_size, offset));
         }
-        sql.push_str(&format!(" LIMIT {} OFFSET {}", fetch_size, offset));
 
         let result = self.execute(session, &sql, QueryId::new()).await?;
-        Ok(PaginatedQueryResult::from_optional_total(
-            result, total, page, page_size,
-        ))
+        let mut paginated =
+            PaginatedQueryResult::from_optional_total(result, total, page, page_size);
+
+        if let Some(plan) = keyset.as_ref() {
+            let next_cursor = paginated
+                .has_more
+                .then(|| {
+                    let last = paginated.result.rows.last()?;
+                    let columns: Vec<String> = paginated
+                        .result
+                        .columns
+                        .iter()
+                        .map(|col| col.name.to_string())
+                        .collect();
+                    plan.mint(&columns, &last.values)
+                })
+                .flatten();
+            paginated = paginated.with_keyset(next_cursor);
+        }
+
+        Ok(paginated)
     }
 
     async fn cancel(&self, _session: SessionId, query_id: Option<QueryId>) -> EngineResult<()> {
@@ -261,6 +318,16 @@ impl DataEngine for ClickHouseDriver {
             }
         }
         Ok(())
+    }
+
+    fn pagination_capability(&self) -> PaginationCapability {
+        PaginationCapability {
+            keyset: true,
+            requires_unique_key: true,
+            supports_backward: false,
+            snapshot: SnapshotSupport::None,
+            max_offset_window: None,
+        }
     }
 
     fn cancel_support(&self) -> CancelSupport {

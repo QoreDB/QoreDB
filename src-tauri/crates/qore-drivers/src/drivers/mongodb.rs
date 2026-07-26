@@ -16,6 +16,7 @@ use mongodb::options::{
     ReturnDocument, UpdateManyModel, UpdateOneModel, WriteModel,
 };
 use mongodb::{Client, ClientSession, IndexModel};
+use qore_core::cursor::{Cursor, KeysetPlan};
 use qore_core::types::RowData as QRowData;
 use tokio::sync::{Mutex, RwLock};
 
@@ -35,9 +36,9 @@ use qore_core::types::{
     CancelSupport, Collection, CollectionList, CollectionListOptions, CollectionType, ColumnInfo,
     ConnectionConfig, FilterOperator, MaintenanceMessage, MaintenanceMessageLevel,
     MaintenanceOperationInfo, MaintenanceOperationType, MaintenanceRequest, MaintenanceResult,
-    Namespace, PaginatedQueryResult, QueryId, QueryResult, Row as QRow, SearchMode, SessionId,
-    SortDirection, TableColumn, TableIndex, TableQueryOptions, TableSchema, TruncateAllResult,
-    Value,
+    Namespace, PaginatedQueryResult, PaginationCapability, QueryId, QueryResult, Row as QRow,
+    SearchMode, SessionId, SnapshotSupport, SortDirection, TableColumn, TableIndex,
+    TableQueryOptions, TableSchema, TruncateAllResult, Value,
 };
 
 pub struct MongoSession {
@@ -243,6 +244,62 @@ impl MongoDriver {
             doc.insert(key, Self::value_to_bson(value));
         }
         doc
+    }
+
+    /// Boundary cursor built from the key fields of `doc`.
+    ///
+    /// `None` when a key field is absent: a missing boundary value would place
+    /// the next page at the wrong offset, which loses rows silently.
+    fn cursor_from_document(plan: &KeysetPlan, doc: &Document) -> Option<String> {
+        let values: Vec<Value> = plan
+            .keys()
+            .iter()
+            .map(|key| doc.get(&key.column).map(Self::bson_to_value))
+            .collect::<Option<Vec<_>>>()?;
+        Cursor::new(plan.keys().to_vec(), values).encode().ok()
+    }
+
+    /// BSON to the normalized `Value`, going through JSON so ObjectId, dates
+    /// and the other extended types keep a representation the cursor can carry
+    /// and compare on the way back.
+    fn bson_to_value(value: &mongodb::bson::Bson) -> Value {
+        match value {
+            mongodb::bson::Bson::String(text) => Value::Text(text.clone()),
+            mongodb::bson::Bson::Int32(number) => Value::Int(*number as i64),
+            mongodb::bson::Bson::Int64(number) => Value::Int(*number),
+            mongodb::bson::Bson::Double(number) => Value::Float(*number),
+            mongodb::bson::Bson::Boolean(flag) => Value::Bool(*flag),
+            mongodb::bson::Bson::Null => Value::Null,
+            other => serde_json::to_value(other)
+                .map(Value::Json)
+                .unwrap_or(Value::Null),
+        }
+    }
+
+    /// Keyset filter for MongoDB, as the same lexicographic comparison the SQL
+    /// drivers build: `{$or: [{k1: {$gt: v1}}, {k1: v1, k2: {$gt: v2}}, ...]}`.
+    ///
+    /// Applied to the filter rather than to `skip`, so the cost stops growing
+    /// with depth and concurrent writes stop shifting rows between pages.
+    fn keyset_filter(plan: &KeysetPlan, values: &[Value]) -> Option<Document> {
+        let branches: Vec<Document> = plan
+            .keys()
+            .iter()
+            .enumerate()
+            .map(|(index, key)| {
+                let mut branch = Document::new();
+                for (prior, earlier) in plan.keys()[..index].iter().enumerate() {
+                    branch.insert(earlier.column.clone(), Self::value_to_bson(&values[prior]));
+                }
+                let op = if key.descending { "$lt" } else { "$gt" };
+                branch.insert(
+                    key.column.clone(),
+                    doc! { op: Self::value_to_bson(&values[index]) },
+                );
+                branch
+            })
+            .collect();
+        (!branches.is_empty()).then(|| doc! { "$or": branches })
     }
 
     /// Builds the `$or` regex conditions for a search term over `fields`.
@@ -2320,6 +2377,23 @@ impl DataEngine for MongoDriver {
             filter_doc.insert("$and", and_clauses);
         }
 
+        // `_id` is unique and always present, so it is the tie-breaker unless
+        // the caller names another unique key.
+        let unique_key: Vec<String> = options
+            .effective_keyset_columns()
+            .map(<[String]>::to_vec)
+            .unwrap_or_else(|| vec!["_id".to_string()]);
+        let keyset = options
+            .keyset_applies()
+            .then(|| {
+                KeysetPlan::new(
+                    options.sort_column.as_deref(),
+                    matches!(options.sort_direction, Some(SortDirection::Desc)),
+                    Some(&unique_key),
+                )
+            })
+            .flatten();
+
         let mut tx_guard = mongo_session.transaction_session.lock().await;
         let (total_rows, estimate, documents) = if let Some(txn) = tx_guard.as_mut() {
             if let Some(search_term) = options.effective_search() {
@@ -2366,11 +2440,23 @@ impl DataEngine for MongoDriver {
 
             use mongodb::options::FindOptions;
             let mut find_options = FindOptions::builder()
-                .skip(Some(offset))
+                .skip(if keyset.is_some() { None } else { Some(offset) })
                 .limit(Some(fetch_size as i64))
                 .build();
 
-            if let Some(sort_col) = &options.sort_column {
+            if let Some(plan) = keyset.as_ref() {
+                let mut sort = Document::new();
+                for key in plan.keys() {
+                    sort.insert(key.column.clone(), if key.descending { -1 } else { 1 });
+                }
+                find_options.sort = Some(sort);
+                if let Some(encoded) = options.cursor.as_deref() {
+                    let boundary = plan.decode(encoded)?.values;
+                    if let Some(clause) = Self::keyset_filter(plan, &boundary) {
+                        filter_doc = doc! { "$and": [filter_doc, clause] };
+                    }
+                }
+            } else if let Some(sort_col) = &options.sort_column {
                 let sort_direction = match options.sort_direction.unwrap_or_default() {
                     SortDirection::Asc => 1,
                     SortDirection::Desc => -1,
@@ -2453,11 +2539,23 @@ impl DataEngine for MongoDriver {
 
             use mongodb::options::FindOptions;
             let mut find_options = FindOptions::builder()
-                .skip(Some(offset))
+                .skip(if keyset.is_some() { None } else { Some(offset) })
                 .limit(Some(fetch_size as i64))
                 .build();
 
-            if let Some(sort_col) = &options.sort_column {
+            if let Some(plan) = keyset.as_ref() {
+                let mut sort = Document::new();
+                for key in plan.keys() {
+                    sort.insert(key.column.clone(), if key.descending { -1 } else { 1 });
+                }
+                find_options.sort = Some(sort);
+                if let Some(encoded) = options.cursor.as_deref() {
+                    let boundary = plan.decode(encoded)?.values;
+                    if let Some(clause) = Self::keyset_filter(plan, &boundary) {
+                        filter_doc = doc! { "$and": [filter_doc, clause] };
+                    }
+                }
+            } else if let Some(sort_col) = &options.sort_column {
                 let sort_direction = match options.sort_direction.unwrap_or_default() {
                     SortDirection::Asc => 1,
                     SortDirection::Desc => -1,
@@ -2517,10 +2615,24 @@ impl DataEngine for MongoDriver {
             }
         };
 
-        Ok(
+        let mut paginated =
             PaginatedQueryResult::from_optional_total(result, total_rows, page, page_size)
-                .with_estimate(estimate, None),
-        )
+                .with_estimate(estimate, None);
+
+        if let Some(plan) = keyset.as_ref() {
+            // From the boundary document rather than the rendered row: this
+            // driver projects a single `document` column, so the key fields are
+            // inside the JSON and never column names.
+            let kept = documents.len().min(page_size as usize);
+            let next_cursor = paginated
+                .has_more
+                .then(|| kept.checked_sub(1).and_then(|last| documents.get(last)))
+                .flatten()
+                .and_then(|boundary| Self::cursor_from_document(plan, boundary));
+            paginated = paginated.with_keyset(next_cursor);
+        }
+
+        Ok(paginated)
     }
 
     async fn cancel(&self, session: SessionId, query_id: Option<QueryId>) -> EngineResult<()> {
@@ -2551,6 +2663,16 @@ impl DataEngine for MongoDriver {
         }
 
         Ok(())
+    }
+
+    fn pagination_capability(&self) -> PaginationCapability {
+        PaginationCapability {
+            keyset: true,
+            requires_unique_key: true,
+            supports_backward: false,
+            snapshot: SnapshotSupport::None,
+            max_offset_window: None,
+        }
     }
 
     fn cancel_support(&self) -> CancelSupport {

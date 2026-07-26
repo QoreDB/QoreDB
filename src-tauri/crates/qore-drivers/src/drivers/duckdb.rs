@@ -38,17 +38,18 @@ use async_trait::async_trait;
 use chrono::{DateTime, Duration, NaiveDate, NaiveTime, SecondsFormat, Utc};
 use tokio::sync::RwLock;
 
+use qore_core::cursor::KeysetPlan;
 use qore_core::error::{EngineError, EngineResult};
 use qore_core::traits::{DataEngine, StreamEvent, StreamSender};
 use qore_core::types::{
     CancelSupport, Collection, CollectionList, CollectionListOptions, CollectionType, ColumnInfo,
     ConnectionConfig, FilterOperator, ForeignKey, MaintenanceMessage, MaintenanceMessageLevel,
     MaintenanceOperationInfo, MaintenanceOperationType, MaintenanceRequest, MaintenanceResult,
-    Namespace, PaginatedQueryResult, QueryId, QueryResult, Routine, RoutineDefinition, RoutineList,
-    RoutineListOptions, RoutineOperationResult, RoutineType, Row as QRow, RowData, SearchMode,
-    Sequence, SequenceDefinition, SequenceList, SequenceListOptions, SequenceOperationResult,
-    SessionId, SortDirection, TableColumn, TableIndex, TableQueryOptions, TableSchema,
-    TruncateAllResult, Value,
+    Namespace, PaginatedQueryResult, PaginationCapability, QueryId, QueryResult, Routine,
+    RoutineDefinition, RoutineList, RoutineListOptions, RoutineOperationResult, RoutineType,
+    Row as QRow, RowData, SearchMode, Sequence, SequenceDefinition, SequenceList,
+    SequenceListOptions, SequenceOperationResult, SessionId, SnapshotSupport, SortDirection,
+    TableColumn, TableIndex, TableQueryOptions, TableSchema, TruncateAllResult, Value,
 };
 use qore_sql::safety;
 
@@ -1504,6 +1505,16 @@ impl DataEngine for DuckDbDriver {
         // Registers the statement so `cancel` can reach the interrupt handle;
         // without it an exact count would run to completion.
         let query_id = options.query_id.unwrap_or_default();
+        let keyset = options
+            .keyset_applies()
+            .then(|| {
+                KeysetPlan::new(
+                    options.sort_column.as_deref(),
+                    matches!(options.sort_direction, Some(SortDirection::Desc)),
+                    options.effective_keyset_columns(),
+                )
+            })
+            .flatten();
 
         Self::with_query_conn(&duck_session, query_id, move |conn| {
             let start = Instant::now();
@@ -1672,10 +1683,35 @@ impl DataEngine for DuckDbDriver {
                 None
             };
 
-            let data_sql = format!(
-                "SELECT * FROM {}{}{} LIMIT {} OFFSET {}",
-                table_ref, where_sql, order_sql, fetch_size, offset
-            );
+            // Cursor binds are appended after the filter binds, so the count
+            // above keeps counting the filtered set rather than the remainder.
+            let mut cursor_sql = String::new();
+            if let (Some(plan), Some(encoded)) = (keyset.as_ref(), options.cursor.as_deref()) {
+                cursor_sql = plan.predicate(|col| Self::quote_ident(col), |_| "?".to_string());
+                for value in plan.decode(encoded)?.values {
+                    bind_values.push(value_to_duckdb(&value));
+                }
+            }
+
+            let data_sql = if let Some(plan) = keyset.as_ref() {
+                let data_where = match (where_sql.is_empty(), cursor_sql.is_empty()) {
+                    (_, true) => where_sql.clone(),
+                    (true, false) => format!(" WHERE {}", cursor_sql),
+                    (false, false) => format!("{} AND {}", where_sql, cursor_sql),
+                };
+                format!(
+                    "SELECT * FROM {} {} ORDER BY {} LIMIT {}",
+                    table_ref,
+                    data_where,
+                    plan.order_by(|col| Self::quote_ident(col)),
+                    fetch_size
+                )
+            } else {
+                format!(
+                    "SELECT * FROM {}{}{} LIMIT {} OFFSET {}",
+                    table_ref, where_sql, order_sql, fetch_size, offset
+                )
+            };
 
             let mut stmt = conn
                 .prepare(&data_sql)
@@ -1709,9 +1745,29 @@ impl DataEngine for DuckDbDriver {
                 execution_time_ms,
             };
 
-            Ok(PaginatedQueryResult::from_optional_total(
-                result, total_rows, page, page_size,
-            ))
+            let mut paginated =
+                PaginatedQueryResult::from_optional_total(result, total_rows, page, page_size);
+
+            if let Some(plan) = keyset.as_ref() {
+                // After truncation: the over-fetched row must never become the
+                // boundary, or one row is skipped per page.
+                let next_cursor = paginated
+                    .has_more
+                    .then(|| {
+                        let last = paginated.result.rows.last()?;
+                        let columns: Vec<String> = paginated
+                            .result
+                            .columns
+                            .iter()
+                            .map(|col| col.name.to_string())
+                            .collect();
+                        plan.mint(&columns, &last.values)
+                    })
+                    .flatten();
+                paginated = paginated.with_keyset(next_cursor);
+            }
+
+            Ok(paginated)
         })
         .await
     }
@@ -2125,6 +2181,16 @@ impl DataEngine for DuckDbDriver {
             duck_session.interrupt.interrupt();
         }
         Ok(())
+    }
+
+    fn pagination_capability(&self) -> PaginationCapability {
+        PaginationCapability {
+            keyset: true,
+            requires_unique_key: true,
+            supports_backward: false,
+            snapshot: SnapshotSupport::Transaction,
+            max_offset_window: None,
+        }
     }
 
     fn cancel_support(&self) -> CancelSupport {
@@ -2843,6 +2909,8 @@ mod tests {
                     search: Some("alp".into()),
                     search_columns: None,
                     search_mode: None,
+                    keyset_columns: None,
+                    cursor: None,
                     count_mode: Some(CountMode::None),
                     query_id: None,
                 },

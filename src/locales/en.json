@@ -1076,7 +1076,8 @@
       "cancelCountBestEffort": "This driver cannot guarantee the cancellation: the count may keep running on the server.",
       "loadedEstimated": "{{loaded}} of ~{{total}} rows loaded (estimate)",
       "estimateHint": "Engine estimate, not an exact count.",
-      "estimateAsOf": "Statistics last refreshed on {{date}}."
+      "estimateAsOf": "Statistics last refreshed on {{date}}.",
+      "windowExhausted": "{{loaded}} rows loaded — the engine serves no further pages at this depth"
     },
     "noData": "No data to display",
     "noResults": "No results",
@@ -1160,7 +1161,11 @@
       }
     },
     "createIndexForSort": "Create an index on this column",
-    "createIndexUnsupported": "This driver does not support creating indexes."
+    "createIndexUnsupported": "This driver does not support creating indexes.",
+    "pagination": {
+      "unstableOrder": "unstable order",
+      "unstableOrderHint": "This table has no unique key to page on, so a row may appear twice or be skipped if the data changes while you scroll."
+    }
   },
   "export": {
     "dialogTitle": "Streaming export",

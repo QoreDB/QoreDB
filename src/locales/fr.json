@@ -1076,7 +1076,8 @@
       "cancelCountBestEffort": "Ce driver ne garantit pas l'annulation : le comptage peut continuer côté serveur.",
       "loadedEstimated": "{{loaded}} lignes chargées sur ~{{total}} (estimation)",
       "estimateHint": "Estimation du moteur, ce n'est pas un comptage exact.",
-      "estimateAsOf": "Statistiques mises à jour le {{date}}."
+      "estimateAsOf": "Statistiques mises à jour le {{date}}.",
+      "windowExhausted": "{{loaded}} lignes chargées — le moteur ne sert plus de pages à cette profondeur"
     },
     "noData": "Aucune donnée à afficher",
     "noResults": "Aucun résultat",
@@ -1160,7 +1161,11 @@
       }
     },
     "createIndexForSort": "Créer un index sur cette colonne",
-    "createIndexUnsupported": "Ce driver ne gère pas la création d’index."
+    "createIndexUnsupported": "Ce driver ne gère pas la création d’index.",
+    "pagination": {
+      "unstableOrder": "ordre instable",
+      "unstableOrderHint": "Cette table n'a pas de clé unique sur laquelle paginer : une ligne peut apparaître deux fois ou être sautée si les données changent pendant le défilement."
+    }
   },
   "export": {
     "dialogTitle": "Export en continu",

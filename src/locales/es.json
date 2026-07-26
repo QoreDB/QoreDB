@@ -666,8 +666,6 @@
     "storeHistoryDescription": "Guarda un historial redactado localmente para facilitar la recuperación.",
     "storeErrorLogs": "Almacenar registros de errores",
     "storeErrorLogsDescription": "Guarda detalles de errores redactados para ayudar en la depuración.",
-    "analyticsEnabled": "Compartir analíticas de uso anónimas",
-    "analyticsEnabledDescription": "Ayuda a mejorar QoreDB enviando eventos anónimos (sin consultas ni credenciales).",
     "sandbox": {
       "title": "Sandbox",
       "description": "Personaliza cómo se rastrean y muestran los cambios del sandbox.",
@@ -1042,7 +1040,9 @@
       "loadedEstimated": "{{loaded}} de ~{{total}} filas cargadas (estimación)",
       "estimateHint": "Estimación del motor, no es un recuento exacto.",
       "estimateAsOf": "Estadísticas actualizadas por última vez el {{date}}.",
-      "windowExhausted": "{{loaded}} filas cargadas: el motor no sirve más páginas a esta profundidad"
+      "windowExhausted": "{{loaded}} filas cargadas: el motor no sirve más páginas a esta profundidad",
+      "budgetExhausted": "{{loaded}} filas cargadas — la pestaña alcanzó su límite de memoria",
+      "budgetExhaustedHint": "Acote el resultado con un filtro, o exporte la tabla para leerla por completo."
     },
     "noData": "No hay datos para mostrar",
     "noResults": "Sin resultados",
@@ -1079,9 +1079,14 @@
     "exportSuccess": "Se exportaron {{count}} fila(s) a {{path}}",
     "exportError": "Error al exportar los datos",
     "copyToClipboard": "Copiar al portapapeles",
+    "copySelection": "Copiar las {{count}} fila(s) seleccionada(s)",
+    "copyLoadedRows": "Copiar las {{count}} fila(s) cargada(s)",
+    "selectAllRows": "Seleccionar las filas cargadas",
+    "selectRow": "Seleccionar la fila",
     "downloadToFile": "Descargar a archivo",
     "openRow": "Abrir fila",
     "editCell": "Editar celda",
+    "cellPreviewTruncated": "Vista previa — abra la fila para ver el valor completo",
     "searchPlaceholder": "Buscar...",
     "columns": "Columnas",
     "toggleColumns": "Alternar columnas",
@@ -1449,6 +1454,7 @@
     "exportVisible": "Exportar registros visibles",
     "exportDiagnostic": "Exportar registros de diagnóstico (completos)",
     "exportSuccess": "Registros exportados: {{name}}",
+    "exportScrubbed": "Se eliminaron credenciales, tokens y tu ruta personal antes de escribir el archivo.",
     "exportError": "Error al exportar los registros"
   },
   "paginationDiagnostics": {
@@ -1675,8 +1681,8 @@
       "guardsDesc": "Las consultas peligrosas se detectan y se confirman dos veces en producción. Modo de solo lectura para cualquier conexión con un solo toggle.",
       "sandboxTitle": "Modo Sandbox",
       "sandboxDesc": "Prepara cambios de la cuadrícula localmente, revísalos y aplícalos a la base de datos cuando estén listos. Las consultas del editor SQL no están aisladas.",
-      "localTitle": "Nada sale de tu máquina",
-      "localDesc": "Sin sincronización en la nube, sin telemetría de tus datos, sin indexación remota del esquema. Tus consultas y resultados permanecen locales."
+      "localTitle": "Tus datos no salen de tu equipo",
+      "localDesc": "Sin sincronización en la nube, sin telemetría alguna, sin indexación remota del esquema. Tus consultas y resultados permanecen locales. Una sola excepción: la comprobación de actualizaciones consulta GitHub al inicio — se desactiva en Ajustes."
     },
     "tiers": {
       "title": "Open core — Free y Pro",
@@ -1693,24 +1699,35 @@
       "proBullet3": "Contratos de datos, Data API instantánea, exportaciones avanzadas",
       "footnote": "Pro es un pago único con licencia perpetua. Team es una suscripción por puesto."
     },
-    "analytics": {
-      "title": "Ayúdanos a mejorar",
-      "subtitle": "Somos un proyecto de código abierto. Los datos de uso anónimos nos ayudan a priorizar funcionalidades y corregir errores — puedes cambiar esto en cualquier momento en Configuración.",
-      "checkbox": "Compartir analíticas de uso anónimas (recomendado)",
-      "privacyHint": "Solo recopilamos informes de errores y conteos de uso de funcionalidades. Ninguna consulta, resultado ni credencial sale de tu máquina.",
-      "guarantee": "Tus consultas, resultados y credenciales nunca salen de tu máquina — independientemente de esta configuración.",
-      "finish": "Comenzar"
-    },
     "workspace": {
       "title": "Organiza con espacios de trabajo",
       "description": "Tiene varias conexiones. Cree un espacio de trabajo para agruparlas por proyecto y compartirlas con su equipo a través de Git."
-    }
+    },
+    "finish": "Comenzar"
   },
   "errorBoundary": {
     "title": "Algo salió mal",
     "description": "Ocurrió un error inesperado. El error ha sido registrado.",
     "reload": "Recargar aplicación",
     "panelCrashed": "Este panel encontró un error"
+  },
+  "crashReport": {
+    "toastTitle": "QoreDB se cerró inesperadamente",
+    "toastDescription": "Se guardó un informe de fallo en tu equipo.",
+    "toastAction": "Ver informe",
+    "title": "Informe de fallo",
+    "subtitle": "{{kind}} — {{date}}",
+    "others_one": "{{count}} informe pendiente más.",
+    "others_other": "{{count}} informes pendientes más.",
+    "privacyNote": "Este informe permanece en tu equipo. Se han eliminado las credenciales y las rutas personales. No se envía nada sin una acción tuya.",
+    "copy": "Copiar",
+    "copied": "Informe copiado",
+    "copyError": "No se pudo copiar el informe",
+    "openFolder": "Abrir carpeta",
+    "openFolderError": "No se pudo abrir la carpeta de registros",
+    "report": "Informar en GitHub",
+    "dismiss": "Cerrar",
+    "issueWhatHappened": "Qué estabas haciendo cuando ocurrió el fallo"
   },
   "sandbox": {
     "activate": "Sandbox",

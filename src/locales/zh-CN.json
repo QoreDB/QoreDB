@@ -666,8 +666,6 @@
     "storeHistoryDescription": "在本地保存脱敏历史记录以便回顾。",
     "storeErrorLogs": "存储错误日志",
     "storeErrorLogsDescription": "保存脱敏的错误详情以辅助调试。",
-    "analyticsEnabled": "分享匿名使用分析",
-    "analyticsEnabledDescription": "通过发送匿名事件帮助改进 QoreDB（不包含查询或凭据）。",
     "sandbox": {
       "title": "沙盒",
       "description": "自定义沙盒更改的跟踪和显示方式。",
@@ -1042,7 +1040,9 @@
       "loadedEstimated": "已加载 {{loaded}} 行，共约 {{total}} 行（估算）",
       "estimateHint": "这是引擎估算值，并非精确计数。",
       "estimateAsOf": "统计信息最后更新于 {{date}}。",
-      "windowExhausted": "已加载 {{loaded}} 行 — 在此深度引擎不再返回更多页"
+      "windowExhausted": "已加载 {{loaded}} 行 — 在此深度引擎不再返回更多页",
+      "budgetExhausted": "已加载 {{loaded}} 行 — 该标签页已达到内存上限",
+      "budgetExhaustedHint": "请用筛选条件缩小结果，或导出表格以查看全部内容。"
     },
     "noData": "无数据显示",
     "noResults": "无结果",
@@ -1079,9 +1079,14 @@
     "exportSuccess": "已导出 {{count}} 行到 {{path}}",
     "exportError": "导出数据失败",
     "copyToClipboard": "复制到剪贴板",
+    "copySelection": "复制选中的 {{count}} 行",
+    "copyLoadedRows": "复制已加载的 {{count}} 行",
+    "selectAllRows": "选择已加载的行",
+    "selectRow": "选择行",
     "downloadToFile": "下载到文件",
     "openRow": "打开行",
     "editCell": "编辑单元格",
+    "cellPreviewTruncated": "预览 — 打开该行以查看完整值",
     "searchPlaceholder": "搜索…",
     "columns": "列",
     "toggleColumns": "切换列显示",
@@ -1449,6 +1454,7 @@
     "exportVisible": "导出可见日志",
     "exportDiagnostic": "导出诊断日志（完整）",
     "exportSuccess": "日志已导出：{{name}}",
+    "exportScrubbed": "凭据、令牌和您的主目录路径已在写入文件前移除。",
     "exportError": "导出日志失败"
   },
   "paginationDiagnostics": {
@@ -1675,8 +1681,8 @@
       "guardsDesc": "危险查询在生产环境中会被检测并需要二次确认。任意连接均可一键切换为只读模式。",
       "sandboxTitle": "沙盒模式",
       "sandboxDesc": "在本地暂存并检查数据表格编辑，准备就绪后再应用到数据库。SQL 编辑器中的查询不会被沙盒隔离。",
-      "localTitle": "数据不离开本机",
-      "localDesc": "无云同步、无数据遥测、无远程 Schema 索引。您的查询和结果始终保留在本地。"
+      "localTitle": "您的数据不会离开本机",
+      "localDesc": "无云同步、完全无遥测、无远程 Schema 索引。您的查询和结果始终保留在本地。唯一的例外是启动时向 GitHub 检查更新，可在设置中关闭。"
     },
     "tiers": {
       "title": "开放核心 — 免费版与 Pro 版",
@@ -1693,24 +1699,35 @@
       "proBullet3": "数据合约、即时数据 API、高级导出",
       "footnote": "Pro 为一次性付款，永久授权。Team 为按席位订阅。"
     },
-    "analytics": {
-      "title": "帮助我们改进",
-      "subtitle": "我们是一个开源项目。匿名使用数据帮助我们确定功能优先级并修复错误 — 您可以随时在设置中更改此选项。",
-      "checkbox": "分享匿名使用分析（推荐）",
-      "privacyHint": "我们仅收集崩溃报告和功能使用计数。查询、结果或凭据绝不会离开您的设备。",
-      "guarantee": "无论此设置如何，您的查询、结果和凭据都不会离开本机。",
-      "finish": "开始使用"
-    },
     "workspace": {
       "title": "用工作区整理",
       "description": "您有多个连接。创建工作区按项目分组，通过 Git 与团队共享。"
-    }
+    },
+    "finish": "开始使用"
   },
   "errorBoundary": {
     "title": "出现了问题",
     "description": "发生了意外错误。错误已被记录。",
     "reload": "重新加载应用程序",
     "panelCrashed": "此面板遇到了错误"
+  },
+  "crashReport": {
+    "toastTitle": "QoreDB 意外退出",
+    "toastDescription": "崩溃报告已保存到您的设备。",
+    "toastAction": "查看报告",
+    "title": "崩溃报告",
+    "subtitle": "{{kind}} — {{date}}",
+    "others_one": "还有 {{count}} 份待处理的报告。",
+    "others_other": "还有 {{count}} 份待处理的报告。",
+    "privacyNote": "该报告保留在您的设备上。凭据和个人路径已被移除。未经您操作不会发送任何内容。",
+    "copy": "复制",
+    "copied": "已复制报告",
+    "copyError": "无法复制报告",
+    "openFolder": "打开文件夹",
+    "openFolderError": "无法打开日志文件夹",
+    "report": "在 GitHub 上反馈",
+    "dismiss": "关闭",
+    "issueWhatHappened": "崩溃时您正在进行的操作"
   },
   "sandbox": {
     "activate": "沙盒",

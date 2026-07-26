@@ -40,6 +40,16 @@ pub fn get_logs_directory() -> String {
     observability::log_directory_string()
 }
 
+#[tauri::command]
+pub fn get_pending_crash_reports() -> Result<Vec<observability::CrashReport>, String> {
+    observability::pending_crash_reports()
+}
+
+#[tauri::command]
+pub fn acknowledge_crash_reports() -> Result<usize, String> {
+    observability::acknowledge_crash_reports()
+}
+
 #[derive(Debug, serde::Deserialize)]
 pub struct FrontendLogEntry {
     pub level: String,

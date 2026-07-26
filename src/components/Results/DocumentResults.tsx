@@ -186,6 +186,7 @@ export function DocumentResults({
   infiniteScrollIsCountingTotal,
   infiniteScrollIsComplete,
   infiniteScrollWindowExhausted,
+  infiniteScrollBudgetExhausted,
   infiniteScrollOrderingGuarantee,
   onFetchMore,
   onCalculateExactTotal,
@@ -488,6 +489,7 @@ export function DocumentResults({
           isCountingTotal={infiniteScrollIsCountingTotal ?? false}
           isComplete={infiniteScrollIsComplete ?? false}
           windowExhausted={infiniteScrollWindowExhausted}
+          budgetExhausted={infiniteScrollBudgetExhausted}
           orderingGuarantee={infiniteScrollOrderingGuarantee}
           onCalculateExactTotal={onCalculateExactTotal}
           onCancelExactTotal={onCancelExactTotal}

@@ -742,67 +742,172 @@ testé unitairement, mais leur SQL n'a pas été exécuté.
 
 ## 10. Verticale 5 — Mémoire et rendu progressif
 
-### 10.1 Fenêtre de lignes bornée
+### 10.1 Budget mémoire par onglet
 
-Le scroll infini ne doit pas conserver indéfiniment toutes les lignes.
+Le scroll infini ne doit pas conserver indéfiniment toutes les lignes. La forme
+initialement prévue — fenêtre glissante autour de la zone visible, éviction des
+anciens chunks, rechargement silencieux à la remontée à partir des curseurs de
+la verticale 4 — a été écartée après mesure. Ce qui est livré est un budget
+d'octets par onglet, sans éviction.
 
-- conserver une fenêtre autour de la zone visible ;
-- évincer les anciens chunks selon un budget de lignes ou de mémoire ;
-- conserver les curseurs des chunks évincés, ce qui suppose la verticale 4
-  livrée : sans curseur, un chunk évincé se relit par `OFFSET`, donc lentement
-  et sans garantie de cohérence ;
-- recharger silencieusement un chunk lorsque l'utilisateur remonte ;
-- préserver la position, la sélection et les lignes modifiées localement.
+Ce que disent les mesures. Une ligne pèse environ 2 Ko sur une table de vingt
+colonnes courtes et 5,4 Ko sur une table large à texte long ; les 250 Mo de la
+définition de terminé correspondent donc à 46 000 à 120 000 lignes, soit 460 à
+1 200 pages. Or le chargement est strictement séquentiel et déclenché par la
+proximité du bas : atteindre ce volume suppose de faire défiler plusieurs
+millions de pixels sans interruption, de l'ordre de vingt minutes. La fenêtre
+glissante défendrait donc un scénario que personne n'atteint, au prix du
+mécanisme le plus coûteux du chantier — lignes fantômes pour préserver l'espace
+d'index, rechargement en arrière, et une reprise complète de la sélection, du
+filtre client, de la copie et de l'édition.
+
+Le volume réellement atteignable n'est pas la profondeur, c'est le poids. Une
+table dont une colonne porte des documents ou des blobs de plusieurs mégaoctets
+sature en quelques pages. C'est ce cas que le budget couvre, et il le couvre
+mieux qu'une fenêtre : une fenêtre glissante sur des lignes de 5 Mo ne garderait
+que quelques dizaines de lignes visibles et passerait son temps à recharger.
+
+Le mécanisme livré tient en une règle. Chaque page chargée est pesée — en
+parcourant les valeurs, jamais en les sérialisant, puisque la page à mesurer est
+justement celle qu'il ne faut pas recopier — et le cumul est comparé au budget de
+l'onglet. Au-delà, le défilement s'arrête et l'onglet le dit, en renvoyant vers
+le filtre ou l'export, qui sont les vraies réponses à « je veux voir la ligne
+200 000 ». Le plafond porte sur la charge utile et vaut 128 Mo, en dessous des
+250 Mo visés : la grille ajoute un proxy par ligne et le moteur de rendu un nœud
+par cellule visible.
+
+Le réglage prévu en 12 n'est pas exposé. Un défaut sûr suffit tant que personne
+ne l'a atteint pour de mauvaises raisons ; l'ajouter maintenant serait une
+commande sans conséquence observable.
 
 ### 10.2 Sélection et export sous fenêtre bornée
 
-Sujet le plus risqué de cette verticale, à trancher avant d'écrire le premier
-mécanisme d'éviction.
+Sujet le plus risqué de cette verticale, tranché avant d'écrire le premier
+mécanisme d'éviction. Quatre décisions, dans l'ordre où elles se contraignent.
 
-- « tout sélectionner » ne peut plus signifier « toutes les lignes chargées » :
-  soit la sélection devient un prédicat (filtres et tri courants), soit elle est
-  bornée explicitement à la fenêtre, avec l'indication correspondante ;
-- une action de masse sur une sélection-prédicat doit annoncer le nombre de
-  lignes concernées avant exécution, ce qui suppose un comptage, donc la
-  verticale 2 ;
-- l'export ne lit pas la fenêtre : il relit depuis la source avec les mêmes
-  filtres et le même tri, en flux, sans passer par l'état de la grille ;
-- une ligne modifiée localement et non enregistrée bloque l'éviction de son
-  chunk, ou provoque un avertissement avant perte.
+**La sélection reste un ensemble de lignes concrètes.** L'alternative — une
+sélection-prédicat portant les filtres et le tri courants — a été écartée. Les
+deux actions de masse existantes, la suppression et l'édition groupée,
+construisent leur clause `WHERE` à partir de la clé primaire de chaque ligne
+retenue. Les faire porter un prédicat transformerait la navigation en
+`DELETE ... WHERE <filtres>` sur une table potentiellement de production :
+ce n'est pas une variante de la sélection, c'est une autre fonctionnalité, avec
+son propre coût de sûreté. Elle n'est pas nécessaire ici.
+
+**Une ligne sélectionnée n'est jamais évincée.** C'est l'invariant qui rend la
+décision précédente tenable : puisque la sélection désigne des lignes, elle ne
+peut pas rétrécir en silence parce que l'utilisateur a continué à faire défiler.
+La même protection couvre la cellule en cours d'édition et, en mode bac à sable,
+les lignes dont la modification n'est pas encore appliquée. Conséquence assumée :
+une sélection très large fixe la mémoire qu'elle occupe. Le budget borne le
+défilement, pas ce que l'utilisateur a explicitement désigné.
+
+**L'éviction exige une identité de ligne stable.** La grille identifie une ligne
+par sa clé primaire, et retombe sur son index de position lorsqu'il n'y en a pas.
+Sous cette dernière forme, évincer décalerait la sélection sur d'autres lignes.
+Une table sans clé primaire ne fait donc pas d'éviction du tout : elle est déjà
+celle qui n'a pas d'ordre stable, mieux vaut une seule limite à expliquer.
+
+**L'export « tout » relit la source, jamais la grille.** Le chemin en flux le
+faisait déjà. Ce qui restait à corriger : l'action d'export du menu applicatif
+écrivait les lignes présentes en mémoire, donc silencieusement moins que la
+table dès qu'elle est plus grande que ce qui a été parcouru. Sans sélection,
+elle ouvre désormais l'export en flux. Avec une sélection, elle exporte
+exactement cette sélection. Le presse-papiers, lui, reste ce qu'il est — une
+opération sur ce qui est affiché — mais son menu annonce sa portée et son
+nombre de lignes au lieu de les laisser deviner.
 
 ### 10.3 Taille de chunk adaptative
 
-Le chunk s'adapte à la latence observée, au poids moyen des lignes, à la vitesse
-de scroll et à la mémoire disponible.
+Écartée, et pas seulement par prudence : le contrat s'y oppose.
 
-Un profil utilisateur à trois crans (Économe, Équilibré, Rapide) a été écarté :
-il constituerait une seconde commande sur un algorithme déjà adaptatif, et
-l'utilisateur ne peut pas prédire ce que « Rapide » signifie. Le seul réglage
-exposé est un plafond mémoire par onglet, dans les réglages avancés, avec un
-défaut sûr. La taille de page brute reste un réglage avancé de diagnostic.
+Le profil utilisateur à trois crans (Économe, Équilibré, Rapide) l'était déjà —
+une seconde commande sur un algorithme adaptatif, dont personne ne peut prédire
+ce que « Rapide » signifie. Reste l'adaptation automatique, dont le seul entrant
+réellement utile est le poids des lignes : une table à cinq mégaoctets par ligne
+ne devrait pas en demander cent d'un coup. Mais faire varier la taille de page
+en cours de parcours suppose que l'appelant ne raisonne plus en numéro de page,
+puisque l'offset s'en déduit. Sous curseur, la taille peut varier librement ;
+sous offset, la faire varier décale ou répète des lignes — exactement la classe
+de régression silencieuse corrigée en 9.4.
+
+Restreindre l'adaptation aux parcours par curseur serait possible, mais elle y
+ferait double emploi avec le budget de 10.1, qui protège déjà le cas des lignes
+lourdes et le fait de façon compréhensible : le chargement s'arrête et le dit,
+au lieu de ralentir sans que rien ne l'explique.
+
+La taille de page brute reste un réglage avancé de diagnostic.
 
 ### 10.4 Cellules lourdes
 
-Pour JSON, tableaux, texte long, binaire et géométries :
+Une cellule affichait sa valeur entière. Le formateur de la grille rendait tout
+le texte, ou tout le document sérialisé, dans un nœud du DOM large de quelques
+dizaines de pixels : pour une colonne `text` de plusieurs mégaoctets, chaque
+ligne visible coûtait sa valeur complète en mémoire de rendu, à chaque passage.
+La troncature CSS masquait le trop-plein sans jamais l'éviter.
 
-- mesurer la taille avant formatage complet lorsque le protocole le permet ;
-- tronquer uniquement la preview, jamais la valeur logique sans indication ;
-- afficher taille, type et état « aperçu » ;
-- charger ou formater le contenu complet à la demande ;
-- déplacer les transformations coûteuses hors du thread de rendu ;
-- interdire le rendu direct de HTML ou SVG non fiable ;
-- limiter copie, preview et export selon les politiques de sécurité.
+Le rendu passe désormais par un aperçu borné, distinct du formateur exact. La
+séparation est le point important : la copie, l'export et les filtres continuent
+de lire le formateur exact, si bien qu'aucun chemin sortant ne peut expédier un
+extrait à la place de la valeur. Seul l'affichage est coupé, et il le dit —
+élargir une colonne révèle la suite d'une troncature CSS mais rien d'un extrait,
+donc les deux ne doivent pas se ressembler. La valeur entière reste à un clic,
+dans la ligne.
+
+Le binaire avait déjà son traitement : taille lisible à la place du base64, et
+visionneuse à la demande.
+
+Ce qui n'est pas fait, et pourquoi. Le rendu direct de HTML ou de SVG non fiable
+n'a rien demandé : aucun `dangerouslySetInnerHTML` n'existe dans l'interface, et
+React échappe par défaut. Déplacer le formatage hors du thread de rendu
+supposerait un worker pour un coût désormais borné par l'aperçu — la dépense ne
+se justifie plus. Limiter copie et export selon la politique de sécurité relève
+de 11.1 et reste ouvert : il n'existe aujourd'hui **aucune limite d'octets**
+dans la politique, seulement une limite de lignes.
 
 ### 10.5 Précision des types
 
-Éviter les pertes silencieuses entre moteurs, Rust et JavaScript :
+Éviter les pertes silencieuses entre moteurs, Rust et JavaScript. L'audit a
+trouvé trois pertes réelles, chacune invisible : la valeur affichée est
+plausible, rien ne signale qu'elle a été altérée.
 
-- sérialiser les entiers hors plage sûre JavaScript sans perte ;
-- distinguer date, timestamp et timestamp avec fuseau ;
-- conserver decimal et numeric sous une représentation précise ;
-- préserver binaire, UUID, ObjectId, intervalle et types spécifiques ;
-- afficher explicitement les valeurs non supportées au lieu de les convertir en
-  chaîne ambiguë.
+**Les décimaux passaient par un double à la lecture.** `NUMERIC` et `DECIMAL`
+étaient convertis en `f64` dès que la conversion aboutissait, et ne repassaient
+en texte qu'en cas de débordement. Un `numeric(40,10)` arrivait donc arrondi à
+une quinzaine de chiffres significatifs, sans que rien en aval puisse distinguer
+la valeur arrondie de la valeur stockée. Côté MySQL, la conversion allait plus
+loin : `to_f64().unwrap_or(0.0)` remplaçait par **zéro** un décimal non
+convertible. La représentation est désormais décidée par le contrat, dans
+`Value::from_decimal_text` : la valeur reste un nombre quand un double la porte
+exactement — la colonne ordinaire garde donc son type — et voyage en texte
+lorsqu'un double l'altérerait. La comparaison porte sur les chiffres et non sur
+les valeurs, sans quoi on comparerait un double avec lui-même ; l'échelle rendue
+par le moteur (`1.50` pour `1.5`) ne compte pas comme une perte.
+
+**Les horodatages sans fuseau étaient tronqués à la seconde.** Le format
+`%Y-%m-%d %H:%M:%S` supprimait les fractions de seconde d'un `timestamp(6)` ou
+d'un `time(6)`, sur PostgreSQL comme sur MySQL, dans les chemins typés comme
+dans les chemins de repli. Le format porte maintenant `%.f`, qui n'ajoute rien
+lorsque la fraction est nulle : les colonnes à la seconde s'affichent comme
+avant.
+
+**L'édition d'une cellule numérique repassait par un double.** `parseInputValue`
+appelait `Number()` sur tout type numérique, y compris `bigint` et `numeric` :
+éditer une cellule était l'opération qui perdait un chiffre, cette fois en
+écriture. La coercition est maintenant conditionnée à sa réversibilité, avec le
+même critère de chiffres que côté Rust ; ce qui n'y survit pas part sous la
+forme saisie.
+
+Reste ouvert : un entier hors plage sûre JavaScript arrive déjà arrondi par
+`JSON.parse`, avant que le moindre code de l'application le voie. Les
+identifiants de type Snowflake, autour de 1,4 × 10¹⁸, sont exactement dans ce
+cas. Le corriger suppose de choisir une représentation de rechange sur le fil,
+et `Value` est sérialisé en `untagged` : une chaîne de chiffres y devient
+indistinguable d'une colonne texte qui contient des chiffres, ce qui casserait
+la liaison des paramètres au retour — `WHERE code = '12345'` sur une colonne
+texte et `WHERE id = 12345` sur une colonne entière ont la même forme sur le
+fil. C'est un changement de protocole, pas un correctif local, et il est décrit
+ici pour être traité comme tel.
 
 ## 11. Verticale 6 — Cohérence et sécurité
 

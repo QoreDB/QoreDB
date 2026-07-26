@@ -666,8 +666,6 @@
     "storeHistoryDescription": "쉬운 재호출을 위해 수정된 기록을 로컬에 저장합니다.",
     "storeErrorLogs": "오류 로그 저장",
     "storeErrorLogsDescription": "디버깅에 도움이 되도록 수정된 오류 세부 정보를 저장합니다.",
-    "analyticsEnabled": "익명 사용 분석 공유",
-    "analyticsEnabledDescription": "익명 이벤트를 전송하여 QoreDB 개선에 도움을 줍니다 (쿼리나 자격 증명은 포함되지 않습니다).",
     "sandbox": {
       "title": "샌드박스",
       "description": "샌드박스 변경 사항의 추적 및 표시 방법을 사용자 지정합니다.",
@@ -1042,7 +1040,9 @@
       "loadedEstimated": "{{total}}행 중 {{loaded}}행 로드됨 (추정)",
       "estimateHint": "엔진 추정치이며 정확한 개수가 아닙니다.",
       "estimateAsOf": "통계 마지막 갱신: {{date}}",
-      "windowExhausted": "{{loaded}}행 로드됨 — 이 깊이에서는 엔진이 더 이상 페이지를 제공하지 않습니다"
+      "windowExhausted": "{{loaded}}행 로드됨 — 이 깊이에서는 엔진이 더 이상 페이지를 제공하지 않습니다",
+      "budgetExhausted": "{{loaded}}개 행을 불러왔습니다 — 탭이 메모리 한도에 도달했습니다",
+      "budgetExhaustedHint": "필터로 결과를 좁히거나, 테이블을 내보내 전체를 확인하세요."
     },
     "noData": "표시할 데이터가 없습니다",
     "noResults": "결과 없음",
@@ -1079,9 +1079,14 @@
     "exportSuccess": "{{count}}개 행을 {{path}}(으)로 내보냈습니다",
     "exportError": "데이터 내보내기에 실패했습니다",
     "copyToClipboard": "클립보드에 복사",
+    "copySelection": "선택한 {{count}}개 행 복사",
+    "copyLoadedRows": "불러온 {{count}}개 행 복사",
+    "selectAllRows": "불러온 행 선택",
+    "selectRow": "행 선택",
     "downloadToFile": "파일로 다운로드",
     "openRow": "행 열기",
     "editCell": "셀 편집",
+    "cellPreviewTruncated": "미리보기 — 전체 값을 보려면 행을 여세요",
     "searchPlaceholder": "검색...",
     "columns": "컬럼",
     "toggleColumns": "컬럼 전환",
@@ -1449,6 +1454,7 @@
     "exportVisible": "표시된 로그 내보내기",
     "exportDiagnostic": "진단 로그 내보내기 (전체)",
     "exportSuccess": "로그 내보내기 완료: {{name}}",
+    "exportScrubbed": "자격 증명, 토큰, 홈 경로는 파일 저장 전에 제거되었습니다.",
     "exportError": "로그 내보내기에 실패했습니다"
   },
   "paginationDiagnostics": {
@@ -1675,8 +1681,8 @@
       "guardsDesc": "위험한 쿼리는 프로덕션에서 두 번 확인을 거쳐 실행됩니다. 토글 하나로 모든 연결을 읽기 전용 모드로 설정하세요.",
       "sandboxTitle": "샌드박스 모드",
       "sandboxDesc": "데이터 그리드 편집 내용을 로컬에 보관하고 검토한 뒤 데이터베이스에 적용합니다. SQL 편집기 쿼리는 샌드박스 처리되지 않습니다.",
-      "localTitle": "내 기기 밖으로 나가지 않음",
-      "localDesc": "클라우드 동기화, 데이터 원격 분석, 원격 스키마 인덱싱 없음. 쿼리와 결과는 로컬에 유지됩니다."
+      "localTitle": "데이터는 이 컴퓨터를 벗어나지 않습니다",
+      "localDesc": "클라우드 동기화 없음, 원격 분석 전혀 없음, 원격 스키마 인덱싱 없음. 쿼리와 결과는 로컬에 유지됩니다. 유일한 예외는 시작 시 GitHub에 연결하는 업데이트 확인이며, 설정에서 끌 수 있습니다."
     },
     "tiers": {
       "title": "오픈 코어 — 무료 및 Pro",
@@ -1693,24 +1699,35 @@
       "proBullet3": "데이터 계약, 즉시 Data API, 고급 내보내기",
       "footnote": "Pro는 일회성 결제, 영구 라이선스입니다. Team은 좌석당 구독입니다."
     },
-    "analytics": {
-      "title": "개선에 도움을 주세요",
-      "subtitle": "오픈소스 프로젝트입니다. 익명 사용 데이터는 기능 우선순위 결정과 버그 수정에 도움이 됩니다 — 설정에서 언제든지 변경할 수 있습니다.",
-      "checkbox": "익명 사용 분석 공유 (권장)",
-      "privacyHint": "충돌 보고서와 기능 사용 횟수만 수집합니다. 쿼리, 결과, 자격 증명은 절대 기기를 떠나지 않습니다.",
-      "guarantee": "이 설정과 관계없이 쿼리, 결과, 자격 증명은 절대 내 기기 밖으로 나가지 않습니다.",
-      "finish": "시작하기"
-    },
     "workspace": {
       "title": "워크스페이스로 정리",
       "description": "여러 연결이 있습니다. 워크스페이스를 만들어 프로젝트별로 그룹화하고 Git으로 팀과 공유하세요."
-    }
+    },
+    "finish": "시작하기"
   },
   "errorBoundary": {
     "title": "문제가 발생했습니다",
     "description": "예기치 않은 오류가 발생했습니다. 오류가 기록되었습니다.",
     "reload": "애플리케이션 다시 로드",
     "panelCrashed": "이 패널에서 오류가 발생했습니다"
+  },
+  "crashReport": {
+    "toastTitle": "QoreDB가 예기치 않게 종료되었습니다",
+    "toastDescription": "크래시 리포트가 이 컴퓨터에 저장되었습니다.",
+    "toastAction": "리포트 보기",
+    "title": "크래시 리포트",
+    "subtitle": "{{kind}} — {{date}}",
+    "others_one": "대기 중인 리포트가 {{count}}건 더 있습니다.",
+    "others_other": "대기 중인 리포트가 {{count}}건 더 있습니다.",
+    "privacyNote": "이 리포트는 사용자 컴퓨터에 남아 있습니다. 자격 증명과 개인 경로는 제거되었습니다. 사용자가 조치하지 않으면 아무것도 전송되지 않습니다.",
+    "copy": "복사",
+    "copied": "리포트를 복사했습니다",
+    "copyError": "리포트를 복사하지 못했습니다",
+    "openFolder": "폴더 열기",
+    "openFolderError": "로그 폴더를 열지 못했습니다",
+    "report": "GitHub에 신고",
+    "dismiss": "닫기",
+    "issueWhatHappened": "크래시 발생 당시 하던 작업"
   },
   "sandbox": {
     "activate": "샌드박스",

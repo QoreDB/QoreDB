@@ -46,7 +46,7 @@ mapping as fully satisfied.
 | Availability | Partially aligned | Local-first operation reduces cloud dependency; recovery and updater workflows exist, but no formal SLO/DR program is in scope. |
 | Processing integrity | Mostly aligned | Query classification, typed errors, and export paths exist; export and malformed-state regression coverage should be strengthened. |
 | Confidentiality | Mostly aligned | Credentials and plugin secrets are protected with keyring/vault controls; local non-secret sensitive data lifecycle remains incomplete. |
-| Privacy | Partially aligned | Telemetry is intended to be opt-in and local-first by design; user-facing inventory and purge controls remain a gap. |
+| Privacy | Partially aligned | The product carries no telemetry and is local-first by design; user-facing inventory and purge controls remain a gap. |
 
 ## CC1 - Control Environment
 
@@ -192,10 +192,10 @@ local state, and direct command/plugin denial paths.
 
 | Criterion | QoreDB control | Evidence | Status |
 | --- | --- | --- | --- |
-| P1.1 Notice | GDPR audit documents expected telemetry and local-data notice obligations. | `doc/audits/GDPR_AUDIT.md`. | Partially aligned |
-| P1.2 Choice and consent | Telemetry and AI integrations are treated as optional surfaces. | GDPR audit and CSP PostHog visibility. | Partially aligned |
+| P1.1 Notice | GDPR audit documents local-data notice obligations; no telemetry notice is required since none is collected. | `doc/audits/GDPR_AUDIT.md`. | Partially aligned |
+| P1.2 Choice and consent | No telemetry to consent to; AI integrations and crash-report sharing are explicit user actions. | GDPR audit and CSP allowlist. | Mostly aligned |
 | P1.3 Collection limitation | QoreDB is local-first; no implicit cloud data plane is required for core operation. | Product architecture. | Mostly aligned |
-| P1.4 Use, retention, and disposal | Local storage, diagnostics, crash recovery, drafts, and analytics identity still need a complete lifecycle view. | GDPR audit open findings. | Open |
+| P1.4 Use, retention, and disposal | Local storage, diagnostics, crash recovery, and drafts still need a complete lifecycle view; crash reports follow the 7-day log retention. | GDPR audit open findings. | Open |
 | P1.5 Access and correction | Users can manage local project/workspace files, but no unified personal-data export/purge UX exists. | Product scope and GDPR audit. | Partially aligned |
 
 **Gap:** Privacy alignment is the least complete trust-services area because

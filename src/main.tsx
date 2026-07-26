@@ -7,10 +7,10 @@ import App from './App';
 import './index.css';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { TooltipProvider } from '@/components/ui/tooltip';
-import { AnalyticsService } from './components/Onboarding/AnalyticsService';
 import { logger } from './lib/diagnostics/logger';
+import { purgeLegacyTelemetryState } from './lib/legacyTelemetryPurge';
 
-AnalyticsService.init();
+purgeLegacyTelemetryState();
 
 window.addEventListener('error', event => {
   const error = event.error instanceof Error ? event.error : new Error(event.message);

@@ -15,7 +15,6 @@ import {
 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { AnalyticsService } from '@/components/Onboarding/AnalyticsService';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -26,6 +25,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Label } from '@/components/ui/label';
 import { useTheme } from '@/hooks/useTheme';
+import { resetOnboarding } from '@/lib/onboardingState';
 import { setSettingsOpen, setShowOnboarding } from '@/lib/stores/modalStore';
 import {
   setUpdateAvailable,
@@ -372,7 +372,7 @@ export function GeneralSection({ searchQuery }: GeneralSectionProps) {
           size="sm"
           className="gap-1.5"
           onClick={() => {
-            AnalyticsService.resetOnboarding();
+            resetOnboarding();
             setSettingsOpen(false);
             setShowOnboarding(true);
           }}

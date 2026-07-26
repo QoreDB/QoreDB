@@ -3,8 +3,8 @@
 // Bindings for the Database Agent chat (agent_* / chat_* Tauri commands).
 // Types mirror src-tauri/src/ai/agent/{types,orchestrator,store}.rs.
 
-import { invoke } from "@/lib/transport";
-import type { AiConfig, AiError } from "./ai";
+import { invoke } from '@/lib/transport';
+import type { AiConfig, AiError } from './ai';
 
 export interface ToolCall {
   id: string;
@@ -27,7 +27,7 @@ export interface AgentUsage {
 }
 
 export interface AgentMessage {
-  role: "system" | "user" | "assistant";
+  role: 'system' | 'user' | 'assistant';
   content: string;
   tool_calls?: ToolCall[];
   tool_results?: ToolResult[];
@@ -44,24 +44,24 @@ export interface AgentChatRequest {
 }
 
 export type AgentEvent =
-  | { type: "text_delta"; text: string }
-  | { type: "text_reset" }
+  | { type: 'text_delta'; text: string }
+  | { type: 'text_reset' }
   | {
-      type: "tool_call_started";
+      type: 'tool_call_started';
       call_id: string;
       name: string;
       input: unknown;
       thought_signature?: string;
     }
   | {
-      type: "tool_result";
+      type: 'tool_result';
       call_id: string;
       name: string;
       content: string;
       is_error: boolean;
     }
   | {
-      type: "permission_request";
+      type: 'permission_request';
       permission_id: string;
       call_id: string;
       name: string;
@@ -70,13 +70,13 @@ export type AgentEvent =
       can_remember: boolean;
     }
   | {
-      type: "done";
+      type: 'done';
       text: string;
       tokens_used?: number;
       usage?: AgentUsage;
       iterations: number;
     }
-  | { type: "error"; error: AiError };
+  | { type: 'error'; error: AiError };
 
 export interface ToolStepSummary {
   name: string;
@@ -85,7 +85,7 @@ export interface ToolStepSummary {
 }
 
 export interface StoredMessage {
-  role: "system" | "user" | "assistant";
+  role: 'system' | 'user' | 'assistant';
   content: string;
   tool_steps?: ToolStepSummary[];
   usage?: AgentUsage;
@@ -112,18 +112,16 @@ export function agentStreamEvent(requestId: string): string {
   return `agent_stream:${requestId}`;
 }
 
-export async function agentSendMessage(
-  request: AgentChatRequest,
-): Promise<void> {
-  return invoke("agent_send_message", { request });
+export async function agentSendMessage(request: AgentChatRequest): Promise<void> {
+  return invoke('agent_send_message', { request });
 }
 
 export async function agentRespondPermission(
   permissionId: string,
   approved: boolean,
-  remember: boolean,
+  remember: boolean
 ): Promise<void> {
-  return invoke("agent_respond_permission", {
+  return invoke('agent_respond_permission', {
     permissionId,
     approved,
     remember,
@@ -131,37 +129,29 @@ export async function agentRespondPermission(
 }
 
 export async function agentCancel(requestId: string): Promise<void> {
-  return invoke("agent_cancel", { requestId });
+  return invoke('agent_cancel', { requestId });
 }
 
 export async function chatListConversations(): Promise<ConversationMeta[]> {
-  return invoke("chat_list_conversations");
+  return invoke('chat_list_conversations');
 }
 
 export async function chatLoadConversation(id: string): Promise<Conversation> {
-  return invoke("chat_load_conversation", { id });
+  return invoke('chat_load_conversation', { id });
 }
 
-export async function chatSaveConversation(
-  conversation: Conversation,
-): Promise<Conversation> {
-  return invoke("chat_save_conversation", { conversation });
+export async function chatSaveConversation(conversation: Conversation): Promise<Conversation> {
+  return invoke('chat_save_conversation', { conversation });
 }
 
-export async function chatRenameConversation(
-  id: string,
-  title: string,
-): Promise<Conversation> {
-  return invoke("chat_rename_conversation", { id, title });
+export async function chatRenameConversation(id: string, title: string): Promise<Conversation> {
+  return invoke('chat_rename_conversation', { id, title });
 }
 
 export async function chatDeleteConversation(id: string): Promise<void> {
-  return invoke("chat_delete_conversation", { id });
+  return invoke('chat_delete_conversation', { id });
 }
 
-export async function chatGenerateTitle(
-  firstMessage: string,
-  config: AiConfig,
-): Promise<string> {
-  return invoke("chat_generate_title", { firstMessage, config });
+export async function chatGenerateTitle(firstMessage: string, config: AiConfig): Promise<string> {
+  return invoke('chat_generate_title', { firstMessage, config });
 }

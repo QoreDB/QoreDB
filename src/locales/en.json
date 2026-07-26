@@ -695,8 +695,6 @@
     "storeHistoryDescription": "Saves a redacted history locally for easier recall.",
     "storeErrorLogs": "Store error logs",
     "storeErrorLogsDescription": "Saves redacted error details to help debugging.",
-    "analyticsEnabled": "Share anonymous usage analytics",
-    "analyticsEnabledDescription": "Helps improve QoreDB by sending anonymous events (no queries or credentials).",
     "sandbox": {
       "title": "Sandbox",
       "description": "Customize how sandbox changes are tracked and displayed.",
@@ -1077,7 +1075,9 @@
       "loadedEstimated": "{{loaded}} of ~{{total}} rows loaded (estimate)",
       "estimateHint": "Engine estimate, not an exact count.",
       "estimateAsOf": "Statistics last refreshed on {{date}}.",
-      "windowExhausted": "{{loaded}} rows loaded — the engine serves no further pages at this depth"
+      "windowExhausted": "{{loaded}} rows loaded — the engine serves no further pages at this depth",
+      "budgetExhausted": "{{loaded}} rows loaded — the tab reached its memory limit",
+      "budgetExhaustedHint": "Narrow the results with a filter, or export the table to read it in full."
     },
     "noData": "No data to display",
     "noResults": "No results",
@@ -1114,9 +1114,14 @@
     "exportSuccess": "Exported {{count}} row(s) to {{path}}",
     "exportError": "Failed to export data",
     "copyToClipboard": "Copy to clipboard",
+    "copySelection": "Copy the {{count}} selected row(s)",
+    "copyLoadedRows": "Copy the {{count}} loaded row(s)",
+    "selectAllRows": "Select the loaded rows",
+    "selectRow": "Select row",
     "downloadToFile": "Download to file",
     "openRow": "Open row",
     "editCell": "Edit cell",
+    "cellPreviewTruncated": "Preview — open the row to see the whole value",
     "searchPlaceholder": "Search...",
     "columns": "Columns",
     "toggleColumns": "Toggle columns",
@@ -1488,6 +1493,7 @@
     "exportVisible": "Export visible logs",
     "exportDiagnostic": "Export diagnostic logs (full)",
     "exportSuccess": "Logs exported: {{name}}",
+    "exportScrubbed": "Credentials, tokens and your home path were removed before writing the file.",
     "exportError": "Failed to export logs"
   },
   "paginationDiagnostics": {
@@ -1714,8 +1720,8 @@
       "guardsDesc": "Dangerous queries are detected and confirmed twice on prod. Read-only mode for any connection in one toggle.",
       "sandboxTitle": "Sandbox mode",
       "sandboxDesc": "Stage grid edits locally, review them, then apply them to the database when ready. SQL editor queries are not sandboxed.",
-      "localTitle": "Nothing leaves your machine",
-      "localDesc": "No cloud sync, no telemetry of your data, no remote schema indexing. Your queries and results stay local."
+      "localTitle": "Your data stays on your machine",
+      "localDesc": "No cloud sync, no telemetry at all, no remote schema indexing. Your queries and results stay local. One exception: the update check queries GitHub at startup — switch it off in Settings."
     },
     "tiers": {
       "title": "Open core — Free and Pro",
@@ -1732,24 +1738,35 @@
       "proBullet3": "Data contracts, Instant Data API, advanced exports",
       "footnote": "Pro is a one-time payment, perpetual licence. Team is a per-seat subscription."
     },
-    "analytics": {
-      "title": "Help shape QoreDB",
-      "subtitle": "Anonymous usage data helps prioritise features and fix bugs faster. You can change this anytime in Settings.",
-      "checkbox": "Share anonymous usage analytics (recommended)",
-      "privacyHint": "We only collect feature-usage counts and crash reports — never queries, results, schemas or credentials.",
-      "guarantee": "Your queries, results, and credentials never leave your machine — regardless of this setting.",
-      "finish": "Let's go"
-    },
     "workspace": {
       "title": "Organize with workspaces",
       "description": "You have several connections. Create a workspace to group them by project and share them with your team via Git."
-    }
+    },
+    "finish": "Let's go"
   },
   "errorBoundary": {
     "title": "Something went wrong",
     "description": "An unexpected error occurred. The error has been logged.",
     "reload": "Reload Application",
     "panelCrashed": "This panel encountered an error"
+  },
+  "crashReport": {
+    "toastTitle": "QoreDB closed unexpectedly",
+    "toastDescription": "A crash report was saved on your machine.",
+    "toastAction": "View report",
+    "title": "Crash report",
+    "subtitle": "{{kind}} — {{date}}",
+    "others_one": "{{count}} other report pending.",
+    "others_other": "{{count}} other reports pending.",
+    "privacyNote": "This report stays on your machine. Credentials and personal paths have been stripped. Nothing is sent without an action from you.",
+    "copy": "Copy",
+    "copied": "Report copied",
+    "copyError": "Could not copy the report",
+    "openFolder": "Open folder",
+    "openFolderError": "Could not open the logs folder",
+    "report": "Report on GitHub",
+    "dismiss": "Close",
+    "issueWhatHappened": "What you were doing when it crashed"
   },
   "sandbox": {
     "activate": "Sandbox",

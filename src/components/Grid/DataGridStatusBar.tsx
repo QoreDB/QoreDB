@@ -14,6 +14,8 @@ interface DataGridStatusBarProps {
   isComplete: boolean;
   /** Scrolling stopped at the engine's window, not at the end of the data. */
   windowExhausted?: boolean;
+  /** Scrolling stopped at the tab's memory budget, not at the end of the data. */
+  budgetExhausted?: boolean;
   /** Whether rows appear exactly once across pages. */
   orderingGuarantee?: OrderingGuarantee;
   /** What the driver can actually promise when the count is cancelled. */
@@ -31,6 +33,7 @@ export function DataGridStatusBar({
   isCountingTotal,
   isComplete,
   windowExhausted,
+  budgetExhausted,
   orderingGuarantee,
   cancelSupport,
   onCalculateExactTotal,
@@ -43,6 +46,19 @@ export function DataGridStatusBar({
   const percentage =
     totalRows && totalRows > 0 ? Math.min(100, Math.round((loadedRows / totalRows) * 100)) : 0;
 
+  const loaded = loadedRows.toLocaleString();
+  const countLabel = isComplete
+    ? windowExhausted
+      ? t('grid.infiniteScroll.windowExhausted', { loaded })
+      : budgetExhausted
+        ? t('grid.infiniteScroll.budgetExhausted', { loaded })
+        : t('grid.infiniteScroll.allLoaded', { total: loaded })
+    : totalRows === null
+      ? t('grid.infiniteScroll.loadedUnknown', { loaded })
+      : isEstimate
+        ? t('grid.infiniteScroll.loadedEstimated', { loaded, total: totalRows.toLocaleString() })
+        : t('grid.infiniteScroll.loaded', { loaded, total: totalRows.toLocaleString() });
+
   return (
     <div
       aria-live="polite"
@@ -51,37 +67,23 @@ export function DataGridStatusBar({
       <div className="flex items-center gap-3 text-xs text-muted-foreground">
         <span
           title={
-            isEstimate
-              ? [
-                  t('grid.infiniteScroll.estimateHint'),
-                  totalRowsAsOf
-                    ? t('grid.infiniteScroll.estimateAsOf', {
-                        date: new Date(totalRowsAsOf).toLocaleString(),
-                      })
-                    : null,
-                ]
-                  .filter(Boolean)
-                  .join('\n')
-              : undefined
+            budgetExhausted
+              ? t('grid.infiniteScroll.budgetExhaustedHint')
+              : isEstimate
+                ? [
+                    t('grid.infiniteScroll.estimateHint'),
+                    totalRowsAsOf
+                      ? t('grid.infiniteScroll.estimateAsOf', {
+                          date: new Date(totalRowsAsOf).toLocaleString(),
+                        })
+                      : null,
+                  ]
+                    .filter(Boolean)
+                    .join('\n')
+                : undefined
           }
         >
-          {isComplete
-            ? windowExhausted
-              ? t('grid.infiniteScroll.windowExhausted', { loaded: loadedRows.toLocaleString() })
-              : t('grid.infiniteScroll.allLoaded', { total: loadedRows.toLocaleString() })
-            : totalRows === null
-              ? t('grid.infiniteScroll.loadedUnknown', {
-                  loaded: loadedRows.toLocaleString(),
-                })
-              : isEstimate
-                ? t('grid.infiniteScroll.loadedEstimated', {
-                    loaded: loadedRows.toLocaleString(),
-                    total: totalRows.toLocaleString(),
-                  })
-                : t('grid.infiniteScroll.loaded', {
-                    loaded: loadedRows.toLocaleString(),
-                    total: totalRows.toLocaleString(),
-                  })}
+          {countLabel}
         </span>
         {orderingGuarantee === 'none' && loadedRows > 0 && (
           <span

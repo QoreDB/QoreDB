@@ -47,6 +47,7 @@ interface ResultsViewerProps {
   infiniteScrollIsCountingTotal?: boolean;
   infiniteScrollIsComplete?: boolean;
   infiniteScrollWindowExhausted?: boolean;
+  infiniteScrollBudgetExhausted?: boolean;
   infiniteScrollOrderingGuarantee?: OrderingGuarantee;
   onFetchMore?: () => void;
   onCalculateExactTotal?: () => void;
@@ -103,6 +104,7 @@ export const ResultsViewer = memo(function ResultsViewer({
   infiniteScrollIsCountingTotal,
   infiniteScrollIsComplete,
   infiniteScrollWindowExhausted,
+  infiniteScrollBudgetExhausted,
   infiniteScrollOrderingGuarantee,
   onFetchMore,
   onCalculateExactTotal,
@@ -157,6 +159,7 @@ export const ResultsViewer = memo(function ResultsViewer({
         infiniteScrollIsCountingTotal={infiniteScrollIsCountingTotal}
         infiniteScrollIsComplete={infiniteScrollIsComplete}
         infiniteScrollWindowExhausted={infiniteScrollWindowExhausted}
+        infiniteScrollBudgetExhausted={infiniteScrollBudgetExhausted}
         infiniteScrollOrderingGuarantee={infiniteScrollOrderingGuarantee}
         onFetchMore={onFetchMore}
         onCalculateExactTotal={onCalculateExactTotal}
@@ -194,6 +197,7 @@ export const ResultsViewer = memo(function ResultsViewer({
         infiniteScrollIsCountingTotal={infiniteScrollIsCountingTotal}
         infiniteScrollIsComplete={infiniteScrollIsComplete}
         infiniteScrollWindowExhausted={infiniteScrollWindowExhausted}
+        infiniteScrollBudgetExhausted={infiniteScrollBudgetExhausted}
         infiniteScrollOrderingGuarantee={infiniteScrollOrderingGuarantee}
         onFetchMore={onFetchMore}
         onCalculateExactTotal={onCalculateExactTotal}

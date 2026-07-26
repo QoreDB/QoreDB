@@ -666,8 +666,6 @@
     "storeHistoryDescription": "Speichert einen geschwärzten Verlauf lokal zum einfachen Abrufen.",
     "storeErrorLogs": "Fehlerprotokolle speichern",
     "storeErrorLogsDescription": "Speichert geschwärzte Fehlerdetails zur Fehlerbehebung.",
-    "analyticsEnabled": "Anonyme Nutzungsanalysen teilen",
-    "analyticsEnabledDescription": "Hilft bei der Verbesserung von QoreDB durch Senden anonymer Ereignisse (keine Abfragen oder Zugangsdaten).",
     "sandbox": {
       "title": "Sandbox",
       "description": "Anpassen, wie Sandbox-Änderungen verfolgt und angezeigt werden.",
@@ -1042,7 +1040,9 @@
       "loadedEstimated": "{{loaded}} von ~{{total}} Zeilen geladen (Schätzung)",
       "estimateHint": "Schätzung der Engine, keine exakte Zählung.",
       "estimateAsOf": "Statistiken zuletzt aktualisiert am {{date}}.",
-      "windowExhausted": "{{loaded}} Zeilen geladen — die Engine liefert in dieser Tiefe keine weiteren Seiten"
+      "windowExhausted": "{{loaded}} Zeilen geladen — die Engine liefert in dieser Tiefe keine weiteren Seiten",
+      "budgetExhausted": "{{loaded}} Zeilen geladen — der Tab hat sein Speicherlimit erreicht",
+      "budgetExhaustedHint": "Grenzen Sie das Ergebnis mit einem Filter ein oder exportieren Sie die Tabelle, um sie vollständig zu lesen."
     },
     "noData": "Keine Daten zum Anzeigen",
     "noResults": "Keine Ergebnisse",
@@ -1079,9 +1079,14 @@
     "exportSuccess": "{{count}} Zeile(n) exportiert nach {{path}}",
     "exportError": "Daten konnten nicht exportiert werden",
     "copyToClipboard": "In Zwischenablage kopieren",
+    "copySelection": "Die {{count}} ausgewählte(n) Zeile(n) kopieren",
+    "copyLoadedRows": "Die {{count}} geladene(n) Zeile(n) kopieren",
+    "selectAllRows": "Geladene Zeilen auswählen",
+    "selectRow": "Zeile auswählen",
     "downloadToFile": "Als Datei herunterladen",
     "openRow": "Zeile öffnen",
     "editCell": "Zelle bearbeiten",
+    "cellPreviewTruncated": "Vorschau — öffnen Sie die Zeile, um den vollständigen Wert zu sehen",
     "searchPlaceholder": "Suchen…",
     "columns": "Spalten",
     "toggleColumns": "Spalten umschalten",
@@ -1449,6 +1454,7 @@
     "exportVisible": "Sichtbare Protokolle exportieren",
     "exportDiagnostic": "Diagnoseprotokolle exportieren (vollständig)",
     "exportSuccess": "Protokolle exportiert: {{name}}",
+    "exportScrubbed": "Zugangsdaten, Tokens und Ihr Home-Pfad wurden vor dem Schreiben entfernt.",
     "exportError": "Protokolle konnten nicht exportiert werden"
   },
   "paginationDiagnostics": {
@@ -1675,8 +1681,8 @@
       "guardsDesc": "Gefährliche Abfragen werden erkannt und in der Produktion zweifach bestätigt. Schreibgeschützter Modus für jede Verbindung mit einem Umschalter.",
       "sandboxTitle": "Sandbox-Modus",
       "sandboxDesc": "Bearbeitungen im Datenraster lokal vormerken, prüfen und erst dann auf die Datenbank anwenden. Abfragen im SQL-Editor sind nicht isoliert.",
-      "localTitle": "Nichts verlässt Ihr Gerät",
-      "localDesc": "Keine Cloud-Synchronisierung, keine Telemetrie Ihrer Daten, keine externe Schema-Indizierung. Abfragen und Ergebnisse bleiben lokal."
+      "localTitle": "Ihre Daten bleiben auf Ihrem Gerät",
+      "localDesc": "Keine Cloud-Synchronisierung, überhaupt keine Telemetrie, keine externe Schema-Indizierung. Abfragen und Ergebnisse bleiben lokal. Eine Ausnahme: Die Update-Prüfung fragt beim Start GitHub ab — in den Einstellungen abschaltbar."
     },
     "tiers": {
       "title": "Open Core — Free und Pro",
@@ -1693,24 +1699,35 @@
       "proBullet3": "Datenverträge, Instant Data API, erweiterte Exporte",
       "footnote": "Pro ist eine Einmalzahlung mit unbefristeter Lizenz. Team ist ein Abonnement pro Sitzplatz."
     },
-    "analytics": {
-      "title": "Helfen Sie uns, besser zu werden",
-      "subtitle": "Wir sind ein Open-Source-Projekt. Anonyme Nutzungsdaten helfen uns, Funktionen zu priorisieren und Fehler zu beheben — Sie können dies jederzeit in den Einstellungen ändern.",
-      "checkbox": "Anonyme Nutzungsanalysen teilen (empfohlen)",
-      "privacyHint": "Wir erfassen nur Absturzberichte und Funktionsnutzungszähler. Keine Abfragen, Ergebnisse oder Zugangsdaten verlassen Ihren Rechner.",
-      "guarantee": "Ihre Abfragen, Ergebnisse und Zugangsdaten verlassen niemals Ihr Gerät — unabhängig von dieser Einstellung.",
-      "finish": "Loslegen"
-    },
     "workspace": {
       "title": "Mit Arbeitsbereichen organisieren",
       "description": "Sie haben mehrere Verbindungen. Erstellen Sie einen Arbeitsbereich, um sie nach Projekt zu gruppieren und über Git zu teilen."
-    }
+    },
+    "finish": "Loslegen"
   },
   "errorBoundary": {
     "title": "Etwas ist schiefgelaufen",
     "description": "Ein unerwarteter Fehler ist aufgetreten. Der Fehler wurde protokolliert.",
     "reload": "Anwendung neu laden",
     "panelCrashed": "Dieses Panel hat einen Fehler verursacht"
+  },
+  "crashReport": {
+    "toastTitle": "QoreDB wurde unerwartet beendet",
+    "toastDescription": "Ein Absturzbericht wurde auf Ihrem Gerät gespeichert.",
+    "toastAction": "Bericht ansehen",
+    "title": "Absturzbericht",
+    "subtitle": "{{kind}} — {{date}}",
+    "others_one": "{{count}} weiterer Bericht ausstehend.",
+    "others_other": "{{count}} weitere Berichte ausstehend.",
+    "privacyNote": "Dieser Bericht bleibt auf Ihrem Gerät. Zugangsdaten und persönliche Pfade wurden entfernt. Ohne Ihre Aktion wird nichts gesendet.",
+    "copy": "Kopieren",
+    "copied": "Bericht kopiert",
+    "copyError": "Bericht konnte nicht kopiert werden",
+    "openFolder": "Ordner öffnen",
+    "openFolderError": "Log-Ordner konnte nicht geöffnet werden",
+    "report": "Auf GitHub melden",
+    "dismiss": "Schließen",
+    "issueWhatHappened": "Was Sie taten, als der Absturz auftrat"
   },
   "sandbox": {
     "activate": "Sandbox",

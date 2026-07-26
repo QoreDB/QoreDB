@@ -666,8 +666,6 @@
     "storeHistoryDescription": "匿名化した履歴をローカルに保存して、簡単に再利用できるようにします。",
     "storeErrorLogs": "エラーログを保存",
     "storeErrorLogsDescription": "匿名化したエラー情報を保存して、デバッグに役立てます。",
-    "analyticsEnabled": "匿名の使用状況分析を共有",
-    "analyticsEnabledDescription": "匿名イベントの送信により QoreDB の改善に貢献します（クエリや認証情報は送信されません）。",
     "sandbox": {
       "title": "サンドボックス",
       "description": "サンドボックスの変更追跡と表示をカスタマイズします。",
@@ -1042,7 +1040,9 @@
       "loadedEstimated": "{{loaded}} / 約 {{total}} 行を読み込み（推定）",
       "estimateHint": "エンジンによる推定値であり、正確な件数ではありません。",
       "estimateAsOf": "統計の最終更新: {{date}}",
-      "windowExhausted": "{{loaded}} 行を読み込み — この深さではエンジンがこれ以上のページを返しません"
+      "windowExhausted": "{{loaded}} 行を読み込み — この深さではエンジンがこれ以上のページを返しません",
+      "budgetExhausted": "{{loaded}} 行を読み込みました — タブがメモリ上限に達しました",
+      "budgetExhaustedHint": "フィルタで結果を絞り込むか、テーブルをエクスポートして全体を確認してください。"
     },
     "noData": "表示するデータがありません",
     "noResults": "結果なし",
@@ -1079,9 +1079,14 @@
     "exportSuccess": "{{count}} 行を {{path}} にエクスポートしました",
     "exportError": "データのエクスポートに失敗しました",
     "copyToClipboard": "クリップボードにコピー",
+    "copySelection": "選択した {{count}} 行をコピー",
+    "copyLoadedRows": "読み込み済みの {{count}} 行をコピー",
+    "selectAllRows": "読み込み済みの行を選択",
+    "selectRow": "行を選択",
     "downloadToFile": "ファイルにダウンロード",
     "openRow": "行を開く",
     "editCell": "セルを編集",
+    "cellPreviewTruncated": "プレビュー — 全体を見るには行を開いてください",
     "searchPlaceholder": "検索...",
     "columns": "カラム",
     "toggleColumns": "カラムの切り替え",
@@ -1449,6 +1454,7 @@
     "exportVisible": "表示中のログをエクスポート",
     "exportDiagnostic": "診断ログをエクスポート（完全版）",
     "exportSuccess": "ログをエクスポートしました: {{name}}",
+    "exportScrubbed": "認証情報、トークン、ホームパスはファイル書き出し前に削除されました。",
     "exportError": "ログのエクスポートに失敗しました"
   },
   "paginationDiagnostics": {
@@ -1675,8 +1681,8 @@
       "guardsDesc": "危険なクエリは本番環境で二重に確認されます。ワントグルでどの接続も読み取り専用モードに切り替え可能。",
       "sandboxTitle": "サンドボックスモード",
       "sandboxDesc": "データグリッドの編集をローカルで保留し、確認してからデータベースに適用します。SQL エディターのクエリはサンドボックス化されません。",
-      "localTitle": "データはあなたのマシンから出ません",
-      "localDesc": "クラウド同期なし、データのテレメトリなし、リモートのスキーマインデックスなし。クエリと結果はローカルに留まります。"
+      "localTitle": "データは端末から出ません",
+      "localDesc": "クラウド同期なし、テレメトリは一切なし、リモートのスキーマインデックスなし。クエリと結果はローカルに留まります。唯一の例外は起動時の更新確認で GitHub に接続する点です — 設定で無効にできます。"
     },
     "tiers": {
       "title": "オープンコア — 無料版と Pro",
@@ -1693,24 +1699,35 @@
       "proBullet3": "データコントラクト、インスタントデータ API、高度なエクスポート",
       "footnote": "Pro は一回払いの永続ライセンスです。Team はシート単位のサブスクリプションです。"
     },
-    "analytics": {
-      "title": "改善にご協力ください",
-      "subtitle": "私たちはオープンソースプロジェクトです。匿名の使用データは機能の優先順位付けやバグ修正に役立ちます。設定でいつでも変更できます。",
-      "checkbox": "匿名の使用状況分析を共有する（推奨）",
-      "privacyHint": "クラッシュレポートと機能使用回数のみを収集します。クエリ、結果、認証情報がお使いのマシンから外部に送信されることはありません。",
-      "guarantee": "クエリ、結果、認証情報は、この設定に関わらず、あなたのマシンから出ることはありません。",
-      "finish": "はじめる"
-    },
     "workspace": {
       "title": "ワークスペースで整理",
       "description": "複数の接続があります。ワークスペースを作成してプロジェクトごとにグループ化し、Gitでチームと共有しましょう。"
-    }
+    },
+    "finish": "はじめる"
   },
   "errorBoundary": {
     "title": "エラーが発生しました",
     "description": "予期しないエラーが発生しました。エラーは記録されました。",
     "reload": "アプリケーションを再読み込み",
     "panelCrashed": "このパネルでエラーが発生しました"
+  },
+  "crashReport": {
+    "toastTitle": "QoreDB が予期せず終了しました",
+    "toastDescription": "クラッシュレポートがこの端末に保存されました。",
+    "toastAction": "レポートを表示",
+    "title": "クラッシュレポート",
+    "subtitle": "{{kind}} — {{date}}",
+    "others_one": "保留中のレポートが他に {{count}} 件あります。",
+    "others_other": "保留中のレポートが他に {{count}} 件あります。",
+    "privacyNote": "このレポートは端末内に留まります。認証情報と個人のパスは削除済みです。操作しない限り何も送信されません。",
+    "copy": "コピー",
+    "copied": "レポートをコピーしました",
+    "copyError": "レポートをコピーできませんでした",
+    "openFolder": "フォルダを開く",
+    "openFolderError": "ログフォルダを開けませんでした",
+    "report": "GitHub で報告",
+    "dismiss": "閉じる",
+    "issueWhatHappened": "クラッシュ時に行っていた操作"
   },
   "sandbox": {
     "activate": "サンドボックス",

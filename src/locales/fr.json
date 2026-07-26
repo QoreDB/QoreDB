@@ -695,8 +695,6 @@
     "storeHistoryDescription": "Enregistre un historique local masqué pour faciliter le recall.",
     "storeErrorLogs": "Stocker les logs d'erreur",
     "storeErrorLogsDescription": "Enregistre des erreurs masquées pour aider au debug.",
-    "analyticsEnabled": "Partager des analytics d’usage anonymes",
-    "analyticsEnabledDescription": "Aide à améliorer QoreDB en envoyant des événements anonymes (pas de requêtes ni d’identifiants).",
     "sandbox": {
       "title": "Bac à sable",
       "description": "Personnalisez le suivi et l'affichage des modifications en bac à sable.",
@@ -1077,7 +1075,9 @@
       "loadedEstimated": "{{loaded}} lignes chargées sur ~{{total}} (estimation)",
       "estimateHint": "Estimation du moteur, ce n'est pas un comptage exact.",
       "estimateAsOf": "Statistiques mises à jour le {{date}}.",
-      "windowExhausted": "{{loaded}} lignes chargées — le moteur ne sert plus de pages à cette profondeur"
+      "windowExhausted": "{{loaded}} lignes chargées — le moteur ne sert plus de pages à cette profondeur",
+      "budgetExhausted": "{{loaded}} lignes chargées — l'onglet a atteint sa limite mémoire",
+      "budgetExhaustedHint": "Affinez le résultat avec un filtre, ou exportez la table pour la lire en entier."
     },
     "noData": "Aucune donnée à afficher",
     "noResults": "Aucun résultat",
@@ -1114,9 +1114,14 @@
     "exportSuccess": "{{count}} ligne(s) exportée(s) vers {{path}}",
     "exportError": "Échec de l'export des données",
     "copyToClipboard": "Copier dans le presse-papiers",
+    "copySelection": "Copier les {{count}} ligne(s) sélectionnée(s)",
+    "copyLoadedRows": "Copier les {{count}} ligne(s) chargée(s)",
+    "selectAllRows": "Sélectionner les lignes chargées",
+    "selectRow": "Sélectionner la ligne",
     "downloadToFile": "Télécharger en fichier",
     "openRow": "Ouvrir la ligne",
     "editCell": "Éditer la cellule",
+    "cellPreviewTruncated": "Aperçu — ouvrez la ligne pour voir la valeur entière",
     "searchPlaceholder": "Rechercher...",
     "columns": "Colonnes",
     "toggleColumns": "Afficher/masquer colonnes",
@@ -1488,6 +1493,7 @@
     "exportVisible": "Exporter les logs visibles",
     "exportDiagnostic": "Exporter les logs de diagnostic (complet)",
     "exportSuccess": "Logs exportés : {{name}}",
+    "exportScrubbed": "Identifiants, jetons et chemin personnel ont été retirés avant l'écriture du fichier.",
     "exportError": "Échec de l'export des logs"
   },
   "paginationDiagnostics": {
@@ -1702,8 +1708,8 @@
       "guardsDesc": "Les requêtes dangereuses sont détectées et confirmées deux fois en prod. Mode lecture seule activable pour toute connexion.",
       "sandboxTitle": "Mode Sandbox",
       "sandboxDesc": "Préparez localement les modifications de la grille, vérifiez-les, puis appliquez-les à la base. Les requêtes de l’éditeur SQL ne sont pas isolées.",
-      "localTitle": "Rien ne quitte votre machine",
-      "localDesc": "Pas de sync cloud, pas de télémétrie de vos données, pas d'indexation distante de schéma. Vos requêtes et résultats restent locaux."
+      "localTitle": "Vos données ne quittent pas votre machine",
+      "localDesc": "Pas de sync cloud, aucune télémétrie, pas d'indexation distante de schéma. Vos requêtes et résultats restent locaux. Une seule exception : la vérification de mise à jour interroge GitHub au démarrage — désactivable dans les Réglages."
     },
     "tiers": {
       "title": "Open core — Free et Pro",
@@ -1720,18 +1726,11 @@
       "proBullet3": "Data contracts, Instant Data API, exports avancés",
       "footnote": "Pro est un paiement unique, licence perpétuelle. Team est un abonnement par siège."
     },
-    "analytics": {
-      "title": "Aidez à faire évoluer QoreDB",
-      "subtitle": "Des statistiques d'utilisation anonymes aident à prioriser les fonctionnalités et corriger les bugs plus vite. Modifiable à tout moment dans les Paramètres.",
-      "checkbox": "Partager des statistiques d'utilisation anonymes (recommandé)",
-      "privacyHint": "On ne collecte que des compteurs d'utilisation et des rapports de crash — jamais de requêtes, résultats, schémas ou identifiants.",
-      "guarantee": "Vos requêtes, résultats et identifiants ne quittent jamais votre machine — quel que soit ce réglage.",
-      "finish": "C'est parti"
-    },
     "workspace": {
       "title": "Organisez avec les espaces de travail",
       "description": "Vous avez plusieurs connexions. Créez un espace de travail pour les regrouper par projet et les partager avec votre équipe via Git."
-    }
+    },
+    "finish": "C'est parti"
   },
   "document": {
     "new": "Nouveau Document",
@@ -1750,6 +1749,24 @@
     "description": "Une erreur inattendue s'est produite. L'erreur a été journalisée.",
     "reload": "Recharger l'application",
     "panelCrashed": "Ce panneau a rencontré une erreur"
+  },
+  "crashReport": {
+    "toastTitle": "QoreDB s'est fermé anormalement",
+    "toastDescription": "Un rapport de crash a été enregistré sur votre machine.",
+    "toastAction": "Voir le rapport",
+    "title": "Rapport de crash",
+    "subtitle": "{{kind}} — {{date}}",
+    "others_one": "{{count}} autre rapport en attente.",
+    "others_other": "{{count}} autres rapports en attente.",
+    "privacyNote": "Ce rapport reste sur votre machine. Les identifiants et les chemins personnels en ont été retirés. Rien n'est envoyé sans une action de votre part.",
+    "copy": "Copier",
+    "copied": "Rapport copié",
+    "copyError": "Impossible de copier le rapport",
+    "openFolder": "Ouvrir le dossier",
+    "openFolderError": "Impossible d'ouvrir le dossier des logs",
+    "report": "Signaler sur GitHub",
+    "dismiss": "Fermer",
+    "issueWhatHappened": "Ce qui se passait au moment du crash"
   },
   "sandbox": {
     "activate": "Bac à sable",

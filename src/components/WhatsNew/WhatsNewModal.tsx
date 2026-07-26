@@ -2,10 +2,8 @@
 
 import type { LucideIcon } from 'lucide-react';
 import { Sparkles, TrendingUp, Wrench } from 'lucide-react';
-import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { LicenseBadge } from '@/components/License/LicenseBadge';
-import { AnalyticsService } from '@/components/Onboarding/AnalyticsService';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import type { ChangelogEntry, ChangelogItem } from '@/data/changelog';
@@ -38,12 +36,6 @@ interface WhatsNewModalProps {
 
 export function WhatsNewModal({ open, entry, onClose }: WhatsNewModalProps) {
   const { t } = useTranslation();
-
-  useEffect(() => {
-    if (open && entry) {
-      AnalyticsService.capture('whats_new_seen', { version: entry.version });
-    }
-  }, [open, entry]);
 
   if (!entry) return null;
 

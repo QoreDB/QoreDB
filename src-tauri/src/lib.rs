@@ -279,6 +279,8 @@ pub fn run() {
             // Logs
             commands::logs::export_logs,
             commands::logs::get_logs_directory,
+            commands::logs::get_pending_crash_reports,
+            commands::logs::acknowledge_crash_reports,
             commands::logs::log_frontend_message,
             // Export
             commands::export::start_export,

@@ -20,7 +20,6 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
-import { AnalyticsService } from '@/components/Onboarding/AnalyticsService';
 import { ChangesPanel, MigrationPreview, SandboxToggle } from '@/components/Sandbox';
 import { Button } from '@/components/ui/button';
 import {
@@ -376,6 +375,7 @@ export function TableBrowser({
     isCountingTotal,
     isComplete,
     windowExhausted,
+    budgetExhausted,
     orderingGuarantee,
     error,
     cached,
@@ -412,10 +412,6 @@ export function TableBrowser({
     if (data && lastTrackedViewKeyRef.current !== currentViewKey) {
       lastTrackedViewKeyRef.current = currentViewKey;
       recordTableVisit({ connectionId, namespace, tableName });
-      AnalyticsService.capture('table_view_loaded', {
-        driver,
-        resource_type: driver === Driver.Mongodb ? 'collection' : 'table',
-      });
     }
   }, [connectionId, currentViewKey, data, driver, namespace, tableName]);
 
@@ -935,6 +931,7 @@ export function TableBrowser({
             infiniteScrollIsCountingTotal={isCountingTotal}
             infiniteScrollIsComplete={isComplete}
             infiniteScrollWindowExhausted={windowExhausted}
+            infiniteScrollBudgetExhausted={budgetExhausted}
             infiniteScrollOrderingGuarantee={orderingGuarantee}
             onFetchMore={fetchNextChunk}
             onCalculateExactTotal={calculateExactTotal}

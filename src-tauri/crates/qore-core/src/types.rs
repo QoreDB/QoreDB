@@ -542,6 +542,20 @@ impl Value {
         }
     }
 
+    /// Representation of an exact decimal, from the engine's own rendering of it.
+    ///
+    /// A `NUMERIC` or `DECIMAL` carries more digits than a double: converting it
+    /// unconditionally rounds the value before any caller sees it, and nothing
+    /// downstream can tell a rounded value from a stored one. Values a double
+    /// holds exactly stay numbers, so the ordinary column keeps its type; only
+    /// the ones a double would alter travel as text.
+    pub fn from_decimal_text(text: String) -> Value {
+        match text.parse::<f64>() {
+            Ok(f) if f.is_finite() && same_decimal_digits(&text, f) => Value::Float(f),
+            _ => Value::Text(text),
+        }
+    }
+
     /// Canonical conversion to `serde_json::Value`. Relies on the `#[serde(untagged)]`
     /// wire form: bytes become base64 strings, non-finite floats become `null`,
     /// nested `Json`/`Array` pass through. Use this instead of re-implementing the
@@ -549,6 +563,59 @@ impl Value {
     /// shape (e.g. a `<binary N bytes>` placeholder) keep their own mapping.
     pub fn to_json(&self) -> serde_json::Value {
         serde_json::to_value(self).unwrap_or(serde_json::Value::Null)
+    }
+}
+
+/// Plain decimal digits, stripped of the notations that mean the same number.
+/// Returns `None` for anything that is not a plain decimal, which then counts as
+/// not comparable rather than as equal.
+fn canonical_decimal(text: &str) -> Option<String> {
+    let trimmed = text.trim();
+    let (sign, rest) = match trimmed.strip_prefix('-') {
+        Some(rest) => ("-", rest),
+        None => ("", trimmed.strip_prefix('+').unwrap_or(trimmed)),
+    };
+    let (int_part, frac_part) = match rest.split_once('.') {
+        Some((int_part, frac_part)) => (int_part, frac_part),
+        None => (rest, ""),
+    };
+    if int_part.is_empty() && frac_part.is_empty() {
+        return None;
+    }
+    if !int_part.bytes().all(|b| b.is_ascii_digit())
+        || !frac_part.bytes().all(|b| b.is_ascii_digit())
+    {
+        return None;
+    }
+
+    let int_digits = int_part.trim_start_matches('0');
+    let int_digits = if int_digits.is_empty() {
+        "0"
+    } else {
+        int_digits
+    };
+    let frac_digits = frac_part.trim_end_matches('0');
+    let sign = if sign == "-" && !(int_digits == "0" && frac_digits.is_empty()) {
+        "-"
+    } else {
+        ""
+    };
+    Some(if frac_digits.is_empty() {
+        format!("{sign}{int_digits}")
+    } else {
+        format!("{sign}{int_digits}.{frac_digits}")
+    })
+}
+
+/// Compares digit strings rather than values: re-parsing the rendered double
+/// would compare it with itself and never see what was lost.
+fn same_decimal_digits(text: &str, value: f64) -> bool {
+    match (
+        canonical_decimal(text),
+        canonical_decimal(&value.to_string()),
+    ) {
+        (Some(before), Some(after)) => before == after,
+        _ => false,
     }
 }
 
@@ -1755,5 +1822,52 @@ mod pagination_tests {
         assert!(json["total_rows"].is_null());
         assert!(json["total_rows_source"].is_null());
         assert_eq!(json["has_more"], serde_json::json!(false));
+    }
+    #[test]
+    fn a_decimal_a_double_holds_stays_a_number() {
+        for text in ["0", "1", "-42", "1.5", "0.25", "123456.789"] {
+            assert!(
+                matches!(Value::from_decimal_text(text.to_string()), Value::Float(_)),
+                "{text} should stay a number"
+            );
+        }
+    }
+
+    #[test]
+    fn a_decimal_a_double_would_round_travels_as_text() {
+        for text in [
+            "123456789012345678901.1234567890",
+            "0.12345678901234567890123",
+            "9007199254740993",
+        ] {
+            match Value::from_decimal_text(text.to_string()) {
+                Value::Text(kept) => assert_eq!(kept, text),
+                other => panic!("{text} should stay exact, got {other:?}"),
+            }
+        }
+    }
+
+    // The engine renders the column's scale; that is not a loss and must not
+    // push an ordinary value onto the text path.
+    #[test]
+    fn trailing_zeros_are_not_a_loss() {
+        assert!(matches!(
+            Value::from_decimal_text("1.50".to_string()),
+            Value::Float(f) if f == 1.5
+        ));
+        assert!(matches!(
+            Value::from_decimal_text("-0.0".to_string()),
+            Value::Float(_)
+        ));
+    }
+
+    #[test]
+    fn anything_that_is_not_a_plain_decimal_stays_text() {
+        for text in ["NaN", "1e5", "", "abc"] {
+            assert!(
+                matches!(Value::from_decimal_text(text.to_string()), Value::Text(_)),
+                "{text} should stay text"
+            );
+        }
     }
 }

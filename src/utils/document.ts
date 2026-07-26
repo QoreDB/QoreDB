@@ -33,6 +33,7 @@ export interface DocumentResultsProps {
   infiniteScrollIsCountingTotal?: boolean;
   infiniteScrollIsComplete?: boolean;
   infiniteScrollWindowExhausted?: boolean;
+  infiniteScrollBudgetExhausted?: boolean;
   infiniteScrollOrderingGuarantee?: OrderingGuarantee;
   onFetchMore?: () => void;
   onCalculateExactTotal?: () => void;

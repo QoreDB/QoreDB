@@ -9,6 +9,7 @@ import {
   recordPaginationExactCount,
   recordPaginationPage,
 } from '@/lib/diagnostics/paginationMetrics';
+import { estimatePayloadBytes, TAB_PAYLOAD_BUDGET_BYTES } from '@/lib/query/payloadSize';
 import type {
   ColumnFilter,
   ColumnInfo,
@@ -58,6 +59,9 @@ interface UseInfiniteTableDataReturn {
   /** True when scrolling stopped at the engine's deep-window limit, not at the
    *  end of the data. */
   windowExhausted: boolean;
+  /** True when scrolling stopped at the tab's memory budget, not at the end of
+   *  the data. */
+  budgetExhausted: boolean;
   /** How the last page was walked, as reported by the driver. */
   paginationStrategy: PaginationStrategy;
   /** Whether rows can be relied on to appear exactly once across pages. */
@@ -100,6 +104,7 @@ export function useInfiniteTableData({
   const [isCountingTotal, setIsCountingTotal] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
   const [windowExhausted, setWindowExhausted] = useState(false);
+  const [budgetExhausted, setBudgetExhausted] = useState(false);
   const [paginationStrategy, setPaginationStrategy] = useState<PaginationStrategy>('offset');
   const [orderingGuarantee, setOrderingGuarantee] = useState<OrderingGuarantee>('none');
   const [error, setError] = useState<string | null>(null);
@@ -123,6 +128,7 @@ export function useInfiniteTableData({
   const fetchingRef = useRef(false);
   const countingTotalRef = useRef(false);
   const knownTotalRef = useRef<number | null>(null);
+  const payloadBytesRef = useRef(0);
   const countQueryIdRef = useRef<string | null>(null);
   const countCancelledRef = useRef(false);
   // Created on the first page rather than on mount, so a scope never exists
@@ -239,7 +245,13 @@ export function useInfiniteTableData({
           return prev;
         });
         setAllRows(prev => prev.concat(paginated.result.rows));
-        setIsComplete(!paginated.has_more || paginated.result.rows.length === 0);
+        // Measured per page rather than extrapolated from the first one: a
+        // single wide document or blob weighs more than the thousand rows
+        // around it, and that page is exactly the one worth stopping on.
+        payloadBytesRef.current += estimatePayloadBytes(paginated.result.rows);
+        const overBudget = payloadBytesRef.current >= TAB_PAYLOAD_BUDGET_BYTES;
+        if (overBudget) setBudgetExhausted(true);
+        setIsComplete(!paginated.has_more || paginated.result.rows.length === 0 || overBudget);
         if (paginated.total_rows !== null) {
           knownTotalRef.current = paginated.total_rows;
           setTotalRows(paginated.total_rows);
@@ -376,6 +388,7 @@ export function useInfiniteTableData({
     fetchingRef.current = false;
     countingTotalRef.current = false;
     knownTotalRef.current = null;
+    payloadBytesRef.current = 0;
     setAllRows([]);
     setTotalRows(null);
     setTotalRowsSource(null);
@@ -385,6 +398,7 @@ export function useInfiniteTableData({
     setIsCountingTotal(false);
     setIsComplete(false);
     setWindowExhausted(false);
+    setBudgetExhausted(false);
     setPaginationStrategy('offset');
     setOrderingGuarantee('none');
     setError(null);
@@ -481,6 +495,7 @@ export function useInfiniteTableData({
     isCountingTotal,
     isComplete,
     windowExhausted,
+    budgetExhausted,
     paginationStrategy,
     orderingGuarantee,
     error,

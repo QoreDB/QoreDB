@@ -47,6 +47,13 @@ const MACRO_ARGUMENTS_SQL: &str = r#"
     ) END
 "#;
 
+const LIST_NAMESPACES_SQL: &str = r#"
+    SELECT database_name, schema_name
+    FROM duckdb_schemas()
+    WHERE internal = false
+    ORDER BY database_name, schema_name
+"#;
+
 impl MotherDuckDriver {
     pub fn new() -> Self {
         Self {
@@ -98,6 +105,16 @@ fn extract_index_columns(sql: Option<&str>) -> Vec<String> {
     }
 }
 
+fn qualified_object_name(namespace: &Namespace, name: &str) -> String {
+    let schema = namespace.schema.as_deref().unwrap_or("main");
+    format!(
+        "{}.{}.{}",
+        pg_compat::quote_ident(&namespace.database),
+        pg_compat::quote_ident(schema),
+        pg_compat::quote_ident(name)
+    )
+}
+
 impl Default for MotherDuckDriver {
     fn default() -> Self {
         Self::new()
@@ -138,27 +155,14 @@ impl DataEngine for MotherDuckDriver {
         let pg = pg_compat::get_session(&self.sessions, session).await?;
         let pool = &pg.pool;
 
-        let current_db: (String,) = sqlx::query_as("SELECT current_database()")
-            .fetch_one(pool)
+        let rows: Vec<(String, String)> = sqlx::query_as(LIST_NAMESPACES_SQL)
+            .fetch_all(pool)
             .await
             .map_err(|e| EngineError::execution_error(e.to_string()))?;
 
-        let rows: Vec<(String,)> = sqlx::query_as(
-            r#"
-            SELECT DISTINCT schema_name
-            FROM information_schema.schemata
-            WHERE catalog_name = current_database()
-              AND schema_name NOT IN ('information_schema', 'pg_catalog')
-            ORDER BY schema_name
-            "#,
-        )
-        .fetch_all(pool)
-        .await
-        .map_err(|e| EngineError::execution_error(e.to_string()))?;
-
         Ok(rows
             .into_iter()
-            .map(|(name,)| Namespace::with_schema(&current_db.0, name))
+            .map(|(database, schema)| Namespace::with_schema(database, schema))
             .collect())
     }
 
@@ -178,13 +182,13 @@ impl DataEngine for MotherDuckDriver {
             r#"
             SELECT COUNT(*)
             FROM information_schema.tables
-            WHERE table_catalog = current_database()
-              AND table_schema = $1
-              AND ($2 IS NULL OR table_name ILIKE $3)
+            WHERE table_catalog = $1
+              AND table_schema = $2
+              AND ($3::text IS NULL OR table_name ILIKE $3)
             "#,
         )
+        .bind(&namespace.database)
         .bind(schema)
-        .bind(&search_pattern)
         .bind(&search_pattern)
         .fetch_one(pool)
         .await
@@ -193,9 +197,9 @@ impl DataEngine for MotherDuckDriver {
         let mut query_str = r#"
             SELECT table_name, table_type
             FROM information_schema.tables
-            WHERE table_catalog = current_database()
-              AND table_schema = $1
-              AND ($2 IS NULL OR table_name ILIKE $3)
+            WHERE table_catalog = $1
+              AND table_schema = $2
+              AND ($3::text IS NULL OR table_name ILIKE $3)
             ORDER BY table_name
         "#
         .to_string();
@@ -209,8 +213,8 @@ impl DataEngine for MotherDuckDriver {
         }
 
         let rows: Vec<(String, String)> = sqlx::query_as(&query_str)
+            .bind(&namespace.database)
             .bind(schema)
-            .bind(&search_pattern)
             .bind(&search_pattern)
             .fetch_all(pool)
             .await
@@ -262,15 +266,15 @@ impl DataEngine for MotherDuckDriver {
             r#"
             SELECT count(*)
             FROM duckdb_functions()
-            WHERE database_name = current_database()
-              AND schema_name = $1
+            WHERE database_name = $1
+              AND schema_name = $2
               AND internal = false
               AND macro_definition IS NOT NULL
-              AND ($2 IS NULL OR function_name ILIKE $3)
+              AND ($3::text IS NULL OR function_name ILIKE $3)
             "#,
         )
+        .bind(&namespace.database)
         .bind(schema)
-        .bind(&search)
         .bind(&search)
         .fetch_one(&pg.pool)
         .await
@@ -281,11 +285,11 @@ impl DataEngine for MotherDuckDriver {
             SELECT function_name, function_type,
                    {MACRO_ARGUMENTS_SQL}, return_type
             FROM duckdb_functions()
-            WHERE database_name = current_database()
-              AND schema_name = $1
+            WHERE database_name = $1
+              AND schema_name = $2
               AND internal = false
               AND macro_definition IS NOT NULL
-              AND ($2 IS NULL OR function_name ILIKE $3)
+              AND ($3::text IS NULL OR function_name ILIKE $3)
             ORDER BY function_name, function_oid
         "#
         );
@@ -298,8 +302,8 @@ impl DataEngine for MotherDuckDriver {
         }
 
         let rows: Vec<(String, String, String, Option<String>)> = sqlx::query_as(&sql)
+            .bind(&namespace.database)
             .bind(schema)
-            .bind(&search)
             .bind(&search)
             .fetch_all(&pg.pool)
             .await
@@ -347,13 +351,14 @@ impl DataEngine for MotherDuckDriver {
             SELECT function_type, {MACRO_ARGUMENTS_SQL},
                    return_type, macro_definition
             FROM duckdb_functions()
-            WHERE database_name = current_database()
-              AND schema_name = $1 AND function_name = $2
+            WHERE database_name = $1
+              AND schema_name = $2 AND function_name = $3
               AND internal = false AND macro_definition IS NOT NULL
             ORDER BY function_oid
             "#
         );
         let rows: Vec<(String, String, Option<String>, String)> = sqlx::query_as(&definition_sql)
+            .bind(&namespace.database)
             .bind(schema)
             .bind(routine_name)
             .fetch_all(&pg.pool)
@@ -374,9 +379,8 @@ impl DataEngine for MotherDuckDriver {
             ""
         };
         let definition = format!(
-            "CREATE MACRO {}.{}({}) AS{} {};",
-            pg_compat::quote_ident(schema),
-            pg_compat::quote_ident(routine_name),
+            "CREATE MACRO {}({}) AS{} {};",
+            qualified_object_name(namespace, routine_name),
             arguments,
             table_keyword,
             body
@@ -411,11 +415,9 @@ impl DataEngine for MotherDuckDriver {
             ));
         }
         let pg = pg_compat::get_session(&self.sessions, session).await?;
-        let schema = namespace.schema.as_deref().unwrap_or("main");
         let sql = format!(
-            "DROP MACRO {}.{}",
-            pg_compat::quote_ident(schema),
-            pg_compat::quote_ident(routine_name)
+            "DROP MACRO {}",
+            qualified_object_name(namespace, routine_name)
         );
         let start = Instant::now();
         sqlx::query(&sql)
@@ -446,12 +448,12 @@ impl DataEngine for MotherDuckDriver {
         let count: i64 = sqlx::query_scalar(
             r#"
             SELECT count(*) FROM duckdb_sequences()
-            WHERE database_name = current_database() AND schema_name = $1
-              AND ($2 IS NULL OR sequence_name ILIKE $3)
+            WHERE database_name = $1 AND schema_name = $2
+              AND ($3::text IS NULL OR sequence_name ILIKE $3)
             "#,
         )
+        .bind(&namespace.database)
         .bind(schema)
-        .bind(&search)
         .bind(&search)
         .fetch_one(&pg.pool)
         .await
@@ -460,8 +462,8 @@ impl DataEngine for MotherDuckDriver {
         let mut sql = r#"
             SELECT sequence_name, start_value, min_value, max_value, increment_by, cycle
             FROM duckdb_sequences()
-            WHERE database_name = current_database() AND schema_name = $1
-              AND ($2 IS NULL OR sequence_name ILIKE $3)
+            WHERE database_name = $1 AND schema_name = $2
+              AND ($3::text IS NULL OR sequence_name ILIKE $3)
             ORDER BY sequence_name
         "#
         .to_string();
@@ -473,8 +475,8 @@ impl DataEngine for MotherDuckDriver {
             ));
         }
         let rows: Vec<(String, i64, i64, i64, i64, bool)> = sqlx::query_as(&sql)
+            .bind(&namespace.database)
             .bind(schema)
-            .bind(&search)
             .bind(&search)
             .fetch_all(&pg.pool)
             .await
@@ -513,10 +515,11 @@ impl DataEngine for MotherDuckDriver {
         let definition: Option<String> = sqlx::query_scalar(
             r#"
             SELECT sql FROM duckdb_sequences()
-            WHERE database_name = current_database()
-              AND schema_name = $1 AND sequence_name = $2
+            WHERE database_name = $1
+              AND schema_name = $2 AND sequence_name = $3
             "#,
         )
+        .bind(&namespace.database)
         .bind(schema)
         .bind(sequence_name)
         .fetch_optional(&pg.pool)
@@ -541,11 +544,9 @@ impl DataEngine for MotherDuckDriver {
         sequence_name: &str,
     ) -> EngineResult<SequenceOperationResult> {
         let pg = pg_compat::get_session(&self.sessions, session).await?;
-        let schema = namespace.schema.as_deref().unwrap_or("main");
         let sql = format!(
-            "DROP SEQUENCE {}.{}",
-            pg_compat::quote_ident(schema),
-            pg_compat::quote_ident(sequence_name)
+            "DROP SEQUENCE {}",
+            qualified_object_name(namespace, sequence_name)
         );
         let start = Instant::now();
         sqlx::query(&sql)
@@ -574,11 +575,12 @@ impl DataEngine for MotherDuckDriver {
             r#"
             SELECT column_name, data_type, is_nullable, column_default
             FROM information_schema.columns
-            WHERE table_catalog = current_database()
-              AND table_schema = $1 AND table_name = $2
+            WHERE table_catalog = $1
+              AND table_schema = $2 AND table_name = $3
             ORDER BY ordinal_position
             "#,
         )
+        .bind(&namespace.database)
         .bind(schema)
         .bind(table)
         .fetch_all(pool)
@@ -599,11 +601,12 @@ impl DataEngine for MotherDuckDriver {
             r#"
             SELECT unnest(constraint_column_names)
             FROM duckdb_constraints()
-            WHERE database_name = current_database()
-              AND schema_name = $1 AND table_name = $2
+            WHERE database_name = $1
+              AND schema_name = $2 AND table_name = $3
               AND constraint_type = 'PRIMARY KEY'
             "#,
         )
+        .bind(&namespace.database)
         .bind(schema)
         .bind(table)
         .fetch_all(pool)
@@ -616,11 +619,12 @@ impl DataEngine for MotherDuckDriver {
             SELECT unnest(constraint_column_names), unnest(referenced_column_names),
                    referenced_table, constraint_name
             FROM duckdb_constraints()
-            WHERE database_name = current_database()
-              AND schema_name = $1 AND table_name = $2
+            WHERE database_name = $1
+              AND schema_name = $2 AND table_name = $3
               AND constraint_type = 'FOREIGN KEY'
             "#,
         )
+        .bind(&namespace.database)
         .bind(schema)
         .bind(table)
         .fetch_all(pool)
@@ -635,7 +639,7 @@ impl DataEngine for MotherDuckDriver {
                     referenced_table,
                     referenced_column,
                     referenced_schema: Some(schema.to_string()),
-                    referenced_database: None,
+                    referenced_database: Some(namespace.database.clone()),
                     constraint_name,
                     is_virtual: false,
                 },
@@ -647,11 +651,12 @@ impl DataEngine for MotherDuckDriver {
             SELECT constraint_name, constraint_type,
                    array_to_string(constraint_column_names, ',')
             FROM duckdb_constraints()
-            WHERE database_name = current_database()
-              AND schema_name = $1 AND table_name = $2
+            WHERE database_name = $1
+              AND schema_name = $2 AND table_name = $3
               AND constraint_type IN ('PRIMARY KEY', 'UNIQUE')
             "#,
         )
+        .bind(&namespace.database)
         .bind(schema)
         .bind(table)
         .fetch_all(pool)
@@ -673,10 +678,11 @@ impl DataEngine for MotherDuckDriver {
             r#"
             SELECT index_name, is_unique, sql
             FROM duckdb_indexes()
-            WHERE database_name = current_database()
-              AND schema_name = $1 AND table_name = $2
+            WHERE database_name = $1
+              AND schema_name = $2 AND table_name = $3
             "#,
         )
+        .bind(&namespace.database)
         .bind(schema)
         .bind(table)
         .fetch_all(pool)
@@ -699,10 +705,11 @@ impl DataEngine for MotherDuckDriver {
             r#"
             SELECT estimated_size
             FROM duckdb_tables()
-            WHERE database_name = current_database()
-              AND schema_name = $1 AND table_name = $2
+            WHERE database_name = $1
+              AND schema_name = $2 AND table_name = $3
             "#,
         )
+        .bind(&namespace.database)
         .bind(schema)
         .bind(table)
         .fetch_optional(pool)
@@ -825,11 +832,9 @@ impl DataEngine for MotherDuckDriver {
         table: &str,
         limit: u32,
     ) -> EngineResult<QueryResult> {
-        let schema = namespace.schema.as_deref().unwrap_or("main");
         let query = format!(
-            "SELECT * FROM {}.{} LIMIT {}",
-            pg_compat::quote_ident(schema),
-            pg_compat::quote_ident(table),
+            "SELECT * FROM {} LIMIT {}",
+            qualified_object_name(namespace, table),
             limit
         );
         self.execute(session, &query, QueryId::new()).await
@@ -853,7 +858,7 @@ impl DataEngine for MotherDuckDriver {
         value: &Value,
         limit: u32,
     ) -> EngineResult<QueryResult> {
-        pg_compat::peek_foreign_key(
+        pg_compat::peek_foreign_key_duckdb(
             &self.sessions,
             session,
             namespace,
@@ -908,7 +913,7 @@ impl DataEngine for MotherDuckDriver {
         table: &str,
         data: &RowData,
     ) -> EngineResult<QueryResult> {
-        pg_compat::insert_row(&self.sessions, session, namespace, table, data).await
+        pg_compat::insert_row_duckdb(&self.sessions, session, namespace, table, data).await
     }
 
     async fn update_row(
@@ -919,7 +924,8 @@ impl DataEngine for MotherDuckDriver {
         primary_key: &RowData,
         data: &RowData,
     ) -> EngineResult<QueryResult> {
-        pg_compat::update_row(&self.sessions, session, namespace, table, primary_key, data).await
+        pg_compat::update_row_duckdb(&self.sessions, session, namespace, table, primary_key, data)
+            .await
     }
 
     async fn delete_row(
@@ -929,7 +935,7 @@ impl DataEngine for MotherDuckDriver {
         table: &str,
         primary_key: &RowData,
     ) -> EngineResult<QueryResult> {
-        pg_compat::delete_row(&self.sessions, session, namespace, table, primary_key).await
+        pg_compat::delete_row_duckdb(&self.sessions, session, namespace, table, primary_key).await
     }
 
     fn supports_mutations(&self) -> bool {
@@ -966,12 +972,7 @@ impl DataEngine for MotherDuckDriver {
             ));
         }
         let pg = pg_compat::get_session(&self.sessions, session).await?;
-        let schema = namespace.schema.as_deref().unwrap_or("main");
-        let sql = format!(
-            "ANALYZE {}.{}",
-            pg_compat::quote_ident(schema),
-            pg_compat::quote_ident(table)
-        );
+        let sql = format!("ANALYZE {}", qualified_object_name(namespace, table));
         let start = Instant::now();
         sqlx::query(&sql)
             .execute(&pg.pool)
@@ -1102,6 +1103,41 @@ mod tests {
                 "CREATE INDEX orders_idx ON main.orders (\"customer_id\", \"status\")"
             )),
             ["customer_id", "status"]
+        );
+    }
+
+    #[test]
+    fn motherduck_discovers_schemas_across_catalogs() {
+        let conn = duckdb::Connection::open_in_memory().unwrap();
+        conn.execute_batch(
+            r#"
+            ATTACH ':memory:' AS analytics;
+            CREATE SCHEMA analytics.sales;
+            ATTACH ':memory:' AS operations;
+            CREATE SCHEMA operations.inventory;
+            "#,
+        )
+        .unwrap();
+
+        let mut statement = conn.prepare(LIST_NAMESPACES_SQL).unwrap();
+        let namespaces = statement
+            .query_map([], |row| {
+                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+            })
+            .unwrap()
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap();
+
+        assert!(namespaces.contains(&("analytics".into(), "sales".into())));
+        assert!(namespaces.contains(&("operations".into(), "inventory".into())));
+    }
+
+    #[test]
+    fn motherduck_qualifies_objects_with_catalog_and_schema() {
+        let namespace = Namespace::with_schema("analytics-prod", "Sales");
+        assert_eq!(
+            qualified_object_name(&namespace, "order\"lines"),
+            "\"analytics-prod\".\"Sales\".\"order\"\"lines\""
         );
     }
 }

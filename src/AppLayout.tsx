@@ -26,7 +26,6 @@ import { CustomTitlebar } from './components/CustomTitlebar';
 import { ConnectionDashboard } from './components/Dashboard/ConnectionDashboard';
 import { WelcomeScreen } from './components/Home/WelcomeScreen';
 import { LicenseGate } from './components/License/LicenseGate';
-import { AnalyticsService } from './components/Onboarding/AnalyticsService';
 import { QueryPanel } from './components/Query/QueryPanel';
 import { SandboxBorder } from './components/Sandbox';
 import type { SearchResult } from './components/Search/GlobalSearch';
@@ -264,11 +263,6 @@ export function AppLayout() {
       sf?: SearchFilter,
       requestedTab?: TableBrowserTab
     ) => {
-      AnalyticsService.capture('resource_opened', {
-        source: sf ? 'search' : rf ? 'relation' : 'tree',
-        resource_type: driver === Driver.Mongodb ? 'collection' : 'table',
-        driver,
-      });
       const nextTab = createTableTab(ns, tableName, rf, sf);
 
       if (requestedTab) {
@@ -290,11 +284,6 @@ export function AppLayout() {
 
   const handleDatabaseSelect = useCallback(
     (namespace: Namespace) => {
-      AnalyticsService.capture('resource_opened', {
-        source: 'tree',
-        resource_type: driver === Driver.Mongodb ? 'database' : 'schema',
-        driver,
-      });
       openTab(createDatabaseTab(namespace));
     },
     [driver, openTab]

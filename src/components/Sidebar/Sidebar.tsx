@@ -7,7 +7,6 @@ import { toast } from 'sonner';
 import { FounderBadge } from '@/components/License/FounderBadge';
 import { LicenseBadge } from '@/components/License/LicenseBadge';
 import { ProDiscoveryPanel } from '@/components/License/ProDiscoveryPanel';
-import { AnalyticsService } from '@/components/Onboarding/AnalyticsService';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -237,11 +236,6 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(function Sidebar(
       if (result.success && result.session_id) {
         toast.success(t('sidebar.connectedTo', { name: conn.name }));
 
-        AnalyticsService.capture('connected_success', {
-          source: 'sidebar',
-          driver: conn.driver,
-        });
-
         onConnected(result.session_id, {
           ...conn,
           environment: conn.environment,
@@ -249,19 +243,11 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(function Sidebar(
         });
         setExpandedId(conn.id);
       } else {
-        AnalyticsService.capture('connected_failed', {
-          source: 'sidebar',
-          driver: conn.driver,
-        });
         toast.error(t('sidebar.connectionToFailed', { name: conn.name }), {
           description: result.error || t('common.unknownError'),
         });
       }
     } catch (err) {
-      AnalyticsService.capture('connected_failed', {
-        source: 'sidebar',
-        driver: conn.driver,
-      });
       toast.error(t('sidebar.connectError'), {
         description: err instanceof Error ? err.message : t('common.unknownError'),
       });
@@ -505,7 +491,6 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(function Sidebar(
       <ProDiscoveryPanel
         open={proDiscoveryOpen}
         onClose={() => setProDiscoveryOpen(false)}
-        source="sidebar"
         onActivate={() => setSettingsOpen(true)}
       />
     </aside>

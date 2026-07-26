@@ -22,6 +22,21 @@ export async function getLogsDirectory(): Promise<string> {
   return invoke('get_logs_directory');
 }
 
+export interface CrashReport {
+  filename: string;
+  recordedAt: string;
+  kind: string;
+  content: string;
+}
+
+export async function getPendingCrashReports(): Promise<CrashReport[]> {
+  return invoke('get_pending_crash_reports');
+}
+
+export async function acknowledgeCrashReports(): Promise<number> {
+  return invoke('acknowledge_crash_reports');
+}
+
 export async function getMetrics(): Promise<{
   success: boolean;
   metrics?: {

@@ -40,7 +40,7 @@ Infra,Auto-Update,App / Tauri,Mise à jour automatique de l'application.,Termin�
 Infra,Crash Recovery,App / Logic,Restauration de l'état de session après plantage.,Terminé,P2,V1,3,Robustesse.
 Infra,Backup Settings,App / Logic,Sauvegarde automatique de la configuration json.,Terminé,P2,V1,2,Backup local.
 Infra,Import / Export Projet,App / Logic,Transfert complet de configuration via fichier JSON.,Terminé,P2,V1,2,Portabilité.
-Infra,Telemetry / Analytics,App / Logic,Tracking anonyme des actions clés (connexion - crash) pour debugging.,Terminé,P3,V1,2,Module `AnalyticsService`.
+Infra,Crash reporting local,App / Logic,Rapport de crash écrit sur disque et proposé au lancement suivant ; partage manuel via issue GitHub pré-remplie. Aucune télémétrie.,Terminé,P3,V1,2,`observability.rs` + `components/Crash`.
 Infra,Open Core Licensing,Fullstack,Système de licence Core/Pro avec activation et feature gating backend/frontend.,Terminé,P1,V2,4,Inclut activation locale et vérification de droits.
 Infra,Dev Metrics,Backlog / Dev,Métriques de performance internes (query time - pool usage).,En cours,P3,V2,3,Exposé uniquement en dev build.
 IA,Assistant IA,Fullstack,Génération et explication de requêtes avec correction d'erreurs en mode contextuel.,Terminé,P1,V1,4,Nécessite une licence Pro.

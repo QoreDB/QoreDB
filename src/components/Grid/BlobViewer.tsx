@@ -4,7 +4,6 @@ import { Binary, Copy, Download, ExternalLink, Eye, FileCode, Link2 } from 'luci
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { AnalyticsService } from '@/components/Onboarding/AnalyticsService';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -23,7 +22,6 @@ import {
   MAX_DECODE_SIZE,
   MAX_HEX_DUMP_BYTES,
   MAX_PREVIEW_SIZE,
-  sizeBucket,
 } from '@/lib/binaryUtils';
 import { ImagePreview } from './blob/ImagePreview';
 import { SvgSourceView } from './blob/SvgSourceView';
@@ -89,11 +87,6 @@ export function BlobViewer({ open, onOpenChange, value, columnName, dataType }: 
     }
     if (openTrackedRef.current) return;
     openTrackedRef.current = true;
-    AnalyticsService.capture('blob_viewer_opened', {
-      column_type: dataType,
-      size_bucket: sizeBucket(byteSize),
-      detected_kind: blobKind ? (blobKind.kind === 'svg' ? 'svg' : blobKind.type) : 'unknown',
-    });
   }, [open, blobKind, byteSize, dataType]);
 
   const hexDump = useMemo(() => {

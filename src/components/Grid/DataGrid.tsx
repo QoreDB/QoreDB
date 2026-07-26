@@ -72,7 +72,12 @@ import { useForeignKeyPeek } from './hooks/useForeignKeyPeek';
 import { useInlineEdit } from './hooks/useInlineEdit';
 import { NaturalLanguageFilterBar } from './NaturalLanguageFilterBar';
 import type { SearchScopeState } from './SearchScopeControl';
-import { convertToRowData, formatValue, type RowData } from './utils/dataGridUtils';
+import {
+  convertToRowDataIncremental,
+  formatValue,
+  type RowData,
+  type RowDataCache,
+} from './utils/dataGridUtils';
 
 const EMPTY_OVERLAY_RESULT: OverlayResult = {
   result: {
@@ -150,6 +155,7 @@ interface DataGridProps {
   infiniteScrollIsCountingTotal?: boolean;
   infiniteScrollIsComplete?: boolean;
   infiniteScrollWindowExhausted?: boolean;
+  infiniteScrollBudgetExhausted?: boolean;
   infiniteScrollOrderingGuarantee?: OrderingGuarantee;
   onFetchMore?: () => void;
   onCalculateExactTotal?: () => void;
@@ -199,6 +205,7 @@ export function DataGrid({
   infiniteScrollIsCountingTotal,
   infiniteScrollIsComplete,
   infiniteScrollWindowExhausted,
+  infiniteScrollBudgetExhausted,
   infiniteScrollOrderingGuarantee,
   onFetchMore,
   onCalculateExactTotal,
@@ -374,10 +381,15 @@ export function DataGrid({
     primaryKey,
   ]);
 
+  const rowDataCacheRef = useRef<RowDataCache | null>(null);
   const data = useMemo(() => {
     const effectiveResult = sandboxMode ? overlayResult.result : result;
-    if (!effectiveResult) return [];
-    return convertToRowData(effectiveResult);
+    if (!effectiveResult) {
+      rowDataCacheRef.current = null;
+      return [];
+    }
+    rowDataCacheRef.current = convertToRowDataIncremental(effectiveResult, rowDataCacheRef.current);
+    return rowDataCacheRef.current.converted;
   }, [result, overlayResult.result, sandboxMode]);
 
   const columnTypeMap = useMemo(() => {
@@ -558,7 +570,8 @@ export function DataGrid({
           }
           onCheckedChange={checked => table.toggleAllRowsSelected(checked === true)}
           onClick={event => event.stopPropagation()}
-          aria-label={t('grid.selectAllRows', { defaultValue: 'Select all rows' })}
+          aria-label={t('grid.selectAllRows')}
+          title={t('grid.selectAllRows')}
           className="h-4 w-4 rounded border-border cursor-pointer"
         />
       ),
@@ -567,7 +580,7 @@ export function DataGrid({
           checked={row.getIsSelected()}
           onCheckedChange={checked => row.toggleSelected(checked === true)}
           onClick={event => event.stopPropagation()}
-          aria-label={t('grid.selectRow', { defaultValue: 'Select row' })}
+          aria-label={t('grid.selectRow')}
           className="h-4 w-4 rounded border-border cursor-pointer"
         />
       ),
@@ -902,11 +915,18 @@ export function DataGrid({
     const handler = (event: Event) => {
       const detail = (event as CustomEvent<ExportDataDetail>).detail;
       const format = detail?.format ?? 'csv';
+      // Without a selection, exporting means the whole result, and the grid
+      // only holds the rows scrolled so far. The streaming path re-reads the
+      // source with the same filters and sort rather than writing the window.
+      if (getSelectedRows().length === 0 && canStreamExport) {
+        setStreamingDialogOpen(true);
+        return;
+      }
       exportToFile(format);
     };
     window.addEventListener(UI_EVENT_EXPORT_DATA, handler);
     return () => window.removeEventListener(UI_EVENT_EXPORT_DATA, handler);
-  }, [exportToFile]);
+  }, [exportToFile, getSelectedRows, canStreamExport]);
 
   // Early return for empty state (but never when a search filter is active)
   if ((!result || result.columns.length === 0) && !globalFilter) {
@@ -1040,6 +1060,7 @@ export function DataGrid({
           isCountingTotal={infiniteScrollIsCountingTotal ?? false}
           isComplete={infiniteScrollIsComplete ?? false}
           windowExhausted={infiniteScrollWindowExhausted}
+          budgetExhausted={infiniteScrollBudgetExhausted}
           orderingGuarantee={infiniteScrollOrderingGuarantee}
           onCalculateExactTotal={onCalculateExactTotal}
           onCancelExactTotal={onCancelExactTotal}

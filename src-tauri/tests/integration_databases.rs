@@ -1537,3 +1537,82 @@ async fn clickhouse_e2e() -> EngineResult<()> {
     driver.disconnect(session).await?;
     Ok(())
 }
+
+/// A value the browser edits must reach the column unchanged. JavaScript reads
+/// every integer as a double, so anything past 2^53 and anything a `numeric`
+/// carries beyond a double's digits has to travel as text — which only works if
+/// the driver can bind text to a non-text column.
+#[tokio::test]
+async fn postgres_exact_numeric_round_trip() -> EngineResult<()> {
+    let (driver, session, config) = connect_postgres().await?;
+    let table = unique_name("qoredb_pg_num");
+    let db_name = config
+        .database
+        .clone()
+        .unwrap_or_else(|| "postgres".to_string());
+    let namespace = Namespace::with_schema(db_name, "public");
+
+    driver
+        .execute(
+            session,
+            &format!(
+                "CREATE TABLE {} (id BIGINT PRIMARY KEY, amount NUMERIC(40, 10), tag TEXT)",
+                table
+            ),
+            QueryId::new(),
+        )
+        .await?;
+    driver
+        .execute(
+            session,
+            &format!("INSERT INTO {} (id, amount, tag) VALUES (1, 0, 'x')", table),
+            QueryId::new(),
+        )
+        .await?;
+
+    let big_id: i64 = 9_007_199_254_740_993; // 2^53 + 1
+    let exact_amount = "123456789012345678901.1234567890";
+
+    let updated = driver
+        .update_row(
+            session,
+            &namespace,
+            &table,
+            &RowData::new().with_column("id", Value::Int(1)),
+            &RowData::new()
+                .with_column("id", Value::Text(big_id.to_string()))
+                .with_column("amount", Value::Text(exact_amount.to_string())),
+        )
+        .await;
+
+    match updated {
+        Ok(_) => {
+            let read = driver
+                .execute(
+                    session,
+                    &format!("SELECT id::text, amount::text FROM {}", table),
+                    QueryId::new(),
+                )
+                .await?;
+            let row = &read.rows[0];
+            assert_eq!(
+                row.values[0].as_text(),
+                Some(big_id.to_string().as_str()),
+                "a bigint sent as text must land unrounded"
+            );
+            assert_eq!(
+                row.values[1].as_text(),
+                Some(exact_amount),
+                "a numeric sent as text must land unrounded"
+            );
+            println!("BIND-TEXT-TO-NUMERIC: accepted");
+        }
+        Err(e) => println!("BIND-TEXT-TO-NUMERIC: rejected -> {e}"),
+    }
+
+    let _ = driver
+        .execute(session, &format!("DROP TABLE {}", table), QueryId::new())
+        .await;
+    driver.disconnect(session).await?;
+    Ok(())
+}

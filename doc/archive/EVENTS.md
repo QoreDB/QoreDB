@@ -1,4 +1,8 @@
-# Analytics events
+# Analytics events (archived)
+
+Archived: QoreDB no longer collects usage telemetry. The PostHog integration and
+every event below were removed from the product; this file is kept only as a
+record of what the opt-in build used to emit.
 
 List of PostHog events emitted by the app.
 

@@ -610,12 +610,7 @@ export function MigrationsPanel({
 
         {schemaDiffAvailable && !hasSchemaDiff && (
           <div className="px-4 py-2 border-b border-border">
-            <UpgradePrompt
-              feature="schema_diff"
-              variant="compact"
-              source="migrations"
-              hideIfDismissed
-            />
+            <UpgradePrompt feature="schema_diff" variant="compact" hideIfDismissed />
           </div>
         )}
 

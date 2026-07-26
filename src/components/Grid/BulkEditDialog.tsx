@@ -5,7 +5,6 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { LicenseBadge } from '@/components/License/LicenseBadge';
-import { AnalyticsService } from '@/components/Onboarding/AnalyticsService';
 import { SqlPreview } from '@/components/Sandbox/SqlPreview';
 import { Button } from '@/components/ui/button';
 import {
@@ -178,11 +177,6 @@ export function BulkEditDialog({
       for (const dto of dtos) {
         onSandboxUpdate(dto.primary_key?.columns ?? {}, dto.old_values ?? {}, dto.new_values ?? {});
       }
-      AnalyticsService.capture('bulk_edit_applied', {
-        driver: dialect,
-        affected_count: dtos.length,
-        via_sandbox: true,
-      });
       toast.success(t('bulkEdit.queuedInSandbox', { count: dtos.length }));
       onOpenChange(false);
       return;
@@ -197,11 +191,6 @@ export function BulkEditDialog({
     try {
       const res = await applySandboxChanges(sessionId, dtos, true);
       if (res.success) {
-        AnalyticsService.capture('bulk_edit_applied', {
-          driver: dialect,
-          affected_count: res.applied_count,
-          via_sandbox: false,
-        });
         toast.success(t('bulkEdit.applySuccess', { count: res.applied_count }));
         onApplied?.();
         onOpenChange(false);

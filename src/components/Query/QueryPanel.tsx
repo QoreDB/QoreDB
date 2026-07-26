@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { AiAssistantPanel } from '@/components/AI/AiAssistantPanel';
-import { AnalyticsService } from '@/components/Onboarding/AnalyticsService';
 import { UI_EVENT_OPEN_HISTORY } from '@/lib/events/uiEvents';
 import { createNotebookTab } from '@/lib/tabs';
 import { recordQueryAndMaybeNotify } from '@/lib/usageBanner';
@@ -505,11 +504,6 @@ export function QueryPanel({
             });
 
             if (kind === 'query') {
-              AnalyticsService.capture('query_executed', {
-                dialect: queryDialect,
-                driver: dialect,
-                row_count: enrichedResult.rows.length,
-              });
               recordQueryAndMaybeNotify(tier, t);
               incrementTransactionStatements();
             }

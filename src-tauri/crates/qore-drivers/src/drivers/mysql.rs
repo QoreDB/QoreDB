@@ -411,10 +411,7 @@ impl MysqlDecoder {
                 Err(_) => Self::fallback_extract(row, idx),
             },
             Self::Decimal => match row.try_get::<Option<Decimal>, _>(idx) {
-                Ok(Some(v)) => {
-                    use rust_decimal::prelude::ToPrimitive;
-                    Value::Float(v.to_f64().unwrap_or(0.0))
-                }
+                Ok(Some(v)) => Value::from_decimal_text(v.to_string()),
                 Ok(None) => Value::Null,
                 Err(_) => Self::fallback_extract(row, idx),
             },
@@ -439,12 +436,12 @@ impl MysqlDecoder {
                 Err(_) => Self::fallback_extract(row, idx),
             },
             Self::Time => match row.try_get::<Option<chrono::NaiveTime>, _>(idx) {
-                Ok(Some(v)) => Value::Text(v.format("%H:%M:%S").to_string()),
+                Ok(Some(v)) => Value::Text(v.format("%H:%M:%S%.f").to_string()),
                 Ok(None) => Value::Null,
                 Err(_) => Self::fallback_extract(row, idx),
             },
             Self::DateTime => match row.try_get::<Option<chrono::NaiveDateTime>, _>(idx) {
-                Ok(Some(v)) => Value::Text(v.format("%Y-%m-%d %H:%M:%S").to_string()),
+                Ok(Some(v)) => Value::Text(v.format("%Y-%m-%d %H:%M:%S%.f").to_string()),
                 Ok(None) => Value::Null,
                 Err(_) => Self::fallback_extract(row, idx),
             },
@@ -458,7 +455,7 @@ impl MysqlDecoder {
                 }
                 if let Ok(opt) = row.try_get::<Option<chrono::NaiveDateTime>, _>(idx) {
                     return opt
-                        .map(|dt| Value::Text(dt.format("%Y-%m-%d %H:%M:%S").to_string()))
+                        .map(|dt| Value::Text(dt.format("%Y-%m-%d %H:%M:%S%.f").to_string()))
                         .unwrap_or(Value::Null);
                 }
                 Self::fallback_extract(row, idx)
@@ -509,10 +506,7 @@ impl MysqlDecoder {
         }
         if let Ok(v) = row.try_get::<Option<Decimal>, _>(idx) {
             return v
-                .map(|d| {
-                    use rust_decimal::prelude::ToPrimitive;
-                    Value::Float(d.to_f64().unwrap_or(0.0))
-                })
+                .map(|d| Value::from_decimal_text(d.to_string()))
                 .unwrap_or(Value::Null);
         }
         if let Ok(v) = row.try_get::<Option<String>, _>(idx) {
@@ -525,7 +519,7 @@ impl MysqlDecoder {
         }
         if let Ok(v) = row.try_get::<Option<chrono::NaiveDateTime>, _>(idx) {
             return v
-                .map(|dt| Value::Text(dt.format("%Y-%m-%d %H:%M:%S").to_string()))
+                .map(|dt| Value::Text(dt.format("%Y-%m-%d %H:%M:%S%.f").to_string()))
                 .unwrap_or(Value::Null);
         }
         if let Ok(v) = row.try_get::<Option<chrono::NaiveDate>, _>(idx) {
@@ -535,7 +529,7 @@ impl MysqlDecoder {
         }
         if let Ok(v) = row.try_get::<Option<chrono::NaiveTime>, _>(idx) {
             return v
-                .map(|t| Value::Text(t.format("%H:%M:%S").to_string()))
+                .map(|t| Value::Text(t.format("%H:%M:%S%.f").to_string()))
                 .unwrap_or(Value::Null);
         }
         if let Ok(v) = row.try_get::<Option<Vec<u8>>, _>(idx) {

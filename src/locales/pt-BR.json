@@ -666,8 +666,6 @@
     "storeHistoryDescription": "Salva um histórico local com dados anonimizados para fácil acesso.",
     "storeErrorLogs": "Armazenar logs de erro",
     "storeErrorLogsDescription": "Salva detalhes de erros anonimizados para ajudar na depuração.",
-    "analyticsEnabled": "Compartilhar análises de uso anônimas",
-    "analyticsEnabledDescription": "Ajuda a melhorar o QoreDB enviando eventos anônimos (sem consultas ou credenciais).",
     "sandbox": {
       "title": "Sandbox",
       "description": "Personalize como as alterações do sandbox são rastreadas e exibidas.",
@@ -1042,7 +1040,9 @@
       "loadedEstimated": "{{loaded}} de ~{{total}} linhas carregadas (estimativa)",
       "estimateHint": "Estimativa do motor, não é uma contagem exata.",
       "estimateAsOf": "Estatísticas atualizadas pela última vez em {{date}}.",
-      "windowExhausted": "{{loaded}} linhas carregadas — o motor não serve mais páginas nesta profundidade"
+      "windowExhausted": "{{loaded}} linhas carregadas — o motor não serve mais páginas nesta profundidade",
+      "budgetExhausted": "{{loaded}} linhas carregadas — a aba atingiu seu limite de memória",
+      "budgetExhaustedHint": "Restrinja o resultado com um filtro, ou exporte a tabela para lê-la por completo."
     },
     "noData": "Nenhum dado para exibir",
     "noResults": "Sem resultados",
@@ -1079,9 +1079,14 @@
     "exportSuccess": "{{count}} linha(s) exportada(s) para {{path}}",
     "exportError": "Falha ao exportar dados",
     "copyToClipboard": "Copiar para a área de transferência",
+    "copySelection": "Copiar as {{count}} linha(s) selecionada(s)",
+    "copyLoadedRows": "Copiar as {{count}} linha(s) carregada(s)",
+    "selectAllRows": "Selecionar as linhas carregadas",
+    "selectRow": "Selecionar a linha",
     "downloadToFile": "Baixar para arquivo",
     "openRow": "Abrir linha",
     "editCell": "Editar célula",
+    "cellPreviewTruncated": "Prévia — abra a linha para ver o valor completo",
     "searchPlaceholder": "Pesquisar...",
     "columns": "Colunas",
     "toggleColumns": "Alternar colunas",
@@ -1449,6 +1454,7 @@
     "exportVisible": "Exportar logs visíveis",
     "exportDiagnostic": "Exportar logs de diagnóstico (completo)",
     "exportSuccess": "Logs exportados: {{name}}",
+    "exportScrubbed": "Credenciais, tokens e seu caminho pessoal foram removidos antes de gravar o arquivo.",
     "exportError": "Falha ao exportar logs"
   },
   "paginationDiagnostics": {
@@ -1675,8 +1681,8 @@
       "guardsDesc": "Consultas perigosas são detectadas e confirmadas duas vezes em produção. Modo somente leitura para qualquer conexão com um único clique.",
       "sandboxTitle": "Modo Sandbox",
       "sandboxDesc": "Prepare alterações da grade localmente, revise-as e aplique-as ao banco quando estiverem prontas. As consultas do editor SQL não ficam isoladas.",
-      "localTitle": "Nada sai da sua máquina",
-      "localDesc": "Sem sincronização na nuvem, sem telemetria dos seus dados, sem indexação remota de esquemas. Suas consultas e resultados ficam locais."
+      "localTitle": "Seus dados não saem do seu computador",
+      "localDesc": "Sem sincronização na nuvem, sem telemetria alguma, sem indexação remota de esquemas. Suas consultas e resultados ficam locais. Uma única exceção: a verificação de atualizações consulta o GitHub na inicialização — pode ser desativada nas Configurações."
     },
     "tiers": {
       "title": "Open core — Free e Pro",
@@ -1693,24 +1699,35 @@
       "proBullet3": "Data contracts, Instant Data API, exportações avançadas",
       "footnote": "Pro é um pagamento único, licença perpétua. Team é uma assinatura por usuário."
     },
-    "analytics": {
-      "title": "Ajude-nos a melhorar",
-      "subtitle": "Somos um projeto open-source. Dados de uso anônimos nos ajudam a priorizar recursos e corrigir bugs — você pode alterar isso a qualquer momento nas Configurações.",
-      "checkbox": "Compartilhar análises de uso anônimas (recomendado)",
-      "privacyHint": "Coletamos apenas relatórios de falhas e contagens de uso de recursos. Nenhuma consulta, resultado ou credencial sai da sua máquina.",
-      "guarantee": "Suas consultas, resultados e credenciais nunca saem da sua máquina — independentemente desta configuração.",
-      "finish": "Começar"
-    },
     "workspace": {
       "title": "Organize com áreas de trabalho",
       "description": "Você tem várias conexões. Crie uma área de trabalho para agrupá-las por projeto e compartilhá-las com sua equipe via Git."
-    }
+    },
+    "finish": "Começar"
   },
   "errorBoundary": {
     "title": "Algo deu errado",
     "description": "Ocorreu um erro inesperado. O erro foi registrado.",
     "reload": "Recarregar Aplicativo",
     "panelCrashed": "Este painel encontrou um erro"
+  },
+  "crashReport": {
+    "toastTitle": "O QoreDB fechou inesperadamente",
+    "toastDescription": "Um relatório de falha foi salvo no seu computador.",
+    "toastAction": "Ver relatório",
+    "title": "Relatório de falha",
+    "subtitle": "{{kind}} — {{date}}",
+    "others_one": "{{count}} outro relatório pendente.",
+    "others_other": "{{count}} outros relatórios pendentes.",
+    "privacyNote": "Este relatório permanece no seu computador. Credenciais e caminhos pessoais foram removidos. Nada é enviado sem uma ação sua.",
+    "copy": "Copiar",
+    "copied": "Relatório copiado",
+    "copyError": "Não foi possível copiar o relatório",
+    "openFolder": "Abrir pasta",
+    "openFolderError": "Não foi possível abrir a pasta de logs",
+    "report": "Relatar no GitHub",
+    "dismiss": "Fechar",
+    "issueWhatHappened": "O que você estava fazendo quando ocorreu a falha"
   },
   "sandbox": {
     "activate": "Sandbox",

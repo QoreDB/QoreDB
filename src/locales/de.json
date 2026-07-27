@@ -2436,6 +2436,7 @@
     "dismiss": "Nein danke"
   },
   "ai": {
+    "newConversation": "Neue Unterhaltung",
     "title": "KI-Assistent",
     "promptPlaceholder": "Beschreiben Sie die Abfrage, die Sie generieren möchten…",
     "insertQuery": "In Editor einfügen",

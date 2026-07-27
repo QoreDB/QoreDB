@@ -2475,6 +2475,7 @@
     "dismiss": "No thanks"
   },
   "ai": {
+    "newConversation": "New conversation",
     "title": "AI Assistant",
     "promptPlaceholder": "Describe the query you want to generate...",
     "insertQuery": "Insert into Editor",

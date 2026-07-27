@@ -2436,6 +2436,7 @@
     "dismiss": "No, gracias"
   },
   "ai": {
+    "newConversation": "Nueva conversación",
     "title": "Asistente de IA",
     "promptPlaceholder": "Describe la consulta que quieres generar...",
     "insertQuery": "Insertar en el editor",

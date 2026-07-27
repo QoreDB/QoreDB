@@ -379,8 +379,7 @@ async fn run_inner(
     let mut budget_spent: u32 = 0;
     let mut run_usage = AiUsage::default();
     let mut iteration: u32 = 0;
-    let mut previous_tool_batch: Option<String> = None;
-    let mut repeated_tool_batches: u8 = 0;
+    let mut repeats = RepeatTracker::default();
 
     let mut wrap_up_reason: Option<&'static str> = None;
     let mut wrap_up_rounds: u8 = 0;
@@ -445,24 +444,19 @@ async fn run_inner(
             let _ = forwarder.await;
             match result {
                 Ok(turn) => break turn,
-                Err(error)
-                    if error.is_retryable()
-                        && attempt < ITERATION_RETRY_BACKOFFS.len()
-                        && !cancelled.load(Ordering::Relaxed) =>
-                {
+                Err(error) => {
+                    let Some(delay) = iteration_retry_delay(&error, attempt) else {
+                        return Err(error);
+                    };
+                    if cancelled.load(Ordering::Relaxed) {
+                        return Err(error);
+                    }
                     if sent_any.load(Ordering::Relaxed) {
                         let _ = window.emit(event_name, &AgentEvent::TextReset);
                     }
-                    let retry_after = error
-                        .retry_after_secs
-                        .unwrap_or(0)
-                        .min(MAX_RETRY_AFTER_SECS);
-                    let delay =
-                        ITERATION_RETRY_BACKOFFS[attempt].max(Duration::from_secs(retry_after));
                     tokio::time::sleep(delay).await;
                     attempt += 1;
                 }
-                Err(error) => return Err(error),
             }
         };
 
@@ -484,35 +478,18 @@ async fn run_inner(
             });
         }
 
-        let tool_batch = tool_batch_signature(&turn.tool_calls);
-        if previous_tool_batch.as_deref() == Some(tool_batch.as_str()) {
-            repeated_tool_batches = repeated_tool_batches.saturating_add(1);
-        } else {
-            previous_tool_batch = Some(tool_batch);
-            repeated_tool_batches = 1;
-        }
+        let repeated_tool_batches = repeats.observe(&turn.tool_calls);
 
         // Hitting a resource limit doesn't kill the run outright: the tool
         // batch is denied and the model gets (twice) the chance to answer
         // from what it already gathered.
-        if wrap_up_reason.is_none() {
-            if budget_spent > MAX_TOKENS_PER_RUN {
-                wrap_up_reason = Some("the run's token budget is exhausted");
-            } else if repeated_tool_batches >= 3 {
-                wrap_up_reason = Some("the same tool actions were requested three times in a row");
-            }
-        }
+        wrap_up_reason =
+            wrap_up_reason.or_else(|| limit_reached_reason(budget_spent, repeated_tool_batches));
         if let Some(reason) = wrap_up_reason {
-            if wrap_up_rounds >= 2 {
-                return Err(AiError::provider(format!(
-                    "Q stopped: {reason} and the model kept requesting tools instead of answering"
-                )));
-            }
-            wrap_up_rounds += 1;
-            let denial = format!(
-                "Not executed: {reason}. Do not call any more tools; give your \
-                 final answer now from what you already gathered."
-            );
+            let denial = match wrap_up_step(reason, &mut wrap_up_rounds) {
+                WrapUpStep::Abort(message) => return Err(AiError::provider(message)),
+                WrapUpStep::Deny(denial) => denial,
+            };
             let mut results = Vec::with_capacity(turn.tool_calls.len());
             for call in &turn.tool_calls {
                 let _ = window.emit(
@@ -624,6 +601,71 @@ async fn watch_cancelled(flag: &Arc<AtomicBool>) {
 
 fn configured_iteration_limit_reached(limit: Option<u32>, iteration: u32) -> bool {
     limit.is_some_and(|limit| iteration > limit)
+}
+
+/// Backoff before replaying a failed model turn, or `None` when the error is
+/// terminal or the attempts are spent. A provider `retry-after` can stretch
+/// the backoff but never shorten it.
+fn iteration_retry_delay(error: &AiError, attempt: usize) -> Option<Duration> {
+    if !error.is_retryable() || attempt >= ITERATION_RETRY_BACKOFFS.len() {
+        return None;
+    }
+    let retry_after = error
+        .retry_after_secs
+        .unwrap_or(0)
+        .min(MAX_RETRY_AFTER_SECS);
+    Some(ITERATION_RETRY_BACKOFFS[attempt].max(Duration::from_secs(retry_after)))
+}
+
+/// Counts how many turns in a row asked for the same batch of tool calls.
+/// Call ids change every turn, so the signature ignores them.
+#[derive(Default)]
+struct RepeatTracker {
+    previous: Option<String>,
+    count: u8,
+}
+
+impl RepeatTracker {
+    fn observe(&mut self, calls: &[ToolCall]) -> u8 {
+        let signature = tool_batch_signature(calls);
+        if self.previous.as_deref() == Some(signature.as_str()) {
+            self.count = self.count.saturating_add(1);
+        } else {
+            self.previous = Some(signature);
+            self.count = 1;
+        }
+        self.count
+    }
+}
+
+fn limit_reached_reason(budget_spent: u32, repeated_tool_batches: u8) -> Option<&'static str> {
+    if budget_spent > MAX_TOKENS_PER_RUN {
+        Some("the run's token budget is exhausted")
+    } else if repeated_tool_batches >= 3 {
+        Some("the same tool actions were requested three times in a row")
+    } else {
+        None
+    }
+}
+
+enum WrapUpStep {
+    Deny(String),
+    Abort(String),
+}
+
+/// Escalation once a limit is hit: deny the batch and tell the model to
+/// answer, then give up if it keeps calling tools anyway.
+fn wrap_up_step(reason: &str, rounds: &mut u8) -> WrapUpStep {
+    if *rounds >= 2 {
+        return WrapUpStep::Abort(format!(
+            "Q stopped: {reason} and the model kept requesting tools instead of answering"
+        ));
+    }
+    *rounds += 1;
+    WrapUpStep::Deny(format!(
+        "Not executed: {reason}. Do not call any more tools; give your \
+         final answer now from what you already gathered."
+    ))
 }
 
 fn accumulate_usage(sum: &mut AiUsage, turn: &AiUsage) {
@@ -900,5 +942,147 @@ mod tests {
             tool_batch_signature(&[first]),
             tool_batch_signature(&[different_input])
         );
+    }
+
+    fn call(table: &str) -> ToolCall {
+        ToolCall {
+            id: format!("call-{table}"),
+            name: "describe_table".to_string(),
+            input: serde_json::json!({ "table": table }),
+            thought_signature: None,
+        }
+    }
+
+    #[test]
+    fn repeat_tracker_counts_consecutive_identical_batches() {
+        let mut repeats = RepeatTracker::default();
+        assert_eq!(repeats.observe(&[call("users")]), 1);
+        assert_eq!(repeats.observe(&[call("users")]), 2);
+        assert_eq!(repeats.observe(&[call("orders")]), 1);
+        assert_eq!(repeats.observe(&[call("orders")]), 2);
+        assert_eq!(repeats.observe(&[call("orders")]), 3);
+    }
+
+    #[test]
+    fn limits_trigger_wrap_up_only_once_exceeded() {
+        assert_eq!(limit_reached_reason(0, 1), None);
+        assert_eq!(limit_reached_reason(MAX_TOKENS_PER_RUN, 1), None);
+        assert_eq!(limit_reached_reason(0, 2), None);
+        assert!(limit_reached_reason(MAX_TOKENS_PER_RUN + 1, 1).is_some());
+        assert!(limit_reached_reason(0, 3).is_some());
+    }
+
+    #[test]
+    fn wrap_up_denies_twice_then_aborts() {
+        let mut rounds = 0u8;
+        for _ in 0..2 {
+            match wrap_up_step("the run's token budget is exhausted", &mut rounds) {
+                WrapUpStep::Deny(denial) => {
+                    assert!(denial.contains("token budget is exhausted"));
+                    assert!(denial.contains("Do not call any more tools"));
+                }
+                WrapUpStep::Abort(message) => panic!("expected Deny, got abort: {message}"),
+            }
+        }
+        assert_eq!(rounds, 2);
+        match wrap_up_step("the run's token budget is exhausted", &mut rounds) {
+            WrapUpStep::Abort(message) => assert!(message.starts_with("Q stopped:")),
+            WrapUpStep::Deny(denial) => panic!("expected Abort, got deny: {denial}"),
+        }
+        assert_eq!(rounds, 2);
+    }
+
+    #[test]
+    fn only_transient_errors_are_replayed_and_backoff_grows() {
+        assert_eq!(
+            iteration_retry_delay(&AiError::network("down"), 0),
+            Some(ITERATION_RETRY_BACKOFFS[0])
+        );
+        assert_eq!(
+            iteration_retry_delay(&AiError::network("down"), 1),
+            Some(ITERATION_RETRY_BACKOFFS[1])
+        );
+        assert_eq!(iteration_retry_delay(&AiError::network("down"), 2), None);
+        assert_eq!(iteration_retry_delay(&AiError::invalid_key("bad key"), 0), None);
+        assert_eq!(iteration_retry_delay(&AiError::context_too_large("big"), 0), None);
+    }
+
+    #[test]
+    fn retry_after_stretches_the_backoff_but_stays_bounded() {
+        assert_eq!(
+            iteration_retry_delay(&AiError::rate_limited("slow down", Some(10)), 0),
+            Some(Duration::from_secs(10))
+        );
+        // Shorter than the backoff: the backoff wins.
+        assert_eq!(
+            iteration_retry_delay(&AiError::rate_limited("slow down", Some(2)), 1),
+            Some(ITERATION_RETRY_BACKOFFS[1])
+        );
+        assert_eq!(
+            iteration_retry_delay(&AiError::rate_limited("slow down", Some(3_600)), 0),
+            Some(Duration::from_secs(MAX_RETRY_AFTER_SECS))
+        );
+    }
+
+    #[test]
+    fn wrap_up_note_merges_into_the_last_tool_result_message() {
+        let mut conversation = vec![AgentMessage {
+            role: AiRole::User,
+            content: String::new(),
+            reasoning_content: None,
+            tool_calls: vec![],
+            tool_results: vec![ToolResult {
+                id: "call-1".to_string(),
+                content: "{}".to_string(),
+                is_error: false,
+            }],
+            provider_output_items: vec![],
+        }];
+        append_wrap_up_note(&mut conversation, "the configured iteration limit is reached");
+        assert_eq!(conversation.len(), 1);
+        assert!(conversation[0].content.contains("iteration limit is reached"));
+
+        // Never appended after an assistant turn: it would break the strict
+        // role alternation some providers enforce.
+        let mut assistant_last = vec![AgentMessage {
+            role: AiRole::Assistant,
+            content: "thinking".to_string(),
+            reasoning_content: None,
+            tool_calls: vec![],
+            tool_results: vec![],
+            provider_output_items: vec![],
+        }];
+        append_wrap_up_note(&mut assistant_last, "the configured iteration limit is reached");
+        assert_eq!(assistant_last[0].content, "thinking");
+    }
+
+    #[test]
+    fn usage_accumulates_across_iterations_without_inventing_zeros() {
+        let mut sum = AiUsage::default();
+        accumulate_usage(&mut sum, &AiUsage::default());
+        assert_eq!(sum.input_tokens, None);
+        assert_eq!(sum.output_tokens, None);
+
+        accumulate_usage(
+            &mut sum,
+            &AiUsage {
+                input_tokens: Some(100),
+                output_tokens: Some(20),
+                cache_read_tokens: Some(400),
+                ..AiUsage::default()
+            },
+        );
+        accumulate_usage(
+            &mut sum,
+            &AiUsage {
+                input_tokens: Some(50),
+                output_tokens: Some(5),
+                ..AiUsage::default()
+            },
+        );
+        assert_eq!(sum.input_tokens, Some(150));
+        assert_eq!(sum.output_tokens, Some(25));
+        assert_eq!(sum.cache_read_tokens, Some(400));
+        assert_eq!(sum.cache_creation_tokens, None);
     }
 }

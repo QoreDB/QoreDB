@@ -2436,6 +2436,7 @@
     "dismiss": "괜찮습니다"
   },
   "ai": {
+    "newConversation": "새 대화",
     "title": "AI 어시스턴트",
     "promptPlaceholder": "생성할 쿼리를 설명하세요...",
     "insertQuery": "편집기에 삽입",

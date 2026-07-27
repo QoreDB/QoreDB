@@ -2475,6 +2475,7 @@
     "dismiss": "Non merci"
   },
   "ai": {
+    "newConversation": "Nouvelle conversation",
     "title": "Assistant IA",
     "promptPlaceholder": "Décrivez la requête que vous souhaitez générer...",
     "insertQuery": "Insérer dans l'éditeur",

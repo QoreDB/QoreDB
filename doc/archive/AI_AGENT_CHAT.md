@@ -1,5 +1,18 @@
 # Fenêtre de chat agentique (Database Agent)
 
+> Livrée en `v0.1.35`, avec trois écarts par rapport à la spec :
+>
+> - **Sélecteur de modèle** : déclaré hors périmètre (§ AI_REWORK 2.1/2.2), livré quand même —
+>   le chat expose un sélecteur de modèle par provider, avec catalogue borné pour les providers
+>   cloud connus et libre pour Ollama.
+> - **Qore AI Local** : non prévu par la spec. Un septième provider embarque un runtime
+>   `llama-server` (macOS, Windows, Linux), à builds reproductibles, installation reprenable et
+>   vérification SHA-256 contre un manifest distant signé — l'agent tourne alors sans clé d'API.
+> - **Tests de boucle** (Phase 3) : la logique de décision de l'orchestrateur (budget, batches
+>   répétés, escalade de wrap-up, backoff de replay) est couverte par des tests unitaires sur
+>   fonctions pures, pas par un harnais end-to-end avec provider HTTP mocké. Les tests de
+>   round-trip par provider couvrent séparément la reconstruction des `tool_call` streamés.
+
 Objectif : une fenêtre de chat dédiée, façon ChatGPT, où l'utilisateur formule sa demande en langage naturel ; l'agent explore la base lui-même (au besoin cross-environnement), exécute les requêtes, lit les résultats et répond. Écritures possibles sous confirmation (jamais en production), conversations persistantes. Tout le module reste Premium (BUSL-1.1, `#[cfg(feature = "pro")]`), BYOK uniquement.
 
 ## Relation avec `AI_REWORK.md`

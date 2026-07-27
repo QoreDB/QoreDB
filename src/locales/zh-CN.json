@@ -2436,6 +2436,7 @@
     "dismiss": "不，谢谢"
   },
   "ai": {
+    "newConversation": "新建会话",
     "title": "AI 助手",
     "promptPlaceholder": "描述您想要生成的查询…",
     "insertQuery": "插入到编辑器",

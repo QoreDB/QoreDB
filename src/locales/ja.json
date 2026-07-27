@@ -2436,6 +2436,7 @@
     "dismiss": "結構です"
   },
   "ai": {
+    "newConversation": "新しい会話",
     "title": "AI アシスタント",
     "promptPlaceholder": "生成したいクエリを説明してください...",
     "insertQuery": "エディタに挿入",

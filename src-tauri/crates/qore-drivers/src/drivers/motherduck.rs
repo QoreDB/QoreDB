@@ -5,11 +5,11 @@
 //! MotherDuck exposes a PostgreSQL wire-protocol endpoint
 //! (`pg.<region>.motherduck.com:5432`, token as password) that runs DuckDB SQL
 //! underneath. Transport therefore reuses the shared `pg_compat` helpers, but
-//! schema introspection must use the DuckDB catalog (`information_schema` +
-//! `duckdb_*` table functions): the vanilla PostgreSQL introspection references
-//! catalogs DuckDB doesn't have (`pg_matviews`, `pg_stat_user_tables`, ...),
-//! which is why a MotherDuck connection routed through the Postgres driver
-//! connects yet shows an empty schema explorer.
+//! schema introspection must go through the `duckdb_*` table functions: the
+//! vanilla PostgreSQL introspection references catalogs DuckDB doesn't have
+//! (`pg_matviews`, `pg_stat_user_tables`, ...), which is why a MotherDuck
+//! connection routed through the Postgres driver connects yet shows an empty
+//! schema explorer.
 
 use async_trait::async_trait;
 use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
@@ -48,11 +48,41 @@ const MACRO_ARGUMENTS_SQL: &str = r#"
     ) END
 "#;
 
+// `duckdb_schemas().internal` is true for every `main` schema, including the
+// one a MotherDuck database keeps its tables in. Only the database-level flag
+// separates user catalogs from `system` and `temp`.
 const LIST_NAMESPACES_SQL: &str = r#"
-    SELECT database_name, schema_name
-    FROM duckdb_schemas()
-    WHERE internal = false
-    ORDER BY database_name, schema_name
+    SELECT s.database_name, s.schema_name
+    FROM duckdb_schemas() s
+    JOIN duckdb_databases() d ON d.database_name = s.database_name
+    WHERE d.internal = false
+    ORDER BY s.database_name, s.schema_name
+"#;
+
+// The Postgres endpoint scopes its catalog views to the connected database, so
+// `information_schema` cannot answer for any other catalog. The `duckdb_*`
+// table functions carry `database_name` and stay correct across all of them.
+const COUNT_COLLECTIONS_SQL: &str = r#"
+    SELECT count(*) FROM (
+        SELECT table_name AS name FROM duckdb_tables()
+        WHERE database_name = $1 AND schema_name = $2
+        UNION ALL
+        SELECT view_name FROM duckdb_views()
+        WHERE database_name = $1 AND schema_name = $2
+    ) AS objects
+    WHERE ($3::text IS NULL OR name ILIKE $3)
+"#;
+
+const LIST_COLLECTIONS_SQL: &str = r#"
+    SELECT name, kind FROM (
+        SELECT table_name AS name, 'BASE TABLE' AS kind FROM duckdb_tables()
+        WHERE database_name = $1 AND schema_name = $2
+        UNION ALL
+        SELECT view_name, 'VIEW' FROM duckdb_views()
+        WHERE database_name = $1 AND schema_name = $2
+    ) AS objects
+    WHERE ($3::text IS NULL OR name ILIKE $3)
+    ORDER BY name
 "#;
 
 impl MotherDuckDriver {
@@ -208,31 +238,15 @@ impl DataEngine for MotherDuckDriver {
         let schema = namespace.schema.as_deref().unwrap_or("main");
         let search_pattern = options.search.as_ref().map(|s| format!("%{}%", s));
 
-        let count_row: (i64,) = sqlx::query_as(
-            r#"
-            SELECT COUNT(*)
-            FROM information_schema.tables
-            WHERE table_catalog = $1
-              AND table_schema = $2
-              AND ($3::text IS NULL OR table_name ILIKE $3)
-            "#,
-        )
-        .bind(&namespace.database)
-        .bind(schema)
-        .bind(&search_pattern)
-        .fetch_one(pool)
-        .await
-        .map_err(|e| EngineError::execution_error(e.to_string()))?;
+        let count_row: (i64,) = sqlx::query_as(COUNT_COLLECTIONS_SQL)
+            .bind(&namespace.database)
+            .bind(schema)
+            .bind(&search_pattern)
+            .fetch_one(pool)
+            .await
+            .map_err(|e| EngineError::execution_error(e.to_string()))?;
 
-        let mut query_str = r#"
-            SELECT table_name, table_type
-            FROM information_schema.tables
-            WHERE table_catalog = $1
-              AND table_schema = $2
-              AND ($3::text IS NULL OR table_name ILIKE $3)
-            ORDER BY table_name
-        "#
-        .to_string();
+        let mut query_str = LIST_COLLECTIONS_SQL.to_string();
 
         if let Some(limit) = options.page_size {
             query_str.push_str(&format!(" LIMIT {}", limit));
@@ -601,13 +615,13 @@ impl DataEngine for MotherDuckDriver {
         let pool = &pg.pool;
         let schema = namespace.schema.as_deref().unwrap_or("main");
 
-        let column_rows: Vec<(String, String, String, Option<String>)> = sqlx::query_as(
+        let column_rows: Vec<(String, String, bool, Option<String>)> = sqlx::query_as(
             r#"
             SELECT column_name, data_type, is_nullable, column_default
-            FROM information_schema.columns
-            WHERE table_catalog = $1
-              AND table_schema = $2 AND table_name = $3
-            ORDER BY ordinal_position
+            FROM duckdb_columns()
+            WHERE database_name = $1
+              AND schema_name = $2 AND table_name = $3
+            ORDER BY column_index
             "#,
         )
         .bind(&namespace.database)
@@ -755,7 +769,7 @@ impl DataEngine for MotherDuckDriver {
                     is_primary_key: pk_columns.contains(&name),
                     name,
                     data_type,
-                    nullable: is_nullable == "YES",
+                    nullable: is_nullable,
                     is_auto_increment: default_value
                         .as_deref()
                         .is_some_and(|value| value.to_ascii_lowercase().contains("nextval(")),
@@ -1156,7 +1170,7 @@ mod tests {
             ATTACH ':memory:' AS analytics;
             CREATE SCHEMA analytics.sales;
             ATTACH ':memory:' AS operations;
-            CREATE SCHEMA operations.inventory;
+            CREATE TABLE operations.main.items (sku TEXT);
             "#,
         )
         .unwrap();
@@ -1171,7 +1185,62 @@ mod tests {
             .unwrap();
 
         assert!(namespaces.contains(&("analytics".into(), "sales".into())));
-        assert!(namespaces.contains(&("operations".into(), "inventory".into())));
+        // DuckDB flags every `main` as internal, and that is where a MotherDuck
+        // database keeps its tables: dropping it empties the explorer.
+        assert!(namespaces.contains(&("operations".into(), "main".into())));
+        assert!(
+            !namespaces
+                .iter()
+                .any(|(database, _)| database == "system" || database == "temp")
+        );
+    }
+
+    #[cfg(feature = "driver-duckdb")]
+    #[test]
+    fn motherduck_lists_tables_and_views_of_any_catalog() {
+        let conn = duckdb::Connection::open_in_memory().unwrap();
+        conn.execute_batch(
+            r#"
+            ATTACH ':memory:' AS reporting;
+            CREATE TABLE reporting.main.orders (id INTEGER);
+            CREATE VIEW reporting.main.recent_orders AS SELECT * FROM reporting.main.orders;
+            ATTACH ':memory:' AS other;
+            CREATE TABLE other.main.decoy (id INTEGER);
+            "#,
+        )
+        .unwrap();
+
+        let mut statement = conn.prepare(LIST_COLLECTIONS_SQL).unwrap();
+        let collections = statement
+            .query_map(duckdb::params!["reporting", "main", None::<String>], |row| {
+                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+            })
+            .unwrap()
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap();
+
+        assert_eq!(
+            collections,
+            [
+                ("orders".to_string(), "BASE TABLE".to_string()),
+                ("recent_orders".to_string(), "VIEW".to_string()),
+            ]
+        );
+
+        let mut count_statement = conn.prepare(COUNT_COLLECTIONS_SQL).unwrap();
+        let total: i64 = count_statement
+            .query_row(duckdb::params!["reporting", "main", None::<String>], |row| {
+                row.get(0)
+            })
+            .unwrap();
+        assert_eq!(total, 2);
+
+        let filtered: i64 = count_statement
+            .query_row(duckdb::params!["reporting", "main", Some("%recent%")], |row| {
+                row.get(0)
+            })
+            .unwrap();
+        assert_eq!(filtered, 1);
     }
 
     #[test]

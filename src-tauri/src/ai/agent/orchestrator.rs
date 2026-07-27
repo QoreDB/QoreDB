@@ -1003,8 +1003,14 @@ mod tests {
             Some(ITERATION_RETRY_BACKOFFS[1])
         );
         assert_eq!(iteration_retry_delay(&AiError::network("down"), 2), None);
-        assert_eq!(iteration_retry_delay(&AiError::invalid_key("bad key"), 0), None);
-        assert_eq!(iteration_retry_delay(&AiError::context_too_large("big"), 0), None);
+        assert_eq!(
+            iteration_retry_delay(&AiError::invalid_key("bad key"), 0),
+            None
+        );
+        assert_eq!(
+            iteration_retry_delay(&AiError::context_too_large("big"), 0),
+            None
+        );
     }
 
     #[test]
@@ -1038,9 +1044,16 @@ mod tests {
             }],
             provider_output_items: vec![],
         }];
-        append_wrap_up_note(&mut conversation, "the configured iteration limit is reached");
+        append_wrap_up_note(
+            &mut conversation,
+            "the configured iteration limit is reached",
+        );
         assert_eq!(conversation.len(), 1);
-        assert!(conversation[0].content.contains("iteration limit is reached"));
+        assert!(
+            conversation[0]
+                .content
+                .contains("iteration limit is reached")
+        );
 
         // Never appended after an assistant turn: it would break the strict
         // role alternation some providers enforce.
@@ -1052,7 +1065,10 @@ mod tests {
             tool_results: vec![],
             provider_output_items: vec![],
         }];
-        append_wrap_up_note(&mut assistant_last, "the configured iteration limit is reached");
+        append_wrap_up_note(
+            &mut assistant_last,
+            "the configured iteration limit is reached",
+        );
         assert_eq!(assistant_last[0].content, "thinking");
     }
 

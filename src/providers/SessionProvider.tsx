@@ -23,11 +23,11 @@ import {
 import { shouldSaveQueryDrafts } from '@/lib/diagnostics/crashRecoverySettings';
 import { UI_EVENT_CONNECTIONS_CHANGED, UI_EVENT_WORKSPACE_CHANGED } from '@/lib/events/uiEvents';
 import { notify } from '@/lib/notify';
+import { isOnboardingCompleted } from '@/lib/onboardingState';
 import {
   handleCloseConnectionModal as closeConnectionModal,
   setSettingsOpen,
 } from '@/lib/stores/modalStore';
-import { isOnboardingCompleted } from '@/lib/onboardingState';
 import { setUpdateAvailable } from '@/lib/stores/updateStore';
 import type { OpenTab } from '@/lib/tabs';
 import {

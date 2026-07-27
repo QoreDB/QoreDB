@@ -1114,7 +1114,7 @@ conditions réelles : la charge utile est pesée page par page et plafonnée à
 128 Mo, mais personne n'a encore fait défiler une grande table pendant vingt
 minutes pour le vérifier de bout en bout.
 
-Deux critères ne sont pas atteints, et ils sont liés.
+Un seul critère n'est pas atteint, et un autre mérite une réserve.
 
 **« Aucune valeur n'est silencieusement altérée par le rendu »** est atteint pour
 les quatre pertes trouvées. La dernière — les entiers hors plage sûre — a été

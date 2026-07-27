@@ -104,7 +104,7 @@ export function DataGridStatusBar({
         )}
       </div>
       <div className="flex items-center gap-3 text-xs text-muted-foreground">
-        {!isComplete &&
+        {(!isComplete || budgetExhausted) &&
           (totalRows === null || isEstimate) &&
           onCalculateExactTotal &&
           (isCountingTotal ? (

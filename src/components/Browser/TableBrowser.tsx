@@ -194,6 +194,7 @@ export function TableBrowser({
   }, [sessionId, shouldShowTour, startTour]);
   const [activeTab, setActiveTab] = useState<TableBrowserTab>(initialTab ?? 'data');
   const [schema, setSchema] = useState<TableSchema | null>(null);
+  const [schemaSettled, setSchemaSettled] = useState(false);
 
   // The database overview can reopen an existing table directly on a specific
   // tab (for example Structure). Keep the mounted browser in sync with that
@@ -398,13 +399,30 @@ export function TableBrowser({
     maxOffsetWindow: driverCapabilities?.pagination?.max_offset_window,
     keysetColumns,
     filters: infiniteScrollFilters,
+    // The first page decides the ordering for the whole walk, and the unique
+    // key it needs comes from the schema. Fetching before it resolves means
+    // fetching that page twice and showing the second one in another order.
+    enabled: schemaSettled,
   });
 
-  // Load schema on mount and when data arrives
   useEffect(() => {
-    schemaCache.getTableSchema(namespace, tableName).then(cachedSchema => {
-      if (cachedSchema) setSchema(cachedSchema);
-    });
+    let cancelled = false;
+    setSchema(null);
+    setSchemaSettled(false);
+    schemaCache
+      .getTableSchema(namespace, tableName)
+      .then(cachedSchema => {
+        if (!cancelled && cachedSchema) setSchema(cachedSchema);
+      })
+      .catch(() => {})
+      .finally(() => {
+        // Settled, not successful: a table whose schema cannot be read still
+        // has to open, without a stable order.
+        if (!cancelled) setSchemaSettled(true);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [schemaCache, namespace, tableName]);
 
   // Analytics tracking

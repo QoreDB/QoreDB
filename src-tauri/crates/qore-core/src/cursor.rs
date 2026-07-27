@@ -179,6 +179,21 @@ impl KeysetPlan {
         format!("({})", branches.join(" OR "))
     }
 
+    /// Cursor values in the order a positional placeholder consumes them.
+    ///
+    /// `predicate` names each value by index, which a numbered placeholder
+    /// (`$2`, `@p2`) repeats at no cost. A positional one (`?`) cannot: every
+    /// occurrence consumes the next bound value, and the expanded predicate
+    /// mentions each earlier key again in every later branch. Binding the
+    /// cursor values as they come therefore leaves the statement short of
+    /// parameters — a plain error on DuckDB and MySQL, and silently wrong rows
+    /// on SQLite, which reads a missing parameter as NULL.
+    pub fn positional_values(&self, values: &[Value]) -> Vec<Value> {
+        (0..self.keys.len())
+            .flat_map(|index| values.iter().take(index + 1).cloned())
+            .collect()
+    }
+
     /// Decodes an incoming cursor against this ordering.
     pub fn decode(&self, encoded: &str) -> EngineResult<Cursor> {
         Cursor::decode(encoded, &self.keys)
@@ -374,5 +389,47 @@ mod tests {
         let decoded = Cursor::decode(&cursor.encode().unwrap(), &hostile).unwrap();
         assert_eq!(decoded.keys, hostile);
         assert!(Cursor::decode(&cursor.encode().unwrap(), &[]).is_err());
+    }
+
+    /// The count and order must match what `predicate` emits, or a positional
+    /// dialect binds the wrong values — silently, on an engine that reads a
+    /// missing parameter as NULL.
+    #[test]
+    fn positional_values_follow_the_placeholders() {
+        let plan = KeysetPlan::new(
+            Some("bucket"),
+            false,
+            Some(&["id".to_string(), "shard".to_string()]),
+        )
+        .expect("a unique key yields a plan");
+
+        let values = vec![Value::Text("a".into()), Value::Int(7), Value::Int(3)];
+        let bound = plan.positional_values(&values);
+
+        let placeholders = plan
+            .predicate(|col| col.to_string(), |_| "?".to_string())
+            .matches('?')
+            .count();
+        assert_eq!(bound.len(), placeholders);
+
+        let rendered: Vec<String> = bound.iter().map(|v| format!("{v:?}")).collect();
+        assert_eq!(
+            rendered,
+            vec![
+                format!("{:?}", values[0]),
+                format!("{:?}", values[0]),
+                format!("{:?}", values[1]),
+                format!("{:?}", values[0]),
+                format!("{:?}", values[1]),
+                format!("{:?}", values[2]),
+            ]
+        );
+    }
+
+    #[test]
+    fn a_single_key_binds_once() {
+        let plan = KeysetPlan::new(None, false, Some(&["id".to_string()])).expect("plan");
+        let bound = plan.positional_values(&[Value::Int(42)]);
+        assert_eq!(bound.len(), 1);
     }
 }

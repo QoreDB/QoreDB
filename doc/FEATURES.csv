@@ -30,8 +30,9 @@ SQL Editor,Historique Requêtes,Fullstack,Journal local persisté (localStorage)
 Data Grid,Tableau de données,Frontend / Grid,Grille haute performance pour affichage datasets.,Terminé,P0,POC,4,Virtualisation.
 Data Grid,Filtres & Tri,Frontend / Grid,Filtrage par colonne et tri server-side.,Terminé,P0,POC,3,UX fluide.
 Data Grid,Inline Edit,Frontend / Grid,Modification directe des cellules dans la grille.,Terminé,P1,V1,4,Support SQL UPDATE + NoSQL.
-Data Grid,Pagination,Frontend / Grid,Gestion offset/limit standardisée.,Terminé,P0,POC,2,Navigation pages.
-Data Grid,Infinite Scroll,Frontend / Grid,Chargement progressif des résultats à l'approche du bas de grille.,Terminé,P1,V2,3,Améliore l'exploration de gros jeux de données.
+Data Grid,Pagination,Frontend / Grid,"Pagination par offset ou par curseur selon ce que le driver garantit ; la page déclare sa stratégie et son ordre.",Terminé,P0,POC,2,"Le curseur exige une clé unique ; sans elle, l'ordre instable est signalé dans la barre d'état."
+Data Grid,Infinite Scroll,Frontend / Grid,"Chargement progressif à l'approche du bas de grille, sous budget mémoire par onglet.",Terminé,P1,V2,3,"Chaque page est pesée ; au-delà du budget le chargement s'arrête et le dit, en renvoyant vers le filtre ou l'export."
+Data Grid,Aperçu des cellules lourdes,Frontend / Grid,"La grille affiche un aperçu borné ; copie, export et filtres continuent de lire la valeur entière.",Terminé,P1,V2,2,"Une cellule mettait sa valeur complète dans le DOM. L'aperçu est signalé pour ne pas se confondre avec une troncature CSS."
 Environnements,Classification Env,Frontend / Logic,Distinction Dev / Staging / Prod avec codes couleurs.,Terminé,P1,V1,2,Sécurité visuelle.
 Environnements,Read-only Mode,Fullstack,Blocage des écritures sur environnements critiques.,Terminé,P0,V1,3,Protection accidentelle.
 Environnements,Détection Dangers,Fullstack,Analyse regex pour prévenir les DROP/DELETE sans WHERE.,Terminé,P1,V1,3,Safety net.

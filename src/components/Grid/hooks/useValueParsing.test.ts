@@ -14,9 +14,18 @@ describe('parseInputValue', () => {
 
   // Sending these as numbers writes a rounded value to the column. Editing a
   // cell must never be the operation that loses a digit.
-  it('keeps the text when a double would round it', () => {
-    expect(parseInputValue('9007199254740993', 'bigint')).toBe('9007199254740993');
-    expect(parseInputValue('1409876543210987654', 'int8')).toBe('1409876543210987654');
+  it('wraps a whole number a double would round, so it comes back typed', () => {
+    expect(parseInputValue('9007199254740993', 'bigint')).toEqual({
+      $qoreInt: '9007199254740993',
+    });
+    expect(parseInputValue('1409876543210987654', 'int8')).toEqual({
+      $qoreInt: '1409876543210987654',
+    });
+  });
+
+  // A decimal has no envelope yet: it leaves as text and the engine refuses it,
+  // which beats writing it rounded.
+  it('sends an oversized decimal as text', () => {
     expect(parseInputValue('123456789012345678901.1234567890', 'numeric(40,10)')).toBe(
       '123456789012345678901.1234567890'
     );

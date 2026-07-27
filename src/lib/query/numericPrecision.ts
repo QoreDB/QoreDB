@@ -16,6 +16,15 @@ export function isExactNumericType(dataType?: string): boolean {
   return includesAny(normalized, INTEGER_TYPES) || includesAny(normalized, EXACT_TYPES);
 }
 
+/** Whether the column holds whole numbers, which the wire can carry exactly. */
+export function isIntegerType(dataType?: string): boolean {
+  const normalized = dataType?.toLowerCase() ?? '';
+  if (includesAny(normalized, APPROXIMATE_TYPES) || includesAny(normalized, EXACT_TYPES)) {
+    return false;
+  }
+  return includesAny(normalized, INTEGER_TYPES);
+}
+
 /** Plain decimal digits, without the notations that mean the same number. */
 function canonicalDigits(text: string): string | null {
   const trimmed = text.trim();

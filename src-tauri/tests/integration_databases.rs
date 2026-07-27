@@ -2,8 +2,9 @@
 
 use qoredb_lib::engine::{
     drivers::{
-        clickhouse::ClickHouseDriver, elasticsearch::ElasticsearchDriver, mongodb::MongoDriver,
-        mysql::MySqlDriver, postgres::PostgresDriver, redis::RedisDriver,
+        clickhouse::ClickHouseDriver, duckdb::DuckDbDriver, elasticsearch::ElasticsearchDriver,
+        mongodb::MongoDriver, mysql::MySqlDriver, postgres::PostgresDriver, redis::RedisDriver,
+        sqlite::SqliteDriver,
     },
     error::{EngineError, EngineResult},
     traits::DataEngine,
@@ -1585,30 +1586,310 @@ async fn postgres_exact_numeric_round_trip() -> EngineResult<()> {
         )
         .await;
 
-    match updated {
-        Ok(_) => {
-            let read = driver
-                .execute(
-                    session,
-                    &format!("SELECT id::text, amount::text FROM {}", table),
-                    QueryId::new(),
-                )
-                .await?;
-            let row = &read.rows[0];
-            assert_eq!(
-                row.values[0].as_text(),
-                Some(big_id.to_string().as_str()),
-                "a bigint sent as text must land unrounded"
-            );
-            assert_eq!(
-                row.values[1].as_text(),
-                Some(exact_amount),
-                "a numeric sent as text must land unrounded"
-            );
-            println!("BIND-TEXT-TO-NUMERIC: accepted");
-        }
-        Err(e) => println!("BIND-TEXT-TO-NUMERIC: rejected -> {e}"),
+    // The engine rejects it: the parameter is typed `text` and the column is
+    // not. This is what blocks carrying exact numerics as text on the wire, and
+    // therefore what an eventual `Value` change has to solve — a driver cannot
+    // disambiguate a digit string bound for a numeric column from one bound for
+    // a text column holding digits.
+    let error = updated.expect_err("binding text to a numeric column should be refused");
+    let message = error.to_string().to_lowercase();
+    assert!(
+        message.contains("numeric") && message.contains("text"),
+        "expected a parameter type mismatch, got: {error}"
+    );
+
+    let _ = driver
+        .execute(session, &format!("DROP TABLE {}", table), QueryId::new())
+        .await;
+    driver.disconnect(session).await?;
+    Ok(())
+}
+
+fn embedded_config(driver: &str, path: &std::path::Path) -> ConnectionConfig {
+    ConnectionConfig {
+        driver: driver.to_string(),
+        host: path.to_string_lossy().to_string(),
+        port: 0,
+        username: String::new(),
+        password: String::new(),
+        database: None,
+        ssl: false,
+        ssl_mode: None,
+        environment: "development".to_string(),
+        read_only: false,
+        ssh_tunnel: None,
+        pool_acquire_timeout_secs: None,
+        pool_max_connections: None,
+        pool_min_connections: None,
+        proxy: None,
+        mssql_auth: None,
+        clickhouse_cluster: None,
+        search_auth_mode: None,
+        ssl_ca_cert: None,
     }
+}
+
+/// Temporary database file for an embedded engine. Named after the test so a
+/// leftover from a crashed run is identifiable.
+fn embedded_path(prefix: &str, extension: &str) -> std::path::PathBuf {
+    std::env::temp_dir().join(format!("{}.{}", unique_name(prefix), extension))
+}
+
+async fn seed_embedded_rows<D: DataEngine + ?Sized>(
+    driver: &D,
+    session: SessionId,
+    table: &str,
+    rows: &[(i64, &str, Option<&str>)],
+) -> EngineResult<()> {
+    for (id, bucket, label) in rows {
+        let label = match label {
+            Some(value) => format!("'{value}'"),
+            None => "NULL".to_string(),
+        };
+        driver
+            .execute(
+                session,
+                &format!(
+                    "INSERT INTO {table} (id, bucket, label) VALUES ({id}, '{bucket}', {label})"
+                ),
+                QueryId::new(),
+            )
+            .await?;
+    }
+    Ok(())
+}
+
+/// Rows whose sort column repeats, so the unique tie-breaker is what makes the
+/// walk correct rather than merely plausible.
+const EMBEDDED_ROWS: &[(i64, &str, Option<&str>)] = &[
+    (1, "a", Some("one")),
+    (2, "a", Some("two")),
+    (3, "a", None),
+    (4, "b", Some("four")),
+    (5, "b", Some("five")),
+    (6, "b", None),
+    (7, "c", Some("seven")),
+];
+
+/// SQLite declares `keyset: true`. Nothing had ever executed the predicate it
+/// builds — a wrong one returns plausible rows, not an error.
+#[tokio::test]
+async fn sqlite_keyset_pagination() -> EngineResult<()> {
+    let path = embedded_path("qoredb_sqlite", "db");
+    let config = embedded_config("sqlite", &path);
+    let driver = SqliteDriver::new();
+    let session = driver.connect(&config).await?;
+
+    let namespaces = driver.list_namespaces(session).await?;
+    let namespace = namespaces
+        .into_iter()
+        .next()
+        .expect("sqlite exposes one namespace per file");
+
+    let table = "walk";
+    driver
+        .execute(
+            session,
+            &format!(
+                "CREATE TABLE {table} (id INTEGER PRIMARY KEY, bucket TEXT NOT NULL, label TEXT)"
+            ),
+            QueryId::new(),
+        )
+        .await?;
+    seed_embedded_rows(&driver, session, table, EMBEDDED_ROWS).await?;
+
+    let all: Vec<i64> = (1..=7).collect();
+    assert_keyset_pagination(
+        &driver,
+        session,
+        &namespace,
+        table,
+        &["id"],
+        None,
+        None,
+        3,
+        &all,
+        "id",
+        &[],
+    )
+    .await?;
+
+    // Sorting on a repeated column: without the tie-breaker the walk would skip
+    // or repeat inside a bucket.
+    assert_keyset_pagination(
+        &driver,
+        session,
+        &namespace,
+        table,
+        &["id"],
+        Some("bucket"),
+        Some(SortDirection::Asc),
+        2,
+        &all,
+        "id",
+        &[],
+    )
+    .await?;
+
+    let descending: Vec<i64> = (1..=7).rev().collect();
+    assert_keyset_pagination(
+        &driver,
+        session,
+        &namespace,
+        table,
+        &["id"],
+        Some("bucket"),
+        Some(SortDirection::Desc),
+        2,
+        &descending,
+        "id",
+        &[],
+    )
+    .await?;
+
+    driver.disconnect(session).await?;
+    let _ = std::fs::remove_file(&path);
+    Ok(())
+}
+
+/// DuckDB, same contract. MotherDuck is a thin wrapper over this driver, so a
+/// green walk here covers both declarations.
+#[tokio::test]
+async fn duckdb_keyset_pagination() -> EngineResult<()> {
+    let path = embedded_path("qoredb_duckdb", "duckdb");
+    let config = embedded_config("duckdb", &path);
+    let driver = DuckDbDriver::new();
+    let session = driver.connect(&config).await?;
+
+    let namespaces = driver.list_namespaces(session).await?;
+    let namespace = namespaces
+        .into_iter()
+        .next()
+        .expect("duckdb exposes at least one namespace");
+
+    let table = "walk";
+    driver
+        .execute(
+            session,
+            &format!("CREATE TABLE {table} (id BIGINT PRIMARY KEY, bucket VARCHAR NOT NULL, label VARCHAR)"),
+            QueryId::new(),
+        )
+        .await?;
+    seed_embedded_rows(&driver, session, table, EMBEDDED_ROWS).await?;
+
+    let all: Vec<i64> = (1..=7).collect();
+    assert_keyset_pagination(
+        &driver,
+        session,
+        &namespace,
+        table,
+        &["id"],
+        None,
+        None,
+        3,
+        &all,
+        "id",
+        &[],
+    )
+    .await?;
+
+    assert_keyset_pagination(
+        &driver,
+        session,
+        &namespace,
+        table,
+        &["id"],
+        Some("bucket"),
+        Some(SortDirection::Asc),
+        2,
+        &all,
+        "id",
+        &[],
+    )
+    .await?;
+
+    driver.disconnect(session).await?;
+    let _ = std::fs::remove_file(&path);
+    Ok(())
+}
+
+/// A large identifier reaches the interface intact, and comes back intact.
+///
+/// Before the envelope, a `BIGINT` past 2^53 arrived rounded — `JSON.parse`
+/// cannot represent it — and delete built its `WHERE` from that rounded value,
+/// which removed a neighbouring row while reporting success. This walks the
+/// whole round trip on the two rows that collapse onto the same double.
+#[tokio::test]
+async fn postgres_large_bigint_key_targets_its_own_row() -> EngineResult<()> {
+    let (driver, session, config) = connect_postgres().await?;
+    let table = unique_name("qoredb_pg_bigkey");
+    let db_name = config
+        .database
+        .clone()
+        .unwrap_or_else(|| "postgres".to_string());
+    let namespace = Namespace::with_schema(db_name, "public");
+
+    // 2^53 is the last integer a double represents exactly; 2^53 + 1 is not,
+    // and rounds to 2^53.
+    let exact: i64 = 9_007_199_254_740_992;
+    let unrepresentable: i64 = 9_007_199_254_740_993;
+
+    // The wire form carries the digits, so nothing downstream can round it.
+    let wire = serde_json::to_string(&Value::Int(unrepresentable)).unwrap();
+    assert_eq!(wire, r#"{"$qoreInt":"9007199254740993"}"#);
+    let round_tripped: Value = serde_json::from_str(&wire).unwrap();
+    assert!(matches!(round_tripped, Value::Int(v) if v == unrepresentable));
+
+    // Both ids sit outside the safe range — 2^53 is representable but not safe,
+    // since 2^53 + 1 collapses onto it — so both travel in an envelope. An
+    // ordinary integer stays a plain number.
+    assert_eq!(
+        serde_json::to_string(&Value::Int(exact)).unwrap(),
+        r#"{"$qoreInt":"9007199254740992"}"#
+    );
+    assert_eq!(serde_json::to_string(&Value::Int(42)).unwrap(), "42");
+
+    driver
+        .execute(
+            session,
+            &format!("CREATE TABLE {table} (id BIGINT PRIMARY KEY, label TEXT NOT NULL)"),
+            QueryId::new(),
+        )
+        .await?;
+    driver
+        .execute(
+            session,
+            &format!(
+                "INSERT INTO {table} (id, label) VALUES ({exact}, 'neighbour'), ({unrepresentable}, 'selected')"
+            ),
+            QueryId::new(),
+        )
+        .await?;
+
+    // The user selects the row labelled 'selected'. Its key survives the trip,
+    // so this is the exact id the delete carries.
+    let key = RowData::new().with_column("id", round_tripped);
+    let deleted = driver.delete_row(session, &namespace, &table, &key).await?;
+    assert_eq!(deleted.affected_rows, Some(1));
+
+    let remaining = driver
+        .execute(
+            session,
+            &format!("SELECT label FROM {table} ORDER BY id"),
+            QueryId::new(),
+        )
+        .await?;
+    let labels: Vec<String> = remaining
+        .rows
+        .iter()
+        .filter_map(|row| row.values[0].as_text().map(str::to_string))
+        .collect();
+
+    assert_eq!(
+        labels,
+        vec!["neighbour".to_string()],
+        "the delete must remove the row the user selected, not the one next to it"
+    );
 
     let _ = driver
         .execute(session, &format!("DROP TABLE {}", table), QueryId::new())

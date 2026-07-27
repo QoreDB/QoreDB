@@ -5,7 +5,6 @@
 use std::collections::HashMap;
 
 use bigdecimal::BigDecimal;
-use bigdecimal::ToPrimitive as BigDecimalToPrimitive;
 use rust_decimal::Decimal;
 use sqlx::postgres::{PgColumn, PgRow, PgTypeKind, PgValueFormat, Postgres};
 use sqlx::{Column, Executor, Row, TypeInfo, ValueRef};

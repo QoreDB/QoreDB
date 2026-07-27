@@ -156,7 +156,7 @@ jobs:
           releaseDraft: true
           prerelease: false
           includeUpdaterJson: true
-          args: ${{ matrix.args }} --features pro --verbose
+          args: ${{ matrix.args }} --features pro,duckdb-bundled --verbose
 
       - name: Build MSIX (Windows only)
         if: matrix.platform == 'windows-2022'

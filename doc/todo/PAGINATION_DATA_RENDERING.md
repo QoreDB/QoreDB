@@ -898,16 +898,59 @@ appelait `Number()` sur tout type numérique, y compris `bigint` et `numeric` :
 même critère de chiffres que côté Rust ; ce qui n'y survit pas part sous la
 forme saisie.
 
-Reste ouvert : un entier hors plage sûre JavaScript arrive déjà arrondi par
-`JSON.parse`, avant que le moindre code de l'application le voie. Les
-identifiants de type Snowflake, autour de 1,4 × 10¹⁸, sont exactement dans ce
-cas. Le corriger suppose de choisir une représentation de rechange sur le fil,
-et `Value` est sérialisé en `untagged` : une chaîne de chiffres y devient
-indistinguable d'une colonne texte qui contient des chiffres, ce qui casserait
-la liaison des paramètres au retour — `WHERE code = '12345'` sur une colonne
-texte et `WHERE id = 12345` sur une colonne entière ont la même forme sur le
-fil. C'est un changement de protocole, pas un correctif local, et il est décrit
-ici pour être traité comme tel.
+**Les entiers hors plage sûre arrivaient arrondis — et retargetaient les
+suppressions.** Ce point, d'abord classé comme défaut d'affichage, s'est révélé
+être une atteinte à l'intégrité. Le chemin a été suivi puis prouvé contre un
+moteur réel : la grille construit la clé primaire d'une suppression avec la
+valeur telle qu'elle l'a reçue ; au-delà de 2⁵³ cette valeur est déjà arrondie
+par `JSON.parse`, et deux identifiants distincts deviennent **strictement
+égaux**. Le test a montré une suppression qui retire la ligne **voisine** de
+celle que l'utilisateur avait sélectionnée, en annonçant une réussite. Autour de
+1,4 × 10¹⁸ — la magnitude d'un identifiant Snowflake — l'espacement des doubles
+est de 256, donc 256 identifiants consécutifs s'écrasent sur la même valeur.
+
+Le blocage était réel : `Value` est sérialisé en `untagged`, donc une chaîne de
+chiffres y devient indistinguable d'une colonne texte contenant des chiffres, et
+`postgres_exact_numeric_round_trip` a confirmé que le moteur refuse alors le
+paramètre — *column "amount" is of type numeric but expression is of type text*.
+
+La sortie tient en une observation : **le type Rust n'était pas en cause, son
+encodage l'était.** `Value::Int(i64)` est déjà exact. Seule la sérialisation de
+cette variante change, ce qui évite d'ajouter une variante et de toucher les 102
+sites qui manipulent `Value`. Au-delà de la plage sûre, l'entier voyage dans une
+enveloppe à clé unique et réservée, `{"$qoreInt": "…"}` ; en deçà, il reste un
+nombre JSON nu, donc rien ne bouge pour l'immense majorité des valeurs. Au
+retour, l'enveloppe redevient `Value::Int` : la liaison de paramètre reste typée,
+ce qui était précisément le point de blocage.
+
+La clé est distinctive à dessein. `Int` est essayé avant `Json` dans
+l'énumération untagged, donc un document portant cette forme exacte serait lu
+comme un entier ; une clé unique, réservée, associée à une chaîne de chiffres
+rend la collision inatteignable par accident, et un test l'affirme sur cinq
+formes voisines.
+
+Un rôle a dû être séparé au passage : `to_json()` s'appuyait sur la forme
+sérialisée. Il sert à lier un paramètre tableau, à alimenter un modèle et à
+écrire un export — trois endroits où l'enveloppe serait une régression, dont un
+chemin d'écriture. Il construit désormais du JSON ordinaire, et les trois
+écrivains d'export qui sérialisaient un tableau via serde passent par lui.
+
+Côté interface, l'enveloppe est conservée telle quelle en mémoire plutôt que
+convertie : c'est elle qui repart lors d'une suppression ou d'une édition, donc
+la clause `WHERE` porte l'entier que la ligne a réellement. Six points de
+consommation ont été repris — affichage, identité de ligne, copie, export,
+édition, mutation. L'export JSON écrit les chiffres sous forme de chaîne, comme
+le font la plupart des API qui transportent des identifiants 64 bits : un nombre
+nu serait exact dans le fichier et arrondi à la première relecture.
+
+Le test de ciblage s'est inversé : il prouve maintenant que la suppression retire
+la ligne visée.
+
+Reste hors périmètre : les décimaux exacts. Ils s'affichent correctement depuis
+le correctif de représentation, et une édition qu'un double n'accepte pas échoue
+bruyamment au lieu d'écrire une valeur arrondie — une erreur visible plutôt
+qu'une base corrompue. La même enveloppe les couvrira, avec un marqueur distinct,
+le jour où ce cas se présentera.
 
 ## 11. Verticale 6 — Cohérence et sécurité
 
@@ -916,23 +959,70 @@ fin de chantier.
 
 ### 11.1 Sécurité
 
-- appliquer timeout, limite de lignes et limite d'octets à tous les modes, en
-  tenant compte du fait que les plafonds de la politique valent `None` par
-  défaut ;
-- faire porter les limites sur les lignes lues, pas seulement sur les lignes
-  rendues ;
-- borner la longueur et la complexité des curseurs ;
-- signer ou authentifier les curseurs sur le bridge HTTP
-  (`qore-server/src/routes/bridge.rs`), seul chemin où ils franchissent une
-  frontière de confiance ; à l'intérieur de l'application de bureau, ce n'est
-  pas nécessaire ;
-- décider explicitement si le bridge peut demander `count_mode: exact` sur une
-  table arbitraire, ou s'il hérite d'un plafond ;
-- paramétrer toutes les valeurs et valider tous les identifiants, y compris dans
-  l'onglet Info où les noms de schéma et de table sont aujourd'hui interpolés ;
-- limiter les previews de blobs et documents imbriqués ;
-- ne jamais journaliser de données de cellule ni de contenu de curseur ;
-- conserver les erreurs secondaires non destructives pour l'interface.
+**Le plafond d'octets n'est pas livrable sous la forme prévue.** Il n'existe
+toujours aucune limite d'octets : la politique ne connaît que `max_result_rows`,
+`max_concurrent_queries` et `max_query_duration_ms`, et aucune ne voit le poids
+des lignes. Une page de cent lignes portant chacune un document de plusieurs
+mégaoctets n'est bornée par rien côté moteur.
+
+La forme évidente — couper les lignes de la page jusqu'à tenir dans un budget,
+dans `from_optional_total`, seul constructeur de page et point situé avant que
+le curseur soit frappé — a été écrite puis retirée. Elle est fausse pour la
+raison exposée en 10.3 : si une page rend trois lignes au lieu de cent,
+l'appelant demande la page suivante, l'offset se calcule à partir du numéro de
+page, et les lignes quatre à cent disparaissent. C'est très exactement la
+régression silencieuse corrigée en 9.4, réintroduite par l'autre bout. La coupe
+ne serait juste que sous curseur, où la page suivante reprend à la dernière
+ligne rendue — donc pas pour les tables sans clé unique, qui sont précisément
+celles qu'on ne peut pas protéger autrement.
+
+La forme correcte est de borner la **cellule**, pas la page : le nombre de
+lignes reste intact, donc l'arithmétique d'offset aussi. Il faut pour cela
+pouvoir dire « cette valeur n'est pas la valeur entière », ce que `Value` ne
+sait pas exprimer.
+
+**Le mécanisme qui débloque existe désormais.** Trois chantiers butaient sur le
+même manque : `Value` ne savait rien dire *à propos* d'une valeur, seulement la
+valeur elle-même, dans le système de types de JSON. L'enveloppe introduite en
+10.5 lève cela — une clé réservée, appliquée à la seule variante concernée, sans
+toucher l'énumération.
+
+Les entiers hors plage sûre sont réglés. Restent deux extensions du même
+mécanisme, chacune avec son propre marqueur : les décimaux exacts, et une valeur
+tronquée côté moteur portant sa taille réelle. Cette seconde extension est ce
+dont le plafond d'octets a besoin, et elle réglerait du même coup le fait que
+l'aperçu des cellules lourdes (10.4) est borné côté interface alors que la charge
+utile traverse le fil en entier.
+
+**Décisions prises, sans code à écrire.**
+
+Le bridge HTTP et `count_mode: exact` : déjà tranché dans le code, le plan était
+en retard. L'exactitude reste disponible sur HTTP, mais un comptage exact hérite
+d'un délai maximal même lorsque la politique n'en fixe aucun — c'est une action
+explicite de l'utilisateur, pas une licence à immobiliser une connexion
+indéfiniment.
+
+La signature des curseurs sur le bridge : non nécessaire, et l'argument tient en
+une phrase. Un curseur ne porte que les valeurs des colonnes de tri, et son
+décodage vérifie déjà que ses clés correspondent à l'ordre demandé. Un curseur
+forgé ne permet donc que de démarrer le parcours à des valeurs arbitraires de ces
+colonnes — exactement ce qu'un filtre de la même requête permet déjà. Il ne
+franchit aucune frontière de table, de colonne ou d'espace de noms, et n'accorde
+aucune autorité que l'appelant n'ait déjà. Ajouter un HMAC protégerait contre
+rien.
+
+Le bornage des curseurs est livré (4 Ko encodés, 8 clés, 1 Ko par valeur
+textuelle), la journalisation est vérifiée : aucune valeur de cellule ni contenu
+de curseur n'atteint les traces.
+
+L'interpolation d'identifiants dans l'onglet Info que ce plan signalait n'a pas
+été retrouvée : le chemin d'estimation passe par des paramètres. À reconfirmer
+avant d'en faire une tâche — le plan est peut-être en retard sur le code ici
+aussi.
+
+**Restent ouverts** : faire porter les limites sur les lignes lues et non
+seulement sur les lignes rendues, et borner les previews de blobs et de documents
+imbriqués côté moteur. Les deux dépendent du même pas d'architecture.
 
 ### 11.2 Niveaux de cohérence
 
@@ -945,6 +1035,12 @@ Le niveau 1 est le défaut du navigateur. Le niveau 2 s'active automatiquement
 dès que la capacité le permet. Le niveau 3 n'est jamais implicite : il immobilise
 une connexion et doit être demandé par le workflow qui en a besoin.
 
+Les niveaux 1 et 2 sont livrés, et la page dit lequel s'applique. Le niveau 3
+n'est pas construit, faute de demandeur : aucun workflow ne le réclame
+aujourd'hui, et la règle qui le régit — jamais implicite, toujours demandé — fait
+qu'il n'existerait que pour lui-même. `transaction_conn` reste le point
+d'accroche le jour où un workflow en aura besoin.
+
 ## 12. Politique de settings
 
 | Option potentielle                       | Décision                                                                             |
@@ -954,10 +1050,10 @@ une connexion et doit être demandé par le workflow qui en a besoin.
 | Périmètre de la recherche (colonnes)     | Retenu, verticale 3, visible dans la barre de recherche plutôt que dans les réglages |
 | Taille de page brute                     | Réglage avancé de diagnostic uniquement                                              |
 | Profil Économe, Équilibré, Rapide        | Écarté, cf. 10.3                                                                     |
-| Forcer cursor ou offset                  | Diagnostic avancé, par connexion ou table                                            |
-| Budget mémoire par onglet                | Retenu, réglages avancés, défaut sûr                                                 |
-| Taille maximale de preview d'une cellule | Retenu, avec plafond imposé par la politique de sécurité                             |
-| Niveau de cohérence ou snapshot          | Exposé uniquement dans les workflows qui en ont besoin                               |
+| Forcer cursor ou offset                  | Non exposé, cf. 9.7 ; la stratégie est observable                                    |
+| Budget mémoire par onglet                | Non exposé, cf. 10.1 ; défaut sûr, sans commande                                     |
+| Taille maximale de preview d'une cellule | Non exposé, cf. 10.4 ; l'aperçu est borné sans réglage                               |
+| Niveau de cohérence ou snapshot          | Sans objet, cf. 11.2 ; aucun workflow ne le demande                                  |
 
 Une option n'est ajoutée que si plusieurs implémentations sont viables, qu'aucune
 ne domine clairement, que l'utilisateur en comprend la conséquence, que le choix
@@ -976,8 +1072,12 @@ Séquencé par valeur rendue et par dépendance, en lots livrables indépendamme
 5. Verticale 3 — livrée, cf. 8.1 et 8.2.
 6. Verticale 4 — livrée, cf. 9.2 à 9.8. Restent l'édition sous curseur (9.6) et
    le forçage de stratégie (9.7), tous deux documentés avec leur raison.
-7. Verticale 5 — décisions sélection et export d'abord, puis fenêtre bornée,
-   chunk adaptatif, rendu progressif des cellules, types sans perte.
+7. Verticale 5 — livrée, cf. 10.1 à 10.5. La fenêtre glissante est devenue un
+   budget d'octets par onglet, le chunk adaptatif est écarté, et la troisième
+   perte de précision — les entiers hors plage sûre JavaScript — attend un
+   changement de protocole.
+8. Verticale 6 — appliquée en 11.1 et 11.2. Ce qui reste y est décrit comme un
+   seul pas d'architecture, pas comme une liste de tâches.
 
 Les points de la verticale 6 s'appliquent au sein de chaque lot.
 
@@ -1000,3 +1100,53 @@ Le chantier est terminé lorsque :
 - chaque famille de drivers dispose de tests sur ses garanties réelles ;
 - les réglages exposés correspondent à des décisions compréhensibles, pas à des
   détails d'implémentation.
+
+### 14.1 Où en est chaque critère
+
+Atteints : l'ouverture sans comptage, l'absence de nombre ambigu, l'annulabilité,
+l'annonce des tris et recherches coûteux, la profondeur sous stratégie stable,
+le sens conservé par la sélection et l'export, la survie du contexte après un
+échec secondaire, et des réglages qui sont des décisions — la plupart ayant été
+tranchés en ne les exposant pas.
+
+Le budget de 250 Mo par onglet est tenu par construction plutôt que mesuré en
+conditions réelles : la charge utile est pesée page par page et plafonnée à
+128 Mo, mais personne n'a encore fait défiler une grande table pendant vingt
+minutes pour le vérifier de bout en bout.
+
+Deux critères ne sont pas atteints, et ils sont liés.
+
+**« Aucune valeur n'est silencieusement altérée par le rendu »** est atteint pour
+les quatre pertes trouvées. La dernière — les entiers hors plage sûre — a été
+corrigée par l'enveloppe décrite en 10.5, qui a coûté bien moins que prévu :
+changer l'encodage d'une variante plutôt que l'énumération. Reste que la même
+enveloppe n'est pas encore étendue aux décimaux exacts ni aux cellules tronquées
+côté moteur, ce qui laisse ouvert le plafond d'octets de 11.1.
+
+**« Chaque famille de drivers dispose de tests sur ses garanties réelles »**
+progresse mais n'est pas atteint. Ce critère a immédiatement prouvé sa valeur :
+exécuter les premiers parcours a révélé un bug partagé par trois drivers.
+
+Le prédicat de curseur est écrit une fois, mais chaque driver lui fournit sa
+syntaxe de paramètre. La forme développée nomme chaque valeur par son index et
+répète les clés antérieures dans chaque branche — ce qu'un paramètre numéroté
+(`$2`, `@p2`) reprend sans coût. Un paramètre **positionnel** (`?`) ne le peut
+pas : chaque occurrence consomme la valeur suivante. SQLite, MySQL et DuckDB
+liaient donc trop peu de paramètres. DuckDB et MySQL échouaient franchement ;
+SQLite, qui lit un paramètre manquant comme `NULL`, **rendait des lignes
+plausibles en en sautant une par page**. C'est exactement le mode de défaillance
+que ce critère existe pour attraper. `KeysetPlan::positional_values` produit
+désormais la séquence dans l'ordre où les points d'interrogation la consomment,
+et un test unitaire compare ce nombre à celui des placeholders émis.
+
+Vérifiés contre un moteur réel : PostgreSQL et sa famille, MySQL et MariaDB,
+SQLite, DuckDB et MotherDuck — soit cinq des huit déclarations `keyset`, en
+comptant les enveloppes. SQLite et DuckDB étant embarqués, leurs tests ne
+demandent aucune infrastructure.
+
+Restent SQL Server, ClickHouse, MongoDB et les deux moteurs de recherche. Leurs
+dialectes sont les plus éloignés — crochets et `@pN`, paramètres nommés
+`{nom:Type}`, filtre BSON, `search_after` — donc le risque résiduel est
+concentré là. À noter aussi : quand leur conteneur est absent, ClickHouse et
+Redis se sautent proprement alors que MongoDB et Elasticsearch échouent. Cette
+incohérence du harnais rend une suite locale rouge sans raison.

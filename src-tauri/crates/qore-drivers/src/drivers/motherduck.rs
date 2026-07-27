@@ -12,6 +12,7 @@
 //! connects yet shows an empty schema explorer.
 
 use async_trait::async_trait;
+use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
 use std::time::Instant;
 
 use crate::drivers::pg_compat::{self, SessionMap};
@@ -66,6 +67,13 @@ impl MotherDuckDriver {
     /// the connection did not explicitly choose another secure SSL mode.
     fn conn_str(config: &ConnectionConfig) -> EngineResult<String> {
         let mut normalized = config.clone();
+        if let Some(host) = motherduck_host_from_token(&normalized.password)
+            && (normalized.host.is_empty()
+                || (normalized.host.starts_with("pg.")
+                    && normalized.host.ends_with(".motherduck.com")))
+        {
+            normalized.host = host;
+        }
         let ssl_mode = normalized.ssl_mode.as_deref().map(str::to_ascii_lowercase);
         if matches!(ssl_mode.as_deref(), Some("disable" | "allow" | "prefer")) {
             return Err(EngineError::connection_failed(
@@ -85,6 +93,28 @@ impl MotherDuckDriver {
         }
         Ok(())
     }
+}
+
+fn motherduck_host_from_token(token: &str) -> Option<String> {
+    let payload = token.trim().split('.').nth(1)?;
+    let decoded = URL_SAFE_NO_PAD.decode(payload).ok()?;
+    let claims: serde_json::Value = serde_json::from_slice(&decoded).ok()?;
+    let md_region = claims.get("mdRegion")?.as_str()?;
+    let (provider, region) = md_region.split_once('-')?;
+
+    if provider != "aws"
+        || region.is_empty()
+        || !region
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || byte == b'-')
+    {
+        return None;
+    }
+
+    Some(format!(
+        "pg.{}-aws.motherduck.com",
+        region.to_ascii_lowercase()
+    ))
 }
 
 fn split_catalog_list(value: &str) -> Vec<String> {
@@ -1063,6 +1093,17 @@ mod tests {
     }
 
     #[test]
+    fn motherduck_uses_the_token_region_for_official_endpoints() {
+        let payload = URL_SAFE_NO_PAD.encode(r#"{"mdRegion":"aws-eu-central-1"}"#);
+        let mut cfg = make_config();
+        cfg.password = format!("header.{payload}.signature");
+
+        let conn = MotherDuckDriver::conn_str(&cfg).unwrap();
+        assert!(conn.contains("pg.eu-central-1-aws.motherduck.com"));
+        assert!(!conn.contains("pg.us-east-1-aws.motherduck.com"));
+    }
+
+    #[test]
     fn motherduck_tls_is_secure_by_default_and_cannot_be_disabled() {
         let mut cfg = make_config();
         cfg.ssl = false;
@@ -1106,6 +1147,7 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "driver-duckdb")]
     #[test]
     fn motherduck_discovers_schemas_across_catalogs() {
         let conn = duckdb::Connection::open_in_memory().unwrap();

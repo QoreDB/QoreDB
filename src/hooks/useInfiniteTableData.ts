@@ -129,6 +129,10 @@ export function useInfiniteTableData({
   const countingTotalRef = useRef(false);
   const knownTotalRef = useRef<number | null>(null);
   const payloadBytesRef = useRef(0);
+  // A restart that kept its rows has to replace them when its first page lands,
+  // instead of appending a second copy of them.
+  const silentRestartRef = useRef(false);
+  const [silentRestartNonce, setSilentRestartNonce] = useState(0);
   const countQueryIdRef = useRef<string | null>(null);
   const countCancelledRef = useRef(false);
   // Created on the first page rather than on mount, so a scope never exists
@@ -244,7 +248,12 @@ export function useInfiniteTableData({
           if (newCols.length > 0) return prev.length === 0 ? newCols : prev;
           return prev;
         });
-        setAllRows(prev => prev.concat(paginated.result.rows));
+        if (isFirstChunk && silentRestartRef.current) {
+          silentRestartRef.current = false;
+          setAllRows(paginated.result.rows);
+        } else {
+          setAllRows(prev => prev.concat(paginated.result.rows));
+        }
         // Measured per page rather than extrapolated from the first one: a
         // single wide document or blob weighs more than the thousand rows
         // around it, and that page is exactly the one worth stopping on.
@@ -379,7 +388,11 @@ export function useInfiniteTableData({
     cancelQuery(sessionId, queryId).catch(() => {});
   }, [sessionId]);
 
-  const reset = useCallback(() => {
+  // `keepRows` restarts the walk without emptying the grid. The table and its
+  // filters have not changed — only the way the next pages will be fetched — so
+  // the rows and the total on screen are still the right ones, and blanking
+  // them would be a flash with nothing behind it.
+  const reset = useCallback((keepRows = false) => {
     generationRef.current += 1;
     currentPageRef.current = 1;
     nextCursorRef.current = null;
@@ -387,13 +400,20 @@ export function useInfiniteTableData({
     keysetPinnedRef.current = false;
     fetchingRef.current = false;
     countingTotalRef.current = false;
-    knownTotalRef.current = null;
     payloadBytesRef.current = 0;
-    setAllRows([]);
-    setTotalRows(null);
-    setTotalRowsSource(null);
-    setTotalRowsAsOf(null);
-    setIsLoading(true);
+    if (keepRows) {
+      silentRestartRef.current = true;
+      setSilentRestartNonce(nonce => nonce + 1);
+    } else {
+      // Cleared with the rows: an exact total kept alone would let the estimate
+      // that follows overwrite a number the user paid a scan for.
+      knownTotalRef.current = null;
+      setAllRows([]);
+      setTotalRows(null);
+      setTotalRowsSource(null);
+      setTotalRowsAsOf(null);
+    }
+    setIsLoading(!keepRows);
     setIsFetchingMore(false);
     setIsCountingTotal(false);
     setIsComplete(false);
@@ -440,9 +460,12 @@ export function useInfiniteTableData({
     searchModeRef.current = searchMode;
     filtersRef.current = filters;
 
-    if (sortChanged || searchChanged || filtersChanged || scopeChanged || keysetBecameAvailable) {
+    if (sortChanged || searchChanged || filtersChanged || scopeChanged) {
       bypassCacheRef.current = false;
       reset();
+    } else if (keysetBecameAvailable) {
+      bypassCacheRef.current = false;
+      reset(true);
     }
   }, [
     sortColumn,
@@ -458,10 +481,11 @@ export function useInfiniteTableData({
   // Auto-fetch first chunk on mount or after reset
   useEffect(() => {
     if (!enabled) return;
-    if (allRows.length === 0 && !fetchingRef.current && !isComplete) {
+    const restarted = silentRestartNonce > 0 && silentRestartRef.current;
+    if ((allRows.length === 0 || restarted) && !fetchingRef.current && !isComplete) {
       fetchNextChunk();
     }
-  }, [enabled, allRows.length, isComplete, fetchNextChunk]);
+  }, [enabled, allRows.length, isComplete, silentRestartNonce, fetchNextChunk]);
 
   const reload = useCallback(() => {
     bypassCacheRef.current = false;

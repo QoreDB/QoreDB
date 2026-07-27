@@ -2144,7 +2144,9 @@ impl DataEngine for MySqlDriver {
         let mut cursor_sql = String::new();
         if let (Some(plan), Some(encoded)) = (keyset.as_ref(), options.cursor.as_deref()) {
             cursor_sql = plan.predicate(|col| Self::quote_ident(col), |_| "?".to_string());
-            cursor_values = plan.decode(encoded)?.values;
+            // `?` consumes one bound value per occurrence, and the expanded
+            // predicate names each earlier key again in every later branch.
+            cursor_values = plan.positional_values(&plan.decode(encoded)?.values);
         }
 
         let total_rows = if options.wants_exact_total() {

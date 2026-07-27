@@ -760,10 +760,11 @@ export function QueryPanel({
     setQuery(prev => MONGO_TEMPLATES[templateKey] ?? prev);
   }, []);
 
-  const handleFormat = useCallback(() => {
+  const handleFormat = useCallback(async () => {
     if (isDocument) return;
-    const formatted = formatSql(query, dialect);
-    setQuery(formatted);
+    const queryToFormat = query;
+    const formatted = await formatSql(queryToFormat, dialect);
+    setQuery(current => (current === queryToFormat ? formatted : current));
   }, [dialect, isDocument, query]);
 
   const handleConvertToNotebook = useCallback(() => {

@@ -126,6 +126,9 @@ pnpm tauri build
 ```
 
 Les artefacts sont générés dans `src-tauri/target/release/bundle/`.
+Cette commande active automatiquement le linkage DuckDB statique utilisé pour
+les artefacts distribués. Un build Tauri lancé directement sans le script pnpm
+doit préciser `--features duckdb-bundled`.
 
 ### Publier manuellement
 

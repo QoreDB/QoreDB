@@ -2,6 +2,7 @@
 
 //! Normalized data types shared across SQL and NoSQL engines.
 
+use base64::Engine as _;
 use compact_str::CompactString;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -517,13 +518,28 @@ pub enum CollectionType {
     Collection, // NoSQL
 }
 
+/// Largest integer a JSON number survives intact.
+///
+/// The receiving end reads every JSON number as a double, so anything past this
+/// is rounded before a single line of consuming code runs. Snowflake
+/// identifiers and nanosecond timestamps both sit well beyond it.
+pub const MAX_SAFE_JSON_INT: i64 = 9_007_199_254_740_991;
+
+/// Sole key of the envelope carrying an integer a JSON number cannot hold.
+///
+/// Distinctive on purpose: `Int` is tried before `Json` in this untagged enum,
+/// so a document that happened to carry this exact shape would be read as an
+/// integer. One key, a reserved name, and a digit string make that collision
+/// something no engine produces by accident.
+pub const EXACT_INT_KEY: &str = "$qoreInt";
+
 /// Universal value representation
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum Value {
     Null,
     Bool(bool),
-    Int(i64),
+    Int(#[serde(with = "exact_int")] i64),
     Float(f64),
     Text(String),
     Bytes(#[serde(with = "base64_bytes")] Vec<u8>),
@@ -556,13 +572,33 @@ impl Value {
         }
     }
 
-    /// Canonical conversion to `serde_json::Value`. Relies on the `#[serde(untagged)]`
-    /// wire form: bytes become base64 strings, non-finite floats become `null`,
-    /// nested `Json`/`Array` pass through. Use this instead of re-implementing the
-    /// match at each call site (cf. dédup D8). Contexts that need a different
-    /// shape (e.g. a `<binary N bytes>` placeholder) keep their own mapping.
+    /// Canonical conversion to ordinary JSON: bytes become base64 strings,
+    /// non-finite floats become `null`, nested `Json`/`Array` pass through. Use
+    /// this instead of re-implementing the match at each call site (cf. dédup
+    /// D8). Contexts that need a different shape (e.g. a `<binary N bytes>`
+    /// placeholder) keep their own mapping.
+    ///
+    /// Deliberately not `serde_json::to_value(self)`. That renders the wire
+    /// form, where a large integer travels in an envelope — right for the
+    /// interface, wrong everywhere this method is used: binding an array
+    /// parameter, feeding a model, writing an export. Those want the number.
     pub fn to_json(&self) -> serde_json::Value {
-        serde_json::to_value(self).unwrap_or(serde_json::Value::Null)
+        match self {
+            Value::Null => serde_json::Value::Null,
+            Value::Bool(b) => serde_json::Value::Bool(*b),
+            Value::Int(i) => serde_json::Value::Number((*i).into()),
+            Value::Float(f) => serde_json::Number::from_f64(*f)
+                .map(serde_json::Value::Number)
+                .unwrap_or(serde_json::Value::Null),
+            Value::Text(s) => serde_json::Value::String(s.clone()),
+            Value::Bytes(b) => {
+                serde_json::Value::String(base64::engine::general_purpose::STANDARD.encode(b))
+            }
+            Value::Json(j) => j.clone(),
+            Value::Array(items) => {
+                serde_json::Value::Array(items.iter().map(Value::to_json).collect())
+            }
+        }
     }
 }
 
@@ -718,6 +754,77 @@ macro_rules! impl_from_ref_copy {
     };
 }
 impl_from_ref_copy!(bool, i8, i16, i32, i64, u8, u16, u32, f32, f64);
+
+/// Wire form for `Value::Int`.
+///
+/// Below the safe range an integer stays a plain JSON number, which is what
+/// every consumer already expects. Beyond it, the number would arrive rounded —
+/// and a rounded primary key does not merely display wrong, it retargets the
+/// `WHERE` clause of a delete. Such values travel in a marked envelope instead,
+/// and come back as `Value::Int`, so parameter binding stays typed: a digit
+/// string alone could not be told apart from a text column holding digits, and
+/// that ambiguity is what blocked every simpler attempt.
+mod exact_int {
+    use super::{EXACT_INT_KEY, MAX_SAFE_JSON_INT};
+    use serde::de::{Error as DeError, MapAccess, Visitor};
+    use serde::ser::SerializeMap;
+    use serde::{Deserializer, Serializer};
+    use std::fmt;
+
+    pub fn serialize<S>(value: &i64, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        if (-MAX_SAFE_JSON_INT..=MAX_SAFE_JSON_INT).contains(value) {
+            return serializer.serialize_i64(*value);
+        }
+        let mut map = serializer.serialize_map(Some(1))?;
+        map.serialize_entry(EXACT_INT_KEY, &value.to_string())?;
+        map.end()
+    }
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<i64, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        deserializer.deserialize_any(ExactInt)
+    }
+
+    struct ExactInt;
+
+    impl<'de> Visitor<'de> for ExactInt {
+        type Value = i64;
+
+        fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            f.write_str("an integer, or the envelope carrying an exact one")
+        }
+
+        fn visit_i64<E: DeError>(self, value: i64) -> Result<i64, E> {
+            Ok(value)
+        }
+
+        fn visit_u64<E: DeError>(self, value: u64) -> Result<i64, E> {
+            i64::try_from(value).map_err(DeError::custom)
+        }
+
+        // Anything that is not this exact shape has to fail, so the untagged
+        // enum moves on to the variant that does match.
+        fn visit_map<A: MapAccess<'de>>(self, mut map: A) -> Result<i64, A::Error> {
+            let key: String = match map.next_key()? {
+                Some(key) => key,
+                None => return Err(DeError::custom("not an exact integer")),
+            };
+            if key != EXACT_INT_KEY {
+                return Err(DeError::custom("not an exact integer"));
+            }
+            let text: String = map.next_value()?;
+            if map.next_key::<String>()?.is_some() {
+                return Err(DeError::custom("not an exact integer"));
+            }
+            text.parse::<i64>().map_err(DeError::custom)
+        }
+    }
+}
 
 mod base64_bytes {
     use base64::{Engine, engine::general_purpose::STANDARD};
@@ -1859,6 +1966,110 @@ mod pagination_tests {
             Value::from_decimal_text("-0.0".to_string()),
             Value::Float(_)
         ));
+    }
+
+    #[test]
+    fn an_integer_in_the_safe_range_stays_a_plain_json_number() {
+        for value in [0i64, 1, -1, 42, MAX_SAFE_JSON_INT, -MAX_SAFE_JSON_INT] {
+            let json = serde_json::to_string(&Value::Int(value)).unwrap();
+            assert_eq!(json, value.to_string(), "{value} should stay a number");
+        }
+    }
+
+    // A rounded primary key does not merely display wrong: it retargets the
+    // WHERE clause of a delete.
+    #[test]
+    fn an_integer_past_the_safe_range_travels_in_its_envelope() {
+        let value = 9_007_199_254_740_993i64;
+        let json = serde_json::to_string(&Value::Int(value)).unwrap();
+        assert_eq!(json, r#"{"$qoreInt":"9007199254740993"}"#);
+
+        let back: Value = serde_json::from_str(&json).unwrap();
+        assert!(matches!(back, Value::Int(v) if v == value));
+    }
+
+    #[test]
+    fn every_integer_round_trips_unchanged() {
+        for value in [
+            0i64,
+            -1,
+            MAX_SAFE_JSON_INT,
+            MAX_SAFE_JSON_INT + 1,
+            -MAX_SAFE_JSON_INT - 1,
+            1_409_876_543_210_987_654,
+            i64::MAX,
+            i64::MIN,
+        ] {
+            let json = serde_json::to_string(&Value::Int(value)).unwrap();
+            let back: Value = serde_json::from_str(&json).unwrap();
+            assert!(
+                matches!(back, Value::Int(v) if v == value),
+                "{value} did not survive, got {back:?} from {json}"
+            );
+        }
+    }
+
+    // `Int` is tried before `Json` in the untagged enum, so a document must not
+    // be swallowed by a shape that merely resembles the envelope.
+    #[test]
+    fn a_document_is_never_mistaken_for_an_envelope() {
+        for json in [
+            r#"{"id":1}"#,
+            r#"{"$qoreInt":"12","extra":1}"#,
+            r#"{"$qoreInt":12}"#,
+            r#"{"$qoreIntish":"12"}"#,
+            r#"{}"#,
+        ] {
+            let value: Value = serde_json::from_str(json).unwrap();
+            assert!(
+                matches!(value, Value::Json(_)),
+                "{json} should stay a document, got {value:?}"
+            );
+        }
+    }
+
+    // A text column holding digits must not become an integer on the way back,
+    // or its parameter would be bound with the wrong type.
+    #[test]
+    fn a_digit_string_stays_text() {
+        let value: Value = serde_json::from_str(r#""9007199254740993""#).unwrap();
+        assert!(matches!(value, Value::Text(t) if t == "9007199254740993"));
+    }
+
+    // `Array` is unreachable on the wire — `Json` precedes it and accepts any
+    // JSON — but that predates the envelope and is asserted here so a change to
+    // the variant order shows up.
+    #[test]
+    fn the_other_variants_are_untouched() {
+        for (json, ok) in [
+            (
+                "null",
+                matches!(serde_json::from_str::<Value>("null").unwrap(), Value::Null),
+            ),
+            (
+                "true",
+                matches!(
+                    serde_json::from_str::<Value>("true").unwrap(),
+                    Value::Bool(true)
+                ),
+            ),
+            (
+                "1.5",
+                matches!(
+                    serde_json::from_str::<Value>("1.5").unwrap(),
+                    Value::Float(_)
+                ),
+            ),
+            (
+                "[1,2]",
+                matches!(
+                    serde_json::from_str::<Value>("[1,2]").unwrap(),
+                    Value::Json(_)
+                ),
+            ),
+        ] {
+            assert!(ok, "{json} changed shape");
+        }
     }
 
     #[test]

@@ -16,7 +16,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     cmake clang pkg-config libdbus-1-dev && rm -rf /var/lib/apt/lists/*
 WORKDIR /build
 COPY src-tauri ./src-tauri
-RUN cargo build --release --manifest-path src-tauri/Cargo.toml -p qore-server
+RUN cargo build --release --manifest-path src-tauri/Cargo.toml -p qore-server --features duckdb-bundled
 
 # --- Stage 3: runtime ---
 FROM debian:bookworm-slim

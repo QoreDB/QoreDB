@@ -1,49 +1,52 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import i18n from 'i18next';
+import i18n, { type BackendModule, type ResourceKey } from 'i18next';
 import LanguageDetector from 'i18next-browser-languagedetector';
 import { initReactI18next } from 'react-i18next';
-import de from './locales/de.json';
 import en from './locales/en.json';
-import es from './locales/es.json';
-import fr from './locales/fr.json';
-import ja from './locales/ja.json';
-import ko from './locales/ko.json';
-import ptBR from './locales/pt-BR.json';
-import ru from './locales/ru.json';
-import zhCN from './locales/zh-CN.json';
 
-i18n
+type TranslationModule = { default: ResourceKey };
+
+const SUPPORTED_LANGUAGES = ['en', 'fr', 'es', 'de', 'pt-BR', 'zh-CN', 'ja', 'ko', 'ru'] as const;
+
+const localeLoaders: Record<string, () => Promise<TranslationModule>> = {
+  en: async () => ({ default: en }),
+  fr: () => import('./locales/fr.json'),
+  es: () => import('./locales/es.json'),
+  de: () => import('./locales/de.json'),
+  'pt-BR': () => import('./locales/pt-BR.json'),
+  'zh-CN': () => import('./locales/zh-CN.json'),
+  ja: () => import('./locales/ja.json'),
+  ko: () => import('./locales/ko.json'),
+  ru: () => import('./locales/ru.json'),
+};
+
+const localeBackend: BackendModule = {
+  type: 'backend',
+  init() {},
+  read(language, namespace, callback) {
+    const loader = namespace === 'translation' ? localeLoaders[language] : undefined;
+    if (!loader) {
+      callback(new Error(`Unsupported locale: ${language}/${namespace}`), false);
+      return;
+    }
+
+    loader()
+      .then(module => callback(null, module.default))
+      .catch(error => callback(error instanceof Error ? error : new Error(String(error)), false));
+  },
+};
+
+export const i18nReady = i18n
+  .use(localeBackend)
   .use(LanguageDetector)
   .use(initReactI18next)
   .init({
+    supportedLngs: SUPPORTED_LANGUAGES,
+    partialBundledLanguages: true,
     resources: {
       en: {
         translation: en,
-      },
-      fr: {
-        translation: fr,
-      },
-      es: {
-        translation: es,
-      },
-      de: {
-        translation: de,
-      },
-      'pt-BR': {
-        translation: ptBR,
-      },
-      'zh-CN': {
-        translation: zhCN,
-      },
-      ja: {
-        translation: ja,
-      },
-      ko: {
-        translation: ko,
-      },
-      ru: {
-        translation: ru,
       },
     },
     fallbackLng: 'en',

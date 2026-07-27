@@ -257,7 +257,9 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(function Sidebar(
   }
 
   function handleSelect(conn: SavedConnection) {
-    if (connectedSessionId && selectedId === conn.id) {
+    // Selected is not connected: a failed attempt leaves the connection
+    // selected while the session still belongs to the previous one.
+    if (connectedSessionId && connectedConnectionId === conn.id) {
       setExpandedId(expandedId === conn.id ? null : conn.id);
     } else {
       handleConnect(conn);
@@ -292,30 +294,32 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(function Sidebar(
             <div className="h-3 w-2/3 rounded bg-muted animate-pulse" />
           </div>
         )}
-        {expandedId === connection.id && connectedSessionId && (
-          <div className="pl-4 border-l-2 border-accent/30 ml-4 mt-1 bg-muted/20 rounded-r-md py-1">
-            <DBTree
-              connectionId={connectedSessionId}
-              driver={connection.driver}
-              connection={connection}
-              onTableSelect={onTableSelect}
-              onDatabaseSelect={onDatabaseSelect}
-              onCompareTable={onCompareTable}
-              onSchemaDiff={onSchemaDiff}
-              onAiGenerateForTable={onAiGenerateForTable}
-              onNewQueryForTable={onNewQueryForTable}
-              onOpenRoutineSource={onOpenRoutineSource}
-              onCreateRoutine={onCreateRoutine}
-              onOpenTriggerSource={onOpenTriggerSource}
-              onCreateTrigger={onCreateTrigger}
-              onOpenEventSource={onOpenEventSource}
-              onCreateEvent={onCreateEvent}
-              onOpenSequenceSource={onOpenSequenceSource}
-              refreshTrigger={schemaRefreshTrigger}
-              activeNamespace={activeNamespace}
-            />
-          </div>
-        )}
+        {expandedId === connection.id &&
+          connectedConnectionId === connection.id &&
+          connectedSessionId && (
+            <div className="pl-4 border-l-2 border-accent/30 ml-4 mt-1 bg-muted/20 rounded-r-md py-1">
+              <DBTree
+                connectionId={connectedSessionId}
+                driver={connection.driver}
+                connection={connection}
+                onTableSelect={onTableSelect}
+                onDatabaseSelect={onDatabaseSelect}
+                onCompareTable={onCompareTable}
+                onSchemaDiff={onSchemaDiff}
+                onAiGenerateForTable={onAiGenerateForTable}
+                onNewQueryForTable={onNewQueryForTable}
+                onOpenRoutineSource={onOpenRoutineSource}
+                onCreateRoutine={onCreateRoutine}
+                onOpenTriggerSource={onOpenTriggerSource}
+                onCreateTrigger={onCreateTrigger}
+                onOpenEventSource={onOpenEventSource}
+                onCreateEvent={onCreateEvent}
+                onOpenSequenceSource={onOpenSequenceSource}
+                refreshTrigger={schemaRefreshTrigger}
+                activeNamespace={activeNamespace}
+              />
+            </div>
+          )}
       </div>
     );
   }

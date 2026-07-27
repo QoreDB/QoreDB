@@ -1688,7 +1688,9 @@ impl DataEngine for DuckDbDriver {
             let mut cursor_sql = String::new();
             if let (Some(plan), Some(encoded)) = (keyset.as_ref(), options.cursor.as_deref()) {
                 cursor_sql = plan.predicate(|col| Self::quote_ident(col), |_| "?".to_string());
-                for value in plan.decode(encoded)?.values {
+                // `?` consumes one bound value per occurrence, and the expanded
+                // predicate names each earlier key again in every later branch.
+                for value in plan.positional_values(&plan.decode(encoded)?.values) {
                     bind_values.push(value_to_duckdb(&value));
                 }
             }

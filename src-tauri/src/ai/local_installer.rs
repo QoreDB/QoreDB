@@ -924,4 +924,27 @@ mod tests {
             content
         );
     }
+
+    #[test]
+    fn zip_runtime_archive_is_extracted_inside_staging() {
+        let temp = tempfile::tempdir().unwrap();
+        let archive_path = temp.path().join("runtime.zip");
+        let mut archive = zip::ZipWriter::new(File::create(&archive_path).unwrap());
+        archive
+            .start_file(
+                "llama/llama-server",
+                zip::write::SimpleFileOptions::default(),
+            )
+            .unwrap();
+        archive.write_all(b"runtime").unwrap();
+        archive.finish().unwrap();
+
+        let destination = temp.path().join("staging");
+        std::fs::create_dir_all(&destination).unwrap();
+        extract_archive(&archive_path, &destination, ArchiveFormat::Zip).unwrap();
+        assert_eq!(
+            std::fs::read(destination.join("llama/llama-server")).unwrap(),
+            b"runtime"
+        );
+    }
 }

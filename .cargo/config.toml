@@ -1,0 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
+
+[env]
+DUCKDB_DOWNLOAD_LIB = { value = "1", force = false }

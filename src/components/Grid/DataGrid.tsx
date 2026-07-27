@@ -35,6 +35,7 @@ import { BULK_EDIT_CORE_LIMIT } from '@/lib/bulkEdit';
 import type { Driver } from '@/lib/connection/drivers';
 import { type ExportDataDetail, UI_EVENT_EXPORT_DATA } from '@/lib/events/uiEvents';
 import type { ExportConfig } from '@/lib/export';
+import { exactIntText, isExactInt } from '@/lib/query/exactInt';
 import { indexedLeadingColumns } from '@/lib/query/indexCost';
 import { applyOverlay, emptyOverlayResult, type OverlayResult } from '@/lib/sandbox/sandboxOverlay';
 import type { SandboxChange, SandboxDeleteDisplay } from '@/lib/sandbox/sandboxTypes';
@@ -411,7 +412,7 @@ export function DataGrid({
       for (const key of primaryKey) {
         const v = row[key];
         if (v === null || v === undefined) return `__idx_${index}`;
-        composite += `${composite ? '::' : ''}${String(v)}`;
+        composite += `${composite ? '::' : ''}${isExactInt(v) ? exactIntText(v) : String(v)}`;
       }
       return composite;
     };

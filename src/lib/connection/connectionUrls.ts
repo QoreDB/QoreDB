@@ -16,7 +16,7 @@ export const CONNECTION_URL_PLACEHOLDERS = {
   [Driver.Mongodb]: 'mongodb://user:password@localhost:27017/mydb',
   [Driver.Redis]: 'redis://default:password@localhost:6379/0',
   [Driver.Motherduck]:
-    'postgresql://postgres:motherduck_token@pg.us-east-1-aws.motherduck.com:5432/md:?sslmode=verify-full',
+    'postgresql://postgres:motherduck_token@pg.<region>-aws.motherduck.com:5432/md:?sslmode=verify-full',
   [Driver.SqlServer]: 'sqlserver://user:password@localhost:1433/mydb?encrypt=true',
   [Driver.Cockroachdb]: 'cockroachdb://user:password@host:26257/defaultdb?sslmode=verify-full',
   [Driver.Supabase]:

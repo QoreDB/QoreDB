@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { estimateByteSizeFromBase64, formatFileSize, isBinaryType } from '@/lib/binaryUtils';
+import { exactIntText, isExactInt } from '@/lib/query/exactInt';
 import type { QueryResult, Value } from '@/lib/tauri';
 
 export type RowData = Record<string, Value>;
@@ -19,6 +20,7 @@ export function formatValue(value: Value, dataType?: string): string {
   if (typeof value === 'boolean') return value ? 'true' : 'false';
   if (typeof value === 'number') return String(value);
   if (typeof value === 'string') return value;
+  if (isExactInt(value)) return exactIntText(value);
   if (typeof value === 'object') {
     if (Array.isArray(value)) return JSON.stringify(value);
     return JSON.stringify(value);

@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { useCallback } from 'react';
-import { isExactNumericType, survivesDouble } from '@/lib/query/numericPrecision';
+import { exactIntText, isExactInt, toExactValue } from '@/lib/query/exactInt';
+import { isExactNumericType, isIntegerType, survivesDouble } from '@/lib/query/numericPrecision';
 import type { Value } from '@/lib/tauri';
 
 export interface UseValueParsingReturn {
@@ -27,10 +28,12 @@ export function parseInputValue(raw: string, dataType?: string): Value {
     if (trimmed === '') return '';
     const numericValue = Number(trimmed);
     if (Number.isNaN(numericValue)) return raw;
-    // A bigint past 2^53, or a numeric carrying more digits than a double,
-    // would be written back rounded. Send the text the user typed rather than
-    // a number that no longer holds what they entered.
-    if (isExactNumericType(normalizedType) && !survivesDouble(trimmed)) return trimmed;
+    if (isExactNumericType(normalizedType) && !survivesDouble(trimmed)) {
+      // A whole number travels in its envelope and comes back typed, so the
+      // engine binds an integer. A decimal has no such envelope yet: it leaves
+      // as text and the engine refuses it, which beats writing it rounded.
+      return isIntegerType(normalizedType) ? toExactValue(trimmed) : trimmed;
+    }
     return numericValue;
   }
 
@@ -52,6 +55,7 @@ export function useValueParsing(): UseValueParsingReturn {
     if (typeof value === 'boolean') return value ? 'true' : 'false';
     if (typeof value === 'number') return String(value);
     if (typeof value === 'string') return value;
+    if (isExactInt(value)) return exactIntText(value);
     if (typeof value === 'object') return JSON.stringify(value);
     return String(value);
   }, []);

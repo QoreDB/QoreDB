@@ -60,6 +60,9 @@ fn is_service_unavailable(err: &EngineError) -> bool {
                 || lower.contains("timed out")
                 || lower.contains("network is unreachable")
                 || lower.contains("cannot assign requested address")
+                // reqwest keeps the real cause in `source()`, so an HTTP driver
+                // facing a dead port only ever reports this.
+                || lower.contains("error sending request")
         }
         _ => false,
     }
@@ -1421,26 +1424,12 @@ async fn mongodb_streaming() -> EngineResult<()> {
     Ok(())
 }
 
-fn is_clickhouse_unavailable(err: &EngineError) -> bool {
-    match err {
-        EngineError::ConnectionFailed { message } | EngineError::ExecutionError { message } => {
-            let lower = message.to_ascii_lowercase();
-            lower.contains("connection refused")
-                || lower.contains("no route to host")
-                || lower.contains("timed out")
-                || lower.contains("network is unreachable")
-                || lower.contains("error sending request")
-        }
-        _ => false,
-    }
-}
-
 #[tokio::test]
 async fn clickhouse_e2e() -> EngineResult<()> {
     let connect_result = connect_clickhouse().await;
     let (driver, session, config) = match connect_result {
         Ok(t) => t,
-        Err(err) if is_clickhouse_unavailable(&err) => {
+        Err(err) if is_service_unavailable(&err) => {
             eprintln!("clickhouse not reachable, skipping: {err}");
             return Ok(());
         }

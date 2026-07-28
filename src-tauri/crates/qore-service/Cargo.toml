@@ -8,7 +8,7 @@ description = "Surface-agnostic service layer for QorePlatform — Tauri-free bu
 [dependencies]
 qore-core = { path = "../qore-core" }
 qore-sql = { path = "../qore-sql" }
-qore-drivers = { path = "../qore-drivers" }
+qore-drivers = { path = "../qore-drivers", default-features = false }
 serde = { workspace = true }
 serde_json = { workspace = true }
 uuid = { workspace = true }
@@ -32,8 +32,49 @@ chacha20poly1305 = "0.10"
 rand_core = { version = "0.6", features = ["getrandom"] }
 parking_lot = "0.12"
 
+[target.'cfg(target_os = "macos")'.dependencies]
+security-framework = "3"
+
 [build-dependencies]
 dotenvy = "0.15"
 
 [dev-dependencies]
 tempfile = "3.24.0"
+
+[features]
+default = ["all-drivers"]
+all-drivers = [
+    "driver-clickhouse",
+    "driver-cockroachdb",
+    "driver-duckdb",
+    "driver-elasticsearch",
+    "driver-mariadb",
+    "driver-mongodb",
+    "driver-motherduck",
+    "driver-mysql",
+    "driver-neon",
+    "driver-opensearch",
+    "driver-postgres",
+    "driver-redis",
+    "driver-sqlite",
+    "driver-sqlserver",
+    "driver-supabase",
+    "driver-timescaledb",
+]
+driver-clickhouse = ["qore-drivers/driver-clickhouse"]
+driver-cockroachdb = ["qore-drivers/driver-cockroachdb"]
+driver-duckdb = ["qore-drivers/driver-duckdb"]
+driver-elasticsearch = ["qore-drivers/driver-elasticsearch"]
+driver-mariadb = ["qore-drivers/driver-mariadb"]
+driver-mongodb = ["qore-drivers/driver-mongodb"]
+driver-motherduck = ["qore-drivers/driver-motherduck"]
+driver-mysql = ["qore-drivers/driver-mysql"]
+driver-neon = ["qore-drivers/driver-neon"]
+driver-opensearch = ["qore-drivers/driver-opensearch"]
+driver-postgres = ["qore-drivers/driver-postgres"]
+driver-redis = ["qore-drivers/driver-redis"]
+driver-sqlite = ["qore-drivers/driver-sqlite"]
+driver-sqlserver = ["qore-drivers/driver-sqlserver"]
+driver-supabase = ["qore-drivers/driver-supabase"]
+driver-timescaledb = ["qore-drivers/driver-timescaledb"]
+duckdb-bundled = ["driver-duckdb", "qore-drivers/duckdb-bundled"]

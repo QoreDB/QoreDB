@@ -2,6 +2,7 @@
 
 import type { Row } from '@tanstack/react-table';
 import { useCallback, useState } from 'react';
+import { exactIntReplacer, exactIntText, isExactInt } from '@/lib/query/exactInt';
 import type { QueryResult } from '@/lib/tauri';
 import { formatValue, type RowData } from '../utils/dataGridUtils';
 
@@ -47,7 +48,7 @@ export function useDataGridCopy({
         }
         case 'json': {
           const jsonData = rowsToCopy.map(row => row.original);
-          content = JSON.stringify(jsonData, null, 2);
+          content = JSON.stringify(jsonData, exactIntReplacer, 2);
           break;
         }
         case 'sql': {
@@ -57,6 +58,7 @@ export function useDataGridCopy({
             const values = columnNames.map(col => {
               const value = row.original[col];
               if (value === null) return 'NULL';
+              if (isExactInt(value)) return exactIntText(value);
               if (typeof value === 'number') return String(value);
               if (typeof value === 'boolean') return value ? 'TRUE' : 'FALSE';
               return `'${String(value).replace(/'/g, "''")}'`;

@@ -2,7 +2,15 @@
 
 import type { VirtualItem } from '@tanstack/react-virtual';
 import type { UseTranslationOptions } from 'react-i18next';
-import type { Environment, Namespace, QueryResult, Value } from '@/lib/tauri';
+import type {
+  CancelSupport,
+  Environment,
+  Namespace,
+  OrderingGuarantee,
+  QueryResult,
+  TotalRowsSource,
+  Value,
+} from '@/lib/tauri';
 
 export interface DocumentResultsProps {
   result: QueryResult;
@@ -17,11 +25,20 @@ export interface DocumentResultsProps {
   onRowsDeleted?: () => void;
   exportQuery?: string;
   exportNamespace?: Namespace;
-  infiniteScrollTotalRows?: number;
+  infiniteScrollTotalRows?: number | null;
+  infiniteScrollTotalRowsSource?: TotalRowsSource | null;
+  infiniteScrollTotalRowsAsOf?: number | null;
   infiniteScrollLoadedRows?: number;
   infiniteScrollIsFetchingMore?: boolean;
+  infiniteScrollIsCountingTotal?: boolean;
   infiniteScrollIsComplete?: boolean;
+  infiniteScrollWindowExhausted?: boolean;
+  infiniteScrollBudgetExhausted?: boolean;
+  infiniteScrollOrderingGuarantee?: OrderingGuarantee;
   onFetchMore?: () => void;
+  onCalculateExactTotal?: () => void;
+  onCancelExactTotal?: () => void;
+  infiniteScrollCancelSupport?: CancelSupport;
   serverSearchTerm?: string;
   onServerSearchChange?: (search: string) => void;
 }

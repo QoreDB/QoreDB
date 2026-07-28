@@ -6,6 +6,7 @@ import { writeTextFile } from '@tauri-apps/plugin-fs';
 import { useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
+import { exactIntReplacer } from '@/lib/query/exactInt';
 import type { QueryResult } from '@/lib/tauri';
 import { escapeCSV, formatValue, type RowData } from '../utils/dataGridUtils';
 
@@ -55,7 +56,7 @@ export function useDataGridExport({
       } else {
         extension = 'json';
         const jsonData = rowsToExport.map(row => row.original);
-        content = JSON.stringify(jsonData, null, 2);
+        content = JSON.stringify(jsonData, exactIntReplacer, 2);
       }
 
       try {

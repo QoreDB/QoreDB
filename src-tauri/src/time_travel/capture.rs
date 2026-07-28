@@ -13,7 +13,8 @@ use uuid::Uuid;
 
 use crate::engine::traits::DataEngine;
 use crate::engine::types::{
-    ColumnFilter, FilterOperator, Namespace, RowData, SessionId, TableQueryOptions, Value,
+    ColumnFilter, CountMode, FilterOperator, Namespace, RowData, SessionId, TableQueryOptions,
+    Value,
 };
 
 use super::types::{ChangeOperation, ChangelogEntry};
@@ -51,6 +52,12 @@ pub async fn fetch_row_by_pk(
         sort_direction: None,
         filters: Some(filters),
         search: None,
+        search_columns: None,
+        search_mode: None,
+        keyset_columns: None,
+        cursor: None,
+        count_mode: Some(CountMode::None),
+        query_id: None,
     };
 
     // 2s ceiling so a slow driver can't stall the mutation path.

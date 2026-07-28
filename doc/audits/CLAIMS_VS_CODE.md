@@ -217,6 +217,18 @@ capture short-circuits unless `qoredb_analytics_enabled === 'true'`
 checkbox initialises to `false` (`OnboardingModal.tsx:98`). That part is clean
 and worth defending.
 
+> **Resolved since this review.** The PostHog integration was removed entirely:
+> no analytics SDK is bundled, the CSP no longer allows any analytics host, and
+> legacy opt-in state is purged on startup. The telemetry half of this finding is
+> moot.
+>
+> The updater half was narrowed rather than closed: `shouldCheckUpdatesOnStartup()`
+> now returns `false` until onboarding completes, and the onboarding privacy step
+> names the check explicitly. A fresh install no longer contacts GitHub before the
+> user has seen anything, but the check still defaults to on afterwards — which is
+> a deliberate call, since an unpatched client holding production credentials is a
+> worse outcome than the IP disclosure.
+
 The updater is not. `SessionProvider.tsx:204` fires `check()` four seconds after
 launch, and `shouldCheckUpdatesOnStartup()` (`:50-59`) returns `true` when no
 preference is stored:
@@ -238,9 +250,9 @@ to be checked by a hostile reader with Wireshark, and the one where being caught
 costs the most.
 
 **Fix:** either make the update check opt-in, or amend the claim. The honest
-version is short: "No telemetry unless you turn it on. None of your data, queries
-or credentials ever leave your machine. An update check queries GitHub at
-startup — switch it off in Settings."
+version is short: "No telemetry. None of your data, queries or credentials ever
+leave your machine. An update check queries GitHub at startup — switch it off in
+Settings."
 
 ### B6. "No code execution" is false for plugins
 
@@ -642,6 +654,10 @@ one UI default worth reconsidering.
 `instant_api_endpoint_created` and `instant_api_request` (sampled 1/100). None of
 these strings exist anywhere in the codebase. Given the known opt-in measurement
 gap, this is worth resolving in the direction of implementing them.
+
+> **Resolved since this review**, in the other direction: telemetry was removed
+> from the product and `EVENTS.md` moved to `doc/archive/`. No event is declared
+> anymore, so none can drift.
 
 ### D3. Instant Data API: absent guardrails worth knowing
 

@@ -22,6 +22,7 @@ use crate::drivers::postgres_utils::{
     EnumLabelMap, PgDecoder, bind_param, build_decoders, collect_enum_type_oids, columns_and_rows,
     convert_row_with_decoders, get_column_info, load_enum_labels,
 };
+use qore_core::cursor::KeysetPlan;
 use qore_core::error::{EngineError, EngineResult};
 use qore_core::traits::{StreamEvent, StreamSender};
 use qore_core::types::{
@@ -29,10 +30,10 @@ use qore_core::types::{
     ConnectionConfig, FilterOperator, ForeignKey, MaintenanceMessage, MaintenanceMessageLevel,
     MaintenanceOperationInfo, MaintenanceOperationType, MaintenanceRequest, MaintenanceResult,
     Namespace, PaginatedQueryResult, QueryId, QueryResult, Routine, RoutineDefinition, RoutineList,
-    RoutineListOptions, RoutineOperationResult, RoutineType, RowData, SessionId, SortDirection,
-    TableColumn, TableIndex, TableQueryOptions, TableSchema, Trigger, TriggerDefinition,
-    TriggerEvent, TriggerList, TriggerListOptions, TriggerOperationResult, TriggerTiming,
-    TruncateAllResult, Value,
+    RoutineListOptions, RoutineOperationResult, RoutineType, RowData, SearchMode, SessionId,
+    SortDirection, TableColumn, TableIndex, TableQueryOptions, TableSchema, Trigger,
+    TriggerDefinition, TriggerEvent, TriggerList, TriggerListOptions, TriggerOperationResult,
+    TriggerTiming, TruncateAllResult, Value,
 };
 use qore_sql::safety;
 
@@ -296,42 +297,67 @@ pub async fn truncate_all(
 
 pub async fn apply_namespace_on_conn(
     conn: &mut PoolConnection<Postgres>,
+    driver_id: &str,
     namespace: &Option<Namespace>,
     query: &str,
     in_transaction: bool,
 ) -> EngineResult<()> {
     let lower = query.trim_start().to_ascii_lowercase();
-    if lower.starts_with("set ") && lower.contains("search_path") {
+    if lower.starts_with("use ") || (lower.starts_with("set ") && lower.contains("search_path")) {
         return Ok(());
     }
 
-    let schema = namespace
-        .as_ref()
-        .and_then(|ns| ns.schema.as_ref())
-        .map(|s| s.trim())
-        .filter(|s| !s.is_empty());
-
-    if let Some(schema) = schema {
-        let schema_sql = quote_ident(schema);
-        let list = if schema.eq_ignore_ascii_case("public") {
-            schema_sql
-        } else {
-            format!("{}, public", schema_sql)
-        };
-
-        let set_sql = if in_transaction {
-            format!("SET LOCAL search_path TO {}", list)
-        } else {
-            format!("SET search_path TO {}", list)
-        };
-
-        sqlx::query(&set_sql)
+    if let Some(statement) = namespace_statement(driver_id, namespace.as_ref(), in_transaction) {
+        sqlx::query(&statement)
             .execute(&mut **conn)
             .await
             .map_err(|e| EngineError::execution_error(e.to_string()))?;
     }
 
     Ok(())
+}
+
+fn namespace_statement(
+    driver_id: &str,
+    namespace: Option<&Namespace>,
+    in_transaction: bool,
+) -> Option<String> {
+    let namespace = namespace?;
+    if driver_id.eq_ignore_ascii_case("motherduck") {
+        let database = quote_ident(&namespace.database);
+        let target = namespace
+            .schema
+            .as_deref()
+            .map(|schema| format!("{database}.{}", quote_ident(schema)))
+            .unwrap_or(database);
+        return Some(format!("USE {target}"));
+    }
+
+    let schema = namespace
+        .schema
+        .as_deref()
+        .map(str::trim)
+        .filter(|schema| !schema.is_empty())?;
+    let schema_sql = quote_ident(schema);
+    let search_path = if schema.eq_ignore_ascii_case("public") {
+        schema_sql
+    } else {
+        format!("{schema_sql}, public")
+    };
+    let scope = if in_transaction { " LOCAL" } else { "" };
+    Some(format!("SET{scope} search_path TO {search_path}"))
+}
+
+async fn track_query(pg: &PgCompatSession, query_id: Option<QueryId>, backend_pid: i32) {
+    if let Some(qid) = query_id {
+        pg.active_queries.lock().await.insert(qid, backend_pid);
+    }
+}
+
+async fn untrack_query(pg: &PgCompatSession, query_id: Option<QueryId>) {
+    if let Some(qid) = query_id {
+        pg.active_queries.lock().await.remove(&qid);
+    }
 }
 
 pub async fn fetch_backend_pid(conn: &mut PoolConnection<Postgres>) -> EngineResult<i32> {
@@ -427,7 +453,7 @@ pub async fn execute_in_namespace(
             active.insert(query_id, backend_pid);
         }
 
-        apply_namespace_on_conn(conn, &namespace, query, true).await?;
+        apply_namespace_on_conn(conn, driver_id, &namespace, query, true).await?;
 
         let result = if returns_rows {
             exec_rows_on_conn(conn, &pg.pool, query, start).await?
@@ -462,7 +488,7 @@ pub async fn execute_in_namespace(
             active.insert(query_id, backend_pid);
         }
 
-        apply_namespace_on_conn(&mut conn, &namespace, query, false).await?;
+        apply_namespace_on_conn(&mut conn, driver_id, &namespace, query, false).await?;
 
         let result = if returns_rows {
             exec_rows_on_conn(&mut conn, &pg.pool, query, start).await?
@@ -557,7 +583,7 @@ pub async fn execute_stream_in_namespace(
         .await
         .map_err(|e| EngineError::connection_failed(e.to_string()))?;
 
-    apply_namespace_on_conn(&mut conn, &namespace, query, false).await?;
+    apply_namespace_on_conn(&mut conn, driver_id, &namespace, query, false).await?;
 
     let returns_rows =
         safety::returns_rows(driver_id, query).unwrap_or_else(|_| safety::is_select_prefix(query));
@@ -806,9 +832,30 @@ pub async fn insert_row(
     table: &str,
     data: &RowData,
 ) -> EngineResult<QueryResult> {
+    insert_row_with_qualification(sessions, session, namespace, table, data, false).await
+}
+
+pub async fn insert_row_duckdb(
+    sessions: &SessionMap,
+    session: SessionId,
+    namespace: &Namespace,
+    table: &str,
+    data: &RowData,
+) -> EngineResult<QueryResult> {
+    insert_row_with_qualification(sessions, session, namespace, table, data, true).await
+}
+
+async fn insert_row_with_qualification(
+    sessions: &SessionMap,
+    session: SessionId,
+    namespace: &Namespace,
+    table: &str,
+    data: &RowData,
+    include_database: bool,
+) -> EngineResult<QueryResult> {
     let pg = get_session(sessions, session).await?;
 
-    let table_name = qualified_table_name(namespace, table);
+    let table_name = qualified_table_name(namespace, table, include_database);
 
     let mut keys: Vec<&String> = data.columns.keys().collect();
     keys.sort();
@@ -860,6 +907,39 @@ pub async fn update_row(
     primary_key: &RowData,
     data: &RowData,
 ) -> EngineResult<QueryResult> {
+    update_row_with_qualification(
+        sessions,
+        session,
+        namespace,
+        table,
+        primary_key,
+        data,
+        false,
+    )
+    .await
+}
+
+pub async fn update_row_duckdb(
+    sessions: &SessionMap,
+    session: SessionId,
+    namespace: &Namespace,
+    table: &str,
+    primary_key: &RowData,
+    data: &RowData,
+) -> EngineResult<QueryResult> {
+    update_row_with_qualification(sessions, session, namespace, table, primary_key, data, true)
+        .await
+}
+
+async fn update_row_with_qualification(
+    sessions: &SessionMap,
+    session: SessionId,
+    namespace: &Namespace,
+    table: &str,
+    primary_key: &RowData,
+    data: &RowData,
+    include_database: bool,
+) -> EngineResult<QueryResult> {
     let pg = get_session(sessions, session).await?;
 
     if primary_key.columns.is_empty() {
@@ -871,7 +951,7 @@ pub async fn update_row(
         return Ok(QueryResult::with_affected_rows(0, 0.0));
     }
 
-    let table_name = qualified_table_name(namespace, table);
+    let table_name = qualified_table_name(namespace, table, include_database);
 
     let mut data_keys: Vec<&String> = data.columns.keys().collect();
     data_keys.sort();
@@ -927,6 +1007,27 @@ pub async fn delete_row(
     table: &str,
     primary_key: &RowData,
 ) -> EngineResult<QueryResult> {
+    delete_row_with_qualification(sessions, session, namespace, table, primary_key, false).await
+}
+
+pub async fn delete_row_duckdb(
+    sessions: &SessionMap,
+    session: SessionId,
+    namespace: &Namespace,
+    table: &str,
+    primary_key: &RowData,
+) -> EngineResult<QueryResult> {
+    delete_row_with_qualification(sessions, session, namespace, table, primary_key, true).await
+}
+
+async fn delete_row_with_qualification(
+    sessions: &SessionMap,
+    session: SessionId,
+    namespace: &Namespace,
+    table: &str,
+    primary_key: &RowData,
+    include_database: bool,
+) -> EngineResult<QueryResult> {
     let pg = get_session(sessions, session).await?;
 
     if primary_key.columns.is_empty() {
@@ -935,7 +1036,7 @@ pub async fn delete_row(
         ));
     }
 
-    let table_name = qualified_table_name(namespace, table);
+    let table_name = qualified_table_name(namespace, table, include_database);
 
     let mut pk_keys: Vec<&String> = primary_key.columns.keys().collect();
     pk_keys.sort();
@@ -983,19 +1084,73 @@ pub async fn peek_foreign_key(
     value: &Value,
     limit: u32,
 ) -> EngineResult<QueryResult> {
+    peek_foreign_key_with_qualification(
+        sessions,
+        session,
+        namespace,
+        foreign_key,
+        value,
+        limit,
+        false,
+    )
+    .await
+}
+
+pub async fn peek_foreign_key_duckdb(
+    sessions: &SessionMap,
+    session: SessionId,
+    namespace: &Namespace,
+    foreign_key: &ForeignKey,
+    value: &Value,
+    limit: u32,
+) -> EngineResult<QueryResult> {
+    peek_foreign_key_with_qualification(
+        sessions,
+        session,
+        namespace,
+        foreign_key,
+        value,
+        limit,
+        true,
+    )
+    .await
+}
+
+async fn peek_foreign_key_with_qualification(
+    sessions: &SessionMap,
+    session: SessionId,
+    namespace: &Namespace,
+    foreign_key: &ForeignKey,
+    value: &Value,
+    limit: u32,
+    include_database: bool,
+) -> EngineResult<QueryResult> {
     let pg = get_session(sessions, session).await?;
     let limit = limit.max(1).min(50);
     let schema = foreign_key
         .referenced_schema
         .as_deref()
         .or(namespace.schema.as_deref())
-        .unwrap_or("public");
+        .unwrap_or(if include_database { "main" } else { "public" });
 
-    let table_ref = format!(
-        "{}.{}",
-        quote_ident(schema),
-        quote_ident(&foreign_key.referenced_table)
-    );
+    let table_ref = if include_database {
+        let database = foreign_key
+            .referenced_database
+            .as_deref()
+            .unwrap_or(&namespace.database);
+        format!(
+            "{}.{}.{}",
+            quote_ident(database),
+            quote_ident(schema),
+            quote_ident(&foreign_key.referenced_table)
+        )
+    } else {
+        format!(
+            "{}.{}",
+            quote_ident(schema),
+            quote_ident(&foreign_key.referenced_table)
+        )
+    };
     let column_ref = quote_ident(&foreign_key.referenced_column);
     let sql = format!(
         "SELECT * FROM {} WHERE {} = $1 LIMIT {}",
@@ -1053,13 +1208,16 @@ async fn query_table_with_dialect(
     let pg = get_session(sessions, session).await?;
     let start = Instant::now();
 
-    let schema_name = namespace.schema.as_deref().unwrap_or("public");
-    let schema_ident = quote_ident(schema_name);
-    let table_ident = quote_ident(table);
-    let table_ref = format!("{}.{}", schema_ident, table_ident);
+    let schema_name =
+        namespace
+            .schema
+            .as_deref()
+            .unwrap_or(if duckdb_dialect { "main" } else { "public" });
+    let table_ref = qualified_table_name(namespace, table, duckdb_dialect);
 
     let page = options.effective_page();
     let page_size = options.effective_page_size();
+    let fetch_size = options.fetch_size();
     let offset = options.offset();
 
     let mut where_clauses: Vec<String> = Vec::new();
@@ -1151,19 +1309,45 @@ async fn query_table_with_dialect(
         }
     }
 
-    if let Some(ref search_term) = options.search {
-        if !search_term.trim().is_empty() {
-            let columns_sql = "SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = $1 AND table_name = $2";
+    if let Some(search_term) = options.effective_search() {
+        // A caller-supplied scope removes the catalog round-trip this branch
+        // would otherwise pay on every page and every debounced keystroke. The
+        // cast is unconditional: the pattern is unanchored, so no index applies
+        // to a text column either, and the driver has no column types here.
+        if let Some(scope) = options.effective_search_columns() {
+            let anchored = options.effective_search_mode() == SearchMode::StartsWith;
+            let mut search_clauses: Vec<String> = Vec::new();
+            for col_name in scope {
+                bind_values.push(Value::Text(options.search_pattern(search_term)));
+                // Anchored mode drops both the cast and the case folding: either
+                // one makes the expression stop matching an index on the column.
+                search_clauses.push(if anchored {
+                    format!("{} LIKE ${}", quote_ident(col_name), bind_values.len())
+                } else {
+                    format!(
+                        "{}::text ILIKE ${}",
+                        quote_ident(col_name),
+                        bind_values.len()
+                    )
+                });
+            }
+            if !search_clauses.is_empty() {
+                where_clauses.push(format!("({})", search_clauses.join(" OR ")));
+            }
+        } else {
+            let columns_sql = "SELECT column_name, data_type FROM information_schema.columns WHERE table_catalog = $1 AND table_schema = $2 AND table_name = $3";
             let columns_rows: Vec<PgRow> = {
                 let mut tx_guard = pg.transaction_conn.lock().await;
                 if let Some(ref mut conn) = *tx_guard {
                     sqlx::query(columns_sql)
+                        .bind(&namespace.database)
                         .bind(schema_name)
                         .bind(table)
                         .fetch_all(&mut **conn)
                         .await
                 } else {
                     sqlx::query(columns_sql)
+                        .bind(&namespace.database)
                         .bind(schema_name)
                         .bind(table)
                         .fetch_all(&pg.pool)
@@ -1224,6 +1408,34 @@ async fn query_table_with_dialect(
         format!(" WHERE {}", where_clauses.join(" AND "))
     };
 
+    // Keyset needs a total order. The caller supplies the unique key — it holds
+    // the schema already — so the driver reads no catalog, not even on the
+    // first page. Without a unique key there is no total order and `OFFSET`
+    // stays the honest answer.
+    let keyset = options
+        .keyset_applies()
+        .then(|| {
+            KeysetPlan::new(
+                options.sort_column.as_deref(),
+                matches!(options.sort_direction, Some(SortDirection::Desc)),
+                options.effective_keyset_columns(),
+            )
+        })
+        .flatten();
+
+    // Cursor binds live apart from `bind_values`: the count must stay a count of
+    // the filtered set, not of what is left after the boundary.
+    let mut cursor_values: Vec<Value> = Vec::new();
+    let mut cursor_sql = String::new();
+    if let (Some(plan), Some(encoded)) = (keyset.as_ref(), options.cursor.as_deref()) {
+        let base = bind_values.len();
+        cursor_sql = plan.predicate(
+            |col| quote_ident(col),
+            |index| format!("${}", base + index + 1),
+        );
+        cursor_values = plan.decode(encoded)?.values;
+    }
+
     let order_sql = if let Some(sort_col) = &options.sort_column {
         let sort_ident = quote_ident(sort_col);
         let direction = match options.sort_direction.unwrap_or_default() {
@@ -1235,37 +1447,80 @@ async fn query_table_with_dialect(
         String::new()
     };
 
-    let count_sql = format!(
-        "SELECT COUNT(*)::bigint AS cnt FROM {}{}",
-        table_ref, where_sql
-    );
-    let mut count_query = sqlx::query(&count_sql);
-    for val in &bind_values {
-        count_query = bind_param(count_query, val);
-    }
+    // MotherDuck speaks the PostgreSQL wire but stores columnar data, where an
+    // exact count is cheap enough to answer an estimate request outright.
+    let exact_count = options.wants_exact_total() || (duckdb_dialect && options.wants_any_total());
 
-    let count_row: PgRow = {
-        let mut tx_guard = pg.transaction_conn.lock().await;
-        if let Some(ref mut conn) = *tx_guard {
-            count_query.fetch_one(&mut **conn).await
-        } else {
-            count_query.fetch_one(&pg.pool).await
+    let total_rows = if exact_count {
+        let count_sql = format!(
+            "SELECT COUNT(*)::bigint AS cnt FROM {}{}",
+            table_ref, where_sql
+        );
+        let mut count_query = sqlx::query(&count_sql);
+        for val in &bind_values {
+            count_query = bind_param(count_query, val);
         }
-    }
-    .map_err(|e| EngineError::execution_error(e.to_string()))?;
 
-    let total_rows: i64 = count_row
-        .try_get("cnt")
+        // Pinned to a single connection, whose backend PID is registered under
+        // the caller's query id: without it `cancel` has nothing to target and
+        // an accidental count on a huge table runs to completion.
+        let count_row: PgRow = {
+            let mut tx_guard = pg.transaction_conn.lock().await;
+            if let Some(ref mut conn) = *tx_guard {
+                let pid = fetch_backend_pid(conn).await?;
+                track_query(&pg, options.query_id, pid).await;
+                let outcome = count_query.fetch_one(&mut **conn).await;
+                untrack_query(&pg, options.query_id).await;
+                outcome
+            } else {
+                drop(tx_guard);
+                let mut conn = pg
+                    .pool
+                    .acquire()
+                    .await
+                    .map_err(|e| EngineError::connection_failed(e.to_string()))?;
+                let pid = fetch_backend_pid(&mut conn).await?;
+                track_query(&pg, options.query_id, pid).await;
+                let outcome = count_query.fetch_one(&mut *conn).await;
+                untrack_query(&pg, options.query_id).await;
+                outcome
+            }
+        }
         .map_err(|e| EngineError::execution_error(e.to_string()))?;
-    let total_rows = total_rows.max(0) as u64;
 
-    let data_sql = format!(
-        "SELECT * FROM {}{}{} LIMIT {} OFFSET {}",
-        table_ref, where_sql, order_sql, page_size, offset
-    );
+        let total_rows: i64 = count_row
+            .try_get("cnt")
+            .map_err(|e| EngineError::execution_error(e.to_string()))?;
+        Some(total_rows.max(0) as u64)
+    } else {
+        None
+    };
+
+    let data_sql = if let Some(plan) = keyset.as_ref() {
+        let data_where = match (where_sql.is_empty(), cursor_sql.is_empty()) {
+            (_, true) => where_sql.clone(),
+            (true, false) => format!(" WHERE {}", cursor_sql),
+            (false, false) => format!("{} AND {}", where_sql, cursor_sql),
+        };
+        format!(
+            "SELECT * FROM {} {} ORDER BY {} LIMIT {}",
+            table_ref,
+            data_where,
+            plan.order_by(|col| quote_ident(col)),
+            fetch_size
+        )
+    } else {
+        format!(
+            "SELECT * FROM {}{}{} LIMIT {} OFFSET {}",
+            table_ref, where_sql, order_sql, fetch_size, offset
+        )
+    };
 
     let mut data_query = sqlx::query(&data_sql);
     for val in &bind_values {
+        data_query = bind_param(data_query, val);
+    }
+    for val in &cursor_values {
         data_query = bind_param(data_query, val);
     }
 
@@ -1282,17 +1537,19 @@ async fn query_table_with_dialect(
     let execution_time_ms = start.elapsed().as_micros() as f64 / 1000.0;
 
     let result = if pg_rows.is_empty() {
-        let col_meta_sql = "SELECT column_name, data_type, is_nullable FROM information_schema.columns WHERE table_schema = $1 AND table_name = $2 ORDER BY ordinal_position";
+        let col_meta_sql = "SELECT column_name, data_type, is_nullable FROM information_schema.columns WHERE table_catalog = $1 AND table_schema = $2 AND table_name = $3 ORDER BY ordinal_position";
         let col_meta_rows: Vec<PgRow> = {
             let mut tx_guard = pg.transaction_conn.lock().await;
             if let Some(ref mut conn) = *tx_guard {
                 sqlx::query(col_meta_sql)
+                    .bind(&namespace.database)
                     .bind(schema_name)
                     .bind(table)
                     .fetch_all(&mut **conn)
                     .await
             } else {
                 sqlx::query(col_meta_sql)
+                    .bind(&namespace.database)
                     .bind(schema_name)
                     .bind(table)
                     .fetch_all(&pg.pool)
@@ -1339,9 +1596,67 @@ async fn query_table_with_dialect(
         }
     };
 
-    Ok(PaginatedQueryResult::new(
-        result, total_rows, page, page_size,
-    ))
+    let mut paginated =
+        PaginatedQueryResult::from_optional_total(result, total_rows, page, page_size);
+
+    if let Some(plan) = keyset.as_ref() {
+        // Minted from the last row actually returned, so the over-fetched row
+        // that `from_optional_total` trimmed never becomes a boundary — it
+        // would skip one row per page.
+        let next_cursor = paginated
+            .has_more
+            .then(|| next_cursor_for(&paginated.result, plan))
+            .flatten();
+        paginated = paginated.with_keyset(next_cursor);
+    }
+
+    if !exact_count && options.wants_any_total() && options.estimate_matches_scope() {
+        let (estimate, as_of) = pg_row_estimate(&pg.pool, schema_name, table).await;
+        return Ok(paginated.with_estimate(estimate, as_of));
+    }
+
+    Ok(paginated)
+}
+
+/// Cursor for the page after `result`, or `None` when it cannot be built.
+fn next_cursor_for(result: &QueryResult, plan: &KeysetPlan) -> Option<String> {
+    let last = result.rows.last()?;
+    let columns: Vec<String> = result
+        .columns
+        .iter()
+        .map(|col| col.name.to_string())
+        .collect();
+    plan.mint(&columns, &last.values)
+}
+
+/// Planner row estimate from the catalog, with the freshness of the statistics
+/// behind it. `reltuples` is -1 on a table that was never analyzed, and stale
+/// after a bulk load — hence the timestamp travelling with the number.
+async fn pg_row_estimate(pool: &PgPool, schema: &str, table: &str) -> (Option<u64>, Option<i64>) {
+    let row: Option<(f32, Option<chrono::DateTime<chrono::Utc>>)> = sqlx::query_as(
+        r#"
+        SELECT c.reltuples,
+               GREATEST(s.last_analyze, s.last_autoanalyze) AS analyzed_at
+        FROM pg_class c
+        JOIN pg_namespace n ON n.oid = c.relnamespace
+        LEFT JOIN pg_stat_all_tables s ON s.relid = c.oid
+        WHERE n.nspname = $1 AND c.relname = $2
+        "#,
+    )
+    .bind(schema)
+    .bind(table)
+    .fetch_optional(pool)
+    .await
+    .ok()
+    .flatten();
+
+    match row {
+        Some((reltuples, analyzed_at)) if reltuples >= 0.0 => (
+            Some(reltuples as u64),
+            analyzed_at.map(|ts| ts.timestamp_millis()),
+        ),
+        _ => (None, None),
+    }
 }
 
 // Describe Table
@@ -2166,8 +2481,16 @@ pub async fn drop_schema(
 
 // Internal helpers
 
-fn qualified_table_name(namespace: &Namespace, table: &str) -> String {
-    if let Some(schema) = &namespace.schema {
+fn qualified_table_name(namespace: &Namespace, table: &str, include_database: bool) -> String {
+    if include_database {
+        let schema = namespace.schema.as_deref().unwrap_or("main");
+        format!(
+            "{}.{}.{}",
+            quote_ident(&namespace.database),
+            quote_ident(schema),
+            quote_ident(table)
+        )
+    } else if let Some(schema) = &namespace.schema {
         format!("{}.{}", quote_ident(schema), quote_ident(table))
     } else {
         quote_ident(table)
@@ -2222,4 +2545,45 @@ pub fn build_pg_connection_string(config: &ConnectionConfig, default_db: &str) -
         "postgres://{}:{}@{}:{}/{}?sslmode={}",
         encoded_user, encoded_pass, config.host, config.port, db, ssl_mode
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn duckdb_table_names_include_catalog_and_schema() {
+        let namespace = Namespace::with_schema("analytics", "sales");
+        assert_eq!(
+            qualified_table_name(&namespace, "orders", true),
+            "\"analytics\".\"sales\".\"orders\""
+        );
+    }
+
+    #[test]
+    fn postgres_table_names_remain_schema_qualified() {
+        let namespace = Namespace::with_schema("application", "public");
+        assert_eq!(
+            qualified_table_name(&namespace, "users", false),
+            "\"public\".\"users\""
+        );
+    }
+
+    #[test]
+    fn motherduck_namespace_selects_catalog_and_schema() {
+        let namespace = Namespace::with_schema("analytics", "sales");
+        assert_eq!(
+            namespace_statement("motherduck", Some(&namespace), false).as_deref(),
+            Some("USE \"analytics\".\"sales\"")
+        );
+    }
+
+    #[test]
+    fn postgres_namespace_keeps_search_path_behavior() {
+        let namespace = Namespace::with_schema("application", "private");
+        assert_eq!(
+            namespace_statement("postgres", Some(&namespace), true).as_deref(),
+            Some("SET LOCAL search_path TO \"private\", public")
+        );
+    }
 }

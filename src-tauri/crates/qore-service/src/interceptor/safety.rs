@@ -316,6 +316,7 @@ mod tests {
             is_dangerous: op.is_destructive(),
             acknowledged: false,
             read_only: false,
+            source: super::super::types::QuerySource::User,
         }
     }
 

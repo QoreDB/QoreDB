@@ -21,6 +21,7 @@ tokio = { version = "1", features = [
     "net",
     "fs",
     "io-util",
+    "process",
     "macros",
 ] }
 async-trait = "0.1"
@@ -40,13 +41,11 @@ tracing = "0.1"
 rust_decimal = { version = "1", features = ["serde"] }
 bigdecimal = "0.4"
 
-sqlx = { version = "0.8", features = [
+sqlx = { version = "0.8", default-features = false, features = [
     "runtime-tokio",
     "tls-rustls",
-    "postgres",
-    "mysql",
-    "sqlite",
     "chrono",
+    "json",
     "rust_decimal",
     "bigdecimal",
     "uuid",
@@ -67,7 +66,7 @@ tiberius = { version = "0.12", features = [
 ] }
 bb8 = "0.9"
 bb8-tiberius = "0.16"
-duckdb = { version = "1.4", features = ["bundled"] }
+duckdb = "1.4"
 
 [package]
 name = "qoredb"
@@ -79,7 +78,7 @@ license = "Apache-2.0"
 
 [lib]
 name = "qoredb_lib"
-crate-type = ["staticlib", "cdylib", "rlib"]
+crate-type = ["rlib"]
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
@@ -88,8 +87,13 @@ dotenvy = "0.15"
 [dependencies]
 qore-core = { path = "crates/qore-core" }
 qore-sql = { path = "crates/qore-sql" }
-qore-drivers = { path = "crates/qore-drivers", features = ["tauri"] }
-qore-service = { path = "crates/qore-service" }
+qore-drivers = { path = "crates/qore-drivers", default-features = false, features = [
+    "all-drivers",
+    "tauri",
+] }
+qore-service = { path = "crates/qore-service", default-features = false, features = [
+    "all-drivers",
+] }
 
 tauri = { version = "2", features = ["image-png"] }
 tauri-plugin-opener = "2"
@@ -106,11 +110,6 @@ bytes = "1.11.1"
 
 mimalloc = { version = "0.1", default-features = false }
 
-sqlx = { workspace = true }
-rust_decimal = { workspace = true }
-bigdecimal = { workspace = true }
-mongodb = { workspace = true }
-redis = { workspace = true }
 chrono = { workspace = true }
 
 async-trait = { workspace = true }
@@ -133,8 +132,6 @@ notify = { version = "6", default-features = false, features = [
     "macos_fsevent",
 ] }
 
-tokio-socks = "0.5"
-
 keyring = { version = "3", features = [
     "apple-native",
     "windows-native",
@@ -143,22 +140,26 @@ keyring = { version = "3", features = [
 argon2 = "0.5"
 rand = "0.8"
 sha2 = "0.10"
+flate2 = "1"
+tar = "0.4"
 
 which = "6"
 
 ed25519-dalek = { version = "2", features = ["serde"] }
+minisign-verify = "0.2"
 wasmi = { version = "1.0.9", default-features = false, features = ["std"] }
 
-zip = { version = "2", default-features = false, features = ["deflate"] }
+zip = { version = "6", default-features = false, features = ["deflate"] }
 
 [target."cfg(not(any(target_os = \"android\", target_os = \"ios\")))".dependencies]
 tauri-plugin-updater = "2"
 tauri-plugin-process = "2"
 
 rust_xlsxwriter = { version = "0.93", optional = true }
-arrow = { version = "54", optional = true }
-parquet = { version = "54", optional = true, default-features = false, features = [
+arrow = { version = "58", optional = true, default-features = false }
+parquet = { version = "58", optional = true, default-features = false, features = [
     "arrow",
+    "snap",
 ] }
 
 serde_yml = { version = "0.0.12", optional = true }
@@ -182,14 +183,15 @@ reqwest = { version = "0.12", features = [
     "blocking",
 ] }
 
-tiberius = { workspace = true }
-bb8 = { workspace = true }
-bb8-tiberius = { workspace = true }
-
 duckdb = { workspace = true }
 
 [features]
 default = []
+duckdb-bundled = [
+    "duckdb/bundled",
+    "qore-drivers/duckdb-bundled",
+    "qore-service/duckdb-bundled",
+]
 pro = [
     "rust_xlsxwriter",
     "parquet",
@@ -210,7 +212,7 @@ opt-level = 1
 
 [profile.dev]
 opt-level = 0
-debug = 2
+debug = 1
 incremental = true
 
 [profile.release]
@@ -222,3 +224,4 @@ codegen-units = 1
 [dev-dependencies]
 tempfile = "3.24.0"
 wat = "1.0"
+wiremock = "0.6"

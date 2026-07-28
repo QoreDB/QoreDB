@@ -12,7 +12,7 @@ import { BlobViewer } from './BlobViewer';
 import { ForeignKeyPeekTooltip } from './ForeignKeyPeekTooltip';
 import type { PeekState } from './hooks/useForeignKeyPeek';
 import { PluginCellRenderer } from './PluginCellRenderer';
-import { formatValue, type RowData } from './utils/dataGridUtils';
+import { formatCellPreview, type RowData } from './utils/dataGridUtils';
 
 export interface EditableDataCellProps {
   value: Value;
@@ -63,7 +63,8 @@ export const EditableDataCell = memo(function EditableDataCell({
 }: EditableDataCellProps) {
   const { t } = useTranslation();
   const isBinary = Boolean(dataType && isBinaryType(dataType));
-  const formatted = formatValue(value, dataType);
+  const preview = useMemo(() => formatCellPreview(value, dataType), [value, dataType]);
+  const formatted = preview.text;
   const isNull = value === null;
   const [blobViewerOpen, setBlobViewerOpen] = useState(false);
   const { contributions } = usePlugins();
@@ -155,8 +156,10 @@ export const EditableDataCell = memo(function EditableDataCell({
             isNull && 'text-muted-foreground italic',
             canPeek && 'group-hover:text-foreground'
           )}
+          title={preview.truncated ? t('grid.cellPreviewTruncated') : undefined}
         >
           {formatted}
+          {preview.truncated && <span className="text-muted-foreground">…</span>}
         </span>
       )}
     </div>

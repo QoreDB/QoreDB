@@ -16,12 +16,14 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use base64::{Engine, engine::general_purpose::STANDARD};
+use qore_core::cursor::{Cursor, KeysetPlan};
 use qore_core::error::{EngineError, EngineResult};
 use qore_core::traits::{StreamEvent, StreamSender};
 use qore_core::types::{
     Collection, CollectionList, CollectionListOptions, CollectionType, ColumnInfo,
-    ConnectionConfig, Namespace, PaginatedQueryResult, QueryId, QueryResult, Row, RowData,
-    SessionId, SortDirection, TableColumn, TableQueryOptions, TableSchema, Value,
+    ConnectionConfig, Namespace, PaginatedQueryResult, PaginationCapability, QueryId, QueryResult,
+    Row, RowData, SearchMode, SessionId, SnapshotSupport, SortDirection, TableColumn,
+    TableQueryOptions, TableSchema, Value,
 };
 use reqwest::header::{AUTHORIZATION, CONTENT_TYPE, HeaderMap, HeaderName, HeaderValue};
 use reqwest::{Client as HttpClient, Method, Url};
@@ -603,6 +605,38 @@ const STREAM_PAGE: u64 = 1000;
 /// Tools semantics and run once.
 const STREAM_SIZE_THRESHOLD: u64 = 10_000;
 
+/// Assumed `index.max_result_window`. A cluster may raise it; we only use this
+/// to avoid *causing* a window error with the extra over-fetched row, never to
+/// refuse a request the cluster would have accepted.
+const DEFAULT_MAX_RESULT_WINDOW: u64 = 10_000;
+
+/// What the search engines can promise about walking a result set.
+///
+/// `max_offset_window` is the point of declaring this today: the deep-window
+/// limit used to be invisible to callers, so the only way to discover it was to
+/// hit the engine's error on the next page.
+pub fn pagination_capability() -> PaginationCapability {
+    PaginationCapability {
+        keyset: true,
+        requires_unique_key: true,
+        supports_backward: false,
+        snapshot: SnapshotSupport::Pit,
+        max_offset_window: Some(DEFAULT_MAX_RESULT_WINDOW),
+    }
+}
+
+/// Trims the over-fetched row when `from + size` would cross the result window.
+///
+/// Returns the size to request and whether trimming occurred — in which case
+/// `has_more` cannot be derived from the response and the engine decides on the
+/// next page instead. Never returns 0: a zero-size search would report an empty
+/// page, which reads as "end of data" rather than "window exhausted".
+fn window_clamped_fetch_size(requested: u32, offset: u64) -> (u64, bool) {
+    let requested = u64::from(requested);
+    let clamped = requested.min(DEFAULT_MAX_RESULT_WINDOW.saturating_sub(offset).max(1));
+    (clamped, clamped < requested)
+}
+
 pub async fn execute_stream(
     map: &SessionMap,
     session: SessionId,
@@ -894,13 +928,80 @@ pub async fn query_table(
     let page_size = options.effective_page_size();
     let offset = page.saturating_sub(1) as u64 * page_size as u64;
 
+    let (fetch_size, overfetch_trimmed) = window_clamped_fetch_size(options.fetch_size(), offset);
+
     let mut body = JsonMap::new();
     body.insert("from".into(), json!(offset));
-    body.insert("size".into(), json!(page_size));
-    body.insert("track_total_hits".into(), json!(true));
-    body.insert("query".into(), json!({ "match_all": {} }));
+    body.insert("size".into(), json!(fetch_size));
+    body.insert("track_total_hits".into(), json!(options.wants_any_total()));
+    // A real `multi_match` rather than a LIKE emulation: the analyzers the
+    // index was built with are the whole reason to run a search engine.
+    // `prefix` keeps the anchored mode meaningful on a keyword-ish field.
+    body.insert(
+        "query".into(),
+        match options.effective_search() {
+            None => json!({ "match_all": {} }),
+            Some(term) => {
+                let fields = match options.effective_search_columns() {
+                    Some(cols) => cols.to_vec(),
+                    None => vec!["*".to_string()],
+                };
+                match options.effective_search_mode() {
+                    SearchMode::StartsWith => json!({
+                        "multi_match": {
+                            "query": term,
+                            "fields": fields,
+                            "type": "phrase_prefix",
+                        }
+                    }),
+                    SearchMode::Contains => json!({
+                        "multi_match": {
+                            "query": term,
+                            "fields": fields,
+                            "type": "best_fields",
+                        }
+                    }),
+                }
+            }
+        },
+    );
 
-    if let Some(col) = options.sort_column.as_ref() {
+    // `search_after` needs a deterministic total order. Without a PIT reader
+    // the engine offers no cross-shard tie-breaker of its own — `_shard_doc`
+    // requires one and `_doc` is per-shard — so keyset here rests entirely on
+    // the caller declaring a unique field. Absent that, `from`/`size` stands.
+    let keyset = options
+        .keyset_applies()
+        .then(|| {
+            KeysetPlan::new(
+                options.sort_column.as_deref(),
+                matches!(options.sort_direction, Some(SortDirection::Desc)),
+                options.effective_keyset_columns(),
+            )
+        })
+        .flatten();
+
+    if let Some(plan) = keyset.as_ref() {
+        let sort: Vec<Json> = plan
+            .keys()
+            .iter()
+            .map(|key| json!({ key.column.clone(): { "order": if key.descending { "desc" } else { "asc" } } }))
+            .collect();
+        body.insert("sort".into(), Json::Array(sort));
+        // `from` and `search_after` are mutually exclusive; the boundary
+        // replaces the offset entirely, which is what lifts the deep-window
+        // limit for this path.
+        body.remove("from");
+        if let Some(encoded) = options.cursor.as_deref() {
+            let after: Vec<Json> = plan
+                .decode(encoded)?
+                .values
+                .iter()
+                .map(cursor_value_to_json)
+                .collect();
+            body.insert("search_after".into(), Json::Array(after));
+        }
+    } else if let Some(col) = options.sort_column.as_ref() {
         if !META_FIELDS.contains(&col.as_str()) {
             let dir = match options.sort_direction {
                 Some(SortDirection::Desc) => "desc",
@@ -911,21 +1012,84 @@ pub async fn query_table(
     }
 
     let started = Instant::now();
+    // Tagged with the caller's query id so `cancel` can find the search task:
+    // with `track_total_hits` on, this single request is also the count.
+    let opaque = options.query_id.map(|qid| qid.0.to_string());
     let json = s
-        .request(
+        .send(
             Method::POST,
             &format!("/{index}/_search"),
             Some(Json::Object(body).to_string()),
+            opaque.as_deref(),
         )
         .await?;
     let elapsed_ms = started.elapsed().as_micros() as f64 / 1000.0;
 
-    let total = json
-        .pointer("/hits/total/value")
-        .and_then(|v| v.as_u64())
-        .unwrap_or(0);
+    let total = options.wants_any_total().then(|| {
+        json.pointer("/hits/total/value")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(0)
+    });
     let result = map_response(&json, elapsed_ms);
-    Ok(PaginatedQueryResult::new(result, total, page, page_size))
+    let mut paginated = PaginatedQueryResult::from_optional_total(result, total, page, page_size);
+    if overfetch_trimmed && paginated.result.rows.len() as u32 == page_size {
+        paginated.has_more = true;
+    }
+
+    if let Some(plan) = keyset.as_ref() {
+        // The engine already returns the boundary as the `sort` array of each
+        // hit; recomputing it from `_source` would risk disagreeing with it.
+        let kept = paginated.result.rows.len();
+        let next_cursor = paginated
+            .has_more
+            .then(|| boundary_sort_values(&json, kept.checked_sub(1)?))
+            .flatten()
+            .and_then(|values| Cursor::new(plan.keys().to_vec(), values).encode().ok());
+        paginated = paginated.with_keyset(next_cursor);
+    }
+
+    Ok(paginated)
+}
+
+/// `sort` values of the hit at `index`, which is exactly what `search_after`
+/// expects for the next page.
+fn boundary_sort_values(json: &Json, index: usize) -> Option<Vec<Value>> {
+    let sort = json
+        .pointer(&format!("/hits/hits/{index}/sort"))?
+        .as_array()?;
+    Some(sort.iter().map(json_to_value).collect())
+}
+
+fn json_to_value(value: &Json) -> Value {
+    match value {
+        Json::String(text) => Value::Text(text.clone()),
+        Json::Bool(flag) => Value::Bool(*flag),
+        Json::Null => Value::Null,
+        Json::Number(number) => number
+            .as_i64()
+            .map(Value::Int)
+            .or_else(|| number.as_f64().map(Value::Float))
+            .unwrap_or(Value::Null),
+        other => Value::Json(other.clone()),
+    }
+}
+
+/// Cursor boundary values, rendered verbatim.
+///
+/// Deliberately not the module's `value_to_json`: that one re-parses text that
+/// looks like JSON, which is right for a cell the user typed and wrong for a
+/// boundary — a key whose value starts with `{` would become an object and
+/// stop matching the row it came from.
+fn cursor_value_to_json(value: &Value) -> Json {
+    match value {
+        Value::Null => Json::Null,
+        Value::Bool(flag) => json!(flag),
+        Value::Int(number) => json!(number),
+        Value::Float(number) => json!(number),
+        Value::Text(text) => Json::String(text.clone()),
+        Value::Json(inner) => inner.clone(),
+        other => serde_json::to_value(other).unwrap_or(Json::Null),
+    }
 }
 
 pub async fn insert_row(
@@ -1452,6 +1616,27 @@ fn matches_search(name: &str, search: &Option<String>) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn overfetch_is_kept_below_the_result_window() {
+        assert_eq!(window_clamped_fetch_size(101, 0), (101, false));
+        assert_eq!(window_clamped_fetch_size(101, 9_000), (101, false));
+    }
+
+    #[test]
+    fn overfetch_is_trimmed_at_the_window_boundary() {
+        // The page that used to fit exactly (9_900 + 100) must keep fitting:
+        // only the extra row is dropped, and `has_more` becomes undecidable.
+        assert_eq!(window_clamped_fetch_size(101, 9_900), (100, true));
+    }
+
+    #[test]
+    fn exhausted_window_still_asks_for_a_row() {
+        // Requesting size 0 would look like an empty last page; let the engine
+        // return its own window error instead.
+        assert_eq!(window_clamped_fetch_size(101, 10_000), (1, true));
+        assert_eq!(window_clamped_fetch_size(101, 50_000), (1, true));
+    }
 
     #[test]
     fn flavor_ids() {

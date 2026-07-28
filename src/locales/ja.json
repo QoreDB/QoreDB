@@ -429,6 +429,7 @@
     "footerHint": "結果をクリックしてテーブルを開く"
   },
   "tabs": {
+    "newTab": "新しいタブ",
     "new": "新しいタブ",
     "newQuery": "新しいクエリ ({{modifier}}+T)",
     "newNotebook": "新しいノートブック",
@@ -665,8 +666,6 @@
     "storeHistoryDescription": "匿名化した履歴をローカルに保存して、簡単に再利用できるようにします。",
     "storeErrorLogs": "エラーログを保存",
     "storeErrorLogsDescription": "匿名化したエラー情報を保存して、デバッグに役立てます。",
-    "analyticsEnabled": "匿名の使用状況分析を共有",
-    "analyticsEnabledDescription": "匿名イベントの送信により QoreDB の改善に貢献します（クエリや認証情報は送信されません）。",
     "sandbox": {
       "title": "サンドボックス",
       "description": "サンドボックスの変更追跡と表示をカスタマイズします。",
@@ -1012,7 +1011,8 @@
       "indexed": "インデックス付き",
       "indexComposite": "インデックス付き（複合: {{name}}）",
       "unique": "ユニーク制約",
-      "copySuccess": "行をクリップボードにコピーしました"
+      "copySuccess": "行をクリップボードにコピーしました",
+      "sortScansTable": "この列での並べ替えは利用できるインデックスがなく、テーブル全体が並べ替えられます。"
     },
     "rowsSelected": "{{count}} 行を選択中",
     "rowsTotal": "{{count}} 行",
@@ -1027,9 +1027,22 @@
     "lastPage": "最後のページ",
     "infiniteScroll": {
       "loaded": "{{total}} 行中 {{loaded}} 行を読み込み済み",
+      "loadedUnknown": "{{loaded}} 行を読み込み済み",
       "allLoaded": "全 {{total}} 行を読み込み済み",
       "loading": "さらに読み込み中...",
-      "complete": "結果の最後です"
+      "calculateTotal": "正確な合計を計算",
+      "countingTotal": "合計を計算中...",
+      "countTotalError": "正確な合計を計算できませんでした",
+      "complete": "結果の最後です",
+      "cancelCount": "キャンセル",
+      "cancelCountBestEffortLabel": "キャンセル（ベストエフォート）",
+      "cancelCountBestEffort": "このドライバーはキャンセルを保証できません。サーバー側で件数の計算が続く場合があります。",
+      "loadedEstimated": "{{loaded}} / 約 {{total}} 行を読み込み（推定）",
+      "estimateHint": "エンジンによる推定値であり、正確な件数ではありません。",
+      "estimateAsOf": "統計の最終更新: {{date}}",
+      "windowExhausted": "{{loaded}} 行を読み込み — この深さではエンジンがこれ以上のページを返しません",
+      "budgetExhausted": "{{loaded}} 行を読み込みました — タブがメモリ上限に達しました",
+      "budgetExhaustedHint": "フィルタで結果を絞り込むか、テーブルをエクスポートして全体を確認してください。"
     },
     "noData": "表示するデータがありません",
     "noResults": "結果なし",
@@ -1066,9 +1079,14 @@
     "exportSuccess": "{{count}} 行を {{path}} にエクスポートしました",
     "exportError": "データのエクスポートに失敗しました",
     "copyToClipboard": "クリップボードにコピー",
+    "copySelection": "選択した {{count}} 行をコピー",
+    "copyLoadedRows": "読み込み済みの {{count}} 行をコピー",
+    "selectAllRows": "読み込み済みの行を選択",
+    "selectRow": "行を選択",
     "downloadToFile": "ファイルにダウンロード",
     "openRow": "行を開く",
     "editCell": "セルを編集",
+    "cellPreviewTruncated": "プレビュー — 全体を見るには行を開いてください",
     "searchPlaceholder": "検索...",
     "columns": "カラム",
     "toggleColumns": "カラムの切り替え",
@@ -1098,6 +1116,25 @@
       "generate": "生成",
       "apply": "フィルタを適用",
       "empty": "このリクエストからフィルタを導出できませんでした。"
+    },
+    "searchScope": {
+      "title": "検索範囲",
+      "description": "検索対象の列と、語の照合方法です。",
+      "mode": {
+        "contains": "部分一致",
+        "starts_with": "前方一致"
+      },
+      "cost": {
+        "leading_wildcard": "部分一致検索はインデックスを使えません。エンジンが全行を読みます。",
+        "multi_column": "複数の列を同時に検索するとインデックスは使えません。",
+        "no_index": "この列には前方一致検索が利用できるインデックスがありません。"
+      }
+    },
+    "createIndexForSort": "この列にインデックスを作成",
+    "createIndexUnsupported": "このドライバーはインデックスの作成に対応していません。",
+    "pagination": {
+      "unstableOrder": "不安定な順序",
+      "unstableOrderHint": "このテーブルにはページングに使える一意キーがありません。スクロール中にデータが変わると、行が重複したり抜け落ちたりすることがあります。"
     }
   },
   "export": {
@@ -1417,7 +1454,26 @@
     "exportVisible": "表示中のログをエクスポート",
     "exportDiagnostic": "診断ログをエクスポート（完全版）",
     "exportSuccess": "ログをエクスポートしました: {{name}}",
+    "exportScrubbed": "認証情報、トークン、ホームパスはファイル書き出し前に削除されました。",
     "exportError": "ログのエクスポートに失敗しました"
+  },
+  "paginationDiagnostics": {
+    "title": "ページネーション診断",
+    "description": "現在のセッションのタブ単位の計測値です。テーブル名、セルの値、カーソルは記録されません。",
+    "empty": "このセッションではまだテーブルを閲覧していません。",
+    "scope": "タブ",
+    "pages": "ページ数",
+    "rows": "行数",
+    "firstPage": "最初のページ",
+    "p50": "ページ p50",
+    "p95": "ページ p95",
+    "firstSearch": "最初の検索",
+    "exactCounts": "正確な件数",
+    "errors": "エラー",
+    "copy": "レポートをコピー",
+    "copied": "レポートをクリップボードにコピーしました",
+    "copyError": "レポートをコピーできませんでした",
+    "reset": "リセット"
   },
   "dbtree": {
     "emptyNamespaces": "ãã¼ã¿ãã¼ã¹ã¾ãã¯ã¹ã­ã¼ããè¦ã¤ããã¾ãã",
@@ -1601,13 +1657,13 @@
     "welcome": {
       "title": "QoreDB へようこそ",
       "subtitle": "現代のための万能データベースクライアント。",
-      "tagline": "12 ドライバー · SQL + NoSQL · Rust 高速 · ローカルファースト",
+      "tagline": "16 ドライバー · SQL + NoSQL · Rust 高速 · ローカルファースト",
       "next": "ツアーを開始"
     },
     "capabilities": {
       "title": "QoreDB でできること",
       "subtitle": "データベース作業のすべてを一つのアプリで — ツールを切り替える必要はありません。",
-      "driversTitle": "12 のネイティブドライバー",
+      "driversTitle": "16 のネイティブドライバー",
       "driversDesc": "PostgreSQL、MySQL、SQL Server、SQLite、DuckDB、CockroachDB、ClickHouse、MongoDB、Redis — そしてさらに多くのデータベースに対応。",
       "aiTitle": "AI アシスタント",
       "aiDesc": "完全なスキーマコンテキストで SQL/MQL を生成・修正・説明します。OpenAI、Anthropic、またはローカルの Ollama キーをご利用ください。",
@@ -1625,15 +1681,15 @@
       "guardsDesc": "危険なクエリは本番環境で二重に確認されます。ワントグルでどの接続も読み取り専用モードに切り替え可能。",
       "sandboxTitle": "サンドボックスモード",
       "sandboxDesc": "データグリッドの編集をローカルで保留し、確認してからデータベースに適用します。SQL エディターのクエリはサンドボックス化されません。",
-      "localTitle": "データはあなたのマシンから出ません",
-      "localDesc": "クラウド同期なし、データのテレメトリなし、リモートのスキーマインデックスなし。クエリと結果はローカルに留まります。"
+      "localTitle": "データは端末から出ません",
+      "localDesc": "クラウド同期なし、テレメトリは一切なし、リモートのスキーマインデックスなし。クエリと結果はローカルに留まります。唯一の例外は起動時の更新確認で GitHub に接続する点です — 設定で無効にできます。"
     },
     "tiers": {
       "title": "オープンコア — 無料版と Pro",
       "subtitle": "QoreDB はオープンソースです。Pro は費用対効果の高いワークロード向けです。",
       "freeLabel": "無料",
       "freeFor": "個人プロジェクトと探索用",
-      "freeBullet1": "全 12 のデータベースドライバー",
+      "freeBullet1": "全 16 のデータベースドライバー",
       "freeBullet2": "クエリエディタ、ノートブック、ER 図",
       "freeBullet3": "自分の AI キーを持ち込み可能",
       "proLabel": "Pro",
@@ -1643,24 +1699,35 @@
       "proBullet3": "データコントラクト、インスタントデータ API、高度なエクスポート",
       "footnote": "Pro は一回払いの永続ライセンスです。Team はシート単位のサブスクリプションです。"
     },
-    "analytics": {
-      "title": "改善にご協力ください",
-      "subtitle": "私たちはオープンソースプロジェクトです。匿名の使用データは機能の優先順位付けやバグ修正に役立ちます。設定でいつでも変更できます。",
-      "checkbox": "匿名の使用状況分析を共有する（推奨）",
-      "privacyHint": "クラッシュレポートと機能使用回数のみを収集します。クエリ、結果、認証情報がお使いのマシンから外部に送信されることはありません。",
-      "guarantee": "クエリ、結果、認証情報は、この設定に関わらず、あなたのマシンから出ることはありません。",
-      "finish": "はじめる"
-    },
     "workspace": {
       "title": "ワークスペースで整理",
       "description": "複数の接続があります。ワークスペースを作成してプロジェクトごとにグループ化し、Gitでチームと共有しましょう。"
-    }
+    },
+    "finish": "はじめる"
   },
   "errorBoundary": {
     "title": "エラーが発生しました",
     "description": "予期しないエラーが発生しました。エラーは記録されました。",
     "reload": "アプリケーションを再読み込み",
     "panelCrashed": "このパネルでエラーが発生しました"
+  },
+  "crashReport": {
+    "toastTitle": "QoreDB が予期せず終了しました",
+    "toastDescription": "クラッシュレポートがこの端末に保存されました。",
+    "toastAction": "レポートを表示",
+    "title": "クラッシュレポート",
+    "subtitle": "{{kind}} — {{date}}",
+    "others_one": "保留中のレポートが他に {{count}} 件あります。",
+    "others_other": "保留中のレポートが他に {{count}} 件あります。",
+    "privacyNote": "このレポートは端末内に留まります。認証情報と個人のパスは削除済みです。操作しない限り何も送信されません。",
+    "copy": "コピー",
+    "copied": "レポートをコピーしました",
+    "copyError": "レポートをコピーできませんでした",
+    "openFolder": "フォルダを開く",
+    "openFolderError": "ログフォルダを開けませんでした",
+    "report": "GitHub で報告",
+    "dismiss": "閉じる",
+    "issueWhatHappened": "クラッシュ時に行っていた操作"
   },
   "sandbox": {
     "activate": "サンドボックス",
@@ -2369,6 +2436,7 @@
     "dismiss": "結構です"
   },
   "ai": {
+    "newConversation": "新しい会話",
     "title": "AI アシスタント",
     "promptPlaceholder": "生成したいクエリを説明してください...",
     "insertQuery": "エディタに挿入",
@@ -2391,12 +2459,97 @@
       "title": "AI プロバイダー",
       "description": "AI によるクエリ生成のための API キーを設定します。",
       "defaultModel": "デフォルトモデル",
+      "ready": "準備完了",
+      "notInstalled": "未インストール",
+      "recommended": "推奨",
+      "external": "外部",
+      "qoreLocalDescription": "QoreDB はこのデバイス上でモデルを実行します。データベースのコンテキストと結果が端末外へ送信されることはありません。",
+      "runtimeTarget": "ランタイム対象: {{platform}} · {{architecture}}",
+      "installComing": "安全なランタイムとモデルのダウンロードは、このビルドではまだ利用できません。",
+      "installDescription": "ローカルエンジンとモデル（{{size}}）をダウンロードして検証します。中断したダウンロードは再開できます。",
+      "installLocal": "Qore AI Local をインストール",
+      "updateDescription": "署名済みの Qore AI Local アップデート（{{version}}）があります。{{size}} をダウンロードして検証します。",
+      "updateLocal": "Qore AI Local を更新",
+      "cancelInstall": "インストールをキャンセル",
+      "downloading": "ダウンロード中",
+      "verifying": "検証中",
+      "installing": "インストール中",
+      "completed": "完了",
+      "cancelled": "キャンセル済み",
+      "error": "エラー",
+      "runtimeArtifact": "ランタイム",
+      "modelArtifact": "モデル",
+      "downloadProgress": "{{current}} / {{total}}",
+      "startRuntime": "ランタイムを開始",
+      "stopRuntime": "ランタイムを停止",
+      "endpoint": "ローカルエンドポイント",
+      "active": "使用中",
+      "useProvider": "デフォルトに設定",
+      "activeTitle": "使用中の AI エンジン",
+      "activeDescription": "Qore AI とクエリアシスタントが使用するプロバイダーとモデルです。",
+      "providersTitle": "AI エンジンとプロバイダー",
+      "providersDescription": "ローカルエンジンと外部プロバイダーの認証情報を管理します。",
+      "dataTitle": "AI と共有するデータ",
+      "dataDescription": "AI リクエストに含めることのできるデータベースコンテキストを管理します。",
+      "localDataNotice": "{{provider}} はリクエストをローカルで処理します。クラウド AI プロバイダーには送信されません。",
+      "cloudDataNotice": "スキーマ情報と許可されたサンプルデータが {{provider}} に送信される場合があります。",
       "local": "ローカル",
       "configured": "設定済み",
       "notConfigured": "未設定",
       "enterKey": "API キーを入力...",
       "deleteKey": "API キーを削除",
-      "ollamaHint": "Ollama はローカルで実行されるため、API キーは不要です。Ollama がマシンで実行されていることを確認してください。"
+      "ollamaHint": "Ollama はローカルで実行されるため、API キーは不要です。Ollama がマシンで実行されていることを確認してください。",
+      "sampleRows": "サンプル行",
+      "sampleRowsDescription": "AI の提案精度を高めるため、サンプル行をいくつか共有します。機密性の高い列は、下で許可しない限りマスクされたままです。",
+      "sensitiveData": "機密データ",
+      "sensitiveDataDescription": "AI に機密性の高い値(メールアドレス、氏名、電話番号など)の閲覧を許可します。無効の場合、これらの列はプロバイダーへの送信前にマスクされます。"
+    }
+  },
+  "agentChat": {
+    "model": "モデル",
+    "title": "Qore AI",
+    "openChat": "Qore AI を開く",
+    "conversations": "会話",
+    "collapseConversations": "会話一覧を閉じる",
+    "showConversations": "会話一覧を表示",
+    "newConversation": "新しい会話",
+    "noConversations": "会話はまだありません",
+    "untitled": "無題",
+    "rename": "名前を変更",
+    "delete": "削除",
+    "promptPlaceholder": "Q にデータベースについて質問…",
+    "send": "送信",
+    "cancel": "停止",
+    "thinking": "Q が考えています…",
+    "emptyState": "Q を紹介します",
+    "emptyHint": "データベースに質問してください。Q がスキーマを探索し、読み取り専用クエリを実行して実データで回答します。書き込みには必ず承認が必要です。",
+    "noConnection": "チャットを始めるにはデータベースに接続してください。",
+    "noApiKey": "エージェントを使うには、設定で AI プロバイダーの API キーを設定してください。",
+    "activity": {
+      "inProgress": "Q が探索中",
+      "complete": "Q がデータベースを探索しました",
+      "steps_other": "{{count}} ステップ"
+    },
+    "error": {
+      "forbiddenHint": "APIキーは受け入れられましたが、このプロジェクト、モデル、または操作を使用する権限がありません。プロジェクトの権限とモデルへのアクセスを確認してください。",
+      "openAiRequestHint": "このOpenAI応答だけでは、キーに権限がないとは判断できません。QoreDBは自動的に再試行します。解消しない場合は、OpenAI LogsでリクエストIDを使用してください。",
+      "requestId": "リクエストID"
+    },
+    "permission": {
+      "allow": "許可",
+      "allowAlways": "常に許可",
+      "deny": "拒否",
+      "approved": "許可済み",
+      "denied": "拒否済み"
+    },
+    "tool": {
+      "truncated": "{{count}} 行中、先頭の行のみ表示"
+    },
+    "usage": {
+      "tokens": "{{value}} トークン",
+      "iterations": "{{count}} 回の反復",
+      "cached": "キャッシュから {{percent}}%",
+      "conversationTotal": "この会話で使用したトークン"
     }
   },
   "federation": {

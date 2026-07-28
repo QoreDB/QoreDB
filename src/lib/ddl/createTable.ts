@@ -87,6 +87,24 @@ function buildCheckClause(check: CheckConstraintDef, driver: Driver): string {
   return clause;
 }
 
+/**
+ * `CREATE INDEX` for one column of an existing table, using the same
+ * dialect-aware builder as table creation. Returns null when the driver has no
+ * index support.
+ */
+export function buildCreateIndexSQL(
+  qualifiedTable: string,
+  column: string,
+  driver: Driver
+): string | null {
+  const name = `idx_${qualifiedTable}_${column}`
+    .replace(/[^A-Za-z0-9_]/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_|_$/g, '')
+    .slice(0, 60);
+  return buildCreateIndexSql({ name, columns: [column] }, qualifiedTable, driver, []);
+}
+
 function buildCreateIndexSql(
   idx: IndexDef,
   fullName: string,

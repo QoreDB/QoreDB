@@ -29,9 +29,25 @@ gates — mutations are blocked.
 ## Build & register
 
 ```bash
-cargo build -p qore-mcp --release        # -> target/release/qore-mcp
+cargo build -p qore-mcp --release --features duckdb-bundled  # -> target/release/qore-mcp
 claude mcp add qoredb -- /absolute/path/to/target/release/qore-mcp
 ```
+
+All database drivers are enabled by default. A smaller server can select only
+the drivers it exposes:
+
+```bash
+cargo build -p qore-mcp --release --no-default-features \
+  --features driver-postgres,driver-sqlite
+```
+
+Available features are `driver-postgres`, `driver-cockroachdb`,
+`driver-motherduck`, `driver-neon`, `driver-supabase`,
+`driver-timescaledb`, `driver-mysql`, `driver-mariadb`, `driver-sqlite`,
+`driver-mongodb`, `driver-redis`, `driver-sqlserver`, `driver-clickhouse`,
+`driver-elasticsearch`, `driver-opensearch`, and `driver-duckdb`. Use
+`duckdb-bundled` instead of `driver-duckdb` for a self-contained distributed
+binary.
 
 Set `QOREDB_CONFIG_DIR` to point at a non-default config directory (defaults to
 the desktop app's config dir).

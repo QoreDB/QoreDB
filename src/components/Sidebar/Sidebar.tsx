@@ -7,7 +7,6 @@ import { toast } from 'sonner';
 import { FounderBadge } from '@/components/License/FounderBadge';
 import { LicenseBadge } from '@/components/License/LicenseBadge';
 import { ProDiscoveryPanel } from '@/components/License/ProDiscoveryPanel';
-import { AnalyticsService } from '@/components/Onboarding/AnalyticsService';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -29,6 +28,7 @@ import {
   setContractsOpen,
   setInstantApiOpen,
   setLogsOpen,
+  setPaginationMetricsOpen,
   setProDiscoveryOpen,
   setSettingsOpen,
   useModalStore,
@@ -50,6 +50,7 @@ import {
 } from '../../lib/tauri';
 import { BackupDialog, ImportSqlDialog, RestoreDialog } from '../Backup';
 import { ContractsPanel } from '../Contracts';
+import { PaginationMetricsPanel } from '../Diagnostics/PaginationMetricsPanel';
 import { InstantApiPanel } from '../InstantApi';
 import { AuditLogModal } from '../Interceptor';
 import { ErrorLogPanel } from '../Logs/ErrorLogPanel';
@@ -129,6 +130,7 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(function Sidebar(
   const { tier, status } = useLicense();
   const { projectId } = useWorkspace();
   const logsOpen = useModalStore(s => s.logsOpen);
+  const paginationMetricsOpen = useModalStore(s => s.paginationMetricsOpen);
   const auditLogOpen = useModalStore(s => s.auditLogOpen);
   const contractsOpen = useModalStore(s => s.contractsOpen);
   const instantApiOpen = useModalStore(s => s.instantApiOpen);
@@ -234,11 +236,6 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(function Sidebar(
       if (result.success && result.session_id) {
         toast.success(t('sidebar.connectedTo', { name: conn.name }));
 
-        AnalyticsService.capture('connected_success', {
-          source: 'sidebar',
-          driver: conn.driver,
-        });
-
         onConnected(result.session_id, {
           ...conn,
           environment: conn.environment,
@@ -246,19 +243,11 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(function Sidebar(
         });
         setExpandedId(conn.id);
       } else {
-        AnalyticsService.capture('connected_failed', {
-          source: 'sidebar',
-          driver: conn.driver,
-        });
         toast.error(t('sidebar.connectionToFailed', { name: conn.name }), {
           description: result.error || t('common.unknownError'),
         });
       }
     } catch (err) {
-      AnalyticsService.capture('connected_failed', {
-        source: 'sidebar',
-        driver: conn.driver,
-      });
       toast.error(t('sidebar.connectError'), {
         description: err instanceof Error ? err.message : t('common.unknownError'),
       });
@@ -268,7 +257,9 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(function Sidebar(
   }
 
   function handleSelect(conn: SavedConnection) {
-    if (connectedSessionId && selectedId === conn.id) {
+    // Selected is not connected: a failed attempt leaves the connection
+    // selected while the session still belongs to the previous one.
+    if (connectedSessionId && connectedConnectionId === conn.id) {
       setExpandedId(expandedId === conn.id ? null : conn.id);
     } else {
       handleConnect(conn);
@@ -303,30 +294,32 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(function Sidebar(
             <div className="h-3 w-2/3 rounded bg-muted animate-pulse" />
           </div>
         )}
-        {expandedId === connection.id && connectedSessionId && (
-          <div className="pl-4 border-l-2 border-accent/30 ml-4 mt-1 bg-muted/20 rounded-r-md py-1">
-            <DBTree
-              connectionId={connectedSessionId}
-              driver={connection.driver}
-              connection={connection}
-              onTableSelect={onTableSelect}
-              onDatabaseSelect={onDatabaseSelect}
-              onCompareTable={onCompareTable}
-              onSchemaDiff={onSchemaDiff}
-              onAiGenerateForTable={onAiGenerateForTable}
-              onNewQueryForTable={onNewQueryForTable}
-              onOpenRoutineSource={onOpenRoutineSource}
-              onCreateRoutine={onCreateRoutine}
-              onOpenTriggerSource={onOpenTriggerSource}
-              onCreateTrigger={onCreateTrigger}
-              onOpenEventSource={onOpenEventSource}
-              onCreateEvent={onCreateEvent}
-              onOpenSequenceSource={onOpenSequenceSource}
-              refreshTrigger={schemaRefreshTrigger}
-              activeNamespace={activeNamespace}
-            />
-          </div>
-        )}
+        {expandedId === connection.id &&
+          connectedConnectionId === connection.id &&
+          connectedSessionId && (
+            <div className="pl-4 border-l-2 border-accent/30 ml-4 mt-1 bg-muted/20 rounded-r-md py-1">
+              <DBTree
+                connectionId={connectedSessionId}
+                driver={connection.driver}
+                connection={connection}
+                onTableSelect={onTableSelect}
+                onDatabaseSelect={onDatabaseSelect}
+                onCompareTable={onCompareTable}
+                onSchemaDiff={onSchemaDiff}
+                onAiGenerateForTable={onAiGenerateForTable}
+                onNewQueryForTable={onNewQueryForTable}
+                onOpenRoutineSource={onOpenRoutineSource}
+                onCreateRoutine={onCreateRoutine}
+                onOpenTriggerSource={onOpenTriggerSource}
+                onCreateTrigger={onCreateTrigger}
+                onOpenEventSource={onOpenEventSource}
+                onCreateEvent={onCreateEvent}
+                onOpenSequenceSource={onOpenSequenceSource}
+                refreshTrigger={schemaRefreshTrigger}
+                activeNamespace={activeNamespace}
+              />
+            </div>
+          )}
       </div>
     );
   }
@@ -470,6 +463,10 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(function Sidebar(
       </footer>
 
       <ErrorLogPanel isOpen={logsOpen} onClose={() => setLogsOpen(false)} />
+      <PaginationMetricsPanel
+        isOpen={paginationMetricsOpen}
+        onClose={() => setPaginationMetricsOpen(false)}
+      />
       <AuditLogModal isOpen={auditLogOpen} onClose={() => setAuditLogOpen(false)} />
       <ContractsPanel
         open={contractsOpen}
@@ -498,7 +495,6 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(function Sidebar(
       <ProDiscoveryPanel
         open={proDiscoveryOpen}
         onClose={() => setProDiscoveryOpen(false)}
-        source="sidebar"
         onActivate={() => setSettingsOpen(true)}
       />
     </aside>

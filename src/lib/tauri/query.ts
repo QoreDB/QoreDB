@@ -157,13 +157,40 @@ export interface TableQueryOptions {
   sort_direction?: SortDirection;
   filters?: ColumnFilter[];
   search?: string;
+  /** Columns the search covers. Omitted, the driver reads the catalog itself. */
+  search_columns?: string[];
+  search_mode?: SearchMode;
+  /** Unique key the driver may use as a keyset tie-breaker. */
+  keyset_columns?: string[];
+  /** Opaque cursor from a previous page; makes the driver ignore `page`. */
+  cursor?: string;
+  count_mode?: 'none' | 'estimated' | 'exact';
+  /** Handle to pass to `cancelQuery` to interrupt an exact count. */
+  query_id?: string;
 }
+
+export type SearchMode = 'contains' | 'starts_with';
+
+export type PaginationStrategy = 'offset' | 'keyset';
+
+export type OrderingGuarantee = 'none' | 'stable';
+
+export type TotalRowsSource = 'exact' | 'estimated';
 
 export interface PaginatedQueryResult {
   result: QueryResult;
-  total_rows: number;
+  /** Null when the total is unknown. Never a lower bound. */
+  total_rows: number | null;
+  total_rows_source: TotalRowsSource | null;
+  /** Unix ms of the statistics behind an estimate, when the engine exposes it. */
+  total_rows_as_of: number | null;
   page: number;
   page_size: number;
+  has_more: boolean;
+  /** Cursor for the next page. Null when paging by offset or on the last page. */
+  next_cursor: string | null;
+  pagination_strategy: PaginationStrategy;
+  ordering_guarantee: OrderingGuarantee;
 }
 
 export async function queryTable(

@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { AnalyticsService } from '@/components/Onboarding/AnalyticsService';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
@@ -40,16 +39,12 @@ interface DataSectionProps {
 const DEFAULTS = {
   storeHistory: true,
   storeErrorLogs: true,
-  analyticsEnabled: true,
 };
 
 export function DataSection({ policy, onApplyPolicy, searchQuery }: DataSectionProps) {
   const { t } = useTranslation();
   const { projectId } = useWorkspace();
   const [diagnostics, setDiagnostics] = useState<DiagnosticsSettings>(getDiagnosticsSettings());
-  const [analyticsEnabled, setAnalyticsEnabled] = useState<boolean>(
-    AnalyticsService.isAnalyticsEnabled()
-  );
 
   function updateDiagnostics(next: DiagnosticsSettings) {
     setDiagnostics(next);
@@ -64,8 +59,7 @@ export function DataSection({ policy, onApplyPolicy, searchQuery }: DataSectionP
 
   const isDiagnosticsModified =
     diagnostics.storeHistory !== DEFAULTS.storeHistory ||
-    diagnostics.storeErrorLogs !== DEFAULTS.storeErrorLogs ||
-    analyticsEnabled !== DEFAULTS.analyticsEnabled;
+    diagnostics.storeErrorLogs !== DEFAULTS.storeErrorLogs;
 
   return (
     <>
@@ -114,24 +108,6 @@ export function DataSection({ policy, onApplyPolicy, searchQuery }: DataSectionP
               </span>
             </span>
           </Label>
-
-          <Label className="flex items-start gap-2.5 text-sm cursor-pointer">
-            <Checkbox
-              checked={analyticsEnabled}
-              onCheckedChange={checked => {
-                const enabled = !!checked;
-                setAnalyticsEnabled(enabled);
-                AnalyticsService.setAnalyticsEnabled(enabled);
-              }}
-              className="mt-0.5"
-            />
-            <span>
-              <span className="font-medium text-foreground">{t('settings.analyticsEnabled')}</span>
-              <span className="block text-xs text-muted-foreground mt-0.5">
-                {t('settings.analyticsEnabledDescription')}
-              </span>
-            </span>
-          </Label>
         </div>
       </SettingsCard>
 
@@ -139,10 +115,6 @@ export function DataSection({ policy, onApplyPolicy, searchQuery }: DataSectionP
         policy={policy}
         onApplyDiagnostics={updateDiagnostics}
         onApplyPolicy={onApplyPolicy}
-        onApplyAnalyticsEnabled={(enabled: boolean) => {
-          setAnalyticsEnabled(enabled);
-          AnalyticsService.setAnalyticsEnabled(enabled);
-        }}
       />
 
       <ShareProviderCard searchQuery={searchQuery} />
@@ -190,7 +162,6 @@ function QueryCacheCard({ searchQuery }: { searchQuery?: string }) {
 
   async function clear() {
     await clearQueryCache().catch(() => {});
-    AnalyticsService.capture('query_cache_cleared');
     refreshStats();
   }
 

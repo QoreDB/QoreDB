@@ -10,6 +10,7 @@ interface ModalState {
   connectionModalOpen: boolean;
   libraryModalOpen: boolean;
   logsOpen: boolean;
+  paginationMetricsOpen: boolean;
   auditLogOpen: boolean;
   contractsOpen: boolean;
   instantApiOpen: boolean;
@@ -48,6 +49,7 @@ let state: ModalState = {
   connectionModalOpen: false,
   libraryModalOpen: false,
   logsOpen: false,
+  paginationMetricsOpen: false,
   auditLogOpen: false,
   contractsOpen: false,
   instantApiOpen: false,
@@ -117,6 +119,11 @@ export function setLibraryModalOpen(open: boolean) {
 export function setLogsOpen(open: boolean) {
   if (state.logsOpen === open) return;
   updateState({ logsOpen: open });
+}
+
+export function setPaginationMetricsOpen(open: boolean) {
+  if (state.paginationMetricsOpen === open) return;
+  updateState({ paginationMetricsOpen: open });
 }
 
 export function setAuditLogOpen(open: boolean) {

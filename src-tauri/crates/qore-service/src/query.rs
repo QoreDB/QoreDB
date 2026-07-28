@@ -15,8 +15,8 @@ use crate::cache::QueryCache;
 use crate::error::ServiceError;
 use crate::governance;
 use crate::interceptor::{
-    Environment, InterceptorPipeline, QueryContext, QueryExecutionResult, SafetyAction,
-    map_environment,
+    Environment, InterceptorPipeline, QueryContext, QueryExecutionResult, QuerySource,
+    SafetyAction, map_environment,
 };
 use crate::policy::SafetyPolicy;
 use crate::ratelimit::QueryRateLimiter;
@@ -83,6 +83,22 @@ fn is_search_mutation(query: &str) -> bool {
         "GET" | "HEAD" => false,
         "POST" => !SEARCH_READ_ENDPOINTS.iter().any(|e| path.contains(e)),
         _ => true,
+    }
+}
+
+/// Best-effort mutation classification without a session. `Some(false)` is a
+/// read, `Some(true)` a write; `None` when a SQL query cannot be parsed (the
+/// caller should fail closed). Mirrors the classification used by
+/// [`preflight`].
+pub fn classify_mutation(driver_id: &str, query: &str) -> Option<bool> {
+    let driver_lower = driver_id.to_ascii_lowercase();
+    match driver_lower.as_str() {
+        "mongodb" => Some(is_mongo_mutation(query)),
+        "redis" => Some(is_redis_mutation(query)),
+        "elasticsearch" | "opensearch" => Some(is_search_mutation(query)),
+        _ => sql_safety::analyze_sql(driver_id, query)
+            .ok()
+            .map(|a| a.is_mutation),
     }
 }
 
@@ -215,8 +231,16 @@ pub async fn query_table(
 
     let driver = session_manager.get_driver(session).await?;
 
-    match governance::with_timeout(
-        policy,
+    // An exact count stays bounded even when the policy configures no duration:
+    // it is an explicit user action, not a licence to hold a connection forever.
+    let budget = policy.max_query_duration_ms.or_else(|| {
+        options
+            .wants_exact_total()
+            .then_some(crate::paths::EXACT_COUNT_TIMEOUT_MS)
+    });
+
+    match governance::with_timeout_ms(
+        budget,
         driver.query_table(session, namespace, table, options),
     )
     .await
@@ -257,6 +281,36 @@ pub async fn preflight(
     query: &str,
     namespace: Option<&Namespace>,
     acknowledged: bool,
+) -> Result<Preflight, String> {
+    preflight_with_source(
+        session_manager,
+        query_rate_limiter,
+        interceptor,
+        policy,
+        session,
+        session_id,
+        query,
+        namespace,
+        acknowledged,
+        QuerySource::User,
+    )
+    .await
+}
+
+/// Same as [`preflight`] with an explicit query source (AI agent, MCP) so
+/// safety checks and audit entries carry the right attribution.
+#[allow(clippy::too_many_arguments)]
+pub async fn preflight_with_source(
+    session_manager: &SessionManager,
+    query_rate_limiter: &QueryRateLimiter,
+    interceptor: &InterceptorPipeline,
+    policy: &SafetyPolicy,
+    session: SessionId,
+    session_id: &str,
+    query: &str,
+    namespace: Option<&Namespace>,
+    acknowledged: bool,
+    source: QuerySource,
 ) -> Result<Preflight, String> {
     let connection_key = session_manager.connection_key(session).await;
 
@@ -373,7 +427,7 @@ pub async fn preflight(
         .map(|a| a.is_dangerous)
         .unwrap_or(false);
 
-    let context = interceptor.build_context(
+    let context = interceptor.build_context_with_source(
         session_id,
         query,
         driver.driver_id(),
@@ -383,6 +437,7 @@ pub async fn preflight(
         namespace.map(|n| n.database.as_str()),
         sql_analysis.as_ref(),
         is_mutation,
+        source,
     );
 
     let safety_result = interceptor.pre_execute(&context);

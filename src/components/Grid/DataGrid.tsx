@@ -35,16 +35,21 @@ import { BULK_EDIT_CORE_LIMIT } from '@/lib/bulkEdit';
 import type { Driver } from '@/lib/connection/drivers';
 import { type ExportDataDetail, UI_EVENT_EXPORT_DATA } from '@/lib/events/uiEvents';
 import type { ExportConfig } from '@/lib/export';
+import { exactIntText, isExactInt } from '@/lib/query/exactInt';
+import { indexedLeadingColumns } from '@/lib/query/indexCost';
 import { applyOverlay, emptyOverlayResult, type OverlayResult } from '@/lib/sandbox/sandboxOverlay';
 import type { SandboxChange, SandboxDeleteDisplay } from '@/lib/sandbox/sandboxTypes';
 import type {
+  CancelSupport,
   ColumnFilter,
   Environment,
   Namespace,
+  OrderingGuarantee,
   QueryResult,
   RelationFilter,
   SortDirection,
   TableSchema,
+  TotalRowsSource,
   Value,
 } from '@/lib/tauri';
 import { useAiPreferences } from '@/providers/AiPreferencesProvider';
@@ -67,7 +72,13 @@ import { useDataGridExport } from './hooks/useDataGridExport';
 import { useForeignKeyPeek } from './hooks/useForeignKeyPeek';
 import { useInlineEdit } from './hooks/useInlineEdit';
 import { NaturalLanguageFilterBar } from './NaturalLanguageFilterBar';
-import { convertToRowData, formatValue, type RowData } from './utils/dataGridUtils';
+import type { SearchScopeState } from './SearchScopeControl';
+import {
+  convertToRowDataIncremental,
+  formatValue,
+  type RowData,
+  type RowDataCache,
+} from './utils/dataGridUtils';
 
 const EMPTY_OVERLAY_RESULT: OverlayResult = {
   result: {
@@ -137,11 +148,22 @@ interface DataGridProps {
     newValues: Record<string, Value>
   ) => void;
   onSandboxDelete?: (primaryKey: Record<string, Value>, oldValues: Record<string, Value>) => void;
-  infiniteScrollTotalRows?: number;
+  infiniteScrollTotalRows?: number | null;
+  infiniteScrollTotalRowsSource?: TotalRowsSource | null;
+  infiniteScrollTotalRowsAsOf?: number | null;
   infiniteScrollLoadedRows?: number;
   infiniteScrollIsFetchingMore?: boolean;
+  infiniteScrollIsCountingTotal?: boolean;
   infiniteScrollIsComplete?: boolean;
+  infiniteScrollWindowExhausted?: boolean;
+  infiniteScrollBudgetExhausted?: boolean;
+  infiniteScrollOrderingGuarantee?: OrderingGuarantee;
   onFetchMore?: () => void;
+  onCalculateExactTotal?: () => void;
+  onCancelExactTotal?: () => void;
+  infiniteScrollCancelSupport?: CancelSupport;
+  searchScope?: SearchScopeState;
+  onCreateIndex?: (column: string) => void;
   serverSortColumn?: string;
   serverSortDirection?: SortDirection;
   onServerSortChange?: (column?: string, direction?: SortDirection) => void;
@@ -177,10 +199,21 @@ export function DataGrid({
   onSandboxUpdate,
   onSandboxDelete,
   infiniteScrollTotalRows,
+  infiniteScrollTotalRowsSource,
+  infiniteScrollTotalRowsAsOf,
   infiniteScrollLoadedRows,
   infiniteScrollIsFetchingMore,
+  infiniteScrollIsCountingTotal,
   infiniteScrollIsComplete,
+  infiniteScrollWindowExhausted,
+  infiniteScrollBudgetExhausted,
+  infiniteScrollOrderingGuarantee,
   onFetchMore,
+  onCalculateExactTotal,
+  onCancelExactTotal,
+  infiniteScrollCancelSupport,
+  searchScope,
+  onCreateIndex,
   serverSortColumn,
   serverSortDirection,
   onServerSortChange,
@@ -201,7 +234,8 @@ export function DataGrid({
   });
   const [internalGlobalFilter, setInternalGlobalFilter] = useState(initialFilter ?? '');
   const initialFilterRef = useRef<string | undefined>(undefined);
-  const isInfiniteScrollMode = infiniteScrollTotalRows !== undefined;
+  // Keyed on the loaded count, not the total: a count-free page has no total.
+  const isInfiniteScrollMode = infiniteScrollLoadedRows !== undefined;
   const isServerSideMode = isInfiniteScrollMode;
   const resolvedFooterMode =
     footerMode === 'auto' ? (isInfiniteScrollMode ? 'infinite' : 'pagination') : footerMode;
@@ -348,10 +382,15 @@ export function DataGrid({
     primaryKey,
   ]);
 
+  const rowDataCacheRef = useRef<RowDataCache | null>(null);
   const data = useMemo(() => {
     const effectiveResult = sandboxMode ? overlayResult.result : result;
-    if (!effectiveResult) return [];
-    return convertToRowData(effectiveResult);
+    if (!effectiveResult) {
+      rowDataCacheRef.current = null;
+      return [];
+    }
+    rowDataCacheRef.current = convertToRowDataIncremental(effectiveResult, rowDataCacheRef.current);
+    return rowDataCacheRef.current.converted;
   }, [result, overlayResult.result, sandboxMode]);
 
   const columnTypeMap = useMemo(() => {
@@ -373,11 +412,19 @@ export function DataGrid({
       for (const key of primaryKey) {
         const v = row[key];
         if (v === null || v === undefined) return `__idx_${index}`;
-        composite += `${composite ? '::' : ''}${String(v)}`;
+        composite += `${composite ? '::' : ''}${isExactInt(v) ? exactIntText(v) : String(v)}`;
       }
       return composite;
     };
   }, [primaryKey]);
+
+  // Server-side sorting hits the engine, so a column with no index to follow
+  // means sorting the whole table. Client-side sorting works on loaded rows and
+  // costs nothing worth warning about.
+  const sortableWithIndex = useMemo(
+    () => indexedLeadingColumns(tableSchema?.indexes),
+    [tableSchema?.indexes]
+  );
 
   const { indexedColumns, uniqueColumns, indexInfoMap } = useMemo(() => {
     const indexedColumns = new Set<string>();
@@ -524,7 +571,8 @@ export function DataGrid({
           }
           onCheckedChange={checked => table.toggleAllRowsSelected(checked === true)}
           onClick={event => event.stopPropagation()}
-          aria-label={t('grid.selectAllRows', { defaultValue: 'Select all rows' })}
+          aria-label={t('grid.selectAllRows')}
+          title={t('grid.selectAllRows')}
           className="h-4 w-4 rounded border-border cursor-pointer"
         />
       ),
@@ -533,7 +581,7 @@ export function DataGrid({
           checked={row.getIsSelected()}
           onCheckedChange={checked => row.toggleSelected(checked === true)}
           onClick={event => event.stopPropagation()}
-          aria-label={t('grid.selectRow', { defaultValue: 'Select row' })}
+          aria-label={t('grid.selectRow')}
           className="h-4 w-4 rounded border-border cursor-pointer"
         />
       ),
@@ -561,6 +609,7 @@ export function DataGrid({
             isUnique={uniqueColumns.has(col.name)}
             indexName={indexInfoMap.get(col.name)?.name}
             isCompositeIndex={indexInfoMap.get(col.name)?.isComposite}
+            sortScansTable={isServerSideSorting && !sortableWithIndex.has(col.name)}
           />
         ),
         cell: info => {
@@ -867,11 +916,18 @@ export function DataGrid({
     const handler = (event: Event) => {
       const detail = (event as CustomEvent<ExportDataDetail>).detail;
       const format = detail?.format ?? 'csv';
+      // Without a selection, exporting means the whole result, and the grid
+      // only holds the rows scrolled so far. The streaming path re-reads the
+      // source with the same filters and sort rather than writing the window.
+      if (getSelectedRows().length === 0 && canStreamExport) {
+        setStreamingDialogOpen(true);
+        return;
+      }
       exportToFile(format);
     };
     window.addEventListener(UI_EVENT_EXPORT_DATA, handler);
     return () => window.removeEventListener(UI_EVENT_EXPORT_DATA, handler);
-  }, [exportToFile]);
+  }, [exportToFile, getSelectedRows, canStreamExport]);
 
   // Early return for empty state (but never when a search filter is active)
   if ((!result || result.columns.length === 0) && !globalFilter) {
@@ -953,6 +1009,7 @@ export function DataGrid({
           aiExplainLoading={aiExplainLoading}
           onDismissAiExplanation={() => setAiExplanation(null)}
           onGenerateData={canGenerateData ? () => setDataGenDialogOpen(true) : undefined}
+          searchScope={isServerSideMode ? searchScope : undefined}
         />
       </div>
 
@@ -976,7 +1033,14 @@ export function DataGrid({
             width: `max(100%, ${table.getTotalSize()}px)`,
           }}
         >
-          <DataGridTableHeader table={table} showFilters={showFilters} />
+          <DataGridTableHeader
+            table={table}
+            showFilters={showFilters}
+            sortScansTable={
+              isServerSideSorting ? column => !sortableWithIndex.has(column) : undefined
+            }
+            onCreateIndex={onCreateIndex}
+          />
           <DataGridTableBody
             rows={rows}
             rowVirtualizer={rowVirtualizer}
@@ -990,9 +1054,18 @@ export function DataGrid({
       {resolvedFooterMode === 'infinite' ? (
         <DataGridStatusBar
           loadedRows={infiniteScrollLoadedRows ?? 0}
-          totalRows={infiniteScrollTotalRows ?? 0}
+          totalRows={infiniteScrollTotalRows ?? null}
+          totalRowsSource={infiniteScrollTotalRowsSource}
+          totalRowsAsOf={infiniteScrollTotalRowsAsOf}
           isFetchingMore={infiniteScrollIsFetchingMore ?? false}
+          isCountingTotal={infiniteScrollIsCountingTotal ?? false}
           isComplete={infiniteScrollIsComplete ?? false}
+          windowExhausted={infiniteScrollWindowExhausted}
+          budgetExhausted={infiniteScrollBudgetExhausted}
+          orderingGuarantee={infiniteScrollOrderingGuarantee}
+          onCalculateExactTotal={onCalculateExactTotal}
+          onCancelExactTotal={onCancelExactTotal}
+          cancelSupport={infiniteScrollCancelSupport}
         />
       ) : resolvedFooterMode === 'pagination' ? (
         <DataGridPagination table={table} pagination={pagination} />

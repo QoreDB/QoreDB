@@ -231,18 +231,6 @@ export function fileExtensionForKind(kind: BlobKind | null): string {
   return kind.type;
 }
 
-/**
- * Returns a coarse size bucket for analytics, avoiding leaking exact sizes.
- */
-export function sizeBucket(bytes: number): string {
-  if (bytes < 1024) return '<1KB';
-  if (bytes < 10 * 1024) return '1-10KB';
-  if (bytes < 100 * 1024) return '10-100KB';
-  if (bytes < 1024 * 1024) return '100KB-1MB';
-  if (bytes < 10 * 1024 * 1024) return '1-10MB';
-  return '>10MB';
-}
-
 /** Maximum binary size (in bytes) for which we generate image previews. */
 export const MAX_PREVIEW_SIZE = 5 * 1024 * 1024; // 5 MB
 

@@ -7,7 +7,6 @@ import { Download, Upload } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
-import { AnalyticsService } from '@/components/Onboarding/AnalyticsService';
 import { Button } from '@/components/ui/button';
 import { useTheme } from '@/hooks/useTheme';
 import type { DiagnosticsSettings } from '@/lib/diagnostics/diagnosticsSettings';
@@ -24,7 +23,6 @@ interface ConfigBackupCardProps {
   policy: SafetyPolicy | null;
   onApplyDiagnostics: (next: DiagnosticsSettings) => void;
   onApplyPolicy: (next: SafetyPolicy) => Promise<void>;
-  onApplyAnalyticsEnabled: (enabled: boolean) => void;
 }
 
 const MAX_CONFIG_BACKUP_BYTES = 2_000_000;
@@ -33,7 +31,6 @@ export function ConfigBackupCard({
   policy,
   onApplyDiagnostics,
   onApplyPolicy,
-  onApplyAnalyticsEnabled,
 }: ConfigBackupCardProps) {
   const { t, i18n } = useTranslation();
   const { setTheme } = useTheme();
@@ -92,11 +89,6 @@ export function ConfigBackupCard({
       if (applied.theme) setTheme(applied.theme);
       if (applied.language) await i18n.changeLanguage(applied.language);
       if (applied.diagnostics) onApplyDiagnostics(applied.diagnostics);
-      if (applied.analyticsEnabled !== undefined) {
-        const enabled = !!applied.analyticsEnabled;
-        onApplyAnalyticsEnabled(enabled);
-        AnalyticsService.setAnalyticsEnabled(enabled);
-      }
       if (applied.safetyPolicy) await onApplyPolicy(applied.safetyPolicy);
 
       const name = filePath.split(/[\\/]/).pop() || filePath;

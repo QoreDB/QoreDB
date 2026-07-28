@@ -15,9 +15,10 @@ use qore_core::types::{
     CancelSupport, Collection, CollectionList, CollectionListOptions, CollectionType,
     ConnectionConfig, ForeignKey, MaintenanceMessage, MaintenanceMessageLevel,
     MaintenanceOperationInfo, MaintenanceOperationType, MaintenanceRequest, MaintenanceResult,
-    Namespace, PaginatedQueryResult, QueryId, QueryResult, RoutineDefinition, RoutineList,
-    RoutineListOptions, RoutineOperationResult, RoutineType, RowData, SessionId, TableQueryOptions,
-    TableSchema, TriggerDefinition, TriggerList, TriggerListOptions, TriggerOperationResult, Value,
+    Namespace, PaginatedQueryResult, PaginationCapability, QueryId, QueryResult, RoutineDefinition,
+    RoutineList, RoutineListOptions, RoutineOperationResult, RoutineType, RowData, SessionId,
+    SnapshotSupport, TableQueryOptions, TableSchema, TriggerDefinition, TriggerList,
+    TriggerListOptions, TriggerOperationResult, Value,
 };
 
 pub struct CockroachDbDriver {
@@ -305,6 +306,16 @@ impl DataEngine for CockroachDbDriver {
 
     async fn cancel(&self, session: SessionId, query_id: Option<QueryId>) -> EngineResult<()> {
         pg_compat::cancel(&self.sessions, session, query_id).await
+    }
+
+    fn pagination_capability(&self) -> PaginationCapability {
+        PaginationCapability {
+            keyset: true,
+            requires_unique_key: true,
+            supports_backward: false,
+            snapshot: SnapshotSupport::Transaction,
+            max_offset_window: None,
+        }
     }
 
     fn cancel_support(&self) -> CancelSupport {

@@ -1442,6 +1442,7 @@ impl DataEngine for RedisDriver {
         let type_str = Self::key_type(&mut conn, key).await?;
         let page = options.effective_page();
         let page_size = options.effective_page_size();
+        let fetch_size = options.fetch_size();
         let offset = options.offset() as i64;
 
         match type_str.as_str() {
@@ -1451,13 +1452,19 @@ impl DataEngine for RedisDriver {
             }
             "hash" => {
                 let start = Instant::now();
-                let total: u64 = redis::cmd("HLEN")
-                    .arg(key)
-                    .query_async(&mut *conn)
-                    .await
-                    .map_err(|e| EngineError::execution_error(e.to_string()))?;
+                let total = if options.wants_any_total() {
+                    Some(
+                        redis::cmd("HLEN")
+                            .arg(key)
+                            .query_async(&mut *conn)
+                            .await
+                            .map_err(|e| EngineError::execution_error(e.to_string()))?,
+                    )
+                } else {
+                    None
+                };
                 let rows =
-                    Self::read_hash_page(&mut conn, key, offset as usize, page_size as usize)
+                    Self::read_hash_page(&mut conn, key, offset as usize, fetch_size as usize)
                         .await?;
                 let result = QueryResult {
                     columns: vec![
@@ -1476,25 +1483,41 @@ impl DataEngine for RedisDriver {
                     affected_rows: None,
                     execution_time_ms: start.elapsed().as_micros() as f64 / 1000.0,
                 };
-                Ok(PaginatedQueryResult::new(result, total, page, page_size))
+                Ok(PaginatedQueryResult::from_optional_total(
+                    result, total, page, page_size,
+                ))
             }
             "list" => {
-                let total: u64 = redis::cmd("LLEN")
-                    .arg(key)
-                    .query_async(&mut *conn)
-                    .await
-                    .map_err(|e| EngineError::execution_error(e.to_string()))?;
-                let result = Self::read_list(&mut conn, key, offset, page_size as i64).await?;
-                Ok(PaginatedQueryResult::new(result, total, page, page_size))
+                let total = if options.wants_any_total() {
+                    Some(
+                        redis::cmd("LLEN")
+                            .arg(key)
+                            .query_async(&mut *conn)
+                            .await
+                            .map_err(|e| EngineError::execution_error(e.to_string()))?,
+                    )
+                } else {
+                    None
+                };
+                let result = Self::read_list(&mut conn, key, offset, fetch_size as i64).await?;
+                Ok(PaginatedQueryResult::from_optional_total(
+                    result, total, page, page_size,
+                ))
             }
             "set" => {
                 let start = Instant::now();
-                let total: u64 = redis::cmd("SCARD")
-                    .arg(key)
-                    .query_async(&mut *conn)
-                    .await
-                    .map_err(|e| EngineError::execution_error(e.to_string()))?;
-                let rows = Self::read_set_page(&mut conn, key, offset as usize, page_size as usize)
+                let total = if options.wants_any_total() {
+                    Some(
+                        redis::cmd("SCARD")
+                            .arg(key)
+                            .query_async(&mut *conn)
+                            .await
+                            .map_err(|e| EngineError::execution_error(e.to_string()))?,
+                    )
+                } else {
+                    None
+                };
+                let rows = Self::read_set_page(&mut conn, key, offset as usize, fetch_size as usize)
                     .await?;
                 let result = QueryResult {
                     columns: vec![ColumnInfo {
@@ -1506,26 +1529,44 @@ impl DataEngine for RedisDriver {
                     affected_rows: None,
                     execution_time_ms: start.elapsed().as_micros() as f64 / 1000.0,
                 };
-                Ok(PaginatedQueryResult::new(result, total, page, page_size))
+                Ok(PaginatedQueryResult::from_optional_total(
+                    result, total, page, page_size,
+                ))
             }
             "zset" => {
-                let total: u64 = redis::cmd("ZCARD")
-                    .arg(key)
-                    .query_async(&mut *conn)
-                    .await
-                    .map_err(|e| EngineError::execution_error(e.to_string()))?;
-                let result = Self::read_zset(&mut conn, key, offset, page_size as i64).await?;
-                Ok(PaginatedQueryResult::new(result, total, page, page_size))
+                let total = if options.wants_any_total() {
+                    Some(
+                        redis::cmd("ZCARD")
+                            .arg(key)
+                            .query_async(&mut *conn)
+                            .await
+                            .map_err(|e| EngineError::execution_error(e.to_string()))?,
+                    )
+                } else {
+                    None
+                };
+                let result = Self::read_zset(&mut conn, key, offset, fetch_size as i64).await?;
+                Ok(PaginatedQueryResult::from_optional_total(
+                    result, total, page, page_size,
+                ))
             }
             "stream" => {
-                let total: u64 = redis::cmd("XLEN")
-                    .arg(key)
-                    .query_async(&mut *conn)
-                    .await
-                    .map_err(|e| EngineError::execution_error(e.to_string()))?;
+                let total = if options.wants_any_total() {
+                    Some(
+                        redis::cmd("XLEN")
+                            .arg(key)
+                            .query_async(&mut *conn)
+                            .await
+                            .map_err(|e| EngineError::execution_error(e.to_string()))?,
+                    )
+                } else {
+                    None
+                };
                 let result =
-                    Self::read_stream(&mut conn, key, offset as usize, page_size as usize).await?;
-                Ok(PaginatedQueryResult::new(result, total, page, page_size))
+                    Self::read_stream(&mut conn, key, offset as usize, fetch_size as usize).await?;
+                Ok(PaginatedQueryResult::from_optional_total(
+                    result, total, page, page_size,
+                ))
             }
             "none" => Err(EngineError::execution_error(format!(
                 "Key '{}' does not exist",

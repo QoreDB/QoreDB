@@ -49,6 +49,8 @@ pub struct AppState {
     pub share_manager: Arc<ShareManager>,
     #[cfg(feature = "pro")]
     pub ai_manager: Arc<ai::manager::AiManager>,
+    #[cfg(feature = "pro")]
+    pub agent_runtime: Arc<ai::agent::orchestrator::AgentRuntime>,
     pub changelog_store: Arc<time_travel::ChangelogStore>,
     pub backup_tool_paths: Arc<backup::BackupToolPaths>,
     pub active_backups: Arc<backup::runner::ActiveBackups>,
@@ -67,8 +69,9 @@ impl AppState {
         ));
 
         #[cfg(feature = "pro")]
-        let ai_manager = Arc::new(ai::manager::AiManager::new(
+        let ai_manager = Arc::new(ai::manager::AiManager::new_persistent(
             Box::new(KeyringProvider::new()),
+            data_dir.join("ai-provider-status.json"),
         ));
 
         let changelog_store = Arc::new(time_travel::ChangelogStore::new(
@@ -86,6 +89,8 @@ impl AppState {
             share_manager,
             #[cfg(feature = "pro")]
             ai_manager,
+            #[cfg(feature = "pro")]
+            agent_runtime: Arc::new(ai::agent::orchestrator::AgentRuntime::default()),
             changelog_store,
             backup_tool_paths: Arc::new(backup::BackupToolPaths::new()),
             active_backups: Arc::new(backup::runner::ActiveBackups::new()),
@@ -274,6 +279,8 @@ pub fn run() {
             // Logs
             commands::logs::export_logs,
             commands::logs::get_logs_directory,
+            commands::logs::get_pending_crash_reports,
+            commands::logs::acknowledge_crash_reports,
             commands::logs::log_frontend_message,
             // Export
             commands::export::start_export,
@@ -373,7 +380,25 @@ pub fn run() {
             commands::ai::ai_save_api_key,
             commands::ai::ai_delete_api_key,
             commands::ai::ai_get_provider_status,
+            commands::ai::ai_list_models,
+            commands::ai::ai_get_local_runtime_status,
+            commands::ai::ai_check_local_runtime_update,
+            commands::ai::ai_start_local_runtime,
+            commands::ai::ai_stop_local_runtime,
+            commands::ai::ai_install_local_runtime,
+            commands::ai::ai_cancel_local_runtime_installation,
+            commands::ai::ai_check_provider,
             commands::ai::ai_generate_filters,
+            // Database Agent commands
+            commands::agent::agent_send_message,
+            commands::agent::agent_respond_permission,
+            commands::agent::agent_cancel,
+            commands::chat::chat_list_conversations,
+            commands::chat::chat_load_conversation,
+            commands::chat::chat_save_conversation,
+            commands::chat::chat_rename_conversation,
+            commands::chat::chat_delete_conversation,
+            commands::chat::chat_generate_title,
             commands::data_generator::generate_seed_data,
             // Data Contracts commands (Pro)
             #[cfg(feature = "pro")]

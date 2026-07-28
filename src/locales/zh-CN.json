@@ -429,6 +429,7 @@
     "footerHint": "点击结果打开对应表"
   },
   "tabs": {
+    "newTab": "新建标签页",
     "new": "新建标签页",
     "newQuery": "新建查询（{{modifier}}+T）",
     "newNotebook": "新建笔记本",
@@ -665,8 +666,6 @@
     "storeHistoryDescription": "在本地保存脱敏历史记录以便回顾。",
     "storeErrorLogs": "存储错误日志",
     "storeErrorLogsDescription": "保存脱敏的错误详情以辅助调试。",
-    "analyticsEnabled": "分享匿名使用分析",
-    "analyticsEnabledDescription": "通过发送匿名事件帮助改进 QoreDB（不包含查询或凭据）。",
     "sandbox": {
       "title": "沙盒",
       "description": "自定义沙盒更改的跟踪和显示方式。",
@@ -1012,7 +1011,8 @@
       "indexed": "已索引",
       "indexComposite": "已索引（复合索引：{{name}}）",
       "unique": "唯一约束",
-      "copySuccess": "行已复制到剪贴板"
+      "copySuccess": "行已复制到剪贴板",
+      "sortScansTable": "按该列排序没有可用索引：引擎将对整张表排序。"
     },
     "rowsSelected": "已选择 {{count}} 行",
     "rowsTotal": "共 {{count}} 行",
@@ -1027,9 +1027,22 @@
     "lastPage": "最后一页",
     "infiniteScroll": {
       "loaded": "已加载 {{total}} 行中的 {{loaded}} 行",
+      "loadedUnknown": "已加载 {{loaded}} 行",
       "allLoaded": "已加载全部 {{total}} 行",
       "loading": "正在加载更多…",
-      "complete": "结果已全部加载"
+      "calculateTotal": "计算精确总数",
+      "countingTotal": "正在计算总数…",
+      "countTotalError": "无法计算精确总数",
+      "complete": "结果已全部加载",
+      "cancelCount": "取消",
+      "cancelCountBestEffortLabel": "取消（尽力而为）",
+      "cancelCountBestEffort": "该驱动无法保证取消：计数可能仍在服务端继续运行。",
+      "loadedEstimated": "已加载 {{loaded}} 行，共约 {{total}} 行（估算）",
+      "estimateHint": "这是引擎估算值，并非精确计数。",
+      "estimateAsOf": "统计信息最后更新于 {{date}}。",
+      "windowExhausted": "已加载 {{loaded}} 行 — 在此深度引擎不再返回更多页",
+      "budgetExhausted": "已加载 {{loaded}} 行 — 该标签页已达到内存上限",
+      "budgetExhaustedHint": "请用筛选条件缩小结果，或导出表格以查看全部内容。"
     },
     "noData": "无数据显示",
     "noResults": "无结果",
@@ -1066,9 +1079,14 @@
     "exportSuccess": "已导出 {{count}} 行到 {{path}}",
     "exportError": "导出数据失败",
     "copyToClipboard": "复制到剪贴板",
+    "copySelection": "复制选中的 {{count}} 行",
+    "copyLoadedRows": "复制已加载的 {{count}} 行",
+    "selectAllRows": "选择已加载的行",
+    "selectRow": "选择行",
     "downloadToFile": "下载到文件",
     "openRow": "打开行",
     "editCell": "编辑单元格",
+    "cellPreviewTruncated": "预览 — 打开该行以查看完整值",
     "searchPlaceholder": "搜索…",
     "columns": "列",
     "toggleColumns": "切换列显示",
@@ -1098,6 +1116,25 @@
       "generate": "生成",
       "apply": "应用筛选",
       "empty": "无法从该请求推导出筛选条件。"
+    },
+    "searchScope": {
+      "title": "搜索范围",
+      "description": "搜索覆盖的列，以及词条的匹配方式。",
+      "mode": {
+        "contains": "包含",
+        "starts_with": "开头匹配"
+      },
+      "cost": {
+        "leading_wildcard": "“包含”搜索无法使用索引：引擎需读取每一行。",
+        "multi_column": "同时搜索多个列无法使用索引。",
+        "no_index": "该列没有可供前缀搜索使用的索引。"
+      }
+    },
+    "createIndexForSort": "为该列创建索引",
+    "createIndexUnsupported": "该驱动不支持创建索引。",
+    "pagination": {
+      "unstableOrder": "顺序不稳定",
+      "unstableOrderHint": "该表没有可用于分页的唯一键：滚动期间数据发生变化时，某行可能重复出现或被跳过。"
     }
   },
   "export": {
@@ -1417,7 +1454,26 @@
     "exportVisible": "导出可见日志",
     "exportDiagnostic": "导出诊断日志（完整）",
     "exportSuccess": "日志已导出：{{name}}",
+    "exportScrubbed": "凭据、令牌和您的主目录路径已在写入文件前移除。",
     "exportError": "导出日志失败"
+  },
+  "paginationDiagnostics": {
+    "title": "分页诊断",
+    "description": "当前会话按标签页的测量值。不记录表名、单元格值和游标。",
+    "empty": "本次会话尚未浏览任何表。",
+    "scope": "标签页",
+    "pages": "页数",
+    "rows": "行数",
+    "firstPage": "首页",
+    "p50": "页面 p50",
+    "p95": "页面 p95",
+    "firstSearch": "首次搜索",
+    "exactCounts": "精确计数",
+    "errors": "错误",
+    "copy": "复制报告",
+    "copied": "报告已复制到剪贴板",
+    "copyError": "复制报告失败",
+    "reset": "重置"
   },
   "dbtree": {
     "emptyNamespaces": "æªæ¾å°æ°æ®åºææ¶æ",
@@ -1601,13 +1657,13 @@
     "welcome": {
       "title": "欢迎使用 QoreDB",
       "subtitle": "面向现代开发者的通用数据库客户端。",
-      "tagline": "12 种驱动 · SQL + NoSQL · Rust 驱动 · 本地优先",
+      "tagline": "16 种驱动 · SQL + NoSQL · Rust 驱动 · 本地优先",
       "next": "开始导览"
     },
     "capabilities": {
       "title": "QoreDB 能做什么",
       "subtitle": "一款应用覆盖完整的数据库工作流 — 无需在多个工具间切换。",
-      "driversTitle": "12 种原生驱动",
+      "driversTitle": "16 种原生驱动",
       "driversDesc": "PostgreSQL、MySQL、SQL Server、SQLite、DuckDB、CockroachDB、ClickHouse、MongoDB、Redis 等。",
       "aiTitle": "AI 助手",
       "aiDesc": "结合完整的 Schema 上下文生成、修复和解释 SQL/MQL。支持自带 OpenAI、Anthropic 或本地 Ollama 密钥。",
@@ -1625,15 +1681,15 @@
       "guardsDesc": "危险查询在生产环境中会被检测并需要二次确认。任意连接均可一键切换为只读模式。",
       "sandboxTitle": "沙盒模式",
       "sandboxDesc": "在本地暂存并检查数据表格编辑，准备就绪后再应用到数据库。SQL 编辑器中的查询不会被沙盒隔离。",
-      "localTitle": "数据不离开本机",
-      "localDesc": "无云同步、无数据遥测、无远程 Schema 索引。您的查询和结果始终保留在本地。"
+      "localTitle": "您的数据不会离开本机",
+      "localDesc": "无云同步、完全无遥测、无远程 Schema 索引。您的查询和结果始终保留在本地。唯一的例外是启动时向 GitHub 检查更新，可在设置中关闭。"
     },
     "tiers": {
       "title": "开放核心 — 免费版与 Pro 版",
       "subtitle": "QoreDB 是开源软件。Pro 专为能带来实际价值的工作负载而设计。",
       "freeLabel": "免费版",
       "freeFor": "个人项目与探索",
-      "freeBullet1": "全部 12 种数据库驱动",
+      "freeBullet1": "全部 16 种数据库驱动",
       "freeBullet2": "查询编辑器、笔记本、ER 图",
       "freeBullet3": "自带 AI 密钥",
       "proLabel": "Pro",
@@ -1643,24 +1699,35 @@
       "proBullet3": "数据合约、即时数据 API、高级导出",
       "footnote": "Pro 为一次性付款，永久授权。Team 为按席位订阅。"
     },
-    "analytics": {
-      "title": "帮助我们改进",
-      "subtitle": "我们是一个开源项目。匿名使用数据帮助我们确定功能优先级并修复错误 — 您可以随时在设置中更改此选项。",
-      "checkbox": "分享匿名使用分析（推荐）",
-      "privacyHint": "我们仅收集崩溃报告和功能使用计数。查询、结果或凭据绝不会离开您的设备。",
-      "guarantee": "无论此设置如何，您的查询、结果和凭据都不会离开本机。",
-      "finish": "开始使用"
-    },
     "workspace": {
       "title": "用工作区整理",
       "description": "您有多个连接。创建工作区按项目分组，通过 Git 与团队共享。"
-    }
+    },
+    "finish": "开始使用"
   },
   "errorBoundary": {
     "title": "出现了问题",
     "description": "发生了意外错误。错误已被记录。",
     "reload": "重新加载应用程序",
     "panelCrashed": "此面板遇到了错误"
+  },
+  "crashReport": {
+    "toastTitle": "QoreDB 意外退出",
+    "toastDescription": "崩溃报告已保存到您的设备。",
+    "toastAction": "查看报告",
+    "title": "崩溃报告",
+    "subtitle": "{{kind}} — {{date}}",
+    "others_one": "还有 {{count}} 份待处理的报告。",
+    "others_other": "还有 {{count}} 份待处理的报告。",
+    "privacyNote": "该报告保留在您的设备上。凭据和个人路径已被移除。未经您操作不会发送任何内容。",
+    "copy": "复制",
+    "copied": "已复制报告",
+    "copyError": "无法复制报告",
+    "openFolder": "打开文件夹",
+    "openFolderError": "无法打开日志文件夹",
+    "report": "在 GitHub 上反馈",
+    "dismiss": "关闭",
+    "issueWhatHappened": "崩溃时您正在进行的操作"
   },
   "sandbox": {
     "activate": "沙盒",
@@ -2369,6 +2436,7 @@
     "dismiss": "不，谢谢"
   },
   "ai": {
+    "newConversation": "新建会话",
     "title": "AI 助手",
     "promptPlaceholder": "描述您想要生成的查询…",
     "insertQuery": "插入到编辑器",
@@ -2391,12 +2459,97 @@
       "title": "AI 提供商",
       "description": "配置用于 AI 查询生成的 API 密钥。",
       "defaultModel": "默认模型",
+      "ready": "就绪",
+      "notInstalled": "未安装",
+      "recommended": "推荐",
+      "external": "外部",
+      "qoreLocalDescription": "QoreDB 在此设备上运行模型。数据库上下文和结果不会离开本机。",
+      "runtimeTarget": "运行时目标：{{platform}} · {{architecture}}",
+      "installComing": "此版本尚未提供安全的运行时和模型下载流程。",
+      "installDescription": "下载并验证本地引擎和模型（{{size}}）。中断的下载可以继续。",
+      "installLocal": "安装 Qore AI Local",
+      "updateDescription": "有可用的已签名 Qore AI Local 更新（{{version}}）。将下载并验证 {{size}}。",
+      "updateLocal": "更新 Qore AI Local",
+      "cancelInstall": "取消安装",
+      "downloading": "正在下载",
+      "verifying": "正在验证",
+      "installing": "正在安装",
+      "completed": "已完成",
+      "cancelled": "已取消",
+      "error": "错误",
+      "runtimeArtifact": "运行时",
+      "modelArtifact": "模型",
+      "downloadProgress": "{{current}} / {{total}}",
+      "startRuntime": "启动运行时",
+      "stopRuntime": "停止运行时",
+      "endpoint": "本地端点",
+      "active": "已启用",
+      "useProvider": "设为默认",
+      "activeTitle": "当前 AI 引擎",
+      "activeDescription": "Qore AI 和查询助手使用的提供商与模型。",
+      "providersTitle": "AI 引擎和提供商",
+      "providersDescription": "管理本地引擎和第三方提供商凭据。",
+      "dataTitle": "与 AI 共享的数据",
+      "dataDescription": "控制哪些数据库上下文可以包含在 AI 请求中。",
+      "localDataNotice": "{{provider}} 在本地处理请求，不会向云端 AI 提供商发送数据。",
+      "cloudDataNotice": "架构上下文和已启用的示例数据可能会发送给 {{provider}}。",
       "local": "本地",
       "configured": "已配置",
       "notConfigured": "未配置",
       "enterKey": "输入 API 密钥…",
       "deleteKey": "删除 API 密钥",
-      "ollamaHint": "Ollama 在本地运行 — 无需 API 密钥。请确保 Ollama 正在您的机器上运行。"
+      "ollamaHint": "Ollama 在本地运行 — 无需 API 密钥。请确保 Ollama 正在您的机器上运行。",
+      "sampleRows": "示例行",
+      "sampleRowsDescription": "与 AI 共享少量示例行以改进建议。除非在下方允许,敏感列仍保持脱敏。",
+      "sensitiveData": "敏感数据",
+      "sensitiveDataDescription": "允许 AI 查看敏感值(邮箱、姓名、电话等)。关闭时,这些列会在发送给提供商之前被脱敏。"
+    }
+  },
+  "agentChat": {
+    "model": "模型",
+    "title": "Qore AI",
+    "openChat": "打开 Qore AI",
+    "conversations": "会话",
+    "collapseConversations": "收起对话列表",
+    "showConversations": "显示对话列表",
+    "newConversation": "新建会话",
+    "noConversations": "暂无会话",
+    "untitled": "未命名",
+    "rename": "重命名",
+    "delete": "删除",
+    "promptPlaceholder": "向 Q 询问您的数据库…",
+    "send": "发送",
+    "cancel": "停止",
+    "thinking": "Q 正在思考…",
+    "emptyState": "认识 Q",
+    "emptyHint": "向您的数据库提问。Q 会探索数据库结构、执行只读查询并基于真实数据回答。写入操作始终需要您的确认。",
+    "noConnection": "请先连接数据库。",
+    "noApiKey": "请在设置中配置 AI 服务商的 API 密钥以使用智能体。",
+    "activity": {
+      "inProgress": "Q 正在探索",
+      "complete": "Q 已探索您的数据库",
+      "steps_other": "{{count}} 个步骤"
+    },
+    "error": {
+      "forbiddenHint": "API 密钥已被接受，但无权使用此项目、模型或操作。请检查项目权限和模型访问权限。",
+      "openAiRequestHint": "此 OpenAI 响应并不能证明密钥缺少权限。QoreDB 会自动重试；如果问题持续，请在 OpenAI Logs 中使用该请求 ID。",
+      "requestId": "请求 ID"
+    },
+    "permission": {
+      "allow": "允许",
+      "allowAlways": "始终允许",
+      "deny": "拒绝",
+      "approved": "已允许",
+      "denied": "已拒绝"
+    },
+    "tool": {
+      "truncated": "共 {{count}} 行，仅显示前若干行"
+    },
+    "usage": {
+      "tokens": "{{value}} 个 token",
+      "iterations": "{{count}} 次迭代",
+      "cached": "{{percent}}% 来自缓存",
+      "conversationTotal": "本对话已使用的 token"
     }
   },
   "federation": {

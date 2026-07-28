@@ -198,7 +198,9 @@ impl ParquetExportWriter {
                 STANDARD.encode(b)
             }
             Value::Json(j) => j.to_string(),
-            Value::Array(arr) => serde_json::to_string(arr).unwrap_or_else(|_| "[]".to_string()),
+            Value::Array(arr) => {
+                serde_json::Value::Array(arr.iter().map(Value::to_json).collect()).to_string()
+            }
         }
     }
 }
@@ -257,8 +259,8 @@ impl ExportWriter for ParquetExportWriter {
                 .close()
                 .map_err(|e| format!("Failed to finalize Parquet file: {}", e))?;
 
-            for rg in file_meta.row_groups {
-                self.bytes_written += rg.total_byte_size as u64;
+            for rg in file_meta.row_groups() {
+                self.bytes_written += rg.total_byte_size() as u64;
             }
         }
 
@@ -267,5 +269,106 @@ impl ExportWriter for ParquetExportWriter {
 
     fn bytes_written(&self) -> u64 {
         self.bytes_written
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use arrow::array::Array;
+    use parquet::arrow::arrow_reader::ParquetRecordBatchReaderBuilder;
+
+    use super::*;
+
+    fn column(name: &str, data_type: &str) -> ColumnInfo {
+        ColumnInfo {
+            name: name.into(),
+            data_type: data_type.into(),
+            nullable: true,
+        }
+    }
+
+    #[tokio::test]
+    async fn writes_a_snappy_compressed_round_trip() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let output_path = temp_dir.path().join("export.parquet");
+        let columns = vec![
+            column("enabled", "BOOLEAN"),
+            column("count", "BIGINT"),
+            column("ratio", "DOUBLE"),
+            column("payload", "BLOB"),
+            column("label", "TEXT"),
+        ];
+        let rows = [
+            Row {
+                values: vec![
+                    Value::Bool(true),
+                    Value::Int(42),
+                    Value::Float(3.5),
+                    Value::Bytes(vec![1, 2, 3]),
+                    Value::Text("hello".to_string()),
+                ],
+            },
+            Row {
+                values: vec![Value::Null; columns.len()],
+            },
+        ];
+
+        let mut writer = ParquetExportWriter::new(output_path.to_string_lossy().into_owned());
+        writer.write_header(&columns).await.unwrap();
+        for row in &rows {
+            writer.write_row(&columns, row).await.unwrap();
+        }
+        writer.finish().await.unwrap();
+
+        assert!(writer.bytes_written() > 0);
+
+        let builder =
+            ParquetRecordBatchReaderBuilder::try_new(std::fs::File::open(output_path).unwrap())
+                .unwrap();
+        assert_eq!(
+            builder.metadata().row_group(0).column(0).compression(),
+            Compression::SNAPPY
+        );
+
+        let mut reader = builder.build().unwrap();
+        let batch = reader.next().unwrap().unwrap();
+        assert_eq!(batch.num_rows(), 2);
+
+        let enabled = batch
+            .column(0)
+            .as_any()
+            .downcast_ref::<BooleanArray>()
+            .unwrap();
+        let count = batch
+            .column(1)
+            .as_any()
+            .downcast_ref::<Int64Array>()
+            .unwrap();
+        let ratio = batch
+            .column(2)
+            .as_any()
+            .downcast_ref::<Float64Array>()
+            .unwrap();
+        let payload = batch
+            .column(3)
+            .as_any()
+            .downcast_ref::<BinaryArray>()
+            .unwrap();
+        let label = batch
+            .column(4)
+            .as_any()
+            .downcast_ref::<StringArray>()
+            .unwrap();
+
+        assert!(enabled.value(0));
+        assert_eq!(count.value(0), 42);
+        assert_eq!(ratio.value(0), 3.5);
+        assert_eq!(payload.value(0), &[1, 2, 3]);
+        assert_eq!(label.value(0), "hello");
+        assert!(enabled.is_null(1));
+        assert!(count.is_null(1));
+        assert!(ratio.is_null(1));
+        assert!(payload.is_null(1));
+        assert!(label.is_null(1));
     }
 }

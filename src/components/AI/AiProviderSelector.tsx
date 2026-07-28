@@ -14,13 +14,13 @@ import { AI_PROVIDERS, type AiProvider } from '@/lib/ai';
 interface AiProviderSelectorProps {
   provider: AiProvider;
   onProviderChange: (provider: AiProvider) => void;
-  providerHasKey?: Record<AiProvider, boolean>;
+  providerReady?: Record<AiProvider, boolean>;
 }
 
 export function AiProviderSelector({
   provider,
   onProviderChange,
-  providerHasKey,
+  providerReady,
 }: AiProviderSelectorProps) {
   const { t } = useTranslation();
 
@@ -31,17 +31,17 @@ export function AiProviderSelector({
       </SelectTrigger>
       <SelectContent>
         {AI_PROVIDERS.map(p => {
-          const hasKey = providerHasKey ? providerHasKey[p.id] : true;
+          const ready = providerReady ? providerReady[p.id] : true;
           return (
-            <SelectItem key={p.id} value={p.id}>
+            <SelectItem key={p.id} value={p.id} disabled={!ready}>
               <span className="flex items-center gap-1.5">
                 {p.label}
-                {!p.requiresKey && (
+                {p.kind !== 'cloud' && (
                   <span className="text-[10px] px-1 py-0.5 rounded bg-muted text-muted-foreground">
                     {t('ai.ollamaLocal')}
                   </span>
                 )}
-                {p.requiresKey && !hasKey && <AlertCircle size={12} className="text-warning" />}
+                {!ready && <AlertCircle size={12} className="text-warning" />}
               </span>
             </SelectItem>
           );

@@ -3,6 +3,7 @@
 //! QoreService — Tauri-free service layer shared by every QorePlatform surface
 //! (desktop, CLI, MCP, server).
 
+pub mod agent_tools;
 pub mod cache;
 pub mod connection;
 pub mod context;

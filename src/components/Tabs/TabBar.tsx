@@ -1,10 +1,16 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { Reorder } from 'framer-motion';
-import { Plus } from 'lucide-react';
+import { FileCode, Plus } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Tooltip } from '@/components/ui/tooltip';
+import { QoreAiMonoMark } from '@/components/Brand/QoreAiMark';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { getModifierKey } from '@/utils/platform';
 import { TabButton } from './TabButton';
 import { TabContextMenu } from './TabContextMenu';
@@ -22,6 +28,7 @@ interface TabBarProps {
   onSelect?: (id: string) => void;
   onClose?: (id: string) => void;
   onNew?: () => void;
+  onNewChat?: () => void;
   onReorder?: (tabs: TabItem[]) => void;
   onTogglePin?: (tabId: string) => void;
 }
@@ -35,6 +42,7 @@ export function TabBar({
   onSelect,
   onClose,
   onNew,
+  onNewChat,
   onReorder,
   onTogglePin,
 }: TabBarProps) {
@@ -197,16 +205,29 @@ export function TabBar({
             <TabListDropdown tabs={tabs} activeId={activeId} onSelect={onSelect} />
           )}
 
-          <Tooltip content={t('tabs.newQuery', { modifier: getModifierKey() })}>
-            <button
-              type="button"
-              aria-label={t('tabs.newQuery', { modifier: getModifierKey() })}
-              className="flex items-center justify-center w-8 h-8 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--q-accent)]"
-              onClick={onNew}
-            >
-              <Plus size={16} />
-            </button>
-          </Tooltip>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                aria-label={t('tabs.newTab')}
+                className="flex items-center justify-center w-8 h-8 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--q-accent)]"
+              >
+                <Plus size={16} />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={onNew}>
+                <FileCode size={14} />
+                {t('tabs.newQuery', { modifier: getModifierKey() })}
+              </DropdownMenuItem>
+              {onNewChat && (
+                <DropdownMenuItem onClick={onNewChat}>
+                  <QoreAiMonoMark className="text-muted-foreground" />
+                  {t('agentChat.newConversation')}
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 

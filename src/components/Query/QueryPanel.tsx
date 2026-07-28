@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { AiAssistantPanel } from '@/components/AI/AiAssistantPanel';
-import { AnalyticsService } from '@/components/Onboarding/AnalyticsService';
 import { UI_EVENT_OPEN_HISTORY } from '@/lib/events/uiEvents';
 import { createNotebookTab } from '@/lib/tabs';
 import { recordQueryAndMaybeNotify } from '@/lib/usageBanner';
@@ -505,11 +504,6 @@ export function QueryPanel({
             });
 
             if (kind === 'query') {
-              AnalyticsService.capture('query_executed', {
-                dialect: queryDialect,
-                driver: dialect,
-                row_count: enrichedResult.rows.length,
-              });
               recordQueryAndMaybeNotify(tier, t);
               incrementTransactionStatements();
             }
@@ -766,10 +760,11 @@ export function QueryPanel({
     setQuery(prev => MONGO_TEMPLATES[templateKey] ?? prev);
   }, []);
 
-  const handleFormat = useCallback(() => {
+  const handleFormat = useCallback(async () => {
     if (isDocument) return;
-    const formatted = formatSql(query, dialect);
-    setQuery(formatted);
+    const queryToFormat = query;
+    const formatted = await formatSql(queryToFormat, dialect);
+    setQuery(current => (current === queryToFormat ? formatted : current));
   }, [dialect, isDocument, query]);
 
   const handleConvertToNotebook = useCallback(() => {

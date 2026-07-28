@@ -38,17 +38,18 @@ use async_trait::async_trait;
 use chrono::{DateTime, Duration, NaiveDate, NaiveTime, SecondsFormat, Utc};
 use tokio::sync::RwLock;
 
+use qore_core::cursor::KeysetPlan;
 use qore_core::error::{EngineError, EngineResult};
 use qore_core::traits::{DataEngine, StreamEvent, StreamSender};
 use qore_core::types::{
     CancelSupport, Collection, CollectionList, CollectionListOptions, CollectionType, ColumnInfo,
     ConnectionConfig, FilterOperator, ForeignKey, MaintenanceMessage, MaintenanceMessageLevel,
     MaintenanceOperationInfo, MaintenanceOperationType, MaintenanceRequest, MaintenanceResult,
-    Namespace, PaginatedQueryResult, QueryId, QueryResult, Routine, RoutineDefinition, RoutineList,
-    RoutineListOptions, RoutineOperationResult, RoutineType, Row as QRow, RowData, Sequence,
-    SequenceDefinition, SequenceList, SequenceListOptions, SequenceOperationResult, SessionId,
-    SortDirection, TableColumn, TableIndex, TableQueryOptions, TableSchema, TruncateAllResult,
-    Value,
+    Namespace, PaginatedQueryResult, PaginationCapability, QueryId, QueryResult, Routine,
+    RoutineDefinition, RoutineList, RoutineListOptions, RoutineOperationResult, RoutineType,
+    Row as QRow, RowData, SearchMode, Sequence, SequenceDefinition, SequenceList,
+    SequenceListOptions, SequenceOperationResult, SessionId, SnapshotSupport, SortDirection,
+    TableColumn, TableIndex, TableQueryOptions, TableSchema, TruncateAllResult, Value,
 };
 use qore_sql::safety;
 
@@ -1499,9 +1500,23 @@ impl DataEngine for DuckDbDriver {
 
         let page = options.effective_page();
         let page_size = options.effective_page_size();
+        let fetch_size = options.fetch_size();
         let offset = options.offset();
+        // Registers the statement so `cancel` can reach the interrupt handle;
+        // without it an exact count would run to completion.
+        let query_id = options.query_id.unwrap_or_default();
+        let keyset = options
+            .keyset_applies()
+            .then(|| {
+                KeysetPlan::new(
+                    options.sort_column.as_deref(),
+                    matches!(options.sort_direction, Some(SortDirection::Desc)),
+                    options.effective_keyset_columns(),
+                )
+            })
+            .flatten();
 
-        Self::with_conn(&duck_session, move |conn| {
+        Self::with_query_conn(&duck_session, query_id, move |conn| {
             let start = Instant::now();
             let table_ref = format!(
                 "{}.{}",
@@ -1584,44 +1599,56 @@ impl DataEngine for DuckDbDriver {
                 }
             }
 
-            if let Some(ref search_term) = options.search {
-                if !search_term.trim().is_empty() {
-                    if let Ok(mut col_stmt) = conn.prepare(
-                        "SELECT column_name, data_type FROM information_schema.columns \
+            if let Some(search_term) = options.effective_search() {
+                if let Some(scope) = options.effective_search_columns() {
+                    // Caller-supplied scope: no information_schema round-trip.
+                    let anchored = options.effective_search_mode() == SearchMode::StartsWith;
+                    let mut search_clauses: Vec<String> = Vec::new();
+                    for col_name in scope {
+                        bind_values.push(DuckValue::Text(options.search_pattern(search_term)));
+                        let col_ident = Self::quote_ident(col_name);
+                        search_clauses.push(if anchored {
+                            format!("{} LIKE ?", col_ident)
+                        } else {
+                            format!("CAST({} AS VARCHAR) ILIKE ?", col_ident)
+                        });
+                    }
+                    if !search_clauses.is_empty() {
+                        where_clauses.push(format!("({})", search_clauses.join(" OR ")));
+                    }
+                } else if let Ok(mut col_stmt) = conn.prepare(
+                    "SELECT column_name, data_type FROM information_schema.columns \
                          WHERE table_schema = ?1 AND table_name = ?2",
-                    ) {
-                        if let Ok(col_rows) = col_stmt.query_map([&schema_name, &table], |row| {
-                            let name: String = row.get(0)?;
-                            let dtype: String = row.get(1)?;
-                            Ok((name, dtype))
-                        }) {
-                            let mut search_clauses: Vec<String> = Vec::new();
-                            for row in col_rows {
-                                if let Ok((col_name, dtype)) = row {
-                                    let upper = dtype.to_uppercase();
-                                    if upper.contains("BLOB") {
-                                        continue;
-                                    }
+                ) {
+                    if let Ok(col_rows) = col_stmt.query_map([&schema_name, &table], |row| {
+                        let name: String = row.get(0)?;
+                        let dtype: String = row.get(1)?;
+                        Ok((name, dtype))
+                    }) {
+                        let mut search_clauses: Vec<String> = Vec::new();
+                        for row in col_rows {
+                            if let Ok((col_name, dtype)) = row {
+                                let upper = dtype.to_uppercase();
+                                if upper.contains("BLOB") {
+                                    continue;
+                                }
 
-                                    let col_ident = Self::quote_ident(&col_name);
-                                    bind_values.push(DuckValue::Text(format!("%{}%", search_term)));
+                                let col_ident = Self::quote_ident(&col_name);
+                                bind_values.push(DuckValue::Text(format!("%{}%", search_term)));
 
-                                    if upper.contains("VARCHAR")
-                                        || upper.contains("TEXT")
-                                        || upper.contains("CHAR")
-                                    {
-                                        search_clauses.push(format!("{} ILIKE ?", col_ident));
-                                    } else {
-                                        search_clauses.push(format!(
-                                            "CAST({} AS VARCHAR) ILIKE ?",
-                                            col_ident
-                                        ));
-                                    }
+                                if upper.contains("VARCHAR")
+                                    || upper.contains("TEXT")
+                                    || upper.contains("CHAR")
+                                {
+                                    search_clauses.push(format!("{} ILIKE ?", col_ident));
+                                } else {
+                                    search_clauses
+                                        .push(format!("CAST({} AS VARCHAR) ILIKE ?", col_ident));
                                 }
                             }
-                            if !search_clauses.is_empty() {
-                                where_clauses.push(format!("({})", search_clauses.join(" OR ")));
-                            }
+                        }
+                        if !search_clauses.is_empty() {
+                            where_clauses.push(format!("({})", search_clauses.join(" OR ")));
                         }
                     }
                 }
@@ -1644,18 +1671,49 @@ impl DataEngine for DuckDbDriver {
                 String::new()
             };
 
-            let count_sql = format!("SELECT COUNT(*) AS cnt FROM {}{}", table_ref, where_sql);
-            let total_rows: i64 = conn
-                .query_row(&count_sql, params_from_iter(bind_values.iter()), |row| {
-                    row.get(0)
-                })
-                .map_err(|e| EngineError::execution_error(e.to_string()))?;
-            let total_rows = total_rows.max(0) as u64;
+            let total_rows = if options.wants_any_total() {
+                let count_sql = format!("SELECT COUNT(*) AS cnt FROM {}{}", table_ref, where_sql);
+                let total_rows: i64 = conn
+                    .query_row(&count_sql, params_from_iter(bind_values.iter()), |row| {
+                        row.get(0)
+                    })
+                    .map_err(|e| EngineError::execution_error(e.to_string()))?;
+                Some(total_rows.max(0) as u64)
+            } else {
+                None
+            };
 
-            let data_sql = format!(
-                "SELECT * FROM {}{}{} LIMIT {} OFFSET {}",
-                table_ref, where_sql, order_sql, page_size, offset
-            );
+            // Cursor binds are appended after the filter binds, so the count
+            // above keeps counting the filtered set rather than the remainder.
+            let mut cursor_sql = String::new();
+            if let (Some(plan), Some(encoded)) = (keyset.as_ref(), options.cursor.as_deref()) {
+                cursor_sql = plan.predicate(|col| Self::quote_ident(col), |_| "?".to_string());
+                // `?` consumes one bound value per occurrence, and the expanded
+                // predicate names each earlier key again in every later branch.
+                for value in plan.positional_values(&plan.decode(encoded)?.values) {
+                    bind_values.push(value_to_duckdb(&value));
+                }
+            }
+
+            let data_sql = if let Some(plan) = keyset.as_ref() {
+                let data_where = match (where_sql.is_empty(), cursor_sql.is_empty()) {
+                    (_, true) => where_sql.clone(),
+                    (true, false) => format!(" WHERE {}", cursor_sql),
+                    (false, false) => format!("{} AND {}", where_sql, cursor_sql),
+                };
+                format!(
+                    "SELECT * FROM {} {} ORDER BY {} LIMIT {}",
+                    table_ref,
+                    data_where,
+                    plan.order_by(|col| Self::quote_ident(col)),
+                    fetch_size
+                )
+            } else {
+                format!(
+                    "SELECT * FROM {}{}{} LIMIT {} OFFSET {}",
+                    table_ref, where_sql, order_sql, fetch_size, offset
+                )
+            };
 
             let mut stmt = conn
                 .prepare(&data_sql)
@@ -1689,9 +1747,29 @@ impl DataEngine for DuckDbDriver {
                 execution_time_ms,
             };
 
-            Ok(PaginatedQueryResult::new(
-                result, total_rows, page, page_size,
-            ))
+            let mut paginated =
+                PaginatedQueryResult::from_optional_total(result, total_rows, page, page_size);
+
+            if let Some(plan) = keyset.as_ref() {
+                // After truncation: the over-fetched row must never become the
+                // boundary, or one row is skipped per page.
+                let next_cursor = paginated
+                    .has_more
+                    .then(|| {
+                        let last = paginated.result.rows.last()?;
+                        let columns: Vec<String> = paginated
+                            .result
+                            .columns
+                            .iter()
+                            .map(|col| col.name.to_string())
+                            .collect();
+                        plan.mint(&columns, &last.values)
+                    })
+                    .flatten();
+                paginated = paginated.with_keyset(next_cursor);
+            }
+
+            Ok(paginated)
         })
         .await
     }
@@ -2107,6 +2185,16 @@ impl DataEngine for DuckDbDriver {
         Ok(())
     }
 
+    fn pagination_capability(&self) -> PaginationCapability {
+        PaginationCapability {
+            keyset: true,
+            requires_unique_key: true,
+            supports_backward: false,
+            snapshot: SnapshotSupport::Transaction,
+            max_offset_window: None,
+        }
+    }
+
     fn cancel_support(&self) -> CancelSupport {
         CancelSupport::Driver
     }
@@ -2380,7 +2468,7 @@ fn extract_index_columns(sql: Option<&str>) -> Vec<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use qore_core::types::{ColumnFilter, FilterOptions};
+    use qore_core::types::{ColumnFilter, CountMode, FilterOptions};
     use std::path::Path;
     use tokio::sync::mpsc;
 
@@ -2784,6 +2872,26 @@ mod tests {
             .await
             .unwrap();
 
+        let browse_page = driver
+            .query_table(
+                session,
+                &namespace,
+                "editor_rows",
+                TableQueryOptions {
+                    page: Some(1),
+                    page_size: Some(1),
+                    sort_column: Some("score".into()),
+                    sort_direction: Some(SortDirection::Desc),
+                    count_mode: Some(CountMode::None),
+                    ..Default::default()
+                },
+            )
+            .await
+            .unwrap();
+        assert_eq!(browse_page.total_rows, None);
+        assert_eq!(browse_page.result.rows.len(), 1);
+        assert!(browse_page.has_more);
+
         let page = driver
             .query_table(
                 session,
@@ -2801,11 +2909,18 @@ mod tests {
                         options: FilterOptions::default(),
                     }]),
                     search: Some("alp".into()),
+                    search_columns: None,
+                    search_mode: None,
+                    keyset_columns: None,
+                    cursor: None,
+                    count_mode: Some(CountMode::None),
+                    query_id: None,
                 },
             )
             .await
             .unwrap();
-        assert_eq!(page.total_rows, 1);
+        assert_eq!(page.total_rows, None);
+        assert!(!page.has_more);
         assert_eq!(page.result.rows.len(), 1);
         assert!(matches!(&page.result.rows[0].values[1], Value::Text(value) if value == "Alpha"));
         assert!(

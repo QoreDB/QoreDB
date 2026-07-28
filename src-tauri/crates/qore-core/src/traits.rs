@@ -11,10 +11,10 @@ use crate::types::{
     CancelSupport, CollectionList, CollectionListOptions, ColumnInfo, ConnectionConfig,
     CreationOptions, DriverCapabilities, EventDefinition, EventList, EventListOptions,
     EventOperationResult, ForeignKey, MaintenanceOperationInfo, MaintenanceRequest,
-    MaintenanceResult, Namespace, PaginatedQueryResult, QueryId, QueryResult, RoutineDefinition,
-    RoutineList, RoutineListOptions, RoutineOperationResult, RoutineType, Row, RowData,
-    SequenceDefinition, SequenceList, SequenceListOptions, SequenceOperationResult, SessionId,
-    TableQueryOptions, TableSchema, TriggerDefinition, TriggerList, TriggerListOptions,
+    MaintenanceResult, Namespace, PaginatedQueryResult, PaginationCapability, QueryId, QueryResult,
+    RoutineDefinition, RoutineList, RoutineListOptions, RoutineOperationResult, RoutineType, Row,
+    RowData, SequenceDefinition, SequenceList, SequenceListOptions, SequenceOperationResult,
+    SessionId, TableQueryOptions, TableSchema, TriggerDefinition, TriggerList, TriggerListOptions,
     TriggerOperationResult, TruncateAllResult, Value,
 };
 
@@ -399,6 +399,8 @@ pub trait DataEngine: Send + Sync {
     ) -> EngineResult<PaginatedQueryResult> {
         let page = options.effective_page();
         let page_size = options.effective_page_size();
+        // No over-fetch here: `preview_table` ignores the offset, so an extra
+        // row would only produce a `has_more` that means nothing.
         let result = self
             .preview_table(session, namespace, table, page_size)
             .await?;
@@ -441,6 +443,14 @@ pub trait DataEngine: Send + Sync {
         true
     }
 
+    /// What this driver can promise about walking a result set.
+    ///
+    /// The conservative default is offset-only with no snapshot: every driver
+    /// can do that. Promising more is an explicit act.
+    fn pagination_capability(&self) -> PaginationCapability {
+        PaginationCapability::default()
+    }
+
     /// Aggregated driver capabilities.
     fn capabilities(&self) -> DriverCapabilities {
         DriverCapabilities {
@@ -452,6 +462,7 @@ pub trait DataEngine: Send + Sync {
             streaming: self.supports_streaming(),
             explain: self.supports_explain(),
             maintenance: self.supports_maintenance(),
+            pagination: self.pagination_capability(),
         }
     }
 

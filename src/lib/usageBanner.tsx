@@ -4,7 +4,6 @@ import type { TFunction } from 'i18next';
 import { Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import type { LicenseTier } from '@/lib/license';
-import { trackProEvent } from '@/lib/licenseTracking';
 import { setProDiscoveryOpen } from '@/lib/stores/modalStore';
 import {
   getQueryCount,
@@ -28,9 +27,6 @@ export function recordQueryAndMaybeNotify(tier: LicenseTier, t: TFunction): void
   if (threshold == null) return;
 
   markUsageBannerShown(threshold);
-  trackProEvent('pro_upgrade_prompt_seen', {
-    source: `usage_banner_${threshold}`,
-  });
 
   toast(
     t('usageBanner.title', "You've run {{count}} queries with QoreDB", { count: getQueryCount() }),
@@ -44,9 +40,6 @@ export function recordQueryAndMaybeNotify(tier: LicenseTier, t: TFunction): void
       action: {
         label: t('usageBanner.cta', 'Discover Pro'),
         onClick: () => {
-          trackProEvent('pro_upgrade_cta_clicked', {
-            source: `usage_banner_${threshold}`,
-          });
           setProDiscoveryOpen(true);
         },
       },

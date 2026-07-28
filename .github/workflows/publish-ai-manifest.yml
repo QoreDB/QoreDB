@@ -1,0 +1,71 @@
+name: Publish Qore AI Local manifest
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    name: Sign and publish manifest
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 'lts/*'
+          cache: pnpm
+
+      - name: Install the pinned Tauri CLI
+        run: pnpm install --frozen-lockfile
+
+      - name: Validate manifest JSON
+        run: |
+          node -e '
+            const fs = require("node:fs");
+            const path = "src-tauri/resources/qore-ai-local-manifest-v1.json";
+            const manifest = JSON.parse(fs.readFileSync(path, "utf8"));
+            const expected = new Set([
+              "macos-aarch64", "macos-x86_64",
+              "windows-aarch64", "windows-x86_64",
+              "linux-aarch64", "linux-x86_64"
+            ]);
+            const actual = new Set(manifest.targets.map(target =>
+              `${target.os}-${target.architecture}`
+            ));
+            if (manifest.schema_version !== 1 || actual.size !== expected.size ||
+                [...expected].some(target => !actual.has(target))) {
+              throw new Error("The Qore AI manifest target matrix is incomplete");
+            }
+          '
+
+      - name: Sign byte-exact manifest
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: pnpm tauri signer sign src-tauri/resources/qore-ai-local-manifest-v1.json
+
+      - name: Create rolling prerelease if needed
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view qore-ai-local >/dev/null 2>&1 || \
+            gh release create qore-ai-local \
+              --prerelease \
+              --title "Qore AI Local distribution" \
+              --notes "Signed runtime and model manifest consumed by QoreDB."
+
+      - name: Publish manifest and signature
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload qore-ai-local \
+            src-tauri/resources/qore-ai-local-manifest-v1.json \
+            src-tauri/resources/qore-ai-local-manifest-v1.json.sig \
+            --clobber

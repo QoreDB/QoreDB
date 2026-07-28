@@ -116,7 +116,7 @@ export function useAiAssistant({
         if (chunk.request_id !== requestIdRef.current) return;
 
         if (chunk.error) {
-          finalize({ error: chunk.error });
+          finalize({ error: chunk.error.message });
           return;
         }
 

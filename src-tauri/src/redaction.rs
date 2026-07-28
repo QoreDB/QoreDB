@@ -36,6 +36,12 @@ const SENSITIVE_COLUMN_TOKENS: &[&str] = &[
     "phone",
     "mobile",
     "address",
+    "first_name",
+    "last_name",
+    "surname",
+    "given_name",
+    "family_name",
+    "full_name",
     "postal_code",
     "zip",
     "birth_date",
@@ -106,6 +112,11 @@ mod tests {
             "birth_date",
             "date_of_birth",
             "salary",
+            "first_name",
+            "firstName",
+            "last_name",
+            "surname",
+            "full_name",
         ] {
             assert!(is_sensitive_column(name), "expected to match: {name}");
         }
@@ -113,7 +124,16 @@ mod tests {
 
     #[test]
     fn ignores_benign_columns() {
-        for benign in ["id", "name", "created_at", "username", "first_name"] {
+        // Bare `name` stays benign: product/table/category names are the
+        // agent's bread and butter, only person-name shapes are PII.
+        for benign in [
+            "id",
+            "name",
+            "created_at",
+            "username",
+            "display_name",
+            "hostname",
+        ] {
             assert!(!is_sensitive_column(benign), "should not match: {benign}");
         }
     }

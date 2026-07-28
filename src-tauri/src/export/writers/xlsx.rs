@@ -72,7 +72,8 @@ impl XlsxWriter {
                     .map_err(|e| e.to_string())?;
             }
             Value::Array(arr) => {
-                let s = serde_json::to_string(arr).unwrap_or_else(|_| "[]".to_string());
+                let s =
+                    serde_json::Value::Array(arr.iter().map(Value::to_json).collect()).to_string();
                 worksheet
                     .write_string(row, col, &s)
                     .map_err(|e| e.to_string())?;

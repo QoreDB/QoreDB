@@ -22,12 +22,12 @@ import {
   Wand2,
   X,
 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import type { ProFeature } from '@/lib/license';
 import { featureRequiredTier } from '@/lib/license';
-import { dismissPrompt, isPromptDismissed, trackProEvent } from '@/lib/licenseTracking';
+import { dismissPrompt, isPromptDismissed } from '@/lib/licensePrompts';
 import { getCheckoutUrl, getPricingUrl } from '@/lib/pricing';
 import { openExternal } from '@/lib/transport';
 import { LicenseBadge } from './LicenseBadge';
@@ -66,30 +66,23 @@ interface UpgradePromptProps {
   feature: ProFeature;
   className?: string;
   variant?: 'inline' | 'compact';
-  source?: string;
   hideIfDismissed?: boolean;
 }
 
 /**
  * Contextual upgrade prompt shown when a gated feature is accessed.
- * Tracks engagement events. Follows the Design DNA: no blocking modal, no flashy animation.
+ * Follows the Design DNA: no blocking modal, no flashy animation.
  */
 export function UpgradePrompt({
   feature,
   className,
   variant = 'inline',
-  source,
   hideIfDismissed = false,
 }: UpgradePromptProps) {
   const { t } = useTranslation();
   const [locallyDismissed, setLocallyDismissed] = useState(false);
   const persistedDismissed = isPromptDismissed(feature);
   const hidden = locallyDismissed || (hideIfDismissed && persistedDismissed);
-
-  useEffect(() => {
-    if (hidden) return;
-    trackProEvent('pro_upgrade_prompt_seen', { feature, source });
-  }, [feature, source, hidden]);
 
   if (hidden) return null;
 
@@ -116,12 +109,10 @@ export function UpgradePrompt({
   ].filter(Boolean);
 
   const handleUnlock = () => {
-    trackProEvent('pro_upgrade_cta_clicked', { feature, source });
     openExternal(getCheckoutUrl(feature));
   };
 
   const handleLearnMore = () => {
-    trackProEvent('pro_upgrade_learn_more_clicked', { feature, source });
     openExternal(getPricingUrl(feature));
   };
 

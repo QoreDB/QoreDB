@@ -155,7 +155,9 @@ export function ErrorLogPanel({ isOpen, onClose }: ErrorLogPanelProps) {
 
       await writeTextFile(filePath, response.content);
       const name = filePath.split(/[\\/]/).pop() || filePath;
-      toast.success(t('logs.exportSuccess', { name }));
+      toast.success(t('logs.exportSuccess', { name }), {
+        description: t('logs.exportScrubbed'),
+      });
     } catch (err) {
       toast.error(t('logs.exportError'), {
         description: err instanceof Error ? err.message : String(err),

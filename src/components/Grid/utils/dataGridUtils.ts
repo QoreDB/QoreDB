@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { estimateByteSizeFromBase64, formatFileSize, isBinaryType } from '@/lib/binaryUtils';
+import { exactIntText, isExactInt } from '@/lib/query/exactInt';
 import type { QueryResult, Value } from '@/lib/tauri';
 
 export type RowData = Record<string, Value>;
@@ -19,6 +20,7 @@ export function formatValue(value: Value, dataType?: string): string {
   if (typeof value === 'boolean') return value ? 'true' : 'false';
   if (typeof value === 'number') return String(value);
   if (typeof value === 'string') return value;
+  if (isExactInt(value)) return exactIntText(value);
   if (typeof value === 'object') {
     if (Array.isArray(value)) return JSON.stringify(value);
     return JSON.stringify(value);
@@ -89,6 +91,70 @@ export function convertToRowData(result: QueryResult): RowData[] {
     valuesStore.set(target, row.values);
     return new Proxy(target, handler);
   });
+}
+
+/**
+ * Characters a cell shows before it becomes an excerpt. Wide enough that no
+ * ordinary column is ever cut, narrow enough that a document or a long text
+ * cannot put megabytes into the DOM for the handful of characters the column
+ * is wide.
+ */
+export const CELL_PREVIEW_LIMIT = 512;
+
+export interface CellPreview {
+  text: string;
+  /** True when the cell holds more than `text` shows. */
+  truncated: boolean;
+}
+
+/**
+ * What a grid cell displays.
+ *
+ * Deliberately separate from `formatValue`, which stays exact because copy,
+ * export and filters read it. Only the preview is cut, never the value: the
+ * full content stays one click away in the row, and everything that leaves the
+ * grid still carries it whole.
+ */
+export function formatCellPreview(value: Value, dataType?: string): CellPreview {
+  const formatted = formatValue(value, dataType);
+  if (formatted.length <= CELL_PREVIEW_LIMIT) return { text: formatted, truncated: false };
+  return { text: formatted.slice(0, CELL_PREVIEW_LIMIT), truncated: true };
+}
+
+export interface RowDataCache {
+  source: QueryResult;
+  converted: RowData[];
+}
+
+/**
+ * An infinite scroll appends: the result object is new on every page, but the
+ * rows already converted are the same objects. Rebuilding them costs one Proxy
+ * per loaded row per page, so the allocation grows with the scroll depth — a
+ * hundred pages of a hundred rows means a million proxies instead of ten
+ * thousand. Reuse the converted prefix whenever the new result extends the
+ * previous one, and fall back to a full conversion when it does not.
+ */
+export function convertToRowDataIncremental(
+  result: QueryResult,
+  cache: RowDataCache | null
+): RowDataCache {
+  const previous = cache?.source;
+  const done = previous?.rows.length ?? 0;
+  const extendsPrevious =
+    cache !== null &&
+    previous !== undefined &&
+    previous.columns === result.columns &&
+    result.rows.length >= done &&
+    (done === 0 || result.rows[done - 1] === previous.rows[done - 1]);
+
+  if (!extendsPrevious) {
+    return { source: result, converted: convertToRowData(result) };
+  }
+  if (result.rows.length === done) {
+    return { source: result, converted: cache.converted };
+  }
+  const appended = convertToRowData({ ...result, rows: result.rows.slice(done) });
+  return { source: result, converted: cache.converted.concat(appended) };
 }
 
 export function escapeCSV(value: string): string {

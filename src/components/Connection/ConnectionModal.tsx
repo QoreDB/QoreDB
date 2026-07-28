@@ -4,7 +4,6 @@ import { Check, Link2, Loader2, X } from 'lucide-react';
 import { type FormEvent, useCallback, useEffect, useId, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
-import { AnalyticsService } from '@/components/Onboarding/AnalyticsService';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -142,23 +141,11 @@ export function ConnectionModal({
 
       if (result.success) {
         setTestResult('success');
-        AnalyticsService.capture('connection_tested_success', {
-          source: 'modal',
-          driver: formData.driver,
-        });
       } else {
-        AnalyticsService.capture('connection_tested_failed', {
-          source: 'modal',
-          driver: formData.driver,
-        });
         setTestResult('error');
         setError(result.error || t('connection.testFail'));
       }
     } catch (err) {
-      AnalyticsService.capture('connection_tested_failed', {
-        source: 'modal',
-        driver: formData.driver,
-      });
       setTestResult('error');
       const errorMsg = err instanceof Error ? err.message : t('common.error');
       setError(errorMsg);
@@ -175,12 +162,6 @@ export function ConnectionModal({
       const connectionId = editConnection?.id || `conn_${Date.now()}`;
       const savedConnection = buildSavedConnection(formData, connectionId);
       await saveConnection(buildSaveConnectionInput(formData, connectionId));
-      if (!isEditMode) {
-        AnalyticsService.capture('connection_created', {
-          source: 'modal',
-          driver: formData.driver,
-        });
-      }
 
       emitUiEvent(UI_EVENT_CONNECTIONS_CHANGED);
 
@@ -193,17 +174,9 @@ export function ConnectionModal({
 
         if (connectResult.success && connectResult.session_id) {
           toast.success(t('connection.connectedSuccess'));
-          AnalyticsService.capture('connected_success', {
-            source: 'modal',
-            driver: formData.driver,
-          });
           onConnected(connectResult.session_id, savedConnection);
           requestClose();
         } else {
-          AnalyticsService.capture('connected_failed', {
-            source: 'modal',
-            driver: formData.driver,
-          });
           setError(connectResult.error || t('connection.connectFail'));
           toast.error(t('connection.connectFail'), {
             description: connectResult.error,
@@ -211,10 +184,6 @@ export function ConnectionModal({
         }
       }
     } catch (err) {
-      AnalyticsService.capture('connected_failed', {
-        source: 'modal',
-        driver: formData.driver,
-      });
       const errorMsg = err instanceof Error ? err.message : t('common.error');
       setError(errorMsg);
       toast.error(t('common.error'), { description: errorMsg });
@@ -231,12 +200,6 @@ export function ConnectionModal({
       const connectionId = editConnection?.id || `conn_${Date.now()}`;
       const savedConnection = buildSavedConnection(formData, connectionId);
       await saveConnection(buildSaveConnectionInput(formData, connectionId));
-      if (!isEditMode) {
-        AnalyticsService.capture('connection_created', {
-          source: 'modal',
-          driver: formData.driver,
-        });
-      }
 
       emitUiEvent(UI_EVENT_CONNECTIONS_CHANGED);
       toast.success(isEditMode ? t('connection.updateSuccess') : t('connection.saveSuccess'));

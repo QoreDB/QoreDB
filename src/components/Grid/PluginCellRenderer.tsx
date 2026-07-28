@@ -16,9 +16,11 @@
  */
 
 import { Check, ImageOff, MapPinOff, X } from 'lucide-react';
-import { memo, useMemo } from 'react';
-import { Area, AreaChart, Bar, BarChart, Line, LineChart, ResponsiveContainer } from 'recharts';
+import { lazy, memo, Suspense, useMemo } from 'react';
 import type { ResultViewerContribution } from '@/lib/plugins';
+import type { ChartKind } from './PluginChartCell';
+
+const PluginChartCell = lazy(() => import('./PluginChartCell'));
 
 interface PluginCellRendererProps {
   viewer: ResultViewerContribution;
@@ -93,8 +95,6 @@ function ImageCell({ value, formatted }: { value: unknown; formatted: string }) 
   );
 }
 
-type ChartKind = 'bar' | 'line' | 'area';
-
 interface ChartPayload {
   type?: ChartKind;
   data?: Array<Record<string, unknown>>;
@@ -142,41 +142,10 @@ function ChartCell({
   // default; bar is the final fallback.
   const optionKind = CHART_KINDS.find(k => k === options?.type);
   const kind: ChartKind = payload.type ?? optionKind ?? 'bar';
-  // Infer the numeric key from the first row so plugins don't have to commit
-  // to a specific field name. `name` is conventional for the X axis.
-  const sample = payload.data[0];
-  const valueKey =
-    Object.keys(sample).find(k => k !== 'name' && typeof sample[k] === 'number') ?? 'value';
   return (
-    <div className="h-12 w-full">
-      <ResponsiveContainer width="100%" height="100%">
-        {kind === 'line' ? (
-          <LineChart data={payload.data}>
-            <Line
-              type="monotone"
-              dataKey={valueKey}
-              stroke="currentColor"
-              strokeWidth={1.5}
-              dot={false}
-            />
-          </LineChart>
-        ) : kind === 'area' ? (
-          <AreaChart data={payload.data}>
-            <Area
-              type="monotone"
-              dataKey={valueKey}
-              stroke="currentColor"
-              fill="currentColor"
-              fillOpacity={0.2}
-            />
-          </AreaChart>
-        ) : (
-          <BarChart data={payload.data}>
-            <Bar dataKey={valueKey} fill="currentColor" />
-          </BarChart>
-        )}
-      </ResponsiveContainer>
-    </div>
+    <Suspense fallback={<span className="block truncate text-muted-foreground">{formatted}</span>}>
+      <PluginChartCell kind={kind} data={payload.data} />
+    </Suspense>
   );
 }
 

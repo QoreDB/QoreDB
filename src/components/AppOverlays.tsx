@@ -2,9 +2,9 @@
 
 import { memo, useEffect, useState } from 'react';
 import { ConnectionModal } from '@/components/Connection/ConnectionModal';
+import { CrashReportOverlay } from '@/components/Crash/CrashReportOverlay';
 import { ProActivationDialog } from '@/components/License/ProActivationDialog';
 import { NewsletterPromptModal } from '@/components/Newsletter/NewsletterPromptModal';
-import { AnalyticsService } from '@/components/Onboarding/AnalyticsService';
 import { OnboardingModal } from '@/components/Onboarding/OnboardingModal';
 import { QueryLibraryModal } from '@/components/Query/QueryLibraryModal';
 import { FulltextSearchPanel } from '@/components/Search/FulltextSearchPanel';
@@ -16,6 +16,7 @@ import {
 import { WhatsNewModal } from '@/components/WhatsNew/WhatsNewModal';
 import { getChangelogFor, markVersionSeen, useWhatsNew } from '@/hooks/useWhatsNew';
 import { shouldShowNewsletterPrompt } from '@/lib/newsletter';
+import { isOnboardingCompleted } from '@/lib/onboardingState';
 import {
   handleCloseConnectionModal,
   setFulltextSearchOpen,
@@ -66,7 +67,7 @@ export const AppOverlays = memo(function AppOverlays({
   useWhatsNew();
 
   useEffect(() => {
-    if (!AnalyticsService.isOnboardingCompleted()) return;
+    if (!isOnboardingCompleted()) return;
     if (shouldShowNewsletterPrompt(getQueryCount())) {
       setNewsletterPromptOpen(true);
     }
@@ -136,6 +137,7 @@ export const AppOverlays = memo(function AppOverlays({
         onClose={() => setNewsletterPromptOpen(false)}
       />
       <ProActivationDialog />
+      <CrashReportOverlay />
     </>
   );
 });

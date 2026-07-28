@@ -19,7 +19,7 @@ use uuid::Uuid;
 use qore_sql::generator::SqlDialect;
 
 use super::parse_session_id;
-use crate::engine::types::{Namespace, TableColumn, TableQueryOptions, Value};
+use crate::engine::types::{CountMode, Namespace, TableColumn, TableQueryOptions, Value};
 
 /// Rows per `INSERT` statement. SQLite caps a multi-row VALUES list at 500, so
 /// we chunk to stay portable across the supported dialects.
@@ -166,6 +166,7 @@ pub async fn generate_seed_data(
         };
         let options = TableQueryOptions {
             page_size: Some(FK_SAMPLE_SIZE),
+            count_mode: Some(CountMode::None),
             ..Default::default()
         };
 

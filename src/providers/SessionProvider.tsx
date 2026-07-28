@@ -23,6 +23,7 @@ import {
 import { shouldSaveQueryDrafts } from '@/lib/diagnostics/crashRecoverySettings';
 import { UI_EVENT_CONNECTIONS_CHANGED, UI_EVENT_WORKSPACE_CHANGED } from '@/lib/events/uiEvents';
 import { notify } from '@/lib/notify';
+import { isOnboardingCompleted } from '@/lib/onboardingState';
 import {
   handleCloseConnectionModal as closeConnectionModal,
   setSettingsOpen,
@@ -48,6 +49,10 @@ const SESSION_IDLE_TIMEOUT_MS = 30 * 60 * 1000;
 const STARTUP_PREFS_KEY = 'qoredb_startup_preferences';
 
 function shouldCheckUpdatesOnStartup(): boolean {
+  // No outbound request before the user has seen the onboarding, which is where
+  // this check is disclosed. Otherwise a fresh install contacts GitHub before
+  // anyone could have opted out.
+  if (!isOnboardingCompleted()) return false;
   try {
     const stored = localStorage.getItem(STARTUP_PREFS_KEY);
     if (!stored) return true;

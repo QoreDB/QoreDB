@@ -16,10 +16,10 @@ use qore_core::traits::{DataEngine, StreamSender};
 use qore_core::types::{
     CancelSupport, CollectionList, CollectionListOptions, ConnectionConfig, ForeignKey,
     MaintenanceOperationInfo, MaintenanceRequest, MaintenanceResult, Namespace,
-    PaginatedQueryResult, QueryId, QueryResult, RoutineDefinition, RoutineList, RoutineListOptions,
-    RoutineOperationResult, RoutineType, RowData, SessionId, TableQueryOptions, TableSchema,
-    TriggerDefinition, TriggerList, TriggerListOptions, TriggerOperationResult, TruncateAllResult,
-    Value,
+    PaginatedQueryResult, PaginationCapability, QueryId, QueryResult, RoutineDefinition,
+    RoutineList, RoutineListOptions, RoutineOperationResult, RoutineType, RowData, SessionId,
+    SnapshotSupport, TableQueryOptions, TableSchema, TriggerDefinition, TriggerList,
+    TriggerListOptions, TriggerOperationResult, TruncateAllResult, Value,
 };
 
 pub struct SupabaseDriver {
@@ -214,6 +214,16 @@ impl DataEngine for SupabaseDriver {
 
     async fn cancel(&self, session: SessionId, query_id: Option<QueryId>) -> EngineResult<()> {
         pg_compat::cancel(&self.sessions, session, query_id).await
+    }
+
+    fn pagination_capability(&self) -> PaginationCapability {
+        PaginationCapability {
+            keyset: true,
+            requires_unique_key: true,
+            supports_backward: false,
+            snapshot: SnapshotSupport::Transaction,
+            max_offset_window: None,
+        }
     }
 
     fn cancel_support(&self) -> CancelSupport {

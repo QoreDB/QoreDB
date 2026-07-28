@@ -15,7 +15,6 @@ export interface ConfigBackupV1 {
     language?: string;
     diagnostics?: DiagnosticsSettings;
     onboardingCompleted?: boolean;
-    analyticsEnabled?: boolean;
     shareProvider?: ShareProviderSettings;
   };
   safetyPolicy?: SafetyPolicy;
@@ -24,7 +23,6 @@ export interface ConfigBackupV1 {
 const THEME_KEY = 'qoredb-theme';
 const LANGUAGE_KEY = 'i18nextLng';
 const ONBOARDING_KEY = 'qoredb_onboarding_completed';
-const ANALYTICS_KEY = 'qoredb_analytics_enabled';
 const DIAGNOSTICS_KEY = 'qoredb_diagnostics_settings';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -55,7 +53,6 @@ export function buildConfigBackupV1(input: { safetyPolicy?: SafetyPolicy }): Con
       language,
       diagnostics: getDiagnosticsSettings(),
       onboardingCompleted: readBool(ONBOARDING_KEY),
-      analyticsEnabled: readBool(ANALYTICS_KEY),
       shareProvider: getShareProviderSettings(),
     },
     safetyPolicy: input.safetyPolicy,
@@ -75,7 +72,6 @@ export function applyConfigBackupV1(payload: ConfigBackupV1): {
   language?: string;
   diagnostics?: DiagnosticsSettings;
   onboardingCompleted?: boolean;
-  analyticsEnabled?: boolean;
   shareProvider?: ShareProviderSettings;
   safetyPolicy?: SafetyPolicy;
 } {
@@ -92,10 +88,6 @@ export function applyConfigBackupV1(payload: ConfigBackupV1): {
     localStorage.setItem(ONBOARDING_KEY, String(ui.onboardingCompleted));
   }
 
-  if (ui.analyticsEnabled !== undefined) {
-    localStorage.setItem(ANALYTICS_KEY, String(ui.analyticsEnabled));
-  }
-
   if (ui.shareProvider) {
     setShareProviderSettings(ui.shareProvider);
   }
@@ -105,7 +97,6 @@ export function applyConfigBackupV1(payload: ConfigBackupV1): {
     language: ui.language,
     diagnostics: ui.diagnostics,
     onboardingCompleted: ui.onboardingCompleted,
-    analyticsEnabled: ui.analyticsEnabled,
     shareProvider: ui.shareProvider,
     safetyPolicy: payload.safetyPolicy,
   };

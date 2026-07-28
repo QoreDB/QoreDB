@@ -19,7 +19,7 @@ use schemars::JsonSchema;
 use serde::Deserialize;
 use tokio::sync::Mutex;
 
-use qore_core::{CollectionListOptions, Namespace, SessionId};
+use qore_core::{Namespace, SessionId};
 use qore_service::ServiceContext;
 use qore_service::paths::{PROJECT_ID, QUERY_TIMEOUT_MS, config_dir};
 use qore_service::vault::VaultStorage;
@@ -128,88 +128,45 @@ impl QoreMcp {
         Ok(session)
     }
 
+    fn tool_ctx(&self) -> qore_service::agent_tools::AgentToolContext {
+        qore_service::agent_tools::AgentToolContext::from_service(&self.ctx)
+    }
+
     async fn do_run_query(&self, req: &RunQueryReq) -> Result<String, String> {
         let session = self.ensure_session(&req.connection_id).await?;
-        let session_id = session.0.to_string();
-
-        let pf = qore_service::query::preflight(
-            &self.ctx.session_manager,
-            &self.ctx.query_rate_limiter,
-            &self.ctx.interceptor,
-            &self.ctx.policy,
+        let result = qore_service::agent_tools::run_query(
+            &self.tool_ctx(),
             session,
-            &session_id,
             &req.query,
             None,
             false,
+            Some(QUERY_TIMEOUT_MS),
+            qore_service::interceptor::QuerySource::Mcp,
         )
         .await?;
-
-        let query_id = self.ctx.query_manager.register(session).await;
-        let outcome = qore_service::query::execute(
-            &self.ctx.query_manager,
-            &self.ctx.query_cache,
-            &self.ctx.interceptor,
-            &self.ctx.policy,
-            pf.driver,
-            &pf.context,
-            session,
-            None,
-            &req.query,
-            query_id,
-            pf.is_mutation,
-            pf.connection_key.as_deref(),
-            pf.safety_warning.as_deref(),
-            Some(QUERY_TIMEOUT_MS),
-            false,
-            None,
-            None,
-            |_, _| {},
-        )
-        .await;
-
-        if let Some(err) = outcome.error {
-            return Err(err);
-        }
-        serde_json::to_string(&outcome.result).map_err(|e| e.to_string())
+        serde_json::to_string(&result).map_err(|e| e.to_string())
     }
 
     async fn do_list_namespaces(&self, connection_id: &str) -> Result<String, String> {
         let session = self.ensure_session(connection_id).await?;
-        let driver = self
-            .ctx
-            .session_manager
-            .get_driver(session)
-            .await
-            .map_err(|e| e.sanitized_message())?;
-        let namespaces = driver
-            .list_namespaces(session)
-            .await
-            .map_err(|e| e.sanitized_message())?;
+        let namespaces =
+            qore_service::agent_tools::list_namespaces(&self.tool_ctx(), session).await?;
         serde_json::to_string(&namespaces).map_err(|e| e.to_string())
     }
 
     async fn do_list_tables(&self, req: &ListTablesReq) -> Result<String, String> {
         let session = self.ensure_session(&req.connection_id).await?;
-        let driver = self
-            .ctx
-            .session_manager
-            .get_driver(session)
-            .await
-            .map_err(|e| e.sanitized_message())?;
         let namespace = Namespace {
             database: req.database.clone(),
             schema: req.schema.clone(),
         };
-        let options = CollectionListOptions {
-            search: req.search.clone(),
-            page: None,
-            page_size: None,
-        };
-        let list = driver
-            .list_collections(session, &namespace, options)
-            .await
-            .map_err(|e| e.sanitized_message())?;
+        let list = qore_service::agent_tools::list_tables(
+            &self.tool_ctx(),
+            session,
+            &namespace,
+            req.search.clone(),
+        )
+        .await?;
         serde_json::to_string(&list).map_err(|e| e.to_string())
     }
 
@@ -219,16 +176,14 @@ impl QoreMcp {
             database: req.database.clone(),
             schema: req.schema.clone(),
         };
-        let schema = qore_service::query::describe_table(
-            &self.ctx.session_manager,
-            &self.ctx.virtual_relations,
+        let schema = qore_service::agent_tools::describe_table(
+            &self.tool_ctx(),
             session,
             &namespace,
             &req.table,
             None,
         )
-        .await
-        .map_err(|e| e.sanitized())?;
+        .await?;
         serde_json::to_string(&schema).map_err(|e| e.to_string())
     }
 

@@ -22,7 +22,6 @@ import {
 } from 'lucide-react';
 import type { RefObject } from 'react';
 import { useTranslation } from 'react-i18next';
-import { AnalyticsService } from '@/components/Onboarding/AnalyticsService';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -35,6 +34,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
+import { SearchScopeControl, type SearchScopeState } from './SearchScopeControl';
 import type { RowData } from './utils/dataGridUtils';
 
 interface DataGridToolbarProps {
@@ -54,6 +54,7 @@ interface DataGridToolbarProps {
   aiExplainLoading?: boolean;
   onDismissAiExplanation?: () => void;
   onGenerateData?: () => void;
+  searchScope?: SearchScopeState;
 }
 
 export function DataGridToolbar({
@@ -73,8 +74,10 @@ export function DataGridToolbar({
   aiExplainLoading,
   onDismissAiExplanation,
   onGenerateData,
+  searchScope,
 }: DataGridToolbarProps) {
   const { t } = useTranslation();
+  const selectedCount = table.getSelectedRowModel().rows.length;
 
   return (
     <div className="flex min-w-0 shrink-0 items-center gap-2">
@@ -102,6 +105,7 @@ export function DataGridToolbar({
           </button>
         )}
       </div>
+      {searchScope && <SearchScopeControl scope={searchScope} />}
       {/* Filter Toggle */}
       <Button
         variant="ghost"
@@ -158,13 +162,13 @@ export function DataGridToolbar({
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-60">
-          <DropdownMenuLabel className="text-xs">{t('grid.copyToClipboard')}</DropdownMenuLabel>
+          <DropdownMenuLabel className="text-xs">
+            {selectedCount > 0
+              ? t('grid.copySelection', { count: selectedCount })
+              : t('grid.copyLoadedRows', { count: table.getRowModel().rows.length })}
+          </DropdownMenuLabel>
           <DropdownMenuItem
             onClick={() => {
-              AnalyticsService.capture('export_used', {
-                format: 'csv',
-                destination: 'clipboard',
-              });
               copyToClipboard('csv');
             }}
             className="text-xs"
@@ -174,10 +178,6 @@ export function DataGridToolbar({
           </DropdownMenuItem>
           <DropdownMenuItem
             onClick={() => {
-              AnalyticsService.capture('export_used', {
-                format: 'json',
-                destination: 'clipboard',
-              });
               copyToClipboard('json');
             }}
             className="text-xs"
@@ -187,10 +187,6 @@ export function DataGridToolbar({
           </DropdownMenuItem>
           <DropdownMenuItem
             onClick={() => {
-              AnalyticsService.capture('export_used', {
-                format: 'sql',
-                destination: 'clipboard',
-              });
               copyToClipboard('sql');
             }}
             className="text-xs"

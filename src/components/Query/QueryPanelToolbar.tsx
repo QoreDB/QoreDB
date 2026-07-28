@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { QoreAiMonoMark } from '@/components/Brand/QoreAiMark';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -45,7 +46,7 @@ import {
 } from '@/components/ui/select';
 import { Tooltip } from '@/components/ui/tooltip';
 import { splitContributionId } from '@/lib/plugins';
-import { createFederationTab } from '@/lib/tabs';
+import { createChatTab, createFederationTab } from '@/lib/tabs';
 import { cn } from '@/lib/utils';
 import { usePlugins } from '@/providers/PluginProvider';
 import { useTabActions } from '@/providers/TabProvider';
@@ -487,6 +488,10 @@ export function QueryPanelToolbar({
               {t('federation.badge')}
             </DropdownMenuItem>
           )}
+          <DropdownMenuItem onClick={() => openTab(createChatTab())}>
+            <QoreAiMonoMark size={14} className="text-muted-foreground" />
+            {t('agentChat.openChat')}
+          </DropdownMenuItem>
           {onConvertToNotebook && (
             <DropdownMenuItem onClick={onConvertToNotebook}>
               <BookOpen size={14} />

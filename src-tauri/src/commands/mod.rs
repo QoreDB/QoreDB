@@ -2,9 +2,11 @@
 
 // Tauri Commands Module
 
+pub mod agent;
 pub mod ai;
 pub mod backup;
 pub mod cache;
+pub mod chat;
 pub mod confirmation;
 pub mod connection;
 pub mod connection_url;
@@ -51,17 +53,12 @@ use tauri::State;
 use crate::engine::SessionManager;
 use crate::engine::types::SessionId;
 
-/// Parse l'identifiant de session fourni par le frontend en [`SessionId`].
-/// Helper unique partagé par tous les modules de commandes (cf. dédup D1).
 pub(crate) fn parse_session_id(id: &str) -> Result<SessionId, String> {
     let uuid = uuid::Uuid::parse_str(id).map_err(|e| format!("Invalid session ID: {}", e))?;
     Ok(SessionId(uuid))
 }
 
-/// Convenience accessors over the locked [`AppState`](crate::AppState) so command
-/// handlers stop repeating the `lock().await` + `Arc::clone` dance (cf. dédup D2).
 pub(crate) trait SharedStateExt {
-    /// Clone of the shared [`SessionManager`] — by far the most-acquired handle.
     async fn session_manager(&self) -> Arc<SessionManager>;
 }
 

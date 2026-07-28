@@ -2746,7 +2746,8 @@ mod tests {
             let requests = server.received_requests().await.unwrap();
             let body: Value = serde_json::from_slice(&requests[0].body).unwrap();
             assert_eq!(body["tools"][0]["name"], "list_tables");
-            assert_eq!(body["max_output_tokens"], 64);
+            // Reasoning models floor max_output_tokens at 4096, above the config's 64.
+            assert_eq!(body["max_output_tokens"], 4096);
             assert_eq!(body["reasoning"]["effort"], "low");
             assert_eq!(body["input"][0]["content"], "which tables?");
             assert_eq!(body["store"], false);

@@ -427,14 +427,22 @@ mod tests {
             "sk-test",
         )));
 
-        let initial = manager.list_configured_providers();
+        let openai_has_key = |manager: &AiManager| {
+            manager
+                .list_configured_providers()
+                .into_iter()
+                .find(|status| status.provider == AiProvider::OpenAi)
+                .unwrap()
+                .has_key
+        };
+
+        assert!(!openai_has_key(&manager));
         assert_eq!(get_count.load(Ordering::Relaxed), 0);
-        assert!(!initial[0].has_key);
 
         manager.probe_api_key_once(&AiProvider::OpenAi);
         manager.probe_api_key_once(&AiProvider::OpenAi);
         assert_eq!(get_count.load(Ordering::Relaxed), 1);
-        assert!(manager.list_configured_providers()[0].has_key);
+        assert!(openai_has_key(&manager));
 
         assert_eq!(manager.get_api_key(&AiProvider::OpenAi).unwrap(), "sk-test");
         assert_eq!(get_count.load(Ordering::Relaxed), 1);

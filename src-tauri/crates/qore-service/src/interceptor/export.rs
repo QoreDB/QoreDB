@@ -144,6 +144,7 @@ mod tests {
             safety_rule: None,
             driver_id: "postgres".to_string(),
             fingerprint: Some("abcd1234deadbeef".to_string()),
+            source: super::super::types::QuerySource::User,
         }
     }
 

@@ -62,6 +62,11 @@ QoreDB is a desktop application (Tauri/Rust) that connects to user databases. Th
 - **Threat**: Shared exports or AI/network integrations sending data to unintended or weakly protected endpoints.
 - **Mitigation**:
   - Share-provider tokens are stored in the OS keyring.
-  - Analytics is opt-in.
+  - No telemetry is collected; the app ships no analytics SDK.
+  - Crash reports are written to disk only. Sharing one opens a prefilled GitHub
+    issue in the user's browser, after credentials and home paths are scrubbed.
+  - Every log egress path is scrubbed, not just crash reports: the diagnostic
+    log export runs through the same filter, since an export exists to be sent
+    to someone. Files on disk stay raw for the user's own debugging.
   - CSP restricts network origins for the webview itself.
   - **Current limitation**: Custom share providers currently accept both `http` and `https`; deployments should prefer HTTPS-only endpoints.

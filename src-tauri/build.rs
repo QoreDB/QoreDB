@@ -7,9 +7,6 @@ fn main() {
     let profile = std::env::var("PROFILE").unwrap_or_default();
 
     if key.is_empty() {
-        // A zero key would silently accept signatures verified against an
-        // all-zero ed25519 public key. Refuse to build release artefacts in
-        // that state — the CI must inject the real licensing public key.
         if profile == "release" {
             panic!(
                 "PUBLIC_KEY_BASE64 must be set when building in release mode. \

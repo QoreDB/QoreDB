@@ -3,14 +3,38 @@
 use std::sync::Arc;
 
 use qore_core::DriverRegistry;
-use qore_drivers::drivers::{
-    clickhouse::ClickHouseDriver, cockroachdb::CockroachDbDriver, duckdb::DuckDbDriver,
-    elasticsearch::ElasticsearchDriver, mariadb::MariaDbDriver, mongodb::MongoDriver,
-    motherduck::MotherDuckDriver, mysql::MySqlDriver, neon::NeonDriver,
-    opensearch::OpenSearchDriver, postgres::PostgresDriver, redis::RedisDriver,
-    sqlite::SqliteDriver, sqlserver::SqlServerDriver, supabase::SupabaseDriver,
-    timescaledb::TimescaleDbDriver,
-};
+#[cfg(feature = "driver-clickhouse")]
+use qore_drivers::drivers::clickhouse::ClickHouseDriver;
+#[cfg(feature = "driver-cockroachdb")]
+use qore_drivers::drivers::cockroachdb::CockroachDbDriver;
+#[cfg(feature = "driver-duckdb")]
+use qore_drivers::drivers::duckdb::DuckDbDriver;
+#[cfg(feature = "driver-elasticsearch")]
+use qore_drivers::drivers::elasticsearch::ElasticsearchDriver;
+#[cfg(feature = "driver-mariadb")]
+use qore_drivers::drivers::mariadb::MariaDbDriver;
+#[cfg(feature = "driver-mongodb")]
+use qore_drivers::drivers::mongodb::MongoDriver;
+#[cfg(feature = "driver-motherduck")]
+use qore_drivers::drivers::motherduck::MotherDuckDriver;
+#[cfg(feature = "driver-mysql")]
+use qore_drivers::drivers::mysql::MySqlDriver;
+#[cfg(feature = "driver-neon")]
+use qore_drivers::drivers::neon::NeonDriver;
+#[cfg(feature = "driver-opensearch")]
+use qore_drivers::drivers::opensearch::OpenSearchDriver;
+#[cfg(feature = "driver-postgres")]
+use qore_drivers::drivers::postgres::PostgresDriver;
+#[cfg(feature = "driver-redis")]
+use qore_drivers::drivers::redis::RedisDriver;
+#[cfg(feature = "driver-sqlite")]
+use qore_drivers::drivers::sqlite::SqliteDriver;
+#[cfg(feature = "driver-sqlserver")]
+use qore_drivers::drivers::sqlserver::SqlServerDriver;
+#[cfg(feature = "driver-supabase")]
+use qore_drivers::drivers::supabase::SupabaseDriver;
+#[cfg(feature = "driver-timescaledb")]
+use qore_drivers::drivers::timescaledb::TimescaleDbDriver;
 use qore_drivers::query_manager::QueryManager;
 use qore_drivers::session_manager::SessionManager;
 
@@ -38,22 +62,39 @@ pub struct ServiceContext {
 
 impl ServiceContext {
     pub fn new() -> Self {
+        #[allow(unused_mut)]
         let mut registry = DriverRegistry::new();
+        #[cfg(feature = "driver-postgres")]
         registry.register(Arc::new(PostgresDriver::new()));
+        #[cfg(feature = "driver-mysql")]
         registry.register(Arc::new(MySqlDriver::new()));
+        #[cfg(feature = "driver-mongodb")]
         registry.register(Arc::new(MongoDriver::new()));
+        #[cfg(feature = "driver-redis")]
         registry.register(Arc::new(RedisDriver::new()));
+        #[cfg(feature = "driver-sqlite")]
         registry.register(Arc::new(SqliteDriver::new()));
+        #[cfg(feature = "driver-duckdb")]
         registry.register(Arc::new(DuckDbDriver::new()));
+        #[cfg(feature = "driver-motherduck")]
         registry.register(Arc::new(MotherDuckDriver::new()));
+        #[cfg(feature = "driver-cockroachdb")]
         registry.register(Arc::new(CockroachDbDriver::new()));
+        #[cfg(feature = "driver-sqlserver")]
         registry.register(Arc::new(SqlServerDriver::new()));
+        #[cfg(feature = "driver-mariadb")]
         registry.register(Arc::new(MariaDbDriver::new()));
+        #[cfg(feature = "driver-supabase")]
         registry.register(Arc::new(SupabaseDriver::new()));
+        #[cfg(feature = "driver-neon")]
         registry.register(Arc::new(NeonDriver::new()));
+        #[cfg(feature = "driver-timescaledb")]
         registry.register(Arc::new(TimescaleDbDriver::new()));
+        #[cfg(feature = "driver-clickhouse")]
         registry.register(Arc::new(ClickHouseDriver::new()));
+        #[cfg(feature = "driver-elasticsearch")]
         registry.register(Arc::new(ElasticsearchDriver::new()));
+        #[cfg(feature = "driver-opensearch")]
         registry.register(Arc::new(OpenSearchDriver::new()));
 
         let registry = Arc::new(registry);

@@ -1,0 +1,137 @@
+{
+  "schema_version": 1,
+  "source": {
+    "repository": "https://github.com/ggml-org/llama.cpp",
+    "ref": "b10087",
+    "commit": "1f66c3ce1c26c95db3fadb734086c7d9fba23bb9",
+    "source_date_epoch": 1784685248
+  },
+  "runtime": {
+    "version": "b10087",
+    "manifest_version": "2026-07-23.1",
+    "release_tag": "qore-ai-runtime-b10087",
+    "release_base_url": "https://github.com/QoreDB/QoreDB/releases/download/qore-ai-runtime-b10087",
+    "boringssl_commit": "8b43ff0f72137b31b23d482f0b2344186d797b03",
+    "windows_ninja_version": "1.12.1",
+    "common_cmake_defines": [
+      "CMAKE_BUILD_TYPE=Release",
+      "LLAMA_BUILD_APP=OFF",
+      "LLAMA_BUILD_BORINGSSL=ON",
+      "LLAMA_BUILD_COMMIT=1f66c3ce1c26c95db3fadb734086c7d9fba23bb9",
+      "LLAMA_BUILD_EXAMPLES=OFF",
+      "LLAMA_BUILD_NUMBER=10087",
+      "LLAMA_BUILD_SERVER=ON",
+      "LLAMA_BUILD_TESTS=OFF",
+      "LLAMA_BUILD_TOOLS=ON",
+      "LLAMA_BUILD_UI=OFF",
+      "LLAMA_FATAL_WARNINGS=ON",
+      "BORINGSSL_VERSION=8b43ff0f72137b31b23d482f0b2344186d797b03"
+    ]
+  },
+  "targets": [
+    {
+      "id": "macos-aarch64",
+      "os": "macos",
+      "architecture": "aarch64",
+      "runner": "macos-26",
+      "artifact": "qore-llama-b10087-macos-arm64.tar.gz",
+      "format": "tar_gz",
+      "archive_root": "llama-b10087",
+      "runtime_relative_path": "llama-b10087/llama-server",
+      "cmake_defines": [
+        "CMAKE_BUILD_WITH_INSTALL_RPATH=ON",
+        "CMAKE_INSTALL_RPATH=@loader_path",
+        "GGML_METAL_EMBED_LIBRARY=ON",
+        "GGML_METAL_USE_BF16=ON"
+      ]
+    },
+    {
+      "id": "macos-x86_64",
+      "os": "macos",
+      "architecture": "x86_64",
+      "runner": "macos-15-intel",
+      "artifact": "qore-llama-b10087-macos-x64.tar.gz",
+      "format": "tar_gz",
+      "archive_root": "llama-b10087",
+      "runtime_relative_path": "llama-b10087/llama-server",
+      "cmake_defines": [
+        "CMAKE_BUILD_WITH_INSTALL_RPATH=ON",
+        "CMAKE_INSTALL_RPATH=@loader_path",
+        "CMAKE_OSX_DEPLOYMENT_TARGET=13.3",
+        "GGML_METAL=OFF"
+      ]
+    },
+    {
+      "id": "linux-aarch64",
+      "os": "linux",
+      "architecture": "aarch64",
+      "runner": "ubuntu-24.04-arm",
+      "artifact": "qore-llama-b10087-linux-arm64.tar.gz",
+      "format": "tar_gz",
+      "archive_root": "llama-b10087",
+      "runtime_relative_path": "llama-b10087/llama-server",
+      "cmake_defines": [
+        "CMAKE_BUILD_WITH_INSTALL_RPATH=ON",
+        "CMAKE_INSTALL_RPATH=$ORIGIN",
+        "GGML_BACKEND_DL=ON",
+        "GGML_CPU_ALL_VARIANTS=ON",
+        "GGML_NATIVE=OFF"
+      ]
+    },
+    {
+      "id": "linux-x86_64",
+      "os": "linux",
+      "architecture": "x86_64",
+      "runner": "ubuntu-22.04",
+      "artifact": "qore-llama-b10087-linux-x64.tar.gz",
+      "format": "tar_gz",
+      "archive_root": "llama-b10087",
+      "runtime_relative_path": "llama-b10087/llama-server",
+      "cmake_defines": [
+        "CMAKE_BUILD_WITH_INSTALL_RPATH=ON",
+        "CMAKE_INSTALL_RPATH=$ORIGIN",
+        "GGML_BACKEND_DL=ON",
+        "GGML_CPU_ALL_VARIANTS=ON",
+        "GGML_NATIVE=OFF"
+      ]
+    },
+    {
+      "id": "windows-aarch64",
+      "os": "windows",
+      "architecture": "aarch64",
+      "runner": "windows-2025-vs2026",
+      "artifact": "qore-llama-b10087-windows-arm64.zip",
+      "format": "zip",
+      "archive_root": "",
+      "runtime_relative_path": "llama-server.exe",
+      "cmake_defines": [
+        "GGML_BACKEND_DL=ON",
+        "GGML_CPU_ALL_VARIANTS=OFF",
+        "GGML_NATIVE=OFF",
+        "GGML_OPENMP=ON"
+      ],
+      "windows_vcvars_arch": "amd64_arm64",
+      "windows_toolchain": "cmake/arm64-windows-llvm.cmake",
+      "openmp_runtime": "C:/Program Files/Microsoft Visual Studio/18/Enterprise/VC/Redist/MSVC/14.51.36231/debug_nonredist/arm64/Microsoft.VC145.OpenMP.LLVM/libomp140.aarch64.dll"
+    },
+    {
+      "id": "windows-x86_64",
+      "os": "windows",
+      "architecture": "x86_64",
+      "runner": "windows-2025-vs2026",
+      "artifact": "qore-llama-b10087-windows-x64.zip",
+      "format": "zip",
+      "archive_root": "",
+      "runtime_relative_path": "llama-server.exe",
+      "cmake_defines": [
+        "GGML_BACKEND_DL=ON",
+        "GGML_CPU_ALL_VARIANTS=ON",
+        "GGML_NATIVE=OFF",
+        "GGML_OPENMP=ON"
+      ],
+      "windows_vcvars_arch": "x64",
+      "windows_toolchain": "cmake/x64-windows-llvm.cmake",
+      "openmp_runtime": "C:/Program Files/Microsoft Visual Studio/18/Enterprise/VC/Redist/MSVC/14.51.36231/debug_nonredist/x64/Microsoft.VC145.OpenMP.LLVM/libomp140.x86_64.dll"
+    }
+  ]
+}

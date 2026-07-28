@@ -16,8 +16,9 @@
 QoreDB remains strongly aligned with a local-first privacy model. Database
 connections, queries, results, and most working data stay on the user's machine.
 Credentials are separated from connection metadata and stored in the vault or OS
-keyring. Persistent diagnostics are disabled by default, and PostHog telemetry
-requires explicit opt-in.
+keyring. Persistent diagnostics are disabled by default, and the application
+carries no usage telemetry at all: the optional PostHog integration was removed
+and no analytics SDK ships in the binary.
 
 The compliance posture is **good**, but it should no longer be described as
 "high" without qualification. QoreDB persists several local work states that may
@@ -32,6 +33,7 @@ Lightweight commands used during the 2026-07-08 review:
 
 - `rg "localStorage|sessionStorage" src src-tauri`
 - `rg "shouldStoreHistory|shouldStoreErrorLogs|analytics|PostHog|opt|consent|crashRecovery" src/components src/lib src/providers`
+- `rg -i "posthog|analytics" src src-tauri` (expected: no telemetry SDK, no analytics transport)
 - `rg "keyring|vault|Sensitive<|redacted_field" src-tauri/crates/qore-service/src/vault src-tauri/crates/qore-core/src src-tauri/src/commands/vault.rs`
 - `rg "time_travel|redacted_columns|sandbox_backup" src-tauri/src src/lib/sandbox src/components/Sandbox`
 
@@ -51,8 +53,10 @@ No compiling test suite was run during this pass.
 | Sandbox backup | Sandbox state and backup (`qoredb_sandbox_backup`) | `localStorage` | Managed by sandbox logic; retention needs documentation | Needs attention |
 | Time Travel | Local changelog of mutations | Local backend files | 30-day retention by default; sensitive columns redacted by name | Good with caveat |
 | AI BYOK | Preferred provider, sample-row preference, requests to chosen provider | Local preference plus user-selected provider | Sample rows are opt-in; sensitive schema/columns are redacted | Good with caveat |
-| PostHog telemetry | Anonymous usage events | PostHog, EU host by default | Explicit opt-in; reset/opt-out available | Good |
-| Auto-updater | GitHub releases request | GitHub/Microsoft | Startup preference; IP is visible to the third party | Document |
+| Usage telemetry | None | None | Removed from the product; no analytics SDK is bundled | Good |
+| Crash reports | Panic message, backtrace, app version, OS/arch | Local files in the log directory | 7-day retention with the other logs; credentials and home paths scrubbed before display; sharing is a manual user action | Good |
+| Diagnostic log export | Retained runtime and crash logs | User-selected file | Scrubbed on the way out: credentials, tokens and home path are removed before the file is written | Good |
+| Auto-updater | GitHub releases request | GitHub/Microsoft | Startup preference, disclosed in onboarding and suppressed until onboarding completes; IP is visible to the third party | Document |
 | Project/config exports | Connections without credentials, optional query library | User-selected file | Query redaction option for project/library exports | Good with caveat |
 
 ## 2. Strengths
@@ -60,7 +64,9 @@ No compiling test suite was run during this pass.
 ### 2.1 Local-First Minimization
 
 - User databases do not transit through a QoreDB-managed server.
-- Telemetry is only loaded and sent when `qoredb_analytics_enabled === "true"`.
+- No usage telemetry is collected or transmitted, under any setting. Crash
+  reports are written locally and only leave the machine if the user explicitly
+  opens a prefilled GitHub issue.
 - Persistent diagnostics (`qoredb_query_history`, `qoredb_error_logs`) are
   disabled by default in `diagnosticsSettings.ts`.
 - Project exports set `credentialsIncluded: false`.
@@ -132,17 +138,15 @@ or rename the constant to "recommended defaults".
 
 ### Low: Optional Third Parties Should Stay Visible
 
-**Locations:** `src-tauri/tauri.conf.json`,
-`src/components/Onboarding/AnalyticsService.ts`,
-`src/providers/SessionProvider.tsx`.
+**Locations:** `src-tauri/tauri.conf.json`, `src/providers/SessionProvider.tsx`.
 
-PostHog is opt-in and configured without autocapture or session recording. The
-updater queries GitHub releases if the startup preference allows it. These flows
+The updater queries GitHub releases if the startup preference allows it. Sharing
+a crash report opens a prefilled GitHub issue in the user's browser. These flows
 do not transmit query data, but they do contact third parties.
 
-**Recommendation:** clearly document optional third parties: PostHog when
-analytics is enabled, GitHub for updates, AI providers when the user enables
-BYOK AI, and user-configured share providers.
+**Recommendation:** clearly document optional third parties: GitHub for updates
+and crash-report sharing, AI providers when the user enables BYOK AI, and
+user-configured share providers.
 
 ## 4. Prioritized Recommendations
 
@@ -152,15 +156,15 @@ BYOK AI, and user-configured share providers.
    sensitive queries.
 3. Add a persistent documentation matrix for `localStorage` keys and local files.
 4. Align diagnostics UI defaults with the effective runtime defaults.
-5. Document all optional third parties: PostHog, GitHub updater, AI providers,
-   and user-configured share providers.
+5. Document all optional third parties: GitHub updater and crash-report
+   sharing, AI providers, and user-configured share providers.
 6. Review export flows so query redaction options are visible and enabled by
    default wherever query text can leave the app.
 
 ## Conclusion
 
 QoreDB has a good GDPR baseline for a local-first desktop application:
-minimization, secrets in the vault/keyring, opt-in telemetry, persistent
+minimization, secrets in the vault/keyring, no telemetry at all, persistent
 diagnostics disabled by default, and backend log redaction. The next important
 improvement is not another cryptographic mechanism; it is better governance of
 local data lifecycle: what is stored, why, for how long, and how users delete it.

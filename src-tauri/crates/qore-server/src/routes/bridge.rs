@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 
+use std::time::Duration;
+
 use axum::extract::State;
 use axum::{Extension, Json};
 use serde::Deserialize;
@@ -172,27 +174,31 @@ pub async fn invoke(
                 .get("bypassCache")
                 .and_then(Value::as_bool)
                 .unwrap_or(false);
+            // `count_mode: exact` stays available over HTTP, but the safety
+            // policy leaves `max_query_duration_ms` unset by default, so a
+            // COUNT(*) on an arbitrary table would hold a connection forever.
+            let paginated = qore_service::query::query_table(
+                &state.ctx.session_manager,
+                &state.ctx.query_manager,
+                &state.ctx.query_cache,
+                &state.ctx.policy,
+                session,
+                &namespace,
+                &table,
+                options,
+                bypass_cache,
+            );
             Ok(
-                match qore_service::query::query_table(
-                    &state.ctx.session_manager,
-                    &state.ctx.query_manager,
-                    &state.ctx.query_cache,
-                    &state.ctx.policy,
-                    session,
-                    &namespace,
-                    &table,
-                    options,
-                    bypass_cache,
-                )
-                .await
+                match tokio::time::timeout(Duration::from_millis(QUERY_TIMEOUT_MS), paginated).await
                 {
-                    Ok((result, age_ms)) => Json(json!({
+                    Ok(Ok((result, age_ms))) => Json(json!({
                         "success": true,
                         "result": result,
                         "cached": age_ms.is_some(),
                         "cached_age_ms": age_ms,
                     })),
-                    Err(e) => failure(e.sanitized()),
+                    Ok(Err(e)) => failure(e.sanitized()),
+                    Err(_) => failure(format!("Operation timed out after {QUERY_TIMEOUT_MS}ms")),
                 },
             )
         }

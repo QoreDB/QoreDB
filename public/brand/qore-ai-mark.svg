@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" fill="none" role="img" aria-labelledby="title desc">
+  <title id="title">Qore AI</title>
+  <desc id="desc">QoreDB hexagonal database mark with an intelligent Q signal</desc>
+  <path d="M64 8 112 36v56l-48 28-48-28V36L64 8Z" stroke="#6B5CFF" stroke-width="10" stroke-linejoin="round"/>
+  <path d="M64 27 95 45v37L64 100 33 82V45l31-18Z" stroke="#7A6CFF" stroke-width="7" stroke-linejoin="round"/>
+  <path d="m64 37 23 13v27L64 90 41 77V50l23-13Z" stroke="#38D9FF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="3 7"/>
+  <path d="m64 47 15 8.5L64 64l-15-8.5L64 47Z" fill="#7A6CFF"/>
+  <path d="m49 55.5 15 8.5v19L49 74.5v-19Z" fill="#6B5CFF"/>
+  <path d="M79 55.5 64 64v19l15-8.5v-19Z" fill="#5847FF"/>
+  <path d="M64 68v10" stroke="#F4F6FA" stroke-width="3" stroke-linecap="round"/>
+  <path d="m106.5 105.5 10 10" stroke="#F4F6FA" stroke-width="12" stroke-linecap="round"/>
+  <circle cx="96" cy="95" r="20" fill="#F4F6FA"/>
+  <path d="m106.5 105.5 10 10" stroke="#6B5CFF" stroke-width="7" stroke-linecap="round"/>
+  <circle cx="96" cy="95" r="17" fill="#6B5CFF"/>
+  <circle cx="96" cy="95" r="11" fill="#F4F6FA"/>
+  <path d="M96 86c1.12 5.62 3.38 7.88 9 9-5.62 1.12-7.88 3.38-9 9-1.12-5.62-3.38-7.88-9-9 5.62-1.12 7.88-3.38 9-9Z" fill="#38D9FF"/>
+</svg>

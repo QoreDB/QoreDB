@@ -19,6 +19,7 @@ use tokio::sync::{Mutex, RwLock};
 use uuid::Uuid;
 
 use futures::StreamExt;
+use qore_core::cursor::KeysetPlan;
 use qore_core::error::{EngineError, EngineResult};
 use qore_core::traits::DataEngine;
 use qore_core::traits::{StreamEvent, StreamSender};
@@ -28,11 +29,11 @@ use qore_core::types::{
     EventList, EventListOptions, EventOperationResult, EventStatus, FilterOperator, ForeignKey,
     MaintenanceMessage, MaintenanceMessageLevel, MaintenanceOperationInfo,
     MaintenanceOperationType, MaintenanceRequest, MaintenanceResult, Namespace,
-    PaginatedQueryResult, QueryId, QueryResult, Routine, RoutineDefinition, RoutineList,
-    RoutineListOptions, RoutineOperationResult, RoutineType, Row as QRow, RowData, SessionId,
-    SortDirection, TableColumn, TableIndex, TableQueryOptions, TableSchema, Trigger,
-    TriggerDefinition, TriggerEvent, TriggerList, TriggerListOptions, TriggerOperationResult,
-    TriggerTiming, TruncateAllResult, Value,
+    PaginatedQueryResult, PaginationCapability, QueryId, QueryResult, Routine, RoutineDefinition,
+    RoutineList, RoutineListOptions, RoutineOperationResult, RoutineType, Row as QRow, RowData,
+    SessionId, SnapshotSupport, SortDirection, TableColumn, TableIndex, TableQueryOptions,
+    TableSchema, Trigger, TriggerDefinition, TriggerEvent, TriggerList, TriggerListOptions,
+    TriggerOperationResult, TriggerTiming, TruncateAllResult, Value,
 };
 use qore_sql::safety;
 
@@ -151,6 +152,39 @@ impl MySqlDriver {
             .fetch_one(&mut **conn)
             .await
             .map_err(|e| EngineError::execution_error(e.to_string()))
+    }
+
+    /// InnoDB's `table_rows` is sampled from the index statistics and drifts
+    /// from the truth by a wide margin — usable as an order of magnitude, never
+    /// as a total. MySQL exposes no refresh timestamp for it.
+    async fn table_row_estimate(pool: &MySqlPool, database: &str, table: &str) -> Option<u64> {
+        let rows: Option<(Option<u64>,)> = sqlx::query_as(
+            "SELECT table_rows FROM information_schema.tables \
+             WHERE table_schema = ? AND table_name = ?",
+        )
+        .bind(database)
+        .bind(table)
+        .fetch_optional(pool)
+        .await
+        .ok()
+        .flatten();
+        rows.and_then(|(count,)| count)
+    }
+
+    async fn track_query(session: &MySqlSession, query_id: Option<QueryId>, connection_id: u64) {
+        if let Some(qid) = query_id {
+            session
+                .active_queries
+                .lock()
+                .await
+                .insert(qid, connection_id);
+        }
+    }
+
+    async fn untrack_query(session: &MySqlSession, query_id: Option<QueryId>) {
+        if let Some(qid) = query_id {
+            session.active_queries.lock().await.remove(&qid);
+        }
     }
 
     /// Resolve SSL mode from config: explicit ssl_mode string takes precedence over boolean.
@@ -377,10 +411,7 @@ impl MysqlDecoder {
                 Err(_) => Self::fallback_extract(row, idx),
             },
             Self::Decimal => match row.try_get::<Option<Decimal>, _>(idx) {
-                Ok(Some(v)) => {
-                    use rust_decimal::prelude::ToPrimitive;
-                    Value::Float(v.to_f64().unwrap_or(0.0))
-                }
+                Ok(Some(v)) => Value::from_decimal_text(v.to_string()),
                 Ok(None) => Value::Null,
                 Err(_) => Self::fallback_extract(row, idx),
             },
@@ -405,12 +436,12 @@ impl MysqlDecoder {
                 Err(_) => Self::fallback_extract(row, idx),
             },
             Self::Time => match row.try_get::<Option<chrono::NaiveTime>, _>(idx) {
-                Ok(Some(v)) => Value::Text(v.format("%H:%M:%S").to_string()),
+                Ok(Some(v)) => Value::Text(v.format("%H:%M:%S%.f").to_string()),
                 Ok(None) => Value::Null,
                 Err(_) => Self::fallback_extract(row, idx),
             },
             Self::DateTime => match row.try_get::<Option<chrono::NaiveDateTime>, _>(idx) {
-                Ok(Some(v)) => Value::Text(v.format("%Y-%m-%d %H:%M:%S").to_string()),
+                Ok(Some(v)) => Value::Text(v.format("%Y-%m-%d %H:%M:%S%.f").to_string()),
                 Ok(None) => Value::Null,
                 Err(_) => Self::fallback_extract(row, idx),
             },
@@ -424,7 +455,7 @@ impl MysqlDecoder {
                 }
                 if let Ok(opt) = row.try_get::<Option<chrono::NaiveDateTime>, _>(idx) {
                     return opt
-                        .map(|dt| Value::Text(dt.format("%Y-%m-%d %H:%M:%S").to_string()))
+                        .map(|dt| Value::Text(dt.format("%Y-%m-%d %H:%M:%S%.f").to_string()))
                         .unwrap_or(Value::Null);
                 }
                 Self::fallback_extract(row, idx)
@@ -475,10 +506,7 @@ impl MysqlDecoder {
         }
         if let Ok(v) = row.try_get::<Option<Decimal>, _>(idx) {
             return v
-                .map(|d| {
-                    use rust_decimal::prelude::ToPrimitive;
-                    Value::Float(d.to_f64().unwrap_or(0.0))
-                })
+                .map(|d| Value::from_decimal_text(d.to_string()))
                 .unwrap_or(Value::Null);
         }
         if let Ok(v) = row.try_get::<Option<String>, _>(idx) {
@@ -491,7 +519,7 @@ impl MysqlDecoder {
         }
         if let Ok(v) = row.try_get::<Option<chrono::NaiveDateTime>, _>(idx) {
             return v
-                .map(|dt| Value::Text(dt.format("%Y-%m-%d %H:%M:%S").to_string()))
+                .map(|dt| Value::Text(dt.format("%Y-%m-%d %H:%M:%S%.f").to_string()))
                 .unwrap_or(Value::Null);
         }
         if let Ok(v) = row.try_get::<Option<chrono::NaiveDate>, _>(idx) {
@@ -501,7 +529,7 @@ impl MysqlDecoder {
         }
         if let Ok(v) = row.try_get::<Option<chrono::NaiveTime>, _>(idx) {
             return v
-                .map(|t| Value::Text(t.format("%H:%M:%S").to_string()))
+                .map(|t| Value::Text(t.format("%H:%M:%S%.f").to_string()))
                 .unwrap_or(Value::Null);
         }
         if let Ok(v) = row.try_get::<Option<Vec<u8>>, _>(idx) {
@@ -1929,6 +1957,7 @@ impl DataEngine for MySqlDriver {
 
         let page = options.effective_page();
         let page_size = options.effective_page_size();
+        let fetch_size = options.fetch_size();
         let offset = options.offset();
 
         let mut where_clauses: Vec<String> = Vec::new();
@@ -2098,34 +2127,94 @@ impl DataEngine for MySqlDriver {
             String::new()
         };
 
-        let count_sql = format!("SELECT COUNT(*) AS cnt FROM {}{}", table_ref, where_sql);
-        let mut count_query = sqlx::query(&count_sql);
-        for val in &bind_values {
-            count_query = Self::bind_param(count_query, val);
+        // Keyset when the caller supplies a unique key; the cursor binds stay
+        // out of `bind_values` so the count keeps counting the filtered set and
+        // not what is left after the boundary.
+        let keyset = options
+            .keyset_applies()
+            .then(|| {
+                KeysetPlan::new(
+                    options.sort_column.as_deref(),
+                    matches!(options.sort_direction, Some(SortDirection::Desc)),
+                    options.effective_keyset_columns(),
+                )
+            })
+            .flatten();
+        let mut cursor_values: Vec<Value> = Vec::new();
+        let mut cursor_sql = String::new();
+        if let (Some(plan), Some(encoded)) = (keyset.as_ref(), options.cursor.as_deref()) {
+            cursor_sql = plan.predicate(|col| Self::quote_ident(col), |_| "?".to_string());
+            // `?` consumes one bound value per occurrence, and the expanded
+            // predicate names each earlier key again in every later branch.
+            cursor_values = plan.positional_values(&plan.decode(encoded)?.values);
         }
 
-        let count_row: MySqlRow = {
-            let mut tx_guard = mysql_session.transaction_conn.lock().await;
-            if let Some(ref mut conn) = *tx_guard {
-                count_query.fetch_one(&mut **conn).await
-            } else {
-                count_query.fetch_one(&mysql_session.pool).await
+        let total_rows = if options.wants_exact_total() {
+            let count_sql = format!("SELECT COUNT(*) AS cnt FROM {}{}", table_ref, where_sql);
+            let mut count_query = sqlx::query(&count_sql);
+            for val in &bind_values {
+                count_query = Self::bind_param(count_query, val);
             }
-        }
-        .map_err(|e| EngineError::execution_error(e.to_string()))?;
 
-        let total_rows: i64 = count_row
-            .try_get("cnt")
+            // Pinned to a single connection so its id can be registered under
+            // the caller's query id; otherwise `cancel` has nothing to KILL.
+            let count_row: MySqlRow = {
+                let mut tx_guard = mysql_session.transaction_conn.lock().await;
+                if let Some(ref mut conn) = *tx_guard {
+                    let connection_id = Self::fetch_connection_id(conn).await?;
+                    Self::track_query(&mysql_session, options.query_id, connection_id).await;
+                    let outcome = count_query.fetch_one(&mut **conn).await;
+                    Self::untrack_query(&mysql_session, options.query_id).await;
+                    outcome
+                } else {
+                    drop(tx_guard);
+                    let mut conn = mysql_session
+                        .pool
+                        .acquire()
+                        .await
+                        .map_err(|e| EngineError::connection_failed(e.to_string()))?;
+                    let connection_id = Self::fetch_connection_id(&mut conn).await?;
+                    Self::track_query(&mysql_session, options.query_id, connection_id).await;
+                    let outcome = count_query.fetch_one(&mut *conn).await;
+                    Self::untrack_query(&mysql_session, options.query_id).await;
+                    outcome
+                }
+            }
             .map_err(|e| EngineError::execution_error(e.to_string()))?;
-        let total_rows = total_rows.max(0) as u64;
 
-        let data_sql = format!(
-            "SELECT * FROM {}{}{} LIMIT {} OFFSET {}",
-            table_ref, where_sql, order_sql, page_size, offset
-        );
+            let total_rows: i64 = count_row
+                .try_get("cnt")
+                .map_err(|e| EngineError::execution_error(e.to_string()))?;
+            Some(total_rows.max(0) as u64)
+        } else {
+            None
+        };
+
+        let data_sql = if let Some(plan) = keyset.as_ref() {
+            let data_where = match (where_sql.is_empty(), cursor_sql.is_empty()) {
+                (_, true) => where_sql.clone(),
+                (true, false) => format!(" WHERE {}", cursor_sql),
+                (false, false) => format!("{} AND {}", where_sql, cursor_sql),
+            };
+            format!(
+                "SELECT * FROM {} {} ORDER BY {} LIMIT {}",
+                table_ref,
+                data_where,
+                plan.order_by(|col| Self::quote_ident(col)),
+                fetch_size
+            )
+        } else {
+            format!(
+                "SELECT * FROM {}{}{} LIMIT {} OFFSET {}",
+                table_ref, where_sql, order_sql, fetch_size, offset
+            )
+        };
 
         let mut data_query = sqlx::query(&data_sql);
         for val in &bind_values {
+            data_query = Self::bind_param(data_query, val);
+        }
+        for val in &cursor_values {
             data_query = Self::bind_param(data_query, val);
         }
 
@@ -2192,9 +2281,36 @@ impl DataEngine for MySqlDriver {
             }
         };
 
-        Ok(PaginatedQueryResult::new(
-            result, total_rows, page, page_size,
-        ))
+        let mut paginated =
+            PaginatedQueryResult::from_optional_total(result, total_rows, page, page_size);
+
+        if let Some(plan) = keyset.as_ref() {
+            // From the last row after truncation: the over-fetched row would
+            // otherwise become the boundary and skip a row on every page.
+            let next_cursor = paginated
+                .has_more
+                .then(|| {
+                    let last = paginated.result.rows.last()?;
+                    let columns: Vec<String> = paginated
+                        .result
+                        .columns
+                        .iter()
+                        .map(|col| col.name.to_string())
+                        .collect();
+                    plan.mint(&columns, &last.values)
+                })
+                .flatten();
+            paginated = paginated.with_keyset(next_cursor);
+        }
+
+        if total_rows.is_none() && options.wants_any_total() && options.estimate_matches_scope() {
+            let estimate =
+                Self::table_row_estimate(&mysql_session.pool, namespace.database.as_str(), table)
+                    .await;
+            return Ok(paginated.with_estimate(estimate, None));
+        }
+
+        Ok(paginated)
     }
 
     async fn peek_foreign_key(
@@ -2290,6 +2406,16 @@ impl DataEngine for MySqlDriver {
         }
 
         Ok(())
+    }
+
+    fn pagination_capability(&self) -> PaginationCapability {
+        PaginationCapability {
+            keyset: true,
+            requires_unique_key: true,
+            supports_backward: false,
+            snapshot: SnapshotSupport::Transaction,
+            max_offset_window: None,
+        }
     }
 
     fn cancel_support(&self) -> CancelSupport {

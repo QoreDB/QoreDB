@@ -18,8 +18,7 @@ import {
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
-import { AnalyticsService } from './AnalyticsService';
+import { completeOnboarding } from '@/lib/onboardingState';
 
 const ACCENT = 'var(--color-accent)';
 const ACCENT_BG_SUBTLE = 'color-mix(in srgb, var(--color-accent) 8%, transparent)';
@@ -27,7 +26,7 @@ const ACCENT_BG_SOFT = 'color-mix(in srgb, var(--color-accent) 10%, transparent)
 const ACCENT_BORDER = 'color-mix(in srgb, var(--color-accent) 25%, transparent)';
 const ACCENT_GRADIENT =
   'linear-gradient(180deg, color-mix(in srgb, var(--color-accent) 4%, transparent) 0%, transparent 100%)';
-const TOTAL_STEPS = 5;
+const TOTAL_STEPS = 4;
 const EXIT_DURATION_MS = 160;
 
 interface OnboardingModalProps {
@@ -95,7 +94,6 @@ const SAFETY_POINTS: SafetyPoint[] = [
 export function OnboardingModal({ onComplete }: OnboardingModalProps) {
   const { t } = useTranslation();
   const [step, setStep] = useState(0);
-  const [analyticsEnabled, setAnalyticsEnabled] = useState(false);
   const [isExiting, setIsExiting] = useState(false);
 
   useEffect(() => {
@@ -109,8 +107,7 @@ export function OnboardingModal({ onComplete }: OnboardingModalProps) {
   };
 
   const finish = () => {
-    AnalyticsService.setAnalyticsEnabled(analyticsEnabled);
-    AnalyticsService.completeOnboarding();
+    completeOnboarding();
     setIsExiting(true);
   };
 
@@ -123,7 +120,7 @@ export function OnboardingModal({ onComplete }: OnboardingModalProps) {
   };
 
   const handleSkip = () => {
-    AnalyticsService.completeOnboarding();
+    completeOnboarding();
     setIsExiting(true);
   };
 
@@ -336,46 +333,6 @@ export function OnboardingModal({ onComplete }: OnboardingModalProps) {
               </p>
             </div>
           )}
-
-          {step === 4 && (
-            <div className="flex flex-col gap-4">
-              <div className="flex flex-col gap-1">
-                <h2 className="text-xl font-semibold">{t('onboarding.analytics.title')}</h2>
-                <p className="text-sm text-muted-foreground">
-                  {t('onboarding.analytics.subtitle')}
-                </p>
-              </div>
-              <button
-                type="button"
-                className="flex w-full items-start gap-3 rounded-lg border p-4 text-left transition-colors hover:bg-muted/40"
-                onClick={() => setAnalyticsEnabled(!analyticsEnabled)}
-              >
-                <Checkbox
-                  id="analytics"
-                  checked={analyticsEnabled}
-                  onCheckedChange={c => setAnalyticsEnabled(c === true)}
-                  className="mt-0.5"
-                />
-                <div className="flex flex-col gap-1">
-                  <span className="text-sm font-medium leading-tight">
-                    {t('onboarding.analytics.checkbox')}
-                  </span>
-                  <span className="text-xs leading-relaxed text-muted-foreground">
-                    {t('onboarding.analytics.privacyHint')}
-                  </span>
-                </div>
-              </button>
-              <div className="flex items-center gap-2 rounded-md border border-dashed bg-muted/20 p-3">
-                <Lock size={14} className="shrink-0 text-muted-foreground" aria-hidden />
-                <span className="text-xs text-muted-foreground">
-                  {t(
-                    'onboarding.analytics.guarantee',
-                    'Your queries, results, and credentials never leave your machine — regardless of this setting.'
-                  )}
-                </span>
-              </div>
-            </div>
-          )}
         </div>
 
         <div className="flex items-center justify-between border-t bg-muted/20 px-8 py-4">
@@ -409,7 +366,7 @@ export function OnboardingModal({ onComplete }: OnboardingModalProps) {
             {step === 0
               ? t('onboarding.welcome.next')
               : step === TOTAL_STEPS - 1
-                ? t('onboarding.analytics.finish')
+                ? t('onboarding.finish')
                 : t('common.next', 'Next')}
           </Button>
         </div>

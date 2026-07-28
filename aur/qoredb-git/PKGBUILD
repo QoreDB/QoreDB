@@ -75,7 +75,7 @@ build() {
 
     # Build Tauri application (release mode)
     cd src-tauri
-    cargo build --release
+    cargo build --release --features duckdb-bundled
 }
 
 package() {

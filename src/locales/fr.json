@@ -458,6 +458,7 @@
     "footerHint": "Cliquez sur un résultat pour ouvrir la table"
   },
   "tabs": {
+    "newTab": "Nouvel onglet",
     "new": "Nouvel onglet",
     "newQuery": "Nouvelle requête ({{modifier}}+T)",
     "newNotebook": "Nouveau Notebook",
@@ -694,8 +695,6 @@
     "storeHistoryDescription": "Enregistre un historique local masqué pour faciliter le recall.",
     "storeErrorLogs": "Stocker les logs d'erreur",
     "storeErrorLogsDescription": "Enregistre des erreurs masquées pour aider au debug.",
-    "analyticsEnabled": "Partager des analytics d’usage anonymes",
-    "analyticsEnabledDescription": "Aide à améliorer QoreDB en envoyant des événements anonymes (pas de requêtes ni d’identifiants).",
     "sandbox": {
       "title": "Bac à sable",
       "description": "Personnalisez le suivi et l'affichage des modifications en bac à sable.",
@@ -1047,7 +1046,8 @@
       "indexed": "Indexé",
       "indexComposite": "Indexé (composite: {{name}})",
       "unique": "Contrainte unique",
-      "copySuccess": "Ligne copiée dans le presse-papiers"
+      "copySuccess": "Ligne copiée dans le presse-papiers",
+      "sortScansTable": "Trier sur cette colonne ne suit aucun index : le moteur trie toute la table."
     },
     "rowsSelected": "{{count}} ligne(s) sélectionnée(s)",
     "rowsTotal": "{{count}} ligne(s)",
@@ -1062,9 +1062,22 @@
     "lastPage": "Dernière page",
     "infiniteScroll": {
       "loaded": "{{loaded}} sur {{total}} lignes chargées",
+      "loadedUnknown": "{{loaded}} lignes chargées",
       "allLoaded": "{{total}} lignes chargées",
       "loading": "Chargement...",
-      "complete": "Fin des résultats"
+      "calculateTotal": "Calculer le total exact",
+      "countingTotal": "Calcul du total...",
+      "countTotalError": "Impossible de calculer le total exact",
+      "complete": "Fin des résultats",
+      "cancelCount": "Annuler",
+      "cancelCountBestEffortLabel": "Annuler (au mieux)",
+      "cancelCountBestEffort": "Ce driver ne garantit pas l'annulation : le comptage peut continuer côté serveur.",
+      "loadedEstimated": "{{loaded}} lignes chargées sur ~{{total}} (estimation)",
+      "estimateHint": "Estimation du moteur, ce n'est pas un comptage exact.",
+      "estimateAsOf": "Statistiques mises à jour le {{date}}.",
+      "windowExhausted": "{{loaded}} lignes chargées — le moteur ne sert plus de pages à cette profondeur",
+      "budgetExhausted": "{{loaded}} lignes chargées — l'onglet a atteint sa limite mémoire",
+      "budgetExhaustedHint": "Affinez le résultat avec un filtre, ou exportez la table pour la lire en entier."
     },
     "noData": "Aucune donnée à afficher",
     "noResults": "Aucun résultat",
@@ -1101,9 +1114,14 @@
     "exportSuccess": "{{count}} ligne(s) exportée(s) vers {{path}}",
     "exportError": "Échec de l'export des données",
     "copyToClipboard": "Copier dans le presse-papiers",
+    "copySelection": "Copier les {{count}} ligne(s) sélectionnée(s)",
+    "copyLoadedRows": "Copier les {{count}} ligne(s) chargée(s)",
+    "selectAllRows": "Sélectionner les lignes chargées",
+    "selectRow": "Sélectionner la ligne",
     "downloadToFile": "Télécharger en fichier",
     "openRow": "Ouvrir la ligne",
     "editCell": "Éditer la cellule",
+    "cellPreviewTruncated": "Aperçu — ouvrez la ligne pour voir la valeur entière",
     "searchPlaceholder": "Rechercher...",
     "columns": "Colonnes",
     "toggleColumns": "Afficher/masquer colonnes",
@@ -1133,6 +1151,25 @@
       "generate": "Générer",
       "apply": "Appliquer les filtres",
       "empty": "Aucun filtre n’a pu être déduit de cette demande."
+    },
+    "searchScope": {
+      "title": "Périmètre de recherche",
+      "description": "Colonnes couvertes par la recherche, et façon dont le terme est comparé.",
+      "mode": {
+        "contains": "Contient",
+        "starts_with": "Commence par"
+      },
+      "cost": {
+        "leading_wildcard": "Une recherche « contient » ne peut pas utiliser d’index : le moteur lit toutes les lignes.",
+        "multi_column": "Chercher dans plusieurs colonnes à la fois ne peut pas utiliser d’index.",
+        "no_index": "Cette colonne n’a aucun index qu’une recherche par préfixe pourrait suivre."
+      }
+    },
+    "createIndexForSort": "Créer un index sur cette colonne",
+    "createIndexUnsupported": "Ce driver ne gère pas la création d’index.",
+    "pagination": {
+      "unstableOrder": "ordre instable",
+      "unstableOrderHint": "Cette table n'a pas de clé unique sur laquelle paginer : une ligne peut apparaître deux fois ou être sautée si les données changent pendant le défilement."
     }
   },
   "export": {
@@ -1456,7 +1493,26 @@
     "exportVisible": "Exporter les logs visibles",
     "exportDiagnostic": "Exporter les logs de diagnostic (complet)",
     "exportSuccess": "Logs exportés : {{name}}",
+    "exportScrubbed": "Identifiants, jetons et chemin personnel ont été retirés avant l'écriture du fichier.",
     "exportError": "Échec de l'export des logs"
+  },
+  "paginationDiagnostics": {
+    "title": "Diagnostic de pagination",
+    "description": "Mesures par onglet pour la session en cours. Aucun nom de table, aucune valeur de cellule et aucun curseur n'est enregistré.",
+    "empty": "Aucune table parcourue dans cette session.",
+    "scope": "Onglet",
+    "pages": "Pages",
+    "rows": "Lignes",
+    "firstPage": "Première page",
+    "p50": "Page p50",
+    "p95": "Page p95",
+    "firstSearch": "Première recherche",
+    "exactCounts": "Comptages exacts",
+    "errors": "Erreurs",
+    "copy": "Copier le rapport",
+    "copied": "Rapport copié dans le presse-papiers",
+    "copyError": "Échec de la copie du rapport",
+    "reset": "Réinitialiser"
   },
   "dbtree": {
     "emptyNamespaces": "Aucune base de donnÃ©es ou schÃ©ma",
@@ -1628,13 +1684,13 @@
     "welcome": {
       "title": "Bienvenue sur QoreDB",
       "subtitle": "Un client de base de données moderne, local-first, pensé pour les développeurs qui veulent un outil qu'on a vraiment envie d'ouvrir chaque matin.",
-      "tagline": "12 drivers · SQL + NoSQL · Vitesse Rust · Local-first",
+      "tagline": "16 drivers · SQL + NoSQL · Vitesse Rust · Local-first",
       "next": "Commencer"
     },
     "capabilities": {
       "title": "Ce que vous pouvez faire avec QoreDB",
       "subtitle": "Une seule app pour tout votre workflow base de données — fini le jonglage entre outils.",
-      "driversTitle": "12 drivers natifs",
+      "driversTitle": "16 drivers natifs",
       "driversDesc": "PostgreSQL, MySQL, SQL Server, SQLite, DuckDB, CockroachDB, ClickHouse, MongoDB, Redis — et plus.",
       "aiTitle": "Assistant IA",
       "aiDesc": "Génère, corrige et explique SQL/MQL avec le contexte du schéma. Apportez vos clés OpenAI, Anthropic ou Ollama local.",
@@ -1652,15 +1708,15 @@
       "guardsDesc": "Les requêtes dangereuses sont détectées et confirmées deux fois en prod. Mode lecture seule activable pour toute connexion.",
       "sandboxTitle": "Mode Sandbox",
       "sandboxDesc": "Préparez localement les modifications de la grille, vérifiez-les, puis appliquez-les à la base. Les requêtes de l’éditeur SQL ne sont pas isolées.",
-      "localTitle": "Rien ne quitte votre machine",
-      "localDesc": "Pas de sync cloud, pas de télémétrie de vos données, pas d'indexation distante de schéma. Vos requêtes et résultats restent locaux."
+      "localTitle": "Vos données ne quittent pas votre machine",
+      "localDesc": "Pas de sync cloud, aucune télémétrie, pas d'indexation distante de schéma. Vos requêtes et résultats restent locaux. Une seule exception : la vérification de mise à jour interroge GitHub au démarrage — désactivable dans les Réglages."
     },
     "tiers": {
       "title": "Open core — Free et Pro",
       "subtitle": "QoreDB est open-source. Pro est pour les charges de travail qui se paient toutes seules.",
       "freeLabel": "Free",
       "freeFor": "Projets solo & exploration",
-      "freeBullet1": "Les 12 drivers de bases de données",
+      "freeBullet1": "Les 16 drivers de bases de données",
       "freeBullet2": "Éditeur de requêtes, notebooks, diagrammes ER",
       "freeBullet3": "IA avec vos propres clés API",
       "proLabel": "Pro",
@@ -1670,18 +1726,11 @@
       "proBullet3": "Data contracts, Instant Data API, exports avancés",
       "footnote": "Pro est un paiement unique, licence perpétuelle. Team est un abonnement par siège."
     },
-    "analytics": {
-      "title": "Aidez à faire évoluer QoreDB",
-      "subtitle": "Des statistiques d'utilisation anonymes aident à prioriser les fonctionnalités et corriger les bugs plus vite. Modifiable à tout moment dans les Paramètres.",
-      "checkbox": "Partager des statistiques d'utilisation anonymes (recommandé)",
-      "privacyHint": "On ne collecte que des compteurs d'utilisation et des rapports de crash — jamais de requêtes, résultats, schémas ou identifiants.",
-      "guarantee": "Vos requêtes, résultats et identifiants ne quittent jamais votre machine — quel que soit ce réglage.",
-      "finish": "C'est parti"
-    },
     "workspace": {
       "title": "Organisez avec les espaces de travail",
       "description": "Vous avez plusieurs connexions. Créez un espace de travail pour les regrouper par projet et les partager avec votre équipe via Git."
-    }
+    },
+    "finish": "C'est parti"
   },
   "document": {
     "new": "Nouveau Document",
@@ -1700,6 +1749,24 @@
     "description": "Une erreur inattendue s'est produite. L'erreur a été journalisée.",
     "reload": "Recharger l'application",
     "panelCrashed": "Ce panneau a rencontré une erreur"
+  },
+  "crashReport": {
+    "toastTitle": "QoreDB s'est fermé anormalement",
+    "toastDescription": "Un rapport de crash a été enregistré sur votre machine.",
+    "toastAction": "Voir le rapport",
+    "title": "Rapport de crash",
+    "subtitle": "{{kind}} — {{date}}",
+    "others_one": "{{count}} autre rapport en attente.",
+    "others_other": "{{count}} autres rapports en attente.",
+    "privacyNote": "Ce rapport reste sur votre machine. Les identifiants et les chemins personnels en ont été retirés. Rien n'est envoyé sans une action de votre part.",
+    "copy": "Copier",
+    "copied": "Rapport copié",
+    "copyError": "Impossible de copier le rapport",
+    "openFolder": "Ouvrir le dossier",
+    "openFolderError": "Impossible d'ouvrir le dossier des logs",
+    "report": "Signaler sur GitHub",
+    "dismiss": "Fermer",
+    "issueWhatHappened": "Ce qui se passait au moment du crash"
   },
   "sandbox": {
     "activate": "Bac à sable",
@@ -2408,6 +2475,7 @@
     "dismiss": "Non merci"
   },
   "ai": {
+    "newConversation": "Nouvelle conversation",
     "title": "Assistant IA",
     "promptPlaceholder": "Décrivez la requête que vous souhaitez générer...",
     "insertQuery": "Insérer dans l'éditeur",
@@ -2430,12 +2498,98 @@
       "title": "Fournisseurs IA",
       "description": "Configurez les clés API pour la génération de requêtes assistée par IA.",
       "defaultModel": "Modèle par défaut",
+      "ready": "Prêt",
+      "notInstalled": "Non installé",
+      "recommended": "Recommandé",
+      "external": "Externe",
+      "qoreLocalDescription": "QoreDB exécute le modèle sur cet appareil. Le contexte et les résultats de la base ne quittent pas votre machine.",
+      "runtimeTarget": "Cible du runtime : {{platform}} · {{architecture}}",
+      "installComing": "Le téléchargement sécurisé du runtime et du modèle n’est pas encore disponible dans cette version.",
+      "installDescription": "Télécharge et vérifie le moteur local et le modèle ({{size}}). Un téléchargement interrompu peut être repris.",
+      "installLocal": "Installer Qore AI Local",
+      "updateDescription": "Une mise à jour signée de Qore AI Local ({{version}}) est disponible. {{size}} seront téléchargés et vérifiés.",
+      "updateLocal": "Mettre à jour Qore AI Local",
+      "cancelInstall": "Annuler l’installation",
+      "downloading": "Téléchargement",
+      "verifying": "Vérification",
+      "installing": "Installation",
+      "completed": "Terminé",
+      "cancelled": "Annulé",
+      "error": "Erreur",
+      "runtimeArtifact": "Runtime",
+      "modelArtifact": "Modèle",
+      "downloadProgress": "{{current}} / {{total}}",
+      "startRuntime": "Démarrer le runtime",
+      "stopRuntime": "Arrêter le runtime",
+      "endpoint": "Endpoint local",
+      "active": "Actif",
+      "useProvider": "Utiliser par défaut",
+      "activeTitle": "Moteur IA actif",
+      "activeDescription": "Le fournisseur et le modèle utilisés par Qore AI et l’assistant de requêtes.",
+      "providersTitle": "Moteurs et fournisseurs IA",
+      "providersDescription": "Gérez les moteurs locaux et les identifiants des fournisseurs tiers.",
+      "dataTitle": "Données partagées avec l’IA",
+      "dataDescription": "Contrôlez le contexte de base de données qui peut être inclus dans les requêtes IA.",
+      "localDataNotice": "{{provider}} traite les requêtes localement. Rien n’est envoyé à un fournisseur IA cloud.",
+      "cloudDataNotice": "Le schéma et les lignes d’exemple autorisées peuvent être envoyés à {{provider}}.",
       "local": "Local",
       "configured": "Configuré",
       "notConfigured": "Non configuré",
       "enterKey": "Entrez la clé API...",
       "deleteKey": "Supprimer la clé API",
-      "ollamaHint": "Ollama s'exécute localement — aucune clé API requise. Assurez-vous qu'Ollama est lancé sur votre machine."
+      "ollamaHint": "Ollama s'exécute localement — aucune clé API requise. Assurez-vous qu'Ollama est lancé sur votre machine.",
+      "sampleRows": "Lignes d'exemple",
+      "sampleRowsDescription": "Partager quelques lignes d'exemple avec l'IA pour améliorer ses suggestions. Les colonnes sensibles restent masquées sauf autorisation ci-dessous.",
+      "sensitiveData": "Données sensibles",
+      "sensitiveDataDescription": "Autoriser l'IA à voir les valeurs sensibles (e-mails, noms, téléphones…). Désactivé, ces colonnes sont masquées avant tout envoi au fournisseur."
+    }
+  },
+  "agentChat": {
+    "model": "Modèle",
+    "title": "Qore AI",
+    "openChat": "Ouvrir Qore AI",
+    "conversations": "Conversations",
+    "collapseConversations": "Masquer les conversations",
+    "showConversations": "Afficher les conversations",
+    "newConversation": "Nouvelle conversation",
+    "noConversations": "Aucune conversation",
+    "untitled": "Sans titre",
+    "rename": "Renommer",
+    "delete": "Supprimer",
+    "promptPlaceholder": "Demandez à Q d'interroger votre base…",
+    "send": "Envoyer",
+    "cancel": "Arrêter",
+    "thinking": "Q réfléchit…",
+    "emptyState": "Découvrez Q",
+    "emptyHint": "Interrogez vos données. Q explore le schéma, exécute des requêtes en lecture et répond avec des données réelles. Les écritures demandent toujours votre accord.",
+    "noConnection": "Connectez-vous à une base de données pour démarrer.",
+    "noApiKey": "Configurez une clé API de provider IA dans les réglages pour utiliser l'agent.",
+    "activity": {
+      "inProgress": "Q explore",
+      "complete": "Q a exploré votre base",
+      "steps_one": "{{count}} étape",
+      "steps_other": "{{count}} étapes"
+    },
+    "error": {
+      "forbiddenHint": "La clé API a été acceptée, mais elle n'est pas autorisée à utiliser ce projet, ce modèle ou cette opération. Vérifiez les permissions du projet et l'accès au modèle.",
+      "openAiRequestHint": "Cette réponse OpenAI ne prouve pas que la clé manque de permissions. QoreDB la retente automatiquement ; si elle persiste, utilisez l'ID de requête dans les Logs OpenAI.",
+      "requestId": "ID de requête"
+    },
+    "permission": {
+      "allow": "Autoriser",
+      "allowAlways": "Toujours autoriser",
+      "deny": "Refuser",
+      "approved": "Autorisé",
+      "denied": "Refusé"
+    },
+    "tool": {
+      "truncated": "Premières lignes affichées sur {{count}}"
+    },
+    "usage": {
+      "tokens": "{{value}} tokens",
+      "iterations": "{{count}} itération(s)",
+      "cached": "{{percent}} % en cache",
+      "conversationTotal": "Tokens consommés dans cette conversation"
     }
   },
   "federation": {

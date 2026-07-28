@@ -3,6 +3,7 @@
 import { Command, Compass, Database, FileCode, Folder, Search, Star } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { QoreAiMonoMark } from '@/components/Brand/QoreAiMark';
 import { cn } from '@/lib/utils';
 import { useWorkspace } from '@/providers/WorkspaceProvider';
 import { getFavorites, type HistoryEntry, searchHistory } from '../../lib/query/history';
@@ -13,6 +14,7 @@ import {
   type QueryLibraryItem,
 } from '../../lib/query/queryLibrary';
 import { listSavedConnections, type SavedConnection } from '../../lib/tauri';
+import { commandMatchesQuery } from './commandSearch';
 
 interface GlobalSearchProps {
   isOpen: boolean;
@@ -27,6 +29,7 @@ export interface CommandItem {
   label: string;
   sublabel?: string;
   shortcut?: string;
+  keywords?: string[];
 }
 
 export interface SearchResult {
@@ -101,7 +104,7 @@ export function GlobalSearch({
         console.error(err);
       }
     }
-  }, [isOpen, buildDefaultResults]);
+  }, [isOpen, buildDefaultResults, projectId]);
 
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
@@ -136,7 +139,7 @@ export function GlobalSearch({
 
       // Commands first (always available, also searchable)
       const matchingCommands = trimmed
-        ? commands.filter(cmd => cmd.label.toLowerCase().includes(lowerQuery))
+        ? commands.filter(cmd => commandMatchesQuery(cmd, trimmed))
         : commands;
       matchingCommands.forEach(cmd => {
         searchResults.push({
@@ -180,7 +183,9 @@ export function GlobalSearch({
       }
 
       const folderById = new Map<string, string>();
-      libraryFolders.forEach(f => folderById.set(f.id, f.name));
+      libraryFolders.forEach(f => {
+        folderById.set(f.id, f.name);
+      });
 
       // Search saved connections
       connections.forEach(conn => {
@@ -340,7 +345,9 @@ export function GlobalSearch({
                       i === selectedIndex && 'text-accent-foreground/70'
                     )}
                   >
-                    {result.type === 'command' ? (
+                    {result.id === 'cmd_open_qore_ai' ? (
+                      <QoreAiMonoMark size={16} />
+                    ) : result.type === 'command' ? (
                       <Command size={16} />
                     ) : result.type === 'feature' ? (
                       <Compass size={16} />

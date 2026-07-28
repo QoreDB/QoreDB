@@ -17,6 +17,7 @@ pub struct AiModelInfo {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 #[serde(rename_all = "snake_case")]
 pub enum AiProvider {
+    QoreLocal,
     OpenAi,
     Anthropic,
     MistralAi,
@@ -28,6 +29,7 @@ pub enum AiProvider {
 impl AiProvider {
     pub fn as_str(&self) -> &'static str {
         match self {
+            AiProvider::QoreLocal => "qore_local",
             AiProvider::OpenAi => "openai",
             AiProvider::Anthropic => "anthropic",
             AiProvider::MistralAi => "mistral_ai",
@@ -37,111 +39,93 @@ impl AiProvider {
         }
     }
 
-    /// Curated list of models for this provider. First entry is the default.
+    /// Curated Qore AI catalog, intersected with live provider availability;
+    /// also used as the fallback when model discovery is unavailable.
+    /// First entry is the default. Verified against provider docs 2026-07-18.
     pub fn available_models(&self) -> &'static [AiModelInfo] {
         match self {
+            AiProvider::QoreLocal => &[AiModelInfo {
+                id: "qore-qwen3-8b",
+                label: "Qwen 3 8B · Local",
+            }],
             AiProvider::OpenAi => &[
                 AiModelInfo {
-                    id: "gpt-4.1",
-                    label: "GPT-4.1",
+                    id: "gpt-5.6-terra",
+                    label: "GPT-5.6 Terra · Balanced",
                 },
                 AiModelInfo {
-                    id: "gpt-4.1-mini",
-                    label: "GPT-4.1 Mini",
+                    id: "gpt-5.6-sol",
+                    label: "GPT-5.6 Sol · Best quality",
                 },
                 AiModelInfo {
-                    id: "gpt-4.1-nano",
-                    label: "GPT-4.1 Nano",
-                },
-                AiModelInfo {
-                    id: "o4-mini",
-                    label: "o4-mini",
-                },
-                AiModelInfo {
-                    id: "o3-mini",
-                    label: "o3-mini",
+                    id: "gpt-5.6-luna",
+                    label: "GPT-5.6 Luna · Fast",
                 },
             ],
             AiProvider::Anthropic => &[
                 AiModelInfo {
-                    id: "claude-sonnet-4-6",
-                    label: "Claude Sonnet 4.6",
+                    id: "claude-sonnet-5",
+                    label: "Claude Sonnet 5",
                 },
                 AiModelInfo {
-                    id: "claude-sonnet-4-20250514",
-                    label: "Claude Sonnet 4",
+                    id: "claude-opus-4-8",
+                    label: "Claude Opus 4.8",
                 },
                 AiModelInfo {
-                    id: "claude-haiku-4-5-20251001",
+                    id: "claude-haiku-4-5",
                     label: "Claude Haiku 4.5",
                 },
             ],
             AiProvider::MistralAi => &[
                 AiModelInfo {
-                    id: "mistral-large-latest",
-                    label: "Mistral Large",
-                },
-                AiModelInfo {
                     id: "mistral-medium-latest",
                     label: "Mistral Medium",
+                },
+                AiModelInfo {
+                    id: "mistral-large-latest",
+                    label: "Mistral Large",
                 },
                 AiModelInfo {
                     id: "mistral-small-latest",
                     label: "Mistral Small",
                 },
-                AiModelInfo {
-                    id: "codestral-latest",
-                    label: "Codestral",
-                },
-                AiModelInfo {
-                    id: "pixtral-large-latest",
-                    label: "Pixtral Large",
-                },
             ],
             AiProvider::GoogleGemini => &[
                 AiModelInfo {
-                    id: "gemini-2.5-pro-preview-05-06",
-                    label: "Gemini 2.5 Pro",
+                    id: "gemini-3.5-flash",
+                    label: "Gemini 3.5 Flash",
                 },
                 AiModelInfo {
-                    id: "gemini-2.5-flash-preview-05-20",
-                    label: "Gemini 2.5 Flash",
+                    id: "gemini-3.1-pro-preview",
+                    label: "Gemini 3.1 Pro",
                 },
                 AiModelInfo {
-                    id: "gemini-2.0-flash",
-                    label: "Gemini 2.0 Flash",
+                    id: "gemini-3.1-flash-lite",
+                    label: "Gemini 3.1 Flash Lite",
                 },
             ],
             AiProvider::DeepSeek => &[
                 AiModelInfo {
-                    id: "deepseek-chat",
-                    label: "DeepSeek V3",
+                    id: "deepseek-v4-flash",
+                    label: "DeepSeek V4 Flash",
                 },
                 AiModelInfo {
-                    id: "deepseek-reasoner",
-                    label: "DeepSeek R1",
+                    id: "deepseek-v4-pro",
+                    label: "DeepSeek V4 Pro",
                 },
             ],
             AiProvider::Ollama => &[
+                AiModelInfo {
+                    id: "qwen3",
+                    label: "Qwen 3",
+                },
                 AiModelInfo {
                     id: "llama3.3",
                     label: "Llama 3.3",
                 },
                 AiModelInfo {
-                    id: "llama3.1",
-                    label: "Llama 3.1",
-                },
-                AiModelInfo {
-                    id: "qwen2.5-coder",
-                    label: "Qwen 2.5 Coder",
-                },
-                AiModelInfo {
                     id: "deepseek-r1",
                     label: "DeepSeek R1",
-                },
-                AiModelInfo {
-                    id: "codellama",
-                    label: "Code Llama",
                 },
                 AiModelInfo {
                     id: "mistral",
@@ -151,8 +135,32 @@ impl AiProvider {
         }
     }
 
+    pub fn available_models_owned(&self) -> Vec<AiModelInfoOwned> {
+        self.available_models()
+            .iter()
+            .map(|m| AiModelInfoOwned {
+                id: m.id.to_string(),
+                label: m.label.to_string(),
+            })
+            .collect()
+    }
+
     pub fn default_model(&self) -> &'static str {
         self.available_models()[0].id
+    }
+
+    /// Cheapest curated model, for utility calls (conversation titles) where
+    /// quality doesn't matter.
+    pub fn utility_model(&self) -> &'static str {
+        match self {
+            AiProvider::QoreLocal => self.default_model(),
+            AiProvider::OpenAi => "gpt-5.6-luna",
+            AiProvider::Anthropic => "claude-haiku-4-5",
+            AiProvider::MistralAi => "mistral-small-latest",
+            AiProvider::GoogleGemini => "gemini-3.1-flash-lite",
+            AiProvider::DeepSeek => "deepseek-v4-flash",
+            AiProvider::Ollama => self.default_model(),
+        }
     }
 
     pub fn default_base_url(&self) -> Option<&'static str> {
@@ -163,7 +171,7 @@ impl AiProvider {
     }
 
     pub fn requires_api_key(&self) -> bool {
-        !matches!(self, AiProvider::Ollama)
+        !matches!(self, AiProvider::QoreLocal | AiProvider::Ollama)
     }
 }
 
@@ -175,6 +183,10 @@ pub struct AiConfig {
     pub base_url: Option<String>,
     pub max_tokens: Option<u32>,
     pub temperature: Option<f32>,
+    /// Explicit user opt-in: send values and names of sensitive columns
+    /// (emails, person names, phones…) to the AI provider unmasked.
+    #[serde(default)]
+    pub allow_sensitive_data: bool,
 }
 
 impl AiConfig {
@@ -300,6 +312,154 @@ pub struct SafetyInfo {
     pub warnings: Vec<String>,
 }
 
+/// Stable error category, sent to the frontend so messages can be localized
+/// and retried appropriately.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum AiErrorKind {
+    InvalidKey,
+    RateLimited,
+    ContextTooLarge,
+    Network,
+    Provider,
+}
+
+/// Typed provider error. `message` keeps the raw provider detail as fallback.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AiError {
+    pub kind: AiErrorKind,
+    pub message: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub retry_after_secs: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub provider: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub http_status: Option<u16>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub provider_code: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub provider_error_type: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub request_id: Option<String>,
+}
+
+impl AiError {
+    fn new(kind: AiErrorKind, message: impl Into<String>) -> Self {
+        Self {
+            kind,
+            message: message.into(),
+            retry_after_secs: None,
+            provider: None,
+            http_status: None,
+            provider_code: None,
+            provider_error_type: None,
+            request_id: None,
+        }
+    }
+
+    pub fn invalid_key(message: impl Into<String>) -> Self {
+        Self::new(AiErrorKind::InvalidKey, message)
+    }
+
+    pub fn rate_limited(message: impl Into<String>, retry_after_secs: Option<u64>) -> Self {
+        Self {
+            retry_after_secs,
+            ..Self::new(AiErrorKind::RateLimited, message)
+        }
+    }
+
+    pub fn context_too_large(message: impl Into<String>) -> Self {
+        Self::new(AiErrorKind::ContextTooLarge, message)
+    }
+
+    pub fn network(message: impl Into<String>) -> Self {
+        Self::new(AiErrorKind::Network, message)
+    }
+
+    pub fn provider(message: impl Into<String>) -> Self {
+        Self::new(AiErrorKind::Provider, message)
+    }
+
+    pub fn with_provider_details(
+        mut self,
+        provider: &str,
+        http_status: u16,
+        provider_code: Option<String>,
+        provider_error_type: Option<String>,
+        request_id: Option<String>,
+    ) -> Self {
+        self.provider = Some(provider.to_string());
+        self.http_status = Some(http_status);
+        self.provider_code = provider_code;
+        self.provider_error_type = provider_error_type;
+        self.request_id = request_id;
+        self
+    }
+
+    /// Only transient failures (rate limit, 5xx, transport) deserve a retry.
+    pub fn is_retryable(&self) -> bool {
+        matches!(self.kind, AiErrorKind::RateLimited | AiErrorKind::Network)
+    }
+}
+
+impl std::fmt::Display for AiError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.message)
+    }
+}
+
+impl From<AiError> for String {
+    fn from(e: AiError) -> Self {
+        e.message
+    }
+}
+
+/// Token counts reported by the provider at the end of a stream.
+/// `input_tokens` is normalized to the *uncached* input across providers
+/// (some report cached tokens inside their prompt count, some outside).
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize)]
+pub struct AiUsage {
+    pub input_tokens: Option<u32>,
+    pub output_tokens: Option<u32>,
+    pub cache_read_tokens: Option<u32>,
+    pub cache_creation_tokens: Option<u32>,
+}
+
+impl AiUsage {
+    pub fn total(&self) -> Option<u32> {
+        if self.input_tokens.is_none()
+            && self.output_tokens.is_none()
+            && self.cache_read_tokens.is_none()
+            && self.cache_creation_tokens.is_none()
+        {
+            return None;
+        }
+        Some(
+            self.input_tokens.unwrap_or(0)
+                + self.output_tokens.unwrap_or(0)
+                + self.cache_read_tokens.unwrap_or(0)
+                + self.cache_creation_tokens.unwrap_or(0),
+        )
+    }
+
+    /// Billing-representative weight: cache reads cost ~10% of fresh input
+    /// and cache writes ~125% (Anthropic pricing, close enough elsewhere).
+    /// Used for the per-run budget so cached agent iterations don't burn it
+    /// quadratically.
+    pub fn cost_weighted(&self) -> Option<u32> {
+        self.total()?;
+        Some(
+            self.input_tokens.unwrap_or(0)
+                + self.output_tokens.unwrap_or(0)
+                + self.cache_read_tokens.unwrap_or(0).div_ceil(10)
+                + {
+                    let creation = self.cache_creation_tokens.unwrap_or(0);
+                    creation + creation / 4
+                },
+        )
+    }
+}
+
 /// A streaming chunk emitted via window.emit()
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AiStreamChunk {
@@ -308,12 +468,28 @@ pub struct AiStreamChunk {
     pub delta: String,
     /// True when streaming is complete
     pub done: bool,
-    /// Error message if the request failed
-    pub error: Option<String>,
+    /// Typed error if the request failed
+    pub error: Option<AiError>,
     /// The extracted SQL/MQL query (populated only when done=true)
     pub generated_query: Option<String>,
     /// Safety analysis of the generated query (populated only when done=true)
     pub safety_analysis: Option<SafetyInfo>,
+    /// Total tokens consumed (populated only when done=true, if reported)
+    pub tokens_used: Option<u32>,
+}
+
+impl AiStreamChunk {
+    pub fn delta(request_id: &str, delta: impl Into<String>) -> Self {
+        Self {
+            request_id: request_id.to_string(),
+            delta: delta.into(),
+            done: false,
+            error: None,
+            generated_query: None,
+            safety_analysis: None,
+            tokens_used: None,
+        }
+    }
 }
 
 /// Non-streaming response for sync commands

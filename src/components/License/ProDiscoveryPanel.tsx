@@ -18,12 +18,10 @@ import {
   Sparkles,
   Table2,
 } from 'lucide-react';
-import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import type { ProFeature } from '@/lib/license';
-import { trackProEvent } from '@/lib/licenseTracking';
 import { getCheckoutUrl, getPricingUrl } from '@/lib/pricing';
 import { openExternal } from '@/lib/transport';
 
@@ -58,32 +56,21 @@ const PRO_FEATURES: FeatureEntry[] = [
 interface ProDiscoveryPanelProps {
   open: boolean;
   onClose: () => void;
-  source?: string;
   onActivate?: () => void;
 }
 
-export function ProDiscoveryPanel({ open, onClose, source, onActivate }: ProDiscoveryPanelProps) {
+export function ProDiscoveryPanel({ open, onClose, onActivate }: ProDiscoveryPanelProps) {
   const { t } = useTranslation();
 
-  useEffect(() => {
-    if (open) trackProEvent('pro_discovery_opened', { source });
-  }, [open, source]);
-
   const handleUnlock = () => {
-    trackProEvent('pro_upgrade_cta_clicked', { source: source ?? 'discovery_panel' });
     openExternal(getCheckoutUrl());
   };
 
   const handleLearnMore = () => {
-    trackProEvent('pro_upgrade_learn_more_clicked', { source: source ?? 'discovery_panel' });
     openExternal(getPricingUrl());
   };
 
   const handleFeatureClick = (feature: ProFeature) => {
-    trackProEvent('pro_discovery_feature_clicked', {
-      feature,
-      source: source ?? 'discovery_panel',
-    });
     openExternal(getPricingUrl(feature));
   };
 

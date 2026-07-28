@@ -44,7 +44,9 @@ impl CsvWriter {
             Value::Text(s) => s.clone(),
             Value::Bytes(b) => STANDARD.encode(b),
             Value::Json(j) => j.to_string(),
-            Value::Array(arr) => serde_json::to_string(arr).unwrap_or_else(|_| "[]".to_string()),
+            Value::Array(arr) => {
+                serde_json::Value::Array(arr.iter().map(Value::to_json).collect()).to_string()
+            }
         }
     }
 }

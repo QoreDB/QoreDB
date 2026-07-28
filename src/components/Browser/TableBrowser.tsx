@@ -20,7 +20,6 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
-import { AnalyticsService } from '@/components/Onboarding/AnalyticsService';
 import { ChangesPanel, MigrationPreview, SandboxToggle } from '@/components/Sandbox';
 import { Button } from '@/components/ui/button';
 import {
@@ -31,9 +30,11 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { useTourManager } from '@/hooks/useTourManager';
-import { buildQualifiedTableName } from '@/lib/ddl';
+import { buildCreateIndexSQL, buildQualifiedTableName } from '@/lib/ddl';
 import { onTableChange } from '@/lib/events/tableEvents';
 import { UI_EVENT_REFRESH_TABLE } from '@/lib/events/uiEvents';
+import { type SearchMode, searchCost } from '@/lib/query/indexCost';
+import { defaultSearchColumns } from '@/lib/query/searchScope';
 import {
   activateSandbox,
   clearSandboxBackup,
@@ -67,11 +68,13 @@ import {
   executeQuery,
   generateMigrationSql,
   type Namespace,
+  queryTable,
   type RelationFilter,
   type SandboxChangeDto,
   type SearchFilter,
   type SortDirection,
   type TableSchema,
+  type TotalRowsSource,
   type Value,
 } from '../../lib/tauri';
 import { DocumentEditorModal } from '../Editor/DocumentEditorModal';
@@ -150,6 +153,8 @@ interface TableBrowserProps {
   onClose: () => void;
   onOpenTimeTravel?: (namespace: Namespace, tableName: string) => void;
   onOpenRelatedTable?: (namespace: Namespace, tableName: string) => void;
+  /** Opens a query tab pre-filled with `sql`. */
+  onOpenQuery?: (sql: string, namespace: Namespace) => void;
   relationFilter?: RelationFilter;
   searchFilter?: SearchFilter;
   initialTab?: TableBrowserTab;
@@ -170,6 +175,7 @@ export function TableBrowser({
   onClose,
   onOpenTimeTravel,
   onOpenRelatedTable,
+  onOpenQuery,
   relationFilter,
   searchFilter,
   initialTab,
@@ -188,6 +194,7 @@ export function TableBrowser({
   }, [sessionId, shouldShowTour, startTour]);
   const [activeTab, setActiveTab] = useState<TableBrowserTab>(initialTab ?? 'data');
   const [schema, setSchema] = useState<TableSchema | null>(null);
+  const [schemaSettled, setSchemaSettled] = useState(false);
 
   // The database overview can reopen an existing table directly on a specific
   // tab (for example Structure). Keep the mounted browser in sync with that
@@ -300,17 +307,83 @@ export function TableBrowser({
 
   const schemaCache = useSchemaCache(sessionId, connectionId);
 
+  // The schema is already loaded for this table, so the driver never has to
+  // rediscover the columns on every page and every debounced keystroke.
+  const [searchMode, setSearchMode] = useState<SearchMode>('contains');
+  const [scopeOverride, setScopeOverride] = useState<string[] | null>(null);
+
+  // A manual scope belongs to the table it was chosen on. Reset during render
+  // rather than in an effect, so the first render of the new table already uses
+  // the default scope instead of briefly searching the previous one.
+  const scopeTableKey = `${namespace.database}\u0000${namespace.schema ?? ''}\u0000${tableName}`;
+  const [lastScopeTableKey, setLastScopeTableKey] = useState(scopeTableKey);
+  if (lastScopeTableKey !== scopeTableKey) {
+    setLastScopeTableKey(scopeTableKey);
+    setScopeOverride(null);
+    setSearchMode('contains');
+  }
+
+  const searchColumns = useMemo(() => {
+    const columns = scopeOverride ?? defaultSearchColumns(schema?.columns);
+    return columns.length > 0 ? columns : undefined;
+  }, [schema, scopeOverride]);
+
+  // The index is proposed, never created here: DDL belongs to the query tab,
+  // where the statement is visible and the usual guards apply.
+  const handleCreateIndex = useCallback(
+    (column: string) => {
+      if (!onOpenQuery) return;
+      const qualified = buildQualifiedTableName(namespace, tableName, driver);
+      const sql = buildCreateIndexSQL(qualified, column, driver);
+      if (!sql) {
+        toast.error(t('grid.createIndexUnsupported'));
+        return;
+      }
+      onOpenQuery(sql, namespace);
+    },
+    [driver, namespace, onOpenQuery, t, tableName]
+  );
+
+  // Keyset needs a total order. Only a primary key qualifies here: it is unique
+  // and NOT NULL by definition, where a "unique" index may still be nullable and
+  // would drop rows from the comparison.
+  const keysetColumns = useMemo(() => {
+    if (!driverCapabilities?.pagination?.keyset) return undefined;
+    const pk = schema?.primary_key;
+    return pk && pk.length > 0 ? pk : undefined;
+  }, [driverCapabilities, schema]);
+
+  const searchScope = useMemo(
+    () => ({
+      columns: schema?.columns ?? [],
+      selected: searchColumns ?? [],
+      mode: searchMode,
+      cost: searchCost(schema, searchColumns, searchMode),
+      onSelectedChange: setScopeOverride,
+      onModeChange: setSearchMode,
+    }),
+    [schema, searchColumns, searchMode]
+  );
+
   const {
     data,
     totalRows,
+    totalRowsSource,
+    totalRowsAsOf,
     loadedRows: infiniteLoadedRows,
     isLoading: loading,
     isFetchingMore,
+    isCountingTotal,
     isComplete,
+    windowExhausted,
+    budgetExhausted,
+    orderingGuarantee,
     error,
     cached,
     cachedAgeMs,
     fetchNextChunk,
+    calculateExactTotal,
+    cancelExactTotal,
     reload,
     refresh,
   } = useInfiniteTableData({
@@ -321,14 +394,35 @@ export function TableBrowser({
     sortColumn,
     sortDirection,
     searchTerm: debouncedSearchTerm,
+    searchColumns,
+    searchMode,
+    maxOffsetWindow: driverCapabilities?.pagination?.max_offset_window,
+    keysetColumns,
     filters: infiniteScrollFilters,
+    // The first page decides the ordering for the whole walk, and the unique
+    // key it needs comes from the schema. Fetching before it resolves means
+    // fetching that page twice and showing the second one in another order.
+    enabled: schemaSettled,
   });
 
-  // Load schema on mount and when data arrives
   useEffect(() => {
-    schemaCache.getTableSchema(namespace, tableName).then(cachedSchema => {
-      if (cachedSchema) setSchema(cachedSchema);
-    });
+    let cancelled = false;
+    setSchema(null);
+    setSchemaSettled(false);
+    schemaCache
+      .getTableSchema(namespace, tableName)
+      .then(cachedSchema => {
+        if (!cancelled && cachedSchema) setSchema(cachedSchema);
+      })
+      .catch(() => {})
+      .finally(() => {
+        // Settled, not successful: a table whose schema cannot be read still
+        // has to open, without a stable order.
+        if (!cancelled) setSchemaSettled(true);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [schemaCache, namespace, tableName]);
 
   // Analytics tracking
@@ -336,10 +430,6 @@ export function TableBrowser({
     if (data && lastTrackedViewKeyRef.current !== currentViewKey) {
       lastTrackedViewKeyRef.current = currentViewKey;
       recordTableVisit({ connectionId, namespace, tableName });
-      AnalyticsService.capture('table_view_loaded', {
-        driver,
-        resource_type: driver === Driver.Mongodb ? 'collection' : 'table',
-      });
     }
   }, [connectionId, currentViewKey, data, driver, namespace, tableName]);
 
@@ -852,10 +942,21 @@ export function TableBrowser({
             exportQuery={streamingExportQuery}
             exportNamespace={namespace}
             infiniteScrollTotalRows={totalRows}
+            infiniteScrollTotalRowsSource={totalRowsSource}
+            infiniteScrollTotalRowsAsOf={totalRowsAsOf}
             infiniteScrollLoadedRows={infiniteLoadedRows}
             infiniteScrollIsFetchingMore={isFetchingMore}
+            infiniteScrollIsCountingTotal={isCountingTotal}
             infiniteScrollIsComplete={isComplete}
+            infiniteScrollWindowExhausted={windowExhausted}
+            infiniteScrollBudgetExhausted={budgetExhausted}
+            infiniteScrollOrderingGuarantee={orderingGuarantee}
             onFetchMore={fetchNextChunk}
+            onCalculateExactTotal={calculateExactTotal}
+            onCancelExactTotal={cancelExactTotal}
+            infiniteScrollCancelSupport={driverCapabilities?.cancel}
+            searchScope={searchScope}
+            onCreateIndex={onOpenQuery ? handleCreateIndex : undefined}
             serverSortColumn={sortColumn}
             serverSortDirection={sortDirection}
             onServerSortChange={handleServerSortChange}
@@ -1075,6 +1176,7 @@ interface TableStats {
   sizeBytes?: number;
   sizeFormatted?: string;
   rowCount?: number;
+  rowCountSource?: TotalRowsSource;
   indexCount?: number;
   indexes?: Array<{
     name: string;
@@ -1123,6 +1225,19 @@ function TableInfoPanel({
       const schemaName = namespace.schema || 'public';
       const newStats: TableStats = {};
 
+      // One cheap, labelled count for every driver. Opening the tab must not
+      // fire an unbounded COUNT(*), and the engine estimates that MySQL and
+      // MongoDB used to surface here were presented as exact totals.
+      const countResult = await queryTable(sessionId, namespace, tableName, {
+        page: 1,
+        page_size: 1,
+        count_mode: 'estimated',
+      });
+      if (countResult.success && countResult.result?.total_rows != null) {
+        newStats.rowCount = countResult.result.total_rows;
+        newStats.rowCountSource = countResult.result.total_rows_source ?? undefined;
+      }
+
       if (driverMeta.supportsSQL) {
         // PostgreSQL stats query
         if (driver === Driver.Postgres) {
@@ -1136,14 +1251,6 @@ function TableInfoPanel({
             const row = sizeResult.result.rows[0].values;
             newStats.sizeBytes = row[0] as number;
             newStats.sizeFormatted = row[1] as string;
-          }
-
-          // Row count (exact)
-          //TODO : count is heavy , may by have a fallack for larges databases
-          const countQuery = `SELECT COUNT(*) as cnt FROM "${schemaName}"."${tableName}"`;
-          const countResult = await executeQuery(sessionId, countQuery);
-          if (countResult.success && countResult.result?.rows[0]) {
-            newStats.rowCount = countResult.result.rows[0].values[0] as number;
           }
 
           // Indexes
@@ -1178,7 +1285,7 @@ function TableInfoPanel({
         // MySQL/MariaDB
         else if (driver === Driver.Mysql) {
           const statsQuery = `
-            SELECT data_length + index_length as total_bytes, table_rows
+            SELECT data_length + index_length as total_bytes
             FROM information_schema.tables 
             WHERE table_schema = '${namespace.database}' AND table_name = '${tableName}'
           `;
@@ -1187,7 +1294,6 @@ function TableInfoPanel({
             const row = statsResult.result.rows[0].values;
             newStats.sizeBytes = row[0] as number;
             newStats.sizeFormatted = formatBytes(row[0] as number);
-            newStats.rowCount = row[1] as number;
           }
 
           // Indexes
@@ -1209,7 +1315,6 @@ function TableInfoPanel({
           }
         }
       } else if (driver === Driver.Mongodb && schema) {
-        newStats.rowCount = schema.row_count_estimate ?? undefined;
         newStats.indexes = schema.indexes.map(idx => ({
           name: idx.name,
           columns: idx.columns.join(', '),
@@ -1259,7 +1364,16 @@ function TableInfoPanel({
         <StatCard
           icon={<List size={16} />}
           label={t('tableInfo.rowCount')}
-          value={stats.rowCount !== undefined ? stats.rowCount.toLocaleString() : '—'}
+          value={
+            stats.rowCount === undefined
+              ? '—'
+              : stats.rowCountSource === 'estimated'
+                ? `~${stats.rowCount.toLocaleString()}`
+                : stats.rowCount.toLocaleString()
+          }
+          hint={
+            stats.rowCountSource === 'estimated' ? t('grid.infiniteScroll.estimateHint') : undefined
+          }
         />
         <StatCard
           icon={<Key size={16} />}
@@ -1409,11 +1523,15 @@ interface StatCardProps {
   icon: React.ReactNode;
   label: string;
   value: string;
+  hint?: string;
 }
 
-function StatCard({ icon, label, value }: StatCardProps) {
+function StatCard({ icon, label, value, hint }: StatCardProps) {
   return (
-    <div className="flex items-center gap-3 p-3 rounded-md border border-border bg-muted/20">
+    <div
+      title={hint}
+      className="flex items-center gap-3 p-3 rounded-md border border-border bg-muted/20"
+    >
       <div className="text-muted-foreground">{icon}</div>
       <div>
         <div className="text-xs text-muted-foreground">{label}</div>

@@ -80,7 +80,7 @@ use crate::engine::traits::StreamEvent;
 use crate::federation::manager;
 #[cfg(feature = "pro")]
 use crate::federation::types::{
-    AliasEntry, ConnectionAliasMap, FederationQueryOptions, FederationSource,
+    AliasEntry, ConnectionAliasMap, FederationQueryOptions, FederationSource, normalize_alias,
 };
 
 /// Executes a cross-database federation query.
@@ -277,32 +277,10 @@ fn convert_metadata(meta: &crate::federation::types::FederationMetadata) -> Fede
     }
 }
 
-/// Normalizes a connection display name into a SQL-safe alias.
-/// e.g., "Production PostgreSQL (SSH)" -> "production_postgresql_ssh"
-#[cfg(feature = "pro")]
-fn normalize_alias(name: &str) -> String {
-    name.chars()
-        .map(|c| {
-            if c.is_alphanumeric() {
-                c.to_ascii_lowercase()
-            } else {
-                '_'
-            }
-        })
-        .collect::<String>()
-        .trim_matches('_')
-        .split('_')
-        .filter(|s| !s.is_empty())
-        .collect::<Vec<_>>()
-        .join("_")
-}
-
-#[cfg(test)]
+#[cfg(all(test, feature = "pro"))]
 mod tests {
-    #[cfg(feature = "pro")]
-    use super::normalize_alias;
+    use crate::federation::types::normalize_alias;
 
-    #[cfg(feature = "pro")]
     #[test]
     fn normalizes_display_names() {
         assert_eq!(

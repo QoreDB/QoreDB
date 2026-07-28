@@ -20,6 +20,40 @@ export interface ChangelogEntry {
  */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.1.35',
+    date: '2026-07-27',
+    items: [
+      {
+        title: 'Q, your database agent',
+        description:
+          'A dedicated chat tab where you ask in plain language. Q explores the schema, runs read-only queries and answers from the rows it actually read, showing every step and result inline.',
+        type: 'feature',
+        proOnly: true,
+      },
+      {
+        title: 'Approval before anything is written',
+        description:
+          'Writes and cross-connection access pause the agent and ask you first. Mutations are refused outright in production, and an approval is only remembered in development and staging.',
+        type: 'feature',
+        proOnly: true,
+      },
+      {
+        title: 'Conversations that survive a restart',
+        description:
+          'Conversations are listed, renamed and resumed across sessions. Only the messages and short tool summaries are stored — query results never touch the disk.',
+        type: 'feature',
+        proOnly: true,
+      },
+      {
+        title: 'Qore AI Local',
+        description:
+          'Run the agent against a local model with no API key: a bundled llama-server runtime for macOS, Windows and Linux, built reproducibly, installed resumably and verified by SHA-256 against a signed manifest.',
+        type: 'feature',
+        proOnly: true,
+      },
+    ],
+  },
+  {
     version: '0.1.34',
     date: '2026-07-16',
     items: [

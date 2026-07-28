@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supportsConnectionUrl } from '@/lib/connection/connectionUrls';
 import { DEFAULT_PORTS, Driver } from '@/lib/connection/drivers';
 import { detectDriverFromDsn } from '@/lib/connection/dsnDetector';
+import { resolveMotherDuckHost } from '@/lib/connection/motherduck';
 import type { PartialConnectionConfig, SavedConnection } from '@/lib/tauri';
 import { isConnectionFormValid } from './mappers';
 import { type ConnectionFormData, initialConnectionFormData } from './types';
@@ -75,12 +76,16 @@ export function useConnectionForm(options: {
     if (editConnection) {
       const sshTunnel = editConnection.ssh_tunnel;
       const proxy = editConnection.proxy;
+      const driver = editConnection.driver as Driver;
       setFormData({
         name: editConnection.name,
-        driver: editConnection.driver as Driver,
+        driver,
         environment: editConnection.environment || 'development',
         readOnly: editConnection.read_only || false,
-        host: editConnection.host,
+        host:
+          driver === Driver.Motherduck
+            ? resolveMotherDuckHost(editConnection.host, editPassword || '')
+            : editConnection.host,
         port: editConnection.port,
         username: editConnection.username,
         password: editPassword || '',
@@ -128,7 +133,7 @@ export function useConnectionForm(options: {
       port: DEFAULT_PORTS[driver],
       host:
         driver === Driver.Motherduck && prev.host === 'localhost'
-          ? 'pg.us-east-1-aws.motherduck.com'
+          ? resolveMotherDuckHost('', prev.password)
           : prev.host,
       username: driver === Driver.Motherduck && !prev.username ? 'postgres' : prev.username,
       database: driver === Driver.Motherduck && !prev.database ? 'md:' : prev.database,
@@ -146,7 +151,13 @@ export function useConnectionForm(options: {
   }
 
   function handleChange(field: keyof ConnectionFormData, value: string | number | boolean) {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    setFormData(prev => {
+      const next = { ...prev, [field]: value };
+      if (prev.driver === Driver.Motherduck && field === 'password' && typeof value === 'string') {
+        next.host = resolveMotherDuckHost(prev.host, value);
+      }
+      return next;
+    });
   }
 
   /**
@@ -167,17 +178,19 @@ export function useConnectionForm(options: {
         detected?.driver ??
         (parsedDriver ? preserveCompatibleSelectedDriver(prev.driver, parsedDriver) : prev.driver);
       const port = config.port ?? DEFAULT_PORTS[driver];
+      const password = config.password ?? prev.password;
+      const host = config.host ?? prev.host;
 
       return {
         ...prev,
         // Apply URL-derived values
         driver,
-        host: config.host ?? prev.host,
+        host: driver === Driver.Motherduck ? resolveMotherDuckHost(host, password) : host,
         port,
         username:
           config.username ??
           (driver === Driver.Motherduck && !prev.username ? 'postgres' : prev.username),
-        password: config.password ?? prev.password,
+        password,
         database:
           config.database ??
           (driver === Driver.Motherduck && !prev.database ? 'md:' : prev.database),

@@ -263,6 +263,8 @@ fn extract_archive(bytes: &[u8], staging: &Path) -> Result<(), String> {
 
 #[cfg(test)]
 mod tests {
+    use std::io::Write;
+
     use super::*;
 
     #[test]
@@ -285,5 +287,23 @@ mod tests {
         let expected = [0u8; 32];
         let err = verify_sha256(b"hello", &expected).unwrap_err();
         assert!(err.contains("mismatch"));
+    }
+
+    #[test]
+    fn extracts_a_valid_flat_zip_archive() {
+        let mut writer = zip::ZipWriter::new(std::io::Cursor::new(Vec::new()));
+        writer
+            .start_file("plugin.json", zip::write::SimpleFileOptions::default())
+            .unwrap();
+        writer.write_all(b"{\"id\":\"example\"}").unwrap();
+        let bytes = writer.finish().unwrap().into_inner();
+
+        let staging = tempfile::tempdir().unwrap();
+        extract_archive(&bytes, staging.path()).unwrap();
+
+        assert_eq!(
+            std::fs::read(staging.path().join("plugin.json")).unwrap(),
+            b"{\"id\":\"example\"}"
+        );
     }
 }

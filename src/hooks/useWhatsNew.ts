@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { useEffect, useSyncExternalStore } from 'react';
-import { AnalyticsService } from '@/components/Onboarding/AnalyticsService';
 import { CHANGELOG, type ChangelogEntry } from '@/data/changelog';
+import { isOnboardingCompleted } from '@/lib/onboardingState';
 import { setWhatsNewOpen } from '@/lib/stores/modalStore';
 import { APP_VERSION } from '@/lib/version';
 
@@ -73,7 +73,7 @@ export function useHasUnseenChangelog(): boolean {
  */
 export function useWhatsNew(): void {
   useEffect(() => {
-    if (!AnalyticsService.isOnboardingCompleted()) return;
+    if (!isOnboardingCompleted()) return;
     const lastSeen = readLastSeen();
     if (!lastSeen) {
       markVersionSeen(APP_VERSION);

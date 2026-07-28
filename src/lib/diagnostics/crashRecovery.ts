@@ -11,7 +11,8 @@ export interface RecoveryTab {
     | 'snapshots'
     | 'notebook'
     | 'time-travel'
-    | 'migrations';
+    | 'migrations'
+    | 'chat';
   title: string;
   namespace?: {
     database: string;

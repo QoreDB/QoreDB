@@ -17,9 +17,9 @@ compact_str = { workspace = true }
 
 # Async runtime
 tokio = { workspace = true }
-tokio-util = { version = "0.7", features = ["compat"] }
+tokio-util = { version = "0.7", features = ["compat"], optional = true }
 async-trait = { workspace = true }
-futures = "0.3"
+futures = { version = "0.3", optional = true }
 
 # Logging
 tracing = { workspace = true }
@@ -35,16 +35,16 @@ rust_decimal = { workspace = true }
 bigdecimal = { workspace = true }
 
 # Database drivers
-sqlx = { workspace = true }
-mongodb = { workspace = true }
-redis = { workspace = true }
-tiberius = { workspace = true }
-bb8 = { workspace = true }
-bb8-tiberius = { workspace = true }
-duckdb = { workspace = true }
+sqlx = { workspace = true, optional = true }
+mongodb = { workspace = true, optional = true }
+redis = { workspace = true, optional = true }
+tiberius = { workspace = true, optional = true }
+bb8 = { workspace = true, optional = true }
+bb8-tiberius = { workspace = true, optional = true }
+duckdb = { workspace = true, optional = true }
 
-# ClickHouse driver: speaks HTTP (8123/8443) via JSONCompactEachRowWithNamesAndTypes.
-reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json", "gzip"] }
+# HTTP-backed ClickHouse and search drivers
+reqwest = { version = "0.12", optional = true, default-features = false, features = ["rustls-tls", "json", "gzip"] }
 
 # SOCKS5 proxy support
 tokio-socks = "0.5"
@@ -59,5 +59,42 @@ tauri = { version = "2", optional = true }
 tempfile = "3.24.0"
 
 [features]
-default = []
+default = ["all-drivers"]
+all-drivers = [
+    "driver-clickhouse",
+    "driver-cockroachdb",
+    "driver-duckdb",
+    "driver-elasticsearch",
+    "driver-mariadb",
+    "driver-mongodb",
+    "driver-motherduck",
+    "driver-mysql",
+    "driver-neon",
+    "driver-opensearch",
+    "driver-postgres",
+    "driver-redis",
+    "driver-sqlite",
+    "driver-sqlserver",
+    "driver-supabase",
+    "driver-timescaledb",
+]
+driver-clickhouse = ["dep:reqwest"]
+driver-cockroachdb = ["sqlx-postgres"]
+driver-duckdb = ["dep:duckdb"]
+driver-elasticsearch = ["dep:reqwest"]
+driver-mariadb = ["sqlx-mysql"]
+driver-mongodb = ["dep:futures", "dep:mongodb"]
+driver-motherduck = ["sqlx-postgres"]
+driver-mysql = ["sqlx-mysql"]
+driver-neon = ["sqlx-postgres"]
+driver-opensearch = ["dep:reqwest"]
+driver-postgres = ["sqlx-postgres"]
+driver-redis = ["dep:futures", "dep:redis"]
+driver-sqlite = ["dep:futures", "dep:sqlx", "sqlx/sqlite"]
+driver-sqlserver = ["dep:bb8", "dep:bb8-tiberius", "dep:tiberius", "dep:tokio-util"]
+driver-supabase = ["sqlx-postgres"]
+driver-timescaledb = ["sqlx-postgres"]
+duckdb-bundled = ["driver-duckdb", "duckdb/bundled"]
+sqlx-mysql = ["dep:futures", "dep:sqlx", "sqlx/mysql"]
+sqlx-postgres = ["dep:futures", "dep:sqlx", "sqlx/postgres"]
 tauri = ["dep:tauri"]

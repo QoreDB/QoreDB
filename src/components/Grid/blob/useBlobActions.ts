@@ -8,7 +8,6 @@ import { useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 
-import { AnalyticsService } from '@/components/Onboarding/AnalyticsService';
 import {
   type BlobKind,
   base64ToUint8Array,
@@ -16,7 +15,6 @@ import {
   formatHexDump,
   getDataUri,
   MAX_HEX_DUMP_BYTES,
-  sizeBucket,
 } from '@/lib/binaryUtils';
 
 interface UseBlobActionsArgs {
@@ -92,12 +90,6 @@ export function useBlobActions({
       const bytes = base64ToUint8Array(value);
       await writeFile(filePath, bytes);
       toast.success(t('blobViewer.downloadSuccess'));
-
-      AnalyticsService.capture('blob_downloaded', {
-        mime: blobKind?.mime ?? 'application/octet-stream',
-        size_bucket: sizeBucket(byteSize),
-        column_type: dataType,
-      });
     } catch (err) {
       console.error('Blob download failed:', err);
       toast.error(t('blobViewer.downloadError'), {

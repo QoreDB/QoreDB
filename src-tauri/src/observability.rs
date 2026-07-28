@@ -19,6 +19,15 @@ const CRASH_FILE_PREFIX: &str = "qoredb-crash";
 const RUN_MARKER_FILE: &str = "qoredb.running";
 const LOG_RETENTION_DAYS: u64 = 7;
 
+/// Acknowledged reports keep the crash prefix so retention and log export
+/// still pick them up; only the pending-report listing filters them out.
+const CRASH_ACK_SUFFIX: &str = ".seen";
+/// A runaway panic loop can leave hundreds of reports behind. The UI only
+/// ever shows the most recent ones.
+const MAX_PENDING_CRASH_REPORTS: usize = 10;
+/// Backtraces can be enormous; cap what we hand to the renderer.
+const MAX_CRASH_REPORT_BYTES: usize = 64 * 1024;
+
 fn is_managed_log_name(name: &str) -> bool {
     name.starts_with(LOG_FILE_PREFIX) || name.starts_with(CRASH_FILE_PREFIX)
 }
@@ -147,6 +156,10 @@ pub struct LogExport {
     pub content: String,
 }
 
+/// Bundles the retained logs into a single shareable document. An export exists
+/// to be sent to someone — otherwise the user would just open the log folder —
+/// so it goes through the same scrubbing as crash reports. Nothing removed here
+/// (credentials, tokens, home path) helps diagnose a bug.
 pub fn collect_logs() -> Result<LogExport, String> {
     let log_dir = log_directory();
     let entries = fs::read_dir(&log_dir)
@@ -187,7 +200,162 @@ pub fn collect_logs() -> Result<LogExport, String> {
 
     let filename = format!("qoredb-logs-{}.log", Local::now().format("%Y%m%d-%H%M%S"));
 
-    Ok(LogExport { filename, content })
+    Ok(LogExport {
+        filename,
+        content: scrub_secrets(&content),
+    })
+}
+
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CrashReport {
+    pub filename: String,
+    pub recorded_at: String,
+    pub kind: String,
+    pub content: String,
+}
+
+fn crash_report_paths() -> Result<Vec<PathBuf>, String> {
+    let log_dir = log_directory();
+    let entries = match fs::read_dir(&log_dir) {
+        Ok(entries) => entries,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
+        Err(error) => {
+            return Err(format!(
+                "Failed to read log directory {}: {}",
+                log_dir.display(),
+                error
+            ));
+        }
+    };
+
+    let mut paths: Vec<PathBuf> = entries
+        .filter_map(|entry| entry.ok())
+        .map(|entry| entry.path())
+        .filter(|path| {
+            path.file_name()
+                .and_then(|name| name.to_str())
+                .map(is_pending_crash_name)
+                .unwrap_or(false)
+        })
+        .collect();
+
+    // Filenames embed a sortable timestamp, so lexical order is chronological.
+    paths.sort_by_key(|path| path.file_name().map(|name| name.to_os_string()));
+    paths.reverse();
+    Ok(paths)
+}
+
+fn is_pending_crash_name(name: &str) -> bool {
+    name.starts_with(CRASH_FILE_PREFIX) && !name.ends_with(CRASH_ACK_SUFFIX)
+}
+
+/// Crash reports the user has not dismissed yet, most recent first.
+pub fn pending_crash_reports() -> Result<Vec<CrashReport>, String> {
+    let paths = crash_report_paths()?;
+    let total = paths.len();
+
+    let reports: Vec<CrashReport> = paths
+        .into_iter()
+        .take(MAX_PENDING_CRASH_REPORTS)
+        .filter_map(|path| {
+            let filename = path.file_name()?.to_str()?.to_string();
+            let raw = fs::read_to_string(&path).ok()?;
+            Some(CrashReport {
+                recorded_at: header_value(&raw, "recorded_at").unwrap_or_default(),
+                kind: header_value(&raw, "kind").unwrap_or_else(|| "Unknown".to_string()),
+                content: scrub_secrets(&truncate_chars(&raw, MAX_CRASH_REPORT_BYTES)),
+                filename,
+            })
+        })
+        .collect();
+
+    if total > reports.len() {
+        tracing::info!(
+            total,
+            shown = reports.len(),
+            "more crash reports on disk than surfaced to the UI"
+        );
+    }
+
+    Ok(reports)
+}
+
+/// Marks every pending report as seen. Returns how many were acknowledged.
+pub fn acknowledge_crash_reports() -> Result<usize, String> {
+    let mut acknowledged = 0;
+    for path in crash_report_paths()? {
+        let Some(name) = path.file_name().and_then(|name| name.to_str()) else {
+            continue;
+        };
+        let target = path.with_file_name(format!("{name}{CRASH_ACK_SUFFIX}"));
+        match fs::rename(&path, &target) {
+            Ok(()) => acknowledged += 1,
+            Err(error) => tracing::warn!(%error, ?path, "failed to acknowledge crash report"),
+        }
+    }
+    Ok(acknowledged)
+}
+
+fn header_value(report: &str, key: &str) -> Option<String> {
+    report
+        .lines()
+        .take_while(|line| !line.is_empty())
+        .find_map(|line| line.strip_prefix(&format!("{key}=")))
+        .map(|value| value.trim().to_string())
+}
+
+fn secret_rules() -> &'static [(regex::Regex, &'static str)] {
+    static RULES: std::sync::OnceLock<Vec<(regex::Regex, &'static str)>> =
+        std::sync::OnceLock::new();
+    RULES.get_or_init(|| {
+        vec![
+            (
+                regex::Regex::new(r"(?i)\b([a-z][a-z0-9+.\-]*://)[^\s/:@]+:[^\s/@]+@").unwrap(),
+                "${1}***:***@",
+            ),
+            (
+                regex::Regex::new(
+                    r#"(?i)\b(password|passwd|pwd|token|secret|api[_-]?key|access[_-]?key|private[_-]?key)\b(\s*[:=]\s*)"?[^\s",;]+"#,
+                )
+                .unwrap(),
+                "${1}${2}***",
+            ),
+            (
+                regex::Regex::new(r"(?i)\bbearer\s+[A-Za-z0-9._\-]+").unwrap(),
+                "Bearer ***",
+            ),
+        ]
+    })
+}
+
+/// Strips credentials and the user's home path out of a crash report. Reports
+/// are meant to be pasted into a public issue, so this runs before the content
+/// ever reaches the renderer — a panic message can carry a connection URL.
+pub fn scrub_secrets(text: &str) -> String {
+    let mut out = text.to_string();
+    for (rule, replacement) in secret_rules() {
+        out = rule.replace_all(&out, *replacement).into_owned();
+    }
+    for var in ["HOME", "USERPROFILE"] {
+        if let Ok(home) = std::env::var(var) {
+            if home.len() > 3 {
+                out = out.replace(&home, "~");
+            }
+        }
+    }
+    out
+}
+
+fn truncate_chars(text: &str, max_bytes: usize) -> String {
+    if text.len() <= max_bytes {
+        return text.to_string();
+    }
+    let mut end = max_bytes;
+    while end > 0 && !text.is_char_boundary(end) {
+        end -= 1;
+    }
+    format!("{}\n…[truncated]", &text[..end])
 }
 
 pub fn log_directory() -> PathBuf {
@@ -237,7 +405,9 @@ fn cleanup_old_logs(log_dir: &Path, retention_days: u64) -> std::io::Result<()> 
 
 #[cfg(test)]
 mod tests {
-    use super::is_managed_log_name;
+    use super::{
+        header_value, is_managed_log_name, is_pending_crash_name, scrub_secrets, truncate_chars,
+    };
 
     #[test]
     fn recognizes_runtime_and_crash_logs_only() {
@@ -245,5 +415,65 @@ mod tests {
         assert!(is_managed_log_name("qoredb-crash-20260714-172500.log"));
         assert!(!is_managed_log_name("qoredb.running"));
         assert!(!is_managed_log_name("unrelated.log"));
+    }
+
+    #[test]
+    fn acknowledged_reports_are_not_pending_but_stay_managed() {
+        let acked = "qoredb-crash-20260714-172500.log.seen";
+        assert!(is_pending_crash_name("qoredb-crash-20260714-172500.log"));
+        assert!(!is_pending_crash_name(acked));
+        assert!(is_managed_log_name(acked));
+    }
+
+    #[test]
+    fn scrubs_credentials_from_connection_urls() {
+        let scrubbed =
+            scrub_secrets("PANIC: failed on postgres://admin:hunter2@db.acme.io:5432/prod");
+        assert!(scrubbed.contains("postgres://***:***@db.acme.io:5432/prod"));
+        assert!(!scrubbed.contains("hunter2"));
+        assert!(!scrubbed.contains("admin"));
+    }
+
+    #[test]
+    fn scrubs_keyed_secrets_and_bearer_tokens() {
+        let scrubbed = scrub_secrets("password=s3cr3t token: abc.def Authorization: Bearer xyz123");
+        assert!(!scrubbed.contains("s3cr3t"));
+        assert!(!scrubbed.contains("abc.def"));
+        assert!(!scrubbed.contains("xyz123"));
+        assert!(scrubbed.contains("password=***"));
+    }
+
+    #[test]
+    fn leaves_ordinary_crash_text_intact() {
+        let text = "Location: src/engine/query.rs:42:9\nMessage: PANIC: index out of bounds";
+        assert_eq!(scrub_secrets(text), text);
+    }
+
+    #[test]
+    fn reads_header_fields_from_report_preamble() {
+        let report = "QoreDB crash report\nrecorded_at=2026-07-26T09:12:00+02:00\nkind=Native panic\n\nBacktrace:\nkind=not-a-header\n";
+        assert_eq!(
+            header_value(report, "recorded_at").as_deref(),
+            Some("2026-07-26T09:12:00+02:00")
+        );
+        assert_eq!(
+            header_value(report, "kind").as_deref(),
+            Some("Native panic")
+        );
+        assert_eq!(header_value(report, "missing"), None);
+    }
+
+    #[test]
+    fn truncation_respects_char_boundaries() {
+        // 100 two-byte chars; cutting at an odd byte index must not split one.
+        let text = "é".repeat(100);
+        let truncated = truncate_chars(&text, 51);
+        assert!(truncated.ends_with("…[truncated]"));
+        assert_eq!(truncated.matches('é').count(), 25);
+    }
+
+    #[test]
+    fn short_reports_are_returned_verbatim() {
+        assert_eq!(truncate_chars("short", 64), "short");
     }
 }

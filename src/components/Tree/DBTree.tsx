@@ -142,6 +142,7 @@ export function DBTree({
   const collectionsPageSize = 50;
 
   const driverMeta = getDriverMetadata(driver);
+  const isMotherDuck = driver.toLowerCase() === 'motherduck';
   const terminology = getTerminology(driver);
   const schemaObjectCapabilities = getSchemaObjectCapabilities(driver);
   const canBackupDatabase = !!connection && DATABASE_NODE_BACKUP_DRIVERS.has(driver.toLowerCase());
@@ -479,12 +480,20 @@ export function DBTree({
           {t('dbtree.emptyNamespaces')}
         </div>
       )}
-      {namespaces.map(ns => {
+      {namespaces.map((ns, index) => {
         const key = getNsKey(ns);
         const isExpanded = expandedNs === key;
+        const startsMotherDuckCatalog =
+          isMotherDuck && (index === 0 || namespaces[index - 1]?.database !== ns.database);
 
         return (
           <div key={key}>
+            {startsMotherDuckCatalog && (
+              <div className="flex items-center gap-2 px-2 py-1.5 text-muted-foreground">
+                <Database size={14} />
+                <span className="truncate font-medium">{ns.database}</span>
+              </div>
+            )}
             <DatabaseContextMenu
               onOpen={() => openNamespace(ns)}
               onRefresh={() => refreshCollections(ns)}
@@ -532,7 +541,8 @@ export function DBTree({
                 aria-expanded={isExpanded}
                 className={cn(
                   'flex items-center gap-2 w-full px-2 py-1.5 rounded-md hover:bg-accent/10 transition-colors text-left',
-                  isExpanded ? 'text-foreground' : 'text-muted-foreground'
+                  isExpanded ? 'text-foreground' : 'text-muted-foreground',
+                  isMotherDuck && 'pl-5'
                 )}
                 onClick={() => {
                   handleExpandNamespace(ns);
@@ -548,10 +558,14 @@ export function DBTree({
                     isExpanded ? 'text-accent' : 'text-muted-foreground/70'
                   )}
                 >
-                  <Database size={14} />
+                  {isMotherDuck ? <Layers size={14} /> : <Database size={14} />}
                 </span>
                 <span className="truncate">
-                  {ns.schema ? `${ns.database}.${ns.schema}` : ns.database}
+                  {isMotherDuck && ns.schema
+                    ? ns.schema
+                    : ns.schema
+                      ? `${ns.database}.${ns.schema}`
+                      : ns.database}
                 </span>
               </button>
             </DatabaseContextMenu>

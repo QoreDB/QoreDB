@@ -9,7 +9,7 @@ name = "qore-server"
 path = "src/main.rs"
 
 [dependencies]
-qore-service = { path = "../qore-service" }
+qore-service = { path = "../qore-service", default-features = false }
 qore-core = { path = "../qore-core" }
 tokio = { workspace = true }
 serde = { workspace = true }
@@ -25,7 +25,7 @@ base64 = { workspace = true }
 uuid = { workspace = true }
 rand = "0.8"
 dirs = "5"
-sqlx = { workspace = true }
+sqlx = { workspace = true, features = ["sqlite"] }
 argon2 = "0.5"
 jsonwebtoken = "9"
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
@@ -33,3 +33,24 @@ sha2 = "0.10"
 
 [dev-dependencies]
 tempfile = "3"
+
+[features]
+default = ["all-drivers"]
+all-drivers = ["qore-service/all-drivers"]
+driver-clickhouse = ["qore-service/driver-clickhouse"]
+driver-cockroachdb = ["qore-service/driver-cockroachdb"]
+driver-duckdb = ["qore-service/driver-duckdb"]
+driver-elasticsearch = ["qore-service/driver-elasticsearch"]
+driver-mariadb = ["qore-service/driver-mariadb"]
+driver-mongodb = ["qore-service/driver-mongodb"]
+driver-motherduck = ["qore-service/driver-motherduck"]
+driver-mysql = ["qore-service/driver-mysql"]
+driver-neon = ["qore-service/driver-neon"]
+driver-opensearch = ["qore-service/driver-opensearch"]
+driver-postgres = ["qore-service/driver-postgres"]
+driver-redis = ["qore-service/driver-redis"]
+driver-sqlite = ["qore-service/driver-sqlite"]
+driver-sqlserver = ["qore-service/driver-sqlserver"]
+driver-supabase = ["qore-service/driver-supabase"]
+driver-timescaledb = ["qore-service/driver-timescaledb"]
+duckdb-bundled = ["driver-duckdb", "qore-service/duckdb-bundled"]

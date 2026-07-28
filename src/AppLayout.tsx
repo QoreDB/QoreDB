@@ -26,17 +26,20 @@ import { CustomTitlebar } from './components/CustomTitlebar';
 import { ConnectionDashboard } from './components/Dashboard/ConnectionDashboard';
 import { WelcomeScreen } from './components/Home/WelcomeScreen';
 import { LicenseGate } from './components/License/LicenseGate';
-import { AnalyticsService } from './components/Onboarding/AnalyticsService';
 import { QueryPanel } from './components/Query/QueryPanel';
 import { SandboxBorder } from './components/Sandbox';
 import type { SearchResult } from './components/Search/GlobalSearch';
 import { Sidebar } from './components/Sidebar/Sidebar';
 
 const DataDiffViewer = lazy(() =>
-  import('./components/Diff/DataDiffViewer').then(m => ({ default: m.DataDiffViewer }))
+  import('./components/Diff/DataDiffViewer').then(m => ({
+    default: m.DataDiffViewer,
+  }))
 );
 const SchemaDiffViewer = lazy(() =>
-  import('./components/Migrations/SchemaDiffViewer').then(m => ({ default: m.SchemaDiffViewer }))
+  import('./components/Migrations/SchemaDiffViewer').then(m => ({
+    default: m.SchemaDiffViewer,
+  }))
 );
 const TimeTravelViewer = lazy(() =>
   import('./components/TimeTravel/TimeTravelViewer').then(m => ({
@@ -44,22 +47,35 @@ const TimeTravelViewer = lazy(() =>
   }))
 );
 const FederationViewer = lazy(() =>
-  import('./components/Federation/FederationViewer').then(m => ({ default: m.FederationViewer }))
+  import('./components/Federation/FederationViewer').then(m => ({
+    default: m.FederationViewer,
+  }))
 );
 const NotebookTab = lazy(() =>
   import('./components/Notebook').then(m => ({ default: m.NotebookTab }))
 );
 const SettingsPage = lazy(() =>
-  import('./components/Settings/SettingsPage').then(m => ({ default: m.SettingsPage }))
+  import('./components/Settings/SettingsPage').then(m => ({
+    default: m.SettingsPage,
+  }))
 );
 const SnapshotManager = lazy(() =>
-  import('./components/Snapshot/SnapshotManager').then(m => ({ default: m.SnapshotManager }))
+  import('./components/Snapshot/SnapshotManager').then(m => ({
+    default: m.SnapshotManager,
+  }))
 );
 const MigrationsPanel = lazy(() =>
-  import('./components/Migrations/MigrationsPanel').then(m => ({ default: m.MigrationsPanel }))
+  import('./components/Migrations/MigrationsPanel').then(m => ({
+    default: m.MigrationsPanel,
+  }))
 );
 const PluginOutputView = lazy(() =>
-  import('./components/Plugins/PluginOutputView').then(m => ({ default: m.PluginOutputView }))
+  import('./components/Plugins/PluginOutputView').then(m => ({
+    default: m.PluginOutputView,
+  }))
+);
+const ChatView = lazy(() =>
+  import('./components/Chat/ChatView').then(m => ({ default: m.ChatView }))
 );
 
 import { StatusBar } from './components/Status/StatusBar';
@@ -91,6 +107,7 @@ import {
   useModalStore,
 } from './lib/stores/modalStore';
 import {
+  createChatTab,
   createDatabaseTab,
   createDiffTab,
   createFederationTab,
@@ -205,8 +222,6 @@ export function AppLayout() {
     setBeforeCloseTab((tabId: string) => {
       const tab = tabs.find(t => t.id === tabId);
       if (tab?.type === 'notebook' && tab.notebookDirty) {
-        // Synchronous guard: setBeforeCloseTab expects a boolean return, so the
-        // promisified confirmDialog can't replace this native confirm.
         return window.confirm(t('notebook.unsavedChanges'));
       }
       return true;
@@ -248,11 +263,6 @@ export function AppLayout() {
       sf?: SearchFilter,
       requestedTab?: TableBrowserTab
     ) => {
-      AnalyticsService.capture('resource_opened', {
-        source: sf ? 'search' : rf ? 'relation' : 'tree',
-        resource_type: driver === Driver.Mongodb ? 'collection' : 'table',
-        driver,
-      });
       const nextTab = createTableTab(ns, tableName, rf, sf);
 
       if (requestedTab) {
@@ -274,11 +284,6 @@ export function AppLayout() {
 
   const handleDatabaseSelect = useCallback(
     (namespace: Namespace) => {
-      AnalyticsService.capture('resource_opened', {
-        source: 'tree',
-        resource_type: driver === Driver.Mongodb ? 'database' : 'schema',
-        driver,
-      });
       openTab(createDatabaseTab(namespace));
     },
     [driver, openTab]
@@ -624,6 +629,23 @@ export function AppLayout() {
         label: t('palette.newQuery'),
         shortcut: getShortcut('T', { symbol: true }),
       },
+      {
+        id: 'cmd_open_qore_ai',
+        label: t('agentChat.openChat'),
+        sublabel: t('agentChat.emptyHint'),
+        keywords: [
+          'qore ai',
+          'qoreia',
+          'qore ia',
+          'qore',
+          'chat ai',
+          'chat ia',
+          'assistant ai',
+          'assistant ia',
+          'agent ai',
+          'agent ia',
+        ],
+      },
       { id: 'cmd_open_library', label: t('palette.openLibrary') },
       ...(sessionId
         ? [
@@ -699,6 +721,13 @@ export function AppLayout() {
               return;
             }
             openTab(createQueryTab(undefined, activeTab?.namespace));
+            return;
+          case 'cmd_open_qore_ai':
+            if (!sessionId) {
+              notify.error(t('agentChat.noConnection'));
+              return;
+            }
+            openTab(createChatTab());
             return;
           case 'cmd_open_library':
             setLibraryModalOpen(true);
@@ -938,6 +967,7 @@ export function AppLayout() {
                       onSelect={handleTabSelect}
                       onClose={handleCloseTab}
                       onNew={handleNewQuery}
+                      onNewChat={() => openTab(createChatTab())}
                       onReorder={reordered =>
                         reorderTabs(
                           reordered.flatMap(t => {
@@ -956,7 +986,7 @@ export function AppLayout() {
             <SandboxBorder
               sessionId={sessionId}
               environment={activeConnection?.environment || 'development'}
-              className={`flex-1 min-h-0 overflow-hidden ${zenMode ? '' : 'p-4'}`}
+              className={`flex flex-1 min-h-0 flex-col overflow-hidden ${zenMode || activeTab?.type === 'chat' ? '' : 'p-4'}`}
             >
               <ErrorBoundary fallbackLabel={t('errorBoundary.panelCrashed')}>
                 <Suspense fallback={<LazyTabFallback />}>
@@ -1171,6 +1201,7 @@ function AppContent({
         connectionId={activeConnection?.id}
         onOpenRelatedTable={onTableSelect}
         onOpenTimeTravel={(ns, table) => onOpenTab(createTimeTravelTab(ns, table))}
+        onOpenQuery={(sql, ns) => onOpenTab(createQueryTab(sql, ns))}
         relationFilter={activeTab.relationFilter}
         searchFilter={activeTab.searchFilter}
         initialTab={tableBrowserTabs[activeTab.id]}
@@ -1294,6 +1325,20 @@ function AppContent({
         <FederationViewer
           key={activeTab.id}
           initialQuery={queryDrafts[activeTab.id] ?? activeTab.initialQuery}
+        />
+      </div>
+    );
+  }
+
+  if (activeTab?.type === 'chat') {
+    return (
+      <div className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden">
+        <ChatView
+          key={activeTab.id}
+          sessionId={sessionId}
+          connectionId={activeConnection?.id}
+          connectionName={activeConnection?.name}
+          environment={activeConnection?.environment || 'development'}
         />
       </div>
     );

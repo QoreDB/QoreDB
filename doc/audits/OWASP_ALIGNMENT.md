@@ -76,10 +76,10 @@ runtime controls.
 
 | Control | Evidence | Status |
 | --- | --- | --- |
-| CSP | `script-src 'self'`; image and font sources are explicit; `connect-src` allows IPC/Tauri localhost and PostHog endpoints. | Mitigated |
+| CSP | `script-src 'self'`; image and font sources are explicit; `connect-src` allows IPC/Tauri localhost only. | Mitigated |
 | Inline styles | `style-src 'self' 'unsafe-inline'` is enabled. This is common in React/Tauri stacks but weaker than nonce/hash-based style policies. | Accepted caveat |
 | Filesystem deny list | Sensitive home files and system directories are denied in Tauri fs scope. | Mitigated |
-| Telemetry boundary | PostHog endpoints are visible in CSP; GDPR audit documents telemetry consent expectations. | Needs consent verification |
+| Telemetry boundary | No telemetry SDK ships and no analytics host is reachable through the CSP. Crash reports stay on disk until the user shares one. | Mitigated |
 | Plugin runtime limits | Wasm runtime uses fuel and store limits. | Mitigated |
 
 **Conclusion:** Configuration is materially better than the original audit
@@ -151,7 +151,7 @@ uses dynamic HTML rendering by design.
 ## A06:2025 - Insecure Design
 
 **Applicability:** High. The design must account for local-first operation,
-highly privileged database credentials, plugins, optional AI/telemetry, and
+highly privileged database credentials, plugins, optional AI integrations, and
 enterprise release expectations.
 
 | Control | Evidence | Status |
@@ -262,6 +262,6 @@ generated exports, plugin denial paths, and partial failures.
 4. Tighten or document the broad Tauri opener scope for `$HOME`, documents,
    downloads, and desktop paths.
 5. Build a user-facing local data lifecycle view covering diagnostics,
-   crash-recovery files, notebook drafts, analytics identity, and purge actions.
+   crash-recovery files, notebook drafts, crash reports, and purge actions.
 6. Keep supply-chain evidence in this audit tied to actual command output, not
    only CI workflow intent.

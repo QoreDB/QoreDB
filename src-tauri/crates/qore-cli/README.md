@@ -28,5 +28,21 @@ qore describe <connection_id> <database> <table> [--schema s]
 ## Build
 
 ```bash
-cargo build -p qore-cli --release        # -> target/release/qore
+cargo build -p qore-cli --release --features duckdb-bundled  # -> target/release/qore
 ```
+
+All database drivers are enabled by default. A binary that only needs selected
+drivers can omit the others:
+
+```bash
+cargo build -p qore-cli --release --no-default-features \
+  --features driver-postgres,driver-sqlite
+```
+
+Available features are `driver-postgres`, `driver-cockroachdb`,
+`driver-motherduck`, `driver-neon`, `driver-supabase`,
+`driver-timescaledb`, `driver-mysql`, `driver-mariadb`, `driver-sqlite`,
+`driver-mongodb`, `driver-redis`, `driver-sqlserver`, `driver-clickhouse`,
+`driver-elasticsearch`, `driver-opensearch`, and `driver-duckdb`. Use
+`duckdb-bundled` instead of `driver-duckdb` for a self-contained distributed
+binary.

@@ -1,21 +1,40 @@
 // SPDX-License-Identifier: Apache-2.0
 
+#[cfg(feature = "driver-clickhouse")]
 pub mod clickhouse;
+#[cfg(feature = "driver-cockroachdb")]
 pub mod cockroachdb;
+#[cfg(feature = "driver-duckdb")]
 pub mod duckdb;
+#[cfg(feature = "driver-elasticsearch")]
 pub mod elasticsearch;
+#[cfg(feature = "driver-mariadb")]
 pub mod mariadb;
+#[cfg(feature = "driver-mongodb")]
 pub mod mongodb;
+#[cfg(feature = "driver-motherduck")]
 pub mod motherduck;
+#[cfg(any(feature = "driver-mariadb", feature = "driver-mysql"))]
 pub mod mysql;
+#[cfg(feature = "driver-neon")]
 pub mod neon;
+#[cfg(feature = "driver-opensearch")]
 pub mod opensearch;
+#[cfg(feature = "sqlx-postgres")]
 pub mod pg_compat;
+#[cfg(feature = "driver-postgres")]
 pub mod postgres;
+#[cfg(feature = "sqlx-postgres")]
 pub mod postgres_utils;
+#[cfg(feature = "driver-redis")]
 pub mod redis;
+#[cfg(any(feature = "driver-elasticsearch", feature = "driver-opensearch"))]
 pub mod search_compat;
+#[cfg(feature = "driver-sqlite")]
 pub mod sqlite;
+#[cfg(feature = "driver-sqlserver")]
 pub mod sqlserver;
+#[cfg(feature = "driver-supabase")]
 pub mod supabase;
+#[cfg(feature = "driver-timescaledb")]
 pub mod timescaledb;

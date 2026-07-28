@@ -294,10 +294,6 @@ impl Ctx {
         escape: Option<char>,
         depth: u32,
     ) -> QueryResult<()> {
-        // ILIKE: emit natively when the dialect supports it, otherwise fall
-        // back to `LOWER(expr) LIKE LOWER(pattern)`. The fallback loses any
-        // functional index on the column but is semantically equivalent for
-        // ASCII-dominant text — that tradeoff is documented in the plan.
         let fallback = case_insensitive && !self.ops.supports_ilike();
 
         out.push('(');

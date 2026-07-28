@@ -31,17 +31,18 @@ use tokio::net::TcpStream;
 use tokio::sync::{Mutex, RwLock};
 use tokio_util::compat::{Compat, TokioAsyncWriteCompatExt};
 
+use qore_core::cursor::KeysetPlan;
 use qore_core::error::{EngineError, EngineResult};
 use qore_core::traits::{DataEngine, StreamEvent, StreamSender};
 use qore_core::types::{
     CancelSupport, Collection, CollectionList, CollectionListOptions, CollectionType, ColumnInfo,
     ConnectionConfig, FilterOperator, ForeignKey, MaintenanceMessage, MaintenanceMessageLevel,
     MaintenanceOperationInfo, MaintenanceOperationType, MaintenanceRequest, MaintenanceResult,
-    MssqlAuthMode, Namespace, PaginatedQueryResult, QueryId, QueryResult, Routine,
-    RoutineDefinition, RoutineList, RoutineListOptions, RoutineOperationResult, RoutineType,
-    Row as QRow, RowData, SessionId, SortDirection, TableColumn, TableIndex, TableQueryOptions,
-    TableSchema, Trigger, TriggerDefinition, TriggerEvent, TriggerList, TriggerListOptions,
-    TriggerOperationResult, TriggerTiming, Value,
+    MssqlAuthMode, Namespace, PaginatedQueryResult, PaginationCapability, QueryId, QueryResult,
+    Routine, RoutineDefinition, RoutineList, RoutineListOptions, RoutineOperationResult,
+    RoutineType, Row as QRow, RowData, SearchMode, SessionId, SnapshotSupport, SortDirection,
+    TableColumn, TableIndex, TableQueryOptions, TableSchema, Trigger, TriggerDefinition,
+    TriggerEvent, TriggerList, TriggerListOptions, TriggerOperationResult, TriggerTiming, Value,
 };
 use qore_sql::safety;
 
@@ -1306,6 +1307,7 @@ impl DataEngine for SqlServerDriver {
 
         let page = options.effective_page();
         let page_size = options.effective_page_size();
+        let fetch_size = options.fetch_size();
         let offset = options.offset();
 
         let start = Instant::now();
@@ -1378,8 +1380,26 @@ impl DataEngine for SqlServerDriver {
             }
         }
 
-        if let Some(ref search_term) = options.search {
-            if !search_term.trim().is_empty() {
+        if let Some(search_term) = options.effective_search() {
+            if let Some(scope) = options.effective_search_columns() {
+                // Caller-supplied scope: no INFORMATION_SCHEMA round-trip.
+                let pattern = options.search_pattern(search_term).replace('\'', "''");
+                let anchored = options.effective_search_mode() == SearchMode::StartsWith;
+                let search_clauses: Vec<String> = scope
+                    .iter()
+                    .map(|col| {
+                        let col_ident = Self::quote_ident(col);
+                        if anchored {
+                            format!("{} LIKE '{}'", col_ident, pattern)
+                        } else {
+                            format!("CAST({} AS NVARCHAR(MAX)) LIKE '{}'", col_ident, pattern)
+                        }
+                    })
+                    .collect();
+                if !search_clauses.is_empty() {
+                    where_clauses.push(format!("({})", search_clauses.join(" OR ")));
+                }
+            } else {
                 let search_sql = "SELECT COLUMN_NAME, DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS \
                      WHERE TABLE_SCHEMA = @P1 AND TABLE_NAME = @P2";
                 if let Ok(stream) = conn.query(search_sql, &[&schema, &table]).await {
@@ -1433,26 +1453,84 @@ impl DataEngine for SqlServerDriver {
             " ORDER BY (SELECT NULL)".to_string()
         };
 
-        let count_sql = format!("SELECT COUNT(*) FROM {}{}", table_ref, where_sql);
-        let count_stream = conn
-            .simple_query(&count_sql)
-            .await
-            .map_err(|e| EngineError::execution_error(e.to_string()))?;
-        let count_rows = count_stream
-            .into_first_result()
-            .await
-            .map_err(|e| EngineError::execution_error(e.to_string()))?;
+        let total_rows = if options.wants_exact_total() {
+            // Registered under the caller's query id so `cancel` can KILL the
+            // right SPID; an unregistered count would run to completion.
+            if let Some(qid) = options.query_id {
+                let spid = fetch_spid(&mut conn).await?;
+                register_active_query(&mssql_session, qid, spid).await;
+            }
 
-        let total_rows: i64 = count_rows
-            .first()
-            .and_then(|row| row.get::<i32, _>(0).map(|v| v as i64))
-            .unwrap_or(0);
-        let total_rows = total_rows.max(0) as u64;
+            let count_sql = format!("SELECT COUNT_BIG(*) FROM {}{}", table_ref, where_sql);
+            let counted = async {
+                let count_stream = conn
+                    .simple_query(&count_sql)
+                    .await
+                    .map_err(|e| EngineError::execution_error(e.to_string()))?;
+                count_stream
+                    .into_first_result()
+                    .await
+                    .map_err(|e| EngineError::execution_error(e.to_string()))
+            }
+            .await;
 
-        let data_sql = format!(
-            "SELECT * FROM {}{}{} OFFSET {} ROWS FETCH NEXT {} ROWS ONLY",
-            table_ref, where_sql, order_sql, offset, page_size
-        );
+            if let Some(qid) = options.query_id {
+                unregister_active_query(&mssql_session, qid).await;
+            }
+
+            let total_rows = counted?
+                .first()
+                .and_then(|row| row.get::<i64, _>(0))
+                .unwrap_or(0);
+            Some(total_rows.max(0) as u64)
+        } else {
+            None
+        };
+
+        // This driver inlines literals rather than binding, so the keyset
+        // boundary is rendered through the same escaping as every filter value.
+        let keyset = options
+            .keyset_applies()
+            .then(|| {
+                KeysetPlan::new(
+                    options.sort_column.as_deref(),
+                    matches!(options.sort_direction, Some(SortDirection::Desc)),
+                    options.effective_keyset_columns(),
+                )
+            })
+            .flatten();
+        let cursor_values = match (keyset.as_ref(), options.cursor.as_deref()) {
+            (Some(plan), Some(encoded)) => plan.decode(encoded)?.values,
+            _ => Vec::new(),
+        };
+
+        let data_sql = if let Some(plan) = keyset.as_ref() {
+            let cursor_sql = if cursor_values.is_empty() {
+                String::new()
+            } else {
+                plan.predicate(
+                    |col| Self::quote_ident(col),
+                    |index| format_filter_value(&cursor_values[index]),
+                )
+            };
+            let data_where = match (where_sql.is_empty(), cursor_sql.is_empty()) {
+                (_, true) => where_sql.clone(),
+                (true, false) => format!(" WHERE {}", cursor_sql),
+                (false, false) => format!("{} AND {}", where_sql, cursor_sql),
+            };
+            format!(
+                "SELECT TOP {} * FROM {} {} ORDER BY {}",
+                fetch_size,
+                table_ref,
+                data_where,
+                plan.order_by(|col| Self::quote_ident(col))
+            )
+        } else {
+            format!(
+                "SELECT * FROM {}{}{} OFFSET {} ROWS FETCH NEXT {} ROWS ONLY",
+                table_ref, where_sql, order_sql, offset, fetch_size
+            )
+        };
 
         let data_stream = conn
             .simple_query(&data_sql)
@@ -1479,9 +1557,32 @@ impl DataEngine for SqlServerDriver {
             execution_time_ms,
         };
 
-        Ok(PaginatedQueryResult::new(
-            result, total_rows, page, page_size,
-        ))
+        let mut paginated =
+            PaginatedQueryResult::from_optional_total(result, total_rows, page, page_size);
+
+        if let Some(plan) = keyset.as_ref() {
+            let next_cursor = paginated
+                .has_more
+                .then(|| {
+                    let last = paginated.result.rows.last()?;
+                    let columns: Vec<String> = paginated
+                        .result
+                        .columns
+                        .iter()
+                        .map(|col| col.name.to_string())
+                        .collect();
+                    plan.mint(&columns, &last.values)
+                })
+                .flatten();
+            paginated = paginated.with_keyset(next_cursor);
+        }
+
+        if total_rows.is_none() && options.wants_any_total() && options.estimate_matches_scope() {
+            let estimate = partition_row_estimate(&mut conn, schema, table).await;
+            return Ok(paginated.with_estimate(estimate, None));
+        }
+
+        Ok(paginated)
     }
 
     async fn peek_foreign_key(
@@ -1778,6 +1879,16 @@ impl DataEngine for SqlServerDriver {
         Ok(())
     }
 
+    fn pagination_capability(&self) -> PaginationCapability {
+        PaginationCapability {
+            keyset: true,
+            requires_unique_key: true,
+            supports_backward: false,
+            snapshot: SnapshotSupport::Transaction,
+            max_offset_window: None,
+        }
+    }
+
     fn cancel_support(&self) -> CancelSupport {
         CancelSupport::Driver
     }
@@ -1997,6 +2108,28 @@ async fn fetch_spid(conn: &mut MssqlClient) -> EngineResult<u16> {
     let spid: Option<i16> = row.get(0);
     let spid = spid.ok_or_else(|| EngineError::execution_error("@@SPID was NULL"))?;
     Ok(spid as u16)
+}
+
+/// Row count maintained by the storage engine per partition. Cheap, but it
+/// lags behind writes, so it is only ever reported as an estimate.
+async fn partition_row_estimate(conn: &mut MssqlClient, schema: &str, table: &str) -> Option<u64> {
+    let sql = format!(
+        "SELECT SUM(p.row_count) FROM sys.dm_db_partition_stats p \
+         JOIN sys.objects o ON o.object_id = p.object_id \
+         JOIN sys.schemas s ON s.schema_id = o.schema_id \
+         WHERE s.name = N'{}' AND o.name = N'{}' AND p.index_id IN (0, 1)",
+        schema.replace('\'', "''"),
+        table.replace('\'', "''")
+    );
+    let rows = conn
+        .simple_query(&sql)
+        .await
+        .ok()?
+        .into_first_result()
+        .await
+        .ok()?;
+    let value: Option<i64> = rows.first().and_then(|row| row.get(0));
+    value.filter(|count| *count >= 0).map(|count| count as u64)
 }
 
 async fn register_active_query(session: &SqlServerSession, query_id: QueryId, spid: u16) {

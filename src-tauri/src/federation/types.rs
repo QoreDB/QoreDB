@@ -60,6 +60,25 @@ pub struct AliasEntry {
     pub display_name: String,
 }
 
+/// Normalizes a connection display name into a SQL-safe alias.
+/// e.g., "Production PostgreSQL (SSH)" -> "production_postgresql_ssh"
+pub fn normalize_alias(name: &str) -> String {
+    name.chars()
+        .map(|c| {
+            if c.is_alphanumeric() {
+                c.to_ascii_lowercase()
+            } else {
+                '_'
+            }
+        })
+        .collect::<String>()
+        .trim_matches('_')
+        .split('_')
+        .filter(|s| !s.is_empty())
+        .collect::<Vec<_>>()
+        .join("_")
+}
+
 /// Default row limit per source table.
 pub const DEFAULT_ROW_LIMIT: u64 = 100_000;
 

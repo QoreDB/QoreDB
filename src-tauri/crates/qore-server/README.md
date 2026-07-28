@@ -107,6 +107,22 @@ QORE_SERVER_WEB_DIR=./dist cargo run -p qore-server
 # open http://127.0.0.1:8088
 ```
 
+All database drivers are enabled by default. A smaller server can select only
+the drivers it exposes:
+
+```bash
+cargo build -p qore-server --release --no-default-features \
+  --features driver-postgres,driver-sqlite
+```
+
+Available features are `driver-postgres`, `driver-cockroachdb`,
+`driver-motherduck`, `driver-neon`, `driver-supabase`,
+`driver-timescaledb`, `driver-mysql`, `driver-mariadb`, `driver-sqlite`,
+`driver-mongodb`, `driver-redis`, `driver-sqlserver`, `driver-clickhouse`,
+`driver-elasticsearch`, `driver-opensearch`, and `driver-duckdb`. Use
+`duckdb-bundled` instead of `driver-duckdb` for a self-contained distributed
+binary.
+
 ## TLS
 
 Terminate TLS in the server by pointing it at a PEM certificate/key pair

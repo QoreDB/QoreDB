@@ -4,6 +4,7 @@ import {
   Bug,
   Database,
   FileText,
+  Gauge,
   GitBranch,
   Link2Off,
   Lock,
@@ -12,12 +13,11 @@ import {
   WifiOff,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { AnalyticsService } from '@/components/Onboarding/AnalyticsService';
 import { SandboxIndicator } from '@/components/Sandbox';
 import { Tooltip } from '@/components/ui/tooltip';
 import { getDriverMetadata } from '@/lib/connection/drivers';
 import { ENVIRONMENT_CONFIG } from '@/lib/environment';
-import { setAuditLogOpen, setLogsOpen } from '@/lib/stores/modalStore';
+import { setAuditLogOpen, setLogsOpen, setPaginationMetricsOpen } from '@/lib/stores/modalStore';
 import { useTransactionStore } from '@/lib/stores/transactionStore';
 import type { ConnectionHealth, SavedConnection } from '@/lib/tauri';
 import { APP_VERSION } from '@/lib/version';
@@ -149,11 +149,20 @@ export function StatusBar({ sessionId, connection, connectionHealth = 'healthy' 
             aria-label={t('sidebar.errorLogs')}
             className="flex items-center justify-center h-5 w-5 rounded text-muted-foreground/70 hover:text-foreground hover:bg-muted/50 transition-colors"
             onClick={() => {
-              AnalyticsService.capture('error_view_opened', { source: 'statusbar' });
               setLogsOpen(true);
             }}
           >
             <Bug size={12} />
+          </button>
+        </Tooltip>
+        <Tooltip content={t('paginationDiagnostics.title')}>
+          <button
+            type="button"
+            aria-label={t('paginationDiagnostics.title')}
+            className="flex items-center justify-center h-5 w-5 rounded text-muted-foreground/70 hover:text-foreground hover:bg-muted/50 transition-colors"
+            onClick={() => setPaginationMetricsOpen(true)}
+          >
+            <Gauge size={12} />
           </button>
         </Tooltip>
         <Tooltip content={t('sidebar.auditLog')}>

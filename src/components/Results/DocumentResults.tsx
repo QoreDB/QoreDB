@@ -179,10 +179,19 @@ export function DocumentResults({
   exportQuery,
   exportNamespace,
   infiniteScrollTotalRows,
+  infiniteScrollTotalRowsSource,
+  infiniteScrollTotalRowsAsOf,
   infiniteScrollLoadedRows,
   infiniteScrollIsFetchingMore,
+  infiniteScrollIsCountingTotal,
   infiniteScrollIsComplete,
+  infiniteScrollWindowExhausted,
+  infiniteScrollBudgetExhausted,
+  infiniteScrollOrderingGuarantee,
   onFetchMore,
+  onCalculateExactTotal,
+  onCancelExactTotal,
+  infiniteScrollCancelSupport,
   serverSearchTerm,
   onServerSearchChange,
 }: DocumentResultsProps) {
@@ -203,8 +212,10 @@ export function DocumentResults({
   const resolvedNamespace =
     exportNamespace ?? (database ? { database, schema: undefined } : undefined);
 
-  const isInfiniteScrollMode = infiniteScrollTotalRows !== undefined;
-  const totalRows = isInfiniteScrollMode ? infiniteScrollTotalRows : result.rows.length;
+  const isInfiniteScrollMode = infiniteScrollLoadedRows !== undefined;
+  const totalRows = isInfiniteScrollMode ? (infiniteScrollTotalRows ?? 0) : result.rows.length;
+  const hasKnownTotal = !isInfiniteScrollMode || infiniteScrollTotalRows != null;
+  const loadedRows = infiniteScrollLoadedRows ?? result.rows.length;
 
   // In infinite-scroll mode the backend searches the full collection, so the box
   // drives the server search. Otherwise the whole result is in memory and we
@@ -376,7 +387,13 @@ export function DocumentResults({
     <div className="flex flex-col h-full min-h-0 gap-3">
       <div className="flex items-center justify-between px-1 gap-3">
         <div className="flex items-center gap-3 text-xs text-muted-foreground">
-          <span>{t('grid.rowsTotal', { count: totalRows })}</span>
+          <span>
+            {hasKnownTotal
+              ? t('grid.rowsTotal', { count: totalRows })
+              : t('grid.infiniteScroll.loadedUnknown', {
+                  loaded: loadedRows.toLocaleString(),
+                })}
+          </span>
           {typeof result.execution_time_ms === 'number' && (
             <div className="flex items-center gap-2 border-l border-border pl-3">
               <span title={t('query.time.execTooltip')}>
@@ -465,9 +482,18 @@ export function DocumentResults({
       {isInfiniteScrollMode && (
         <DataGridStatusBar
           loadedRows={infiniteScrollLoadedRows ?? 0}
-          totalRows={infiniteScrollTotalRows ?? 0}
+          totalRows={infiniteScrollTotalRows ?? null}
+          totalRowsSource={infiniteScrollTotalRowsSource}
+          totalRowsAsOf={infiniteScrollTotalRowsAsOf}
           isFetchingMore={infiniteScrollIsFetchingMore ?? false}
+          isCountingTotal={infiniteScrollIsCountingTotal ?? false}
           isComplete={infiniteScrollIsComplete ?? false}
+          windowExhausted={infiniteScrollWindowExhausted}
+          budgetExhausted={infiniteScrollBudgetExhausted}
+          orderingGuarantee={infiniteScrollOrderingGuarantee}
+          onCalculateExactTotal={onCalculateExactTotal}
+          onCancelExactTotal={onCancelExactTotal}
+          cancelSupport={infiniteScrollCancelSupport}
         />
       )}
 

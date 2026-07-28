@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" fill="none" role="img" aria-labelledby="title desc">
+  <title id="title">Qore AI monochrome mark</title>
+  <desc id="desc">Monochrome QoreDB database mark with an intelligent Q signal</desc>
+  <g stroke="currentColor" stroke-linejoin="round">
+    <path d="M64 8 112 36v56l-48 28-48-28V36L64 8Z" stroke-width="10"/>
+    <path d="M64 27 95 45v37L64 100 33 82V45l31-18Z" stroke-width="7"/>
+  </g>
+  <path d="m64 47 15 8.5L64 64l-15-8.5L64 47Zm-15 8.5L64 64v19l-15-8.5v-19Zm30 0L64 64v19l15-8.5v-19Z" fill="currentColor"/>
+  <circle cx="96" cy="95" r="17" stroke="currentColor" stroke-width="6"/>
+  <path d="m107.5 106.5 9 9" stroke="currentColor" stroke-width="6" stroke-linecap="round"/>
+  <path d="M96 86c1.12 5.62 3.38 7.88 9 9-5.62 1.12-7.88 3.38-9 9-1.12-5.62-3.38-7.88-9-9 5.62-1.12 7.88-3.38 9-9Z" fill="currentColor"/>
+</svg>

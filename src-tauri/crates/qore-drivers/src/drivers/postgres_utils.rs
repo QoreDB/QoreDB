@@ -5,7 +5,6 @@
 use std::collections::HashMap;
 
 use bigdecimal::BigDecimal;
-use bigdecimal::ToPrimitive as BigDecimalToPrimitive;
 use rust_decimal::Decimal;
 use sqlx::postgres::{PgColumn, PgRow, PgTypeKind, PgValueFormat, Postgres};
 use sqlx::{Column, Executor, Row, TypeInfo, ValueRef};
@@ -427,21 +426,12 @@ pub(crate) fn extract_value(row: &PgRow, idx: usize, enum_labels: &EnumLabelMap)
     }
     if let Ok(v) = row.try_get::<Option<BigDecimal>, _>(idx) {
         return v
-            .map(|d| match d.to_f64() {
-                Some(f) if f.is_finite() => Value::Float(f),
-                _ => Value::Text(d.to_string()),
-            })
+            .map(|d| Value::from_decimal_text(d.to_string()))
             .unwrap_or(Value::Null);
     }
     if let Ok(v) = row.try_get::<Option<Decimal>, _>(idx) {
         return v
-            .map(|d| {
-                use rust_decimal::prelude::ToPrimitive;
-                match d.to_f64() {
-                    Some(f) if f.is_finite() => Value::Float(f),
-                    _ => Value::Text(d.to_string()),
-                }
-            })
+            .map(|d| Value::from_decimal_text(d.to_string()))
             .unwrap_or(Value::Null);
     }
     if let Ok(v) = row.try_get::<Option<Uuid>, _>(idx) {
@@ -468,7 +458,7 @@ pub(crate) fn extract_value(row: &PgRow, idx: usize, enum_labels: &EnumLabelMap)
     }
     if let Ok(v) = row.try_get::<Option<chrono::NaiveDateTime>, _>(idx) {
         return v
-            .map(|dt| Value::Text(dt.format("%Y-%m-%d %H:%M:%S").to_string()))
+            .map(|dt| Value::Text(dt.format("%Y-%m-%d %H:%M:%S%.f").to_string()))
             .unwrap_or(Value::Null);
     }
     if let Ok(v) = row.try_get::<Option<chrono::NaiveDate>, _>(idx) {
@@ -478,7 +468,7 @@ pub(crate) fn extract_value(row: &PgRow, idx: usize, enum_labels: &EnumLabelMap)
     }
     if let Ok(v) = row.try_get::<Option<chrono::NaiveTime>, _>(idx) {
         return v
-            .map(|t| Value::Text(t.format("%H:%M:%S").to_string()))
+            .map(|t| Value::Text(t.format("%H:%M:%S%.f").to_string()))
             .unwrap_or(Value::Null);
     }
     if let Ok(v) = row.try_get::<Option<Vec<i64>>, _>(idx) {
@@ -720,19 +710,10 @@ impl PgDecoder {
                 // NUMERIC decodes to BigDecimal; try it first, then Decimal as
                 // a secondary path (some sqlx versions accept either).
                 match row.try_get::<Option<BigDecimal>, _>(idx) {
-                    Ok(Some(d)) => match d.to_f64() {
-                        Some(f) if f.is_finite() => Value::Float(f),
-                        _ => Value::Text(d.to_string()),
-                    },
+                    Ok(Some(d)) => Value::from_decimal_text(d.to_string()),
                     Ok(None) => Value::Null,
                     Err(_) => match row.try_get::<Option<Decimal>, _>(idx) {
-                        Ok(Some(d)) => {
-                            use rust_decimal::prelude::ToPrimitive;
-                            match d.to_f64() {
-                                Some(f) if f.is_finite() => Value::Float(f),
-                                _ => Value::Text(d.to_string()),
-                            }
-                        }
+                        Ok(Some(d)) => Value::from_decimal_text(d.to_string()),
                         Ok(None) => Value::Null,
                         Err(_) => extract_value(row, idx, enum_labels),
                     },
@@ -774,7 +755,7 @@ impl PgDecoder {
                 extract_value(row, idx, enum_labels)
             }
             Self::Timestamp => match row.try_get::<Option<chrono::NaiveDateTime>, _>(idx) {
-                Ok(Some(v)) => Value::Text(v.format("%Y-%m-%d %H:%M:%S").to_string()),
+                Ok(Some(v)) => Value::Text(v.format("%Y-%m-%d %H:%M:%S%.f").to_string()),
                 Ok(None) => Value::Null,
                 Err(_) => extract_value(row, idx, enum_labels),
             },
@@ -784,7 +765,7 @@ impl PgDecoder {
                 Err(_) => extract_value(row, idx, enum_labels),
             },
             Self::Time => match row.try_get::<Option<chrono::NaiveTime>, _>(idx) {
-                Ok(Some(v)) => Value::Text(v.format("%H:%M:%S").to_string()),
+                Ok(Some(v)) => Value::Text(v.format("%H:%M:%S%.f").to_string()),
                 Ok(None) => Value::Null,
                 Err(_) => extract_value(row, idx, enum_labels),
             },

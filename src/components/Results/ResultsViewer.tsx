@@ -5,15 +5,19 @@ import { isDocumentDatabase } from '@/lib/connection/driverCapabilities';
 import type { Driver } from '@/lib/connection/drivers';
 import type { SandboxChange, SandboxDeleteDisplay } from '@/lib/sandbox/sandboxTypes';
 import type {
+  CancelSupport,
   ColumnFilter,
   Environment,
   Namespace,
+  OrderingGuarantee,
   QueryResult,
   SortDirection,
   TableSchema,
+  TotalRowsSource,
   Value,
 } from '@/lib/tauri';
 import { DataGrid } from '../Grid/DataGrid';
+import type { SearchScopeState } from '../Grid/SearchScopeControl';
 import { ErrorBoundary } from '../ui/error-boundary';
 import { DocumentResults } from './DocumentResults';
 
@@ -35,11 +39,22 @@ interface ResultsViewerProps {
   onRowsUpdated?: () => void;
   onOpenRelatedTable?: (namespace: Namespace, tableName: string) => void;
   onRowClick?: (row: Record<string, Value>) => void;
-  infiniteScrollTotalRows?: number;
+  infiniteScrollTotalRows?: number | null;
+  infiniteScrollTotalRowsSource?: TotalRowsSource | null;
+  infiniteScrollTotalRowsAsOf?: number | null;
   infiniteScrollLoadedRows?: number;
   infiniteScrollIsFetchingMore?: boolean;
+  infiniteScrollIsCountingTotal?: boolean;
   infiniteScrollIsComplete?: boolean;
+  infiniteScrollWindowExhausted?: boolean;
+  infiniteScrollBudgetExhausted?: boolean;
+  infiniteScrollOrderingGuarantee?: OrderingGuarantee;
   onFetchMore?: () => void;
+  onCalculateExactTotal?: () => void;
+  onCancelExactTotal?: () => void;
+  infiniteScrollCancelSupport?: CancelSupport;
+  searchScope?: SearchScopeState;
+  onCreateIndex?: (column: string) => void;
   serverSortColumn?: string;
   serverSortDirection?: SortDirection;
   onServerSortChange?: (column?: string, direction?: SortDirection) => void;
@@ -82,10 +97,21 @@ export const ResultsViewer = memo(function ResultsViewer({
   onOpenRelatedTable,
   onRowClick,
   infiniteScrollTotalRows,
+  infiniteScrollTotalRowsSource,
+  infiniteScrollTotalRowsAsOf,
   infiniteScrollLoadedRows,
   infiniteScrollIsFetchingMore,
+  infiniteScrollIsCountingTotal,
   infiniteScrollIsComplete,
+  infiniteScrollWindowExhausted,
+  infiniteScrollBudgetExhausted,
+  infiniteScrollOrderingGuarantee,
   onFetchMore,
+  onCalculateExactTotal,
+  onCancelExactTotal,
+  infiniteScrollCancelSupport,
+  searchScope,
+  onCreateIndex,
   serverSortColumn,
   serverSortDirection,
   onServerSortChange,
@@ -126,10 +152,19 @@ export const ResultsViewer = memo(function ResultsViewer({
         exportQuery={exportQuery}
         exportNamespace={exportNamespace}
         infiniteScrollTotalRows={infiniteScrollTotalRows}
+        infiniteScrollTotalRowsSource={infiniteScrollTotalRowsSource}
+        infiniteScrollTotalRowsAsOf={infiniteScrollTotalRowsAsOf}
         infiniteScrollLoadedRows={infiniteScrollLoadedRows}
         infiniteScrollIsFetchingMore={infiniteScrollIsFetchingMore}
+        infiniteScrollIsCountingTotal={infiniteScrollIsCountingTotal}
         infiniteScrollIsComplete={infiniteScrollIsComplete}
+        infiniteScrollWindowExhausted={infiniteScrollWindowExhausted}
+        infiniteScrollBudgetExhausted={infiniteScrollBudgetExhausted}
+        infiniteScrollOrderingGuarantee={infiniteScrollOrderingGuarantee}
         onFetchMore={onFetchMore}
+        onCalculateExactTotal={onCalculateExactTotal}
+        onCancelExactTotal={onCancelExactTotal}
+        infiniteScrollCancelSupport={infiniteScrollCancelSupport}
         serverSearchTerm={serverSearchTerm}
         onServerSearchChange={onServerSearchChange}
       />
@@ -159,8 +194,17 @@ export const ResultsViewer = memo(function ResultsViewer({
         infiniteScrollTotalRows={infiniteScrollTotalRows}
         infiniteScrollLoadedRows={infiniteScrollLoadedRows}
         infiniteScrollIsFetchingMore={infiniteScrollIsFetchingMore}
+        infiniteScrollIsCountingTotal={infiniteScrollIsCountingTotal}
         infiniteScrollIsComplete={infiniteScrollIsComplete}
+        infiniteScrollWindowExhausted={infiniteScrollWindowExhausted}
+        infiniteScrollBudgetExhausted={infiniteScrollBudgetExhausted}
+        infiniteScrollOrderingGuarantee={infiniteScrollOrderingGuarantee}
         onFetchMore={onFetchMore}
+        onCalculateExactTotal={onCalculateExactTotal}
+        onCancelExactTotal={onCancelExactTotal}
+        infiniteScrollCancelSupport={infiniteScrollCancelSupport}
+        searchScope={searchScope}
+        onCreateIndex={onCreateIndex}
         serverSortColumn={serverSortColumn}
         serverSortDirection={serverSortDirection}
         onServerSortChange={onServerSortChange}

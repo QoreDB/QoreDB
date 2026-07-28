@@ -2,15 +2,15 @@
 
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import './i18n';
 import App from './App';
 import './index.css';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { TooltipProvider } from '@/components/ui/tooltip';
-import { AnalyticsService } from './components/Onboarding/AnalyticsService';
+import { i18nReady } from './i18n';
 import { logger } from './lib/diagnostics/logger';
+import { purgeLegacyTelemetryState } from './lib/legacyTelemetryPurge';
 
-AnalyticsService.init();
+purgeLegacyTelemetryState();
 
 window.addEventListener('error', event => {
   const error = event.error instanceof Error ? event.error : new Error(event.message);
@@ -22,12 +22,20 @@ window.addEventListener('unhandledrejection', event => {
   logger.error(`Unhandled promise rejection: ${error.message}`, error);
 });
 
-ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
-  <React.StrictMode>
-    <TooltipProvider>
-      <ErrorBoundary>
-        <App />
-      </ErrorBoundary>
-    </TooltipProvider>
-  </React.StrictMode>
-);
+function renderApp() {
+  ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
+    <React.StrictMode>
+      <TooltipProvider>
+        <ErrorBoundary>
+          <App />
+        </ErrorBoundary>
+      </TooltipProvider>
+    </React.StrictMode>
+  );
+}
+
+void i18nReady
+  .catch(error => {
+    logger.error('Failed to initialize translations', error);
+  })
+  .then(renderApp);

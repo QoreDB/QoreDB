@@ -1,0 +1,332 @@
+name: Build Qore AI runtime
+
+on:
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: Publish the verified immutable runtime release
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+env:
+  BUILD_SPEC: packaging/qore-ai/runtime-build-v1.json
+
+jobs:
+  prepare:
+    name: Validate build specification
+    runs-on: ubuntu-24.04
+    outputs:
+      matrix: ${{ steps.matrix.outputs.value }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate target matrix
+        id: matrix
+        shell: bash
+        run: |
+          python3 -m unittest scripts/test_qore_ai_runtime.py
+          python3 scripts/qore_ai_runtime.py validate-spec --spec "$BUILD_SPEC"
+          {
+            echo "value<<QORE_MATRIX"
+            python3 scripts/qore_ai_runtime.py matrix --spec "$BUILD_SPEC"
+            echo "QORE_MATRIX"
+          } >> "$GITHUB_OUTPUT"
+
+  build:
+    name: ${{ matrix.target.id }}
+    needs: prepare
+    runs-on: ${{ matrix.target.runner }}
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.prepare.outputs.matrix) }}
+    steps:
+      - name: Check out QoreDB packaging tools
+        uses: actions/checkout@v4
+
+      - name: Check out pinned llama.cpp source
+        uses: actions/checkout@v4
+        with:
+          repository: ggml-org/llama.cpp
+          ref: ${{ matrix.target.source.commit }}
+          path: llama.cpp
+          fetch-depth: 1
+
+      - name: Verify source identity
+        shell: bash
+        run: |
+          actual_commit="$(git -C llama.cpp rev-parse HEAD)"
+          test "$actual_commit" = "${{ matrix.target.source.commit }}"
+          test "$(git -C llama.cpp show -s --format=%ct HEAD)" = "${{ matrix.target.source.source_date_epoch }}"
+
+      - name: Install Linux build dependencies
+        if: matrix.target.os == 'linux'
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential ninja-build
+          if [[ "${{ matrix.target.architecture }}" == "aarch64" ]]; then
+            sudo apt-get install -y gcc-14 g++-14
+            echo "CC=gcc-14" >> "$GITHUB_ENV"
+            echo "CXX=g++-14" >> "$GITHUB_ENV"
+          fi
+
+      - name: Install pinned Windows Ninja
+        if: matrix.target.os == 'windows'
+        shell: pwsh
+        run: choco install ninja --version "${{ matrix.target.windows_ninja_version }}" --no-progress -y
+
+      - name: Build twice on macOS or Linux
+        if: matrix.target.os != 'windows'
+        shell: bash
+        env:
+          SOURCE_DATE_EPOCH: ${{ matrix.target.source.source_date_epoch }}
+          TZ: UTC
+          LC_ALL: C
+        run: |
+          configured_defines=()
+          while IFS= read -r define; do
+            configured_defines+=("$define")
+          done < <(
+            python3 scripts/qore_ai_runtime.py cmake-defines \
+              --spec "$BUILD_SPEC" \
+              --target "${{ matrix.target.id }}"
+          )
+          cmake_defines=()
+          for define in "${configured_defines[@]}"; do
+            cmake_defines+=("-D${define}")
+          done
+
+          source_dir="$GITHUB_WORKSPACE/llama.cpp"
+          linker_flags=""
+          if [[ "${{ matrix.target.os }}" == "macos" ]]; then
+            linker_flags="-Wl,-no_uuid"
+          else
+            linker_flags="-Wl,--build-id=sha1"
+          fi
+
+          for attempt in a b; do
+            build_dir="$GITHUB_WORKSPACE/build-$attempt"
+            reproducible_flags="-ffile-prefix-map=$build_dir=/qore-build/build -fdebug-prefix-map=$build_dir=/qore-build/build -ffile-prefix-map=$GITHUB_WORKSPACE=/qore-build -fdebug-prefix-map=$GITHUB_WORKSPACE=/qore-build"
+            cmake \
+              -S "$source_dir" \
+              -B "$build_dir" \
+              -G Ninja \
+              "${cmake_defines[@]}" \
+              "-DCMAKE_C_FLAGS_RELEASE=-O3 -DNDEBUG $reproducible_flags" \
+              "-DCMAKE_CXX_FLAGS_RELEASE=-O3 -DNDEBUG $reproducible_flags" \
+              "-DCMAKE_EXE_LINKER_FLAGS_RELEASE=$linker_flags" \
+              "-DCMAKE_SHARED_LINKER_FLAGS_RELEASE=$linker_flags"
+            cmake --build "$build_dir" --config Release --target llama-server --parallel
+          done
+
+      - name: Build twice on Windows
+        if: matrix.target.os == 'windows'
+        shell: pwsh
+        env:
+          SOURCE_DATE_EPOCH: ${{ matrix.target.source.source_date_epoch }}
+          TZ: UTC
+        run: |
+          $ErrorActionPreference = "Stop"
+          $vcvars = "C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Auxiliary\Build\vcvarsall.bat"
+          cmd /c "`"$vcvars`" ${{ matrix.target.windows_vcvars_arch }} && set" |
+            ForEach-Object {
+              if ($_ -match "^(.*?)=(.*)$") {
+                Set-Item -Path "Env:$($matches[1])" -Value $matches[2]
+              }
+            }
+
+          $configuredDefines = python scripts/qore_ai_runtime.py cmake-defines `
+            --spec $env:BUILD_SPEC `
+            --target "${{ matrix.target.id }}"
+          $cmakeDefines = $configuredDefines | ForEach-Object { "-D$_" }
+          $sourceDir = Join-Path $env:GITHUB_WORKSPACE "llama.cpp"
+          $mappedWorkspace = $env:GITHUB_WORKSPACE.Replace("\", "/")
+
+          foreach ($attempt in @("a", "b")) {
+            $buildDir = Join-Path $env:GITHUB_WORKSPACE "build-$attempt"
+            $mappedBuildDir = $buildDir.Replace("\", "/")
+            $reproducibleFlags = "-ffile-prefix-map=$mappedBuildDir=/qore-build/build -fdebug-prefix-map=$mappedBuildDir=/qore-build/build -ffile-prefix-map=$mappedWorkspace=/qore-build -fdebug-prefix-map=$mappedWorkspace=/qore-build"
+            $arguments = @(
+              "-S", $sourceDir,
+              "-B", $buildDir,
+              "-G", "Ninja Multi-Config",
+              "-DCMAKE_TOOLCHAIN_FILE=$sourceDir/${{ matrix.target.windows_toolchain }}",
+              "-DCMAKE_C_FLAGS_RELEASE=-O3 -DNDEBUG $reproducibleFlags",
+              "-DCMAKE_CXX_FLAGS_RELEASE=-O3 -DNDEBUG $reproducibleFlags",
+              "-DCMAKE_EXE_LINKER_FLAGS_RELEASE=-Wl,/Brepro",
+              "-DCMAKE_SHARED_LINKER_FLAGS_RELEASE=-Wl,/Brepro"
+            ) + $cmakeDefines
+            & cmake @arguments
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            & cmake --build $buildDir --config Release --target llama-server --parallel
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
+
+      - name: Stage and package macOS or Linux builds
+        if: matrix.target.os != 'windows'
+        shell: bash
+        env:
+          SOURCE_DATE_EPOCH: ${{ matrix.target.source.source_date_epoch }}
+        run: |
+          for attempt in a b; do
+            mkdir -p "stage-$attempt"
+            cp -a "build-$attempt/bin/." "stage-$attempt/"
+            cp llama.cpp/LICENSE "stage-$attempt/LICENSE"
+            test -x "stage-$attempt/llama-server"
+            mkdir -p "candidate-$attempt"
+            python3 scripts/qore_ai_runtime.py package \
+              --source "stage-$attempt" \
+              --output "candidate-$attempt/${{ matrix.target.artifact }}" \
+              --format "${{ matrix.target.format }}" \
+              --root "${{ matrix.target.archive_root }}" \
+              --source-date-epoch "$SOURCE_DATE_EPOCH"
+          done
+
+      - name: Stage and package Windows builds
+        if: matrix.target.os == 'windows'
+        shell: pwsh
+        env:
+          SOURCE_DATE_EPOCH: ${{ matrix.target.source.source_date_epoch }}
+        run: |
+          $ErrorActionPreference = "Stop"
+          $openmpRuntime = "${{ matrix.target.openmp_runtime }}"
+          if (-not (Test-Path $openmpRuntime)) {
+            throw "Pinned OpenMP runtime is missing: $openmpRuntime"
+          }
+          foreach ($attempt in @("a", "b")) {
+            $stage = "stage-$attempt"
+            New-Item -ItemType Directory -Force $stage | Out-Null
+            Copy-Item "build-$attempt/bin/Release/*" $stage -Recurse
+            Copy-Item $openmpRuntime $stage
+            Copy-Item "llama.cpp/LICENSE" $stage
+            if (-not (Test-Path "$stage/llama-server.exe")) {
+              throw "llama-server.exe was not produced"
+            }
+            New-Item -ItemType Directory -Force "candidate-$attempt" | Out-Null
+            python scripts/qore_ai_runtime.py package `
+              --source $stage `
+              --output "candidate-$attempt/${{ matrix.target.artifact }}" `
+              --format "${{ matrix.target.format }}" `
+              --root "${{ matrix.target.archive_root }}" `
+              --source-date-epoch $env:SOURCE_DATE_EPOCH
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
+
+      - name: Verify reproducibility and record provenance
+        shell: bash
+        run: |
+          artifact="${{ matrix.target.artifact }}"
+          python_command=python3
+          if [[ "${{ matrix.target.os }}" == "windows" ]]; then
+            python_command=python
+          fi
+          "$python_command" scripts/qore_ai_runtime.py verify-pair \
+            --first "candidate-a/$artifact" \
+            --second "candidate-b/$artifact"
+
+          mkdir -p dist
+          cp "candidate-a/$artifact" "dist/$artifact"
+          {
+            echo "runner=${{ matrix.target.runner }}"
+            cmake --version
+            ninja --version
+            if [[ "${{ matrix.target.os }}" == "macos" ]]; then
+              xcodebuild -version
+              clang --version
+            elif [[ "${{ matrix.target.os }}" == "windows" ]]; then
+              clang --version
+              cmd //c ver
+            else
+              "${CC:-cc}" --version
+              uname -a
+            fi
+          } > dist/toolchain.txt
+          "$python_command" scripts/qore_ai_runtime.py provenance \
+            --spec "$BUILD_SPEC" \
+            --target "${{ matrix.target.id }}" \
+            --artifact "dist/$artifact" \
+            --toolchain dist/toolchain.txt \
+            --output "dist/$artifact.provenance.json"
+          rm dist/toolchain.txt
+
+      - name: Upload verified runtime
+        uses: actions/upload-artifact@v4
+        with:
+          name: qore-ai-runtime-${{ matrix.target.id }}
+          path: dist/
+          if-no-files-found: error
+          retention-days: 14
+
+  assemble:
+    name: Assemble six-target release
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download verified runtimes
+        uses: actions/download-artifact@v4
+        with:
+          pattern: qore-ai-runtime-*
+          path: runtime-artifacts
+          merge-multiple: true
+
+      - name: Generate checksums and proposed signed manifest
+        shell: bash
+        run: |
+          test "$(find runtime-artifacts -maxdepth 1 -type f \( -name '*.zip' -o -name '*.tar.gz' \) | wc -l)" -eq 6
+          (
+            cd runtime-artifacts
+            sha256sum *.zip *.tar.gz 2>/dev/null | sort -k 2
+          ) > runtime-artifacts/SHA256SUMS
+          python3 scripts/qore_ai_runtime.py promote-manifest \
+            --spec "$BUILD_SPEC" \
+            --manifest src-tauri/resources/qore-ai-local-manifest-v1.json \
+            --artifacts-dir runtime-artifacts \
+            --output runtime-artifacts/qore-ai-local-manifest-v1.candidate.json
+
+      - name: Upload release candidate
+        uses: actions/upload-artifact@v4
+        with:
+          name: qore-ai-runtime-release-b10087
+          path: runtime-artifacts/
+          if-no-files-found: error
+          retention-days: 30
+
+  publish:
+    name: Publish immutable runtime release
+    if: inputs.publish
+    needs: assemble
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download release candidate
+        uses: actions/download-artifact@v4
+        with:
+          name: qore-ai-runtime-release-b10087
+          path: runtime-artifacts
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          release_tag="$(python3 -c 'import json; print(json.load(open("'"$BUILD_SPEC"'"))["runtime"]["release_tag"])')"
+          if gh release view "$release_tag" >/dev/null 2>&1; then
+            echo "Release $release_tag already exists; immutable runtimes are never overwritten." >&2
+            exit 1
+          fi
+          gh release create "$release_tag" runtime-artifacts/* \
+            --target "$GITHUB_SHA" \
+            --title "Qore AI runtime b10087" \
+            --notes "Reproducible llama-server runtimes for the six QoreDB desktop targets." \
+            --prerelease

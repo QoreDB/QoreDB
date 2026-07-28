@@ -429,6 +429,7 @@
     "footerHint": "결과를 클릭하면 테이블이 열립니다"
   },
   "tabs": {
+    "newTab": "새 탭",
     "new": "새 탭",
     "newQuery": "새 쿼리 ({{modifier}}+T)",
     "newNotebook": "새 노트북",
@@ -665,8 +666,6 @@
     "storeHistoryDescription": "쉬운 재호출을 위해 수정된 기록을 로컬에 저장합니다.",
     "storeErrorLogs": "오류 로그 저장",
     "storeErrorLogsDescription": "디버깅에 도움이 되도록 수정된 오류 세부 정보를 저장합니다.",
-    "analyticsEnabled": "익명 사용 분석 공유",
-    "analyticsEnabledDescription": "익명 이벤트를 전송하여 QoreDB 개선에 도움을 줍니다 (쿼리나 자격 증명은 포함되지 않습니다).",
     "sandbox": {
       "title": "샌드박스",
       "description": "샌드박스 변경 사항의 추적 및 표시 방법을 사용자 지정합니다.",
@@ -1012,7 +1011,8 @@
       "indexed": "인덱스됨",
       "indexComposite": "인덱스됨 (복합: {{name}})",
       "unique": "유니크 제약 조건",
-      "copySuccess": "행이 클립보드에 복사되었습니다"
+      "copySuccess": "행이 클립보드에 복사되었습니다",
+      "sortScansTable": "이 열로 정렬하면 따라갈 인덱스가 없어 엔진이 테이블 전체를 정렬합니다."
     },
     "rowsSelected": "{{count}}개 행 선택됨",
     "rowsTotal": "{{count}}개 행",
@@ -1027,9 +1027,22 @@
     "lastPage": "마지막 페이지",
     "infiniteScroll": {
       "loaded": "{{total}}개 중 {{loaded}}개 행 로드됨",
+      "loadedUnknown": "{{loaded}}개 행 로드됨",
       "allLoaded": "전체 {{total}}개 행 로드됨",
       "loading": "더 불러오는 중...",
-      "complete": "결과 끝"
+      "calculateTotal": "정확한 합계 계산",
+      "countingTotal": "합계 계산 중...",
+      "countTotalError": "정확한 합계를 계산할 수 없습니다",
+      "complete": "결과 끝",
+      "cancelCount": "취소",
+      "cancelCountBestEffortLabel": "취소 (최선 노력)",
+      "cancelCountBestEffort": "이 드라이버는 취소를 보장하지 못합니다. 서버에서 개수 계산이 계속될 수 있습니다.",
+      "loadedEstimated": "{{total}}행 중 {{loaded}}행 로드됨 (추정)",
+      "estimateHint": "엔진 추정치이며 정확한 개수가 아닙니다.",
+      "estimateAsOf": "통계 마지막 갱신: {{date}}",
+      "windowExhausted": "{{loaded}}행 로드됨 — 이 깊이에서는 엔진이 더 이상 페이지를 제공하지 않습니다",
+      "budgetExhausted": "{{loaded}}개 행을 불러왔습니다 — 탭이 메모리 한도에 도달했습니다",
+      "budgetExhaustedHint": "필터로 결과를 좁히거나, 테이블을 내보내 전체를 확인하세요."
     },
     "noData": "표시할 데이터가 없습니다",
     "noResults": "결과 없음",
@@ -1066,9 +1079,14 @@
     "exportSuccess": "{{count}}개 행을 {{path}}(으)로 내보냈습니다",
     "exportError": "데이터 내보내기에 실패했습니다",
     "copyToClipboard": "클립보드에 복사",
+    "copySelection": "선택한 {{count}}개 행 복사",
+    "copyLoadedRows": "불러온 {{count}}개 행 복사",
+    "selectAllRows": "불러온 행 선택",
+    "selectRow": "행 선택",
     "downloadToFile": "파일로 다운로드",
     "openRow": "행 열기",
     "editCell": "셀 편집",
+    "cellPreviewTruncated": "미리보기 — 전체 값을 보려면 행을 여세요",
     "searchPlaceholder": "검색...",
     "columns": "컬럼",
     "toggleColumns": "컬럼 전환",
@@ -1098,6 +1116,25 @@
       "generate": "생성",
       "apply": "필터 적용",
       "empty": "이 요청에서 필터를 도출할 수 없습니다."
+    },
+    "searchScope": {
+      "title": "검색 범위",
+      "description": "검색이 다루는 열과 용어를 비교하는 방식입니다.",
+      "mode": {
+        "contains": "포함",
+        "starts_with": "시작 문자"
+      },
+      "cost": {
+        "leading_wildcard": "포함 검색은 인덱스를 사용할 수 없습니다. 엔진이 모든 행을 읽습니다.",
+        "multi_column": "여러 열을 동시에 검색하면 인덱스를 사용할 수 없습니다.",
+        "no_index": "이 열에는 접두사 검색이 따라갈 인덱스가 없습니다."
+      }
+    },
+    "createIndexForSort": "이 열에 인덱스 만들기",
+    "createIndexUnsupported": "이 드라이버는 인덱스 생성을 지원하지 않습니다.",
+    "pagination": {
+      "unstableOrder": "불안정한 순서",
+      "unstableOrderHint": "이 테이블에는 페이징에 사용할 고유 키가 없습니다. 스크롤 중 데이터가 바뀌면 행이 중복되거나 누락될 수 있습니다."
     }
   },
   "export": {
@@ -1417,7 +1454,26 @@
     "exportVisible": "표시된 로그 내보내기",
     "exportDiagnostic": "진단 로그 내보내기 (전체)",
     "exportSuccess": "로그 내보내기 완료: {{name}}",
+    "exportScrubbed": "자격 증명, 토큰, 홈 경로는 파일 저장 전에 제거되었습니다.",
     "exportError": "로그 내보내기에 실패했습니다"
+  },
+  "paginationDiagnostics": {
+    "title": "페이지네이션 진단",
+    "description": "현재 세션의 탭별 측정값입니다. 테이블 이름, 셀 값, 커서는 기록하지 않습니다.",
+    "empty": "이 세션에서 아직 탐색한 테이블이 없습니다.",
+    "scope": "탭",
+    "pages": "페이지",
+    "rows": "행",
+    "firstPage": "첫 페이지",
+    "p50": "페이지 p50",
+    "p95": "페이지 p95",
+    "firstSearch": "첫 검색",
+    "exactCounts": "정확한 개수",
+    "errors": "오류",
+    "copy": "보고서 복사",
+    "copied": "보고서를 클립보드에 복사했습니다",
+    "copyError": "보고서를 복사하지 못했습니다",
+    "reset": "초기화"
   },
   "dbtree": {
     "emptyNamespaces": "ë°ì´í°ë² ì´ì¤ ëë ì¤í¤ë§ê° ììµëë¤",
@@ -1601,13 +1657,13 @@
     "welcome": {
       "title": "QoreDB에 오신 것을 환영합니다",
       "subtitle": "현대적인 시대를 위한 유니버설 데이터베이스 클라이언트.",
-      "tagline": "12개 드라이버 · SQL + NoSQL · Rust 속도 · 로컬 우선",
+      "tagline": "16개 드라이버 · SQL + NoSQL · Rust 속도 · 로컬 우선",
       "next": "투어 시작"
     },
     "capabilities": {
       "title": "QoreDB로 할 수 있는 것",
       "subtitle": "데이터베이스 작업 전체를 하나의 앱으로 — 도구 전환 없이.",
-      "driversTitle": "12개 네이티브 드라이버",
+      "driversTitle": "16개 네이티브 드라이버",
       "driversDesc": "PostgreSQL, MySQL, SQL Server, SQLite, DuckDB, CockroachDB, ClickHouse, MongoDB, Redis — 그 외 더 많은 드라이버를 지원합니다.",
       "aiTitle": "AI 어시스턴트",
       "aiDesc": "전체 스키마 컨텍스트를 활용해 SQL/MQL을 생성, 수정, 설명합니다. OpenAI, Anthropic 또는 로컬 Ollama 키를 직접 사용하세요.",
@@ -1625,15 +1681,15 @@
       "guardsDesc": "위험한 쿼리는 프로덕션에서 두 번 확인을 거쳐 실행됩니다. 토글 하나로 모든 연결을 읽기 전용 모드로 설정하세요.",
       "sandboxTitle": "샌드박스 모드",
       "sandboxDesc": "데이터 그리드 편집 내용을 로컬에 보관하고 검토한 뒤 데이터베이스에 적용합니다. SQL 편집기 쿼리는 샌드박스 처리되지 않습니다.",
-      "localTitle": "내 기기 밖으로 나가지 않음",
-      "localDesc": "클라우드 동기화, 데이터 원격 분석, 원격 스키마 인덱싱 없음. 쿼리와 결과는 로컬에 유지됩니다."
+      "localTitle": "데이터는 이 컴퓨터를 벗어나지 않습니다",
+      "localDesc": "클라우드 동기화 없음, 원격 분석 전혀 없음, 원격 스키마 인덱싱 없음. 쿼리와 결과는 로컬에 유지됩니다. 유일한 예외는 시작 시 GitHub에 연결하는 업데이트 확인이며, 설정에서 끌 수 있습니다."
     },
     "tiers": {
       "title": "오픈 코어 — 무료 및 Pro",
       "subtitle": "QoreDB는 오픈 소스입니다. Pro는 그 자체로 가치를 증명하는 워크로드를 위해 설계되었습니다.",
       "freeLabel": "무료",
       "freeFor": "개인 프로젝트 및 탐색",
-      "freeBullet1": "12개 데이터베이스 드라이버 전부",
+      "freeBullet1": "16개 데이터베이스 드라이버 전부",
       "freeBullet2": "쿼리 편집기, 노트북, ER 다이어그램",
       "freeBullet3": "직접 AI 키 사용",
       "proLabel": "Pro",
@@ -1643,24 +1699,35 @@
       "proBullet3": "데이터 계약, 즉시 Data API, 고급 내보내기",
       "footnote": "Pro는 일회성 결제, 영구 라이선스입니다. Team은 좌석당 구독입니다."
     },
-    "analytics": {
-      "title": "개선에 도움을 주세요",
-      "subtitle": "오픈소스 프로젝트입니다. 익명 사용 데이터는 기능 우선순위 결정과 버그 수정에 도움이 됩니다 — 설정에서 언제든지 변경할 수 있습니다.",
-      "checkbox": "익명 사용 분석 공유 (권장)",
-      "privacyHint": "충돌 보고서와 기능 사용 횟수만 수집합니다. 쿼리, 결과, 자격 증명은 절대 기기를 떠나지 않습니다.",
-      "guarantee": "이 설정과 관계없이 쿼리, 결과, 자격 증명은 절대 내 기기 밖으로 나가지 않습니다.",
-      "finish": "시작하기"
-    },
     "workspace": {
       "title": "워크스페이스로 정리",
       "description": "여러 연결이 있습니다. 워크스페이스를 만들어 프로젝트별로 그룹화하고 Git으로 팀과 공유하세요."
-    }
+    },
+    "finish": "시작하기"
   },
   "errorBoundary": {
     "title": "문제가 발생했습니다",
     "description": "예기치 않은 오류가 발생했습니다. 오류가 기록되었습니다.",
     "reload": "애플리케이션 다시 로드",
     "panelCrashed": "이 패널에서 오류가 발생했습니다"
+  },
+  "crashReport": {
+    "toastTitle": "QoreDB가 예기치 않게 종료되었습니다",
+    "toastDescription": "크래시 리포트가 이 컴퓨터에 저장되었습니다.",
+    "toastAction": "리포트 보기",
+    "title": "크래시 리포트",
+    "subtitle": "{{kind}} — {{date}}",
+    "others_one": "대기 중인 리포트가 {{count}}건 더 있습니다.",
+    "others_other": "대기 중인 리포트가 {{count}}건 더 있습니다.",
+    "privacyNote": "이 리포트는 사용자 컴퓨터에 남아 있습니다. 자격 증명과 개인 경로는 제거되었습니다. 사용자가 조치하지 않으면 아무것도 전송되지 않습니다.",
+    "copy": "복사",
+    "copied": "리포트를 복사했습니다",
+    "copyError": "리포트를 복사하지 못했습니다",
+    "openFolder": "폴더 열기",
+    "openFolderError": "로그 폴더를 열지 못했습니다",
+    "report": "GitHub에 신고",
+    "dismiss": "닫기",
+    "issueWhatHappened": "크래시 발생 당시 하던 작업"
   },
   "sandbox": {
     "activate": "샌드박스",
@@ -2369,6 +2436,7 @@
     "dismiss": "괜찮습니다"
   },
   "ai": {
+    "newConversation": "새 대화",
     "title": "AI 어시스턴트",
     "promptPlaceholder": "생성할 쿼리를 설명하세요...",
     "insertQuery": "편집기에 삽입",
@@ -2391,12 +2459,97 @@
       "title": "AI 제공자",
       "description": "AI 기반 쿼리 생성을 위한 API 키를 구성하세요.",
       "defaultModel": "기본 모델",
+      "ready": "준비됨",
+      "notInstalled": "설치되지 않음",
+      "recommended": "권장",
+      "external": "외부",
+      "qoreLocalDescription": "QoreDB가 이 기기에서 모델을 실행합니다. 데이터베이스 컨텍스트와 결과는 기기를 벗어나지 않습니다.",
+      "runtimeTarget": "런타임 대상: {{platform}} · {{architecture}}",
+      "installComing": "안전한 런타임 및 모델 다운로드는 아직 이 빌드에서 사용할 수 없습니다.",
+      "installDescription": "로컬 엔진과 모델({{size}})을 다운로드하고 검증합니다. 중단된 다운로드는 다시 시작할 수 있습니다.",
+      "installLocal": "Qore AI Local 설치",
+      "updateDescription": "서명된 Qore AI Local 업데이트({{version}})가 있습니다. {{size}}를 다운로드하고 검증합니다.",
+      "updateLocal": "Qore AI Local 업데이트",
+      "cancelInstall": "설치 취소",
+      "downloading": "다운로드 중",
+      "verifying": "검증 중",
+      "installing": "설치 중",
+      "completed": "완료",
+      "cancelled": "취소됨",
+      "error": "오류",
+      "runtimeArtifact": "런타임",
+      "modelArtifact": "모델",
+      "downloadProgress": "{{current}} / {{total}}",
+      "startRuntime": "런타임 시작",
+      "stopRuntime": "런타임 중지",
+      "endpoint": "로컬 엔드포인트",
+      "active": "활성",
+      "useProvider": "기본값으로 사용",
+      "activeTitle": "활성 AI 엔진",
+      "activeDescription": "Qore AI와 쿼리 도우미가 사용하는 제공자 및 모델입니다.",
+      "providersTitle": "AI 엔진 및 제공자",
+      "providersDescription": "로컬 엔진과 외부 제공자 자격 증명을 관리합니다.",
+      "dataTitle": "AI와 공유하는 데이터",
+      "dataDescription": "AI 요청에 포함할 수 있는 데이터베이스 컨텍스트를 제어합니다.",
+      "localDataNotice": "{{provider}}가 요청을 로컬에서 처리합니다. 클라우드 AI 제공자에게 전송되지 않습니다.",
+      "cloudDataNotice": "스키마 컨텍스트와 허용된 샘플 데이터가 {{provider}}에 전송될 수 있습니다.",
       "local": "로컬",
       "configured": "구성됨",
       "notConfigured": "미구성",
       "enterKey": "API 키 입력...",
       "deleteKey": "API 키 삭제",
-      "ollamaHint": "Ollama는 로컬에서 실행됩니다 — API 키가 필요하지 않습니다. Ollama가 컴퓨터에서 실행 중인지 확인하세요."
+      "ollamaHint": "Ollama는 로컬에서 실행됩니다 — API 키가 필요하지 않습니다. Ollama가 컴퓨터에서 실행 중인지 확인하세요.",
+      "sampleRows": "샘플 행",
+      "sampleRowsDescription": "AI 제안 품질을 높이기 위해 샘플 행 몇 개를 공유합니다. 민감한 열은 아래에서 허용하지 않는 한 마스킹된 상태로 유지됩니다.",
+      "sensitiveData": "민감한 데이터",
+      "sensitiveDataDescription": "AI가 민감한 값(이메일, 이름, 전화번호 등)을 볼 수 있도록 허용합니다. 비활성화하면 해당 열은 공급자에게 전송되기 전에 마스킹됩니다."
+    }
+  },
+  "agentChat": {
+    "model": "모델",
+    "title": "Qore AI",
+    "openChat": "Qore AI 열기",
+    "conversations": "대화",
+    "collapseConversations": "대화 목록 숨기기",
+    "showConversations": "대화 목록 표시",
+    "newConversation": "새 대화",
+    "noConversations": "아직 대화가 없습니다",
+    "untitled": "제목 없음",
+    "rename": "이름 변경",
+    "delete": "삭제",
+    "promptPlaceholder": "Q에게 데이터베이스에 대해 질문하세요…",
+    "send": "보내기",
+    "cancel": "중지",
+    "thinking": "Q가 생각 중입니다…",
+    "emptyState": "Q를 만나보세요",
+    "emptyHint": "데이터베이스에 질문하세요. Q가 스키마를 탐색하고 읽기 전용 쿼리를 실행하여 실제 데이터로 답합니다. 쓰기 작업은 항상 승인이 필요합니다.",
+    "noConnection": "채팅을 시작하려면 데이터베이스에 연결하세요.",
+    "noApiKey": "에이전트를 사용하려면 설정에서 AI 제공업체 API 키를 등록하세요.",
+    "activity": {
+      "inProgress": "Q가 탐색 중입니다",
+      "complete": "Q가 데이터베이스를 탐색했습니다",
+      "steps_other": "{{count}}단계"
+    },
+    "error": {
+      "forbiddenHint": "API 키가 승인되었지만 이 프로젝트, 모델 또는 작업을 사용할 권한이 없습니다. 프로젝트 권한과 모델 접근 권한을 확인하세요.",
+      "openAiRequestHint": "이 OpenAI 응답만으로 API 키에 권한이 없다고 판단할 수 없습니다. QoreDB가 자동으로 재시도하며, 문제가 계속되면 OpenAI Logs에서 요청 ID를 사용하세요.",
+      "requestId": "요청 ID"
+    },
+    "permission": {
+      "allow": "허용",
+      "allowAlways": "항상 허용",
+      "deny": "거부",
+      "approved": "허용됨",
+      "denied": "거부됨"
+    },
+    "tool": {
+      "truncated": "{{count}}개 행 중 앞부분만 표시"
+    },
+    "usage": {
+      "tokens": "{{value}} 토큰",
+      "iterations": "반복 {{count}}회",
+      "cached": "캐시에서 {{percent}}%",
+      "conversationTotal": "이 대화에서 사용한 토큰"
     }
   },
   "federation": {

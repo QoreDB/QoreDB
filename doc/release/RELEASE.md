@@ -126,6 +126,9 @@ pnpm tauri build
 ```
 
 Les artefacts sont générés dans `src-tauri/target/release/bundle/`.
+Cette commande active automatiquement le linkage DuckDB statique utilisé pour
+les artefacts distribués. Un build Tauri lancé directement sans le script pnpm
+doit préciser `--features duckdb-bundled`.
 
 ### Publier manuellement
 
@@ -172,3 +175,32 @@ Le fichier `latest.json` est généré automatiquement par `tauri-action`.
 - `src-tauri/src/lib.rs` : init du plugin updater
 - `src/App.tsx` : UI de mise à jour
 - `.github/workflows/release.yml` : workflow de release
+
+## Manifest Qore AI Local
+
+Le runtime et le modèle local peuvent être mis à jour sans publier une nouvelle
+version de QoreDB. La source est :
+
+```text
+src-tauri/resources/qore-ai-local-manifest-v1.json
+```
+
+Après avoir modifié les artefacts, leurs tailles, leurs SHA-256 et incrémenté la
+version `YYYY-MM-DD.N`, lancer manuellement le workflow
+`Publish Qore AI Local manifest`.
+
+Le workflow :
+
+1. vérifie que les six couples macOS/Windows/Linux et ARM64/x86-64 sont présents ;
+2. signe le JSON byte-exact avec `TAURI_SIGNING_PRIVATE_KEY` ;
+3. remplace le JSON et sa signature sur la prerelease `qore-ai-local`.
+
+QoreDB vérifie la signature avec la clé publique de l'auto-updater avant tout
+parsing. Une version égale ou inférieure, une signature invalide ou une matrice
+incomplète est ignorée au profit du manifest embarqué.
+
+### Fichiers clés
+
+- `src-tauri/resources/qore-ai-local-manifest-v1.json` : catalogue publié
+- `src-tauri/src/ai/local_manifest.rs` : vérification et validation
+- `.github/workflows/publish-ai-manifest.yml` : signature et publication

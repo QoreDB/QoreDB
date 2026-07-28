@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { type ReactNode, useEffect } from 'react';
-import { AnalyticsService } from '@/components/Onboarding/AnalyticsService';
+import { isOnboardingCompleted } from '@/lib/onboardingState';
 import { setShowOnboarding } from '@/lib/stores/modalStore';
 
 /**
@@ -11,7 +11,7 @@ import { setShowOnboarding } from '@/lib/stores/modalStore';
  */
 export function ModalProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
-    if (!AnalyticsService.isOnboardingCompleted()) {
+    if (!isOnboardingCompleted()) {
       setShowOnboarding(true);
     }
   }, []);

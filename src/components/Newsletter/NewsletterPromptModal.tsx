@@ -2,7 +2,6 @@
 
 import { ExternalLink, Mail } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { AnalyticsService } from '@/components/Onboarding/AnalyticsService';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { markNewsletterPromptSeen, NEWSLETTER_URL } from '@/lib/newsletter';
@@ -20,14 +19,12 @@ export function NewsletterPromptModal({ open, onClose }: NewsletterPromptModalPr
   const { t } = useTranslation();
 
   const handleSubscribe = () => {
-    AnalyticsService.capture('newsletter_prompt_subscribe_clicked');
     markNewsletterPromptSeen();
     openExternal(NEWSLETTER_URL);
     onClose();
   };
 
   const handleDismiss = () => {
-    AnalyticsService.capture('newsletter_prompt_dismissed');
     markNewsletterPromptSeen();
     onClose();
   };

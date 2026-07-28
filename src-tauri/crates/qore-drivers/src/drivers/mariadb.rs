@@ -17,11 +17,11 @@ use qore_core::types::{
     CancelSupport, CollectionList, CollectionListOptions, ConnectionConfig, CreationOptions,
     DriverCapabilities, EventDefinition, EventList, EventListOptions, EventOperationResult,
     ForeignKey, MaintenanceOperationInfo, MaintenanceRequest, MaintenanceResult, Namespace,
-    PaginatedQueryResult, QueryId, QueryResult, RoutineDefinition, RoutineList, RoutineListOptions,
-    RoutineOperationResult, RoutineType, RowData, Sequence, SequenceDefinition, SequenceList,
-    SequenceListOptions, SequenceOperationResult, SessionId, TableQueryOptions, TableSchema,
-    TriggerDefinition, TriggerList, TriggerListOptions, TriggerOperationResult, TruncateAllResult,
-    Value,
+    PaginatedQueryResult, PaginationCapability, QueryId, QueryResult, RoutineDefinition,
+    RoutineList, RoutineListOptions, RoutineOperationResult, RoutineType, RowData, Sequence,
+    SequenceDefinition, SequenceList, SequenceListOptions, SequenceOperationResult, SessionId,
+    TableQueryOptions, TableSchema, TriggerDefinition, TriggerList, TriggerListOptions,
+    TriggerOperationResult, TruncateAllResult, Value,
 };
 
 use super::mysql::MySqlDriver;
@@ -620,6 +620,10 @@ impl DataEngine for MariaDbDriver {
         self.inner.truncate_all(session, namespace).await
     }
 
+    fn pagination_capability(&self) -> PaginationCapability {
+        self.inner.pagination_capability()
+    }
+
     fn capabilities(&self) -> DriverCapabilities {
         DriverCapabilities {
             transactions: true,
@@ -630,6 +634,7 @@ impl DataEngine for MariaDbDriver {
             streaming: true,
             explain: true,
             maintenance: true,
+            pagination: self.pagination_capability(),
         }
     }
 }

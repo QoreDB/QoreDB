@@ -50,8 +50,8 @@ No compiling test suite was completed during this refresh pass.
     allowlists.
   - **Residual note:** `style-src 'unsafe-inline'` remains present, which is a
     common Tauri/React compromise but should not be expanded casually.
-    `connect-src` currently includes Tauri IPC/localhost endpoints and PostHog
-    hosts.
+    `connect-src` is limited to Tauri IPC/localhost endpoints; the PostHog hosts
+    were removed together with the telemetry integration.
   - **Assessment:** No active finding.
 
 - **Resolved: Filesystem permissions are positively scoped**

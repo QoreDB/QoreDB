@@ -38,7 +38,7 @@ use qore_core::types::{
     MaintenanceOperationInfo, MaintenanceOperationType, MaintenanceRequest, MaintenanceResult,
     Namespace, PaginatedQueryResult, PaginationCapability, QueryId, QueryResult, Row as QRow,
     SearchMode, SessionId, SnapshotSupport, SortDirection, TableColumn, TableIndex,
-    TableQueryOptions, TableSchema, TruncateAllResult, Value,
+    TableQueryOptions, TableSchema, TruncateAllResult, Value, host_for_url,
 };
 
 pub struct MongoSession {
@@ -118,7 +118,6 @@ impl MongoDriver {
         use percent_encoding::{NON_ALPHANUMERIC, utf8_percent_encode};
 
         let db = config.database.as_deref().unwrap_or("admin");
-        let tls = if config.ssl { "true" } else { "false" };
 
         // Username/password must be percent-encoded so `@`, `:`, `/` don't break the URI parser.
         let credentials = if !config.username.is_empty() {
@@ -129,16 +128,56 @@ impl MongoDriver {
             String::new()
         };
 
-        let auth_source = if !config.username.is_empty() {
-            "?authSource=admin&tls="
+        // `mongodb+srv` resolves hosts and port via DNS: the URI carries no port.
+        let srv = config
+            .options
+            .get("srv")
+            .is_some_and(|v| v.eq_ignore_ascii_case("true"));
+        let (scheme, authority) = if srv {
+            ("mongodb+srv", host_for_url(&config.host).into_owned())
         } else {
-            "?tls="
+            (
+                "mongodb",
+                format!("{}:{}", host_for_url(&config.host), config.port),
+            )
         };
 
-        format!(
-            "mongodb://{}{}:{}/{}{}{}",
-            credentials, config.host, config.port, db, auth_source, tls
-        )
+        let mut params: Vec<(String, String)> = Vec::new();
+        if !config.username.is_empty() {
+            let auth_source = config
+                .options
+                .iter()
+                .find(|(k, _)| k.eq_ignore_ascii_case("authsource"))
+                .map(|(_, v)| v.clone())
+                .unwrap_or_else(|| "admin".to_string());
+            params.push(("authSource".to_string(), auth_source));
+        }
+        // SRV negotiates TLS on its own; `tls=false` would break every Atlas cluster.
+        if !srv {
+            params.push((
+                "tls".to_string(),
+                if config.ssl { "true" } else { "false" }.to_string(),
+            ));
+        }
+        for (key, value) in &config.options {
+            if key == "srv" || key.eq_ignore_ascii_case("authsource") {
+                continue;
+            }
+            if !srv && (key.eq_ignore_ascii_case("tls") || key.eq_ignore_ascii_case("ssl")) {
+                continue;
+            }
+            params.push((key.clone(), value.clone()));
+        }
+
+        let query = params
+            .iter()
+            .map(|(k, v)| {
+                format!("{}={}", k, utf8_percent_encode(v, NON_ALPHANUMERIC))
+            })
+            .collect::<Vec<_>>()
+            .join("&");
+
+        format!("{}://{}{}/{}?{}", scheme, credentials, authority, db, query)
     }
 
     /// Converts BSON to JSON.

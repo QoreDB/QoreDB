@@ -1061,6 +1061,7 @@ mod tests {
 
     fn make_config() -> ConnectionConfig {
         ConnectionConfig {
+            options: Default::default(),
             driver: "motherduck".to_string(),
             host: "pg.us-east-1-aws.motherduck.com".to_string(),
             port: 5432,

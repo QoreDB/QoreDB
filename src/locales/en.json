@@ -296,6 +296,7 @@
     "connectedSuccess": "Connected successfully!",
     "connectFail": "Failed to connect",
     "saveSuccess": "Connection saved",
+    "saveFail": "Failed to save the connection",
     "updateSuccess": "Connection updated",
     "failedRetrieveCredentials": "Failed to retrieve credentials",
     "failedRetrieveCredentialsEdit": "Failed to retrieve credentials for editing",

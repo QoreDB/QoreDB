@@ -5,6 +5,8 @@
 use base64::Engine as _;
 use compact_str::CompactString;
 use serde::{Deserialize, Serialize};
+use std::borrow::Cow;
+use std::collections::HashMap;
 use uuid::Uuid;
 
 /// Unique identifier for a database session
@@ -84,6 +86,45 @@ pub struct ConnectionConfig {
     /// system trust store.
     #[serde(default)]
     pub ssl_ca_cert: Option<String>,
+    /// Driver options carried verbatim from a parsed connection URL.
+    #[serde(default)]
+    pub options: HashMap<String, String>,
+}
+
+impl Default for ConnectionConfig {
+    fn default() -> Self {
+        Self {
+            driver: String::new(),
+            host: String::new(),
+            port: 0,
+            username: String::new(),
+            password: String::new(),
+            database: None,
+            ssl: false,
+            ssl_mode: None,
+            environment: "development".to_string(),
+            read_only: false,
+            pool_max_connections: None,
+            pool_min_connections: None,
+            pool_acquire_timeout_secs: None,
+            ssh_tunnel: None,
+            proxy: None,
+            mssql_auth: None,
+            clickhouse_cluster: None,
+            search_auth_mode: None,
+            ssl_ca_cert: None,
+            options: HashMap::new(),
+        }
+    }
+}
+
+/// Wraps a bare IPv6 literal in brackets so it can be embedded in a URL authority.
+pub fn host_for_url(host: &str) -> Cow<'_, str> {
+    if host.contains(':') && !host.starts_with('[') {
+        Cow::Owned(format!("[{}]", host))
+    } else {
+        Cow::Borrowed(host)
+    }
 }
 
 impl std::fmt::Debug for ConnectionConfig {
@@ -108,6 +149,7 @@ impl std::fmt::Debug for ConnectionConfig {
             .field("clickhouse_cluster", &self.clickhouse_cluster)
             .field("search_auth_mode", &self.search_auth_mode)
             .field("ssl_ca_cert", &self.ssl_ca_cert)
+            .field("options", &self.options)
             .finish()
     }
 }
@@ -396,6 +438,7 @@ mod tests {
     #[test]
     fn connection_config_debug_redacts_password() {
         let cfg = ConnectionConfig {
+            options: Default::default(),
             driver: "postgres".into(),
             host: "localhost".into(),
             port: 5432,

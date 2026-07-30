@@ -268,6 +268,7 @@
     "connectedSuccess": "Erfolgreich verbunden!",
     "connectFail": "Verbindung fehlgeschlagen",
     "saveSuccess": "Verbindung gespeichert",
+    "saveFail": "Verbindung konnte nicht gespeichert werden",
     "updateSuccess": "Verbindung aktualisiert",
     "failedRetrieveCredentials": "Zugangsdaten konnten nicht abgerufen werden",
     "failedRetrieveCredentialsEdit": "Zugangsdaten zum Bearbeiten konnten nicht abgerufen werden",

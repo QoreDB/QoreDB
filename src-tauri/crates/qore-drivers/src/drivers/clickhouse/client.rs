@@ -12,7 +12,7 @@ use std::sync::{Arc, RwLock};
 use std::time::Duration;
 
 use qore_core::error::{EngineError, EngineResult};
-use qore_core::types::ConnectionConfig;
+use qore_core::types::{ConnectionConfig, host_for_url};
 use reqwest::header::{CONTENT_TYPE, HeaderMap, HeaderValue};
 use reqwest::{Client as HttpClient, Url};
 use uuid::Uuid;
@@ -34,28 +34,31 @@ pub(crate) struct ClickHouseClient {
 
 impl ClickHouseClient {
     pub fn new(config: &ConnectionConfig) -> EngineResult<Self> {
+        // The guard below and the scheme must come from the same value, or
+        // `ssl=false, ssl_mode=require` sends Basic auth over cleartext.
+        let tls = config.ssl
+            || matches!(
+                config.ssl_mode.as_deref(),
+                Some("require" | "verify-ca" | "verify-full" | "verify-identity")
+            );
+
         // Refuse Basic-auth over cleartext HTTP because the base64 header is trivial to sniff
         // (audit B4-C8). Cleartext is only allowed when there is no password to leak.
-        let ssl_disabled = !config.ssl
-            && matches!(
-                config.ssl_mode.as_deref(),
-                None | Some("disable") | Some("allow")
-            );
-        if ssl_disabled && !config.password.is_empty() {
+        if !tls && !config.password.is_empty() {
             return Err(EngineError::connection_failed(
                 "ClickHouse: refusing to send password over cleartext HTTP. \
                  Enable TLS (ssl=true / ssl_mode=require) or remove the password.",
             ));
         }
 
-        let scheme = if config.ssl { "https" } else { "http" };
+        let scheme = if tls { "https" } else { "http" };
         let host = if config.host.is_empty() {
-            "localhost"
+            "localhost".to_string()
         } else {
-            config.host.as_str()
+            host_for_url(&config.host).into_owned()
         };
         let port = if config.port == 0 {
-            if config.ssl { 8443 } else { 8123 }
+            if tls { 8443 } else { 8123 }
         } else {
             config.port
         };
@@ -77,10 +80,12 @@ impl ClickHouseClient {
             .timeout(timeout.max(Duration::from_secs(60)))
             .pool_idle_timeout(Duration::from_secs(90));
 
-        if matches!(
-            config.ssl_mode.as_deref(),
-            Some("allow") | Some("prefer") | Some("disable")
-        ) {
+        if tls
+            && matches!(
+                config.ssl_mode.as_deref(),
+                Some("allow") | Some("prefer") | Some("disable")
+            )
+        {
             builder = builder.danger_accept_invalid_certs(true);
         }
 
@@ -297,6 +302,7 @@ mod tests {
         cluster: Option<&str>,
     ) -> ConnectionConfig {
         ConnectionConfig {
+            options: Default::default(),
             driver: "clickhouse".into(),
             host: host.into(),
             port,

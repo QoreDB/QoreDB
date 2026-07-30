@@ -2474,6 +2474,7 @@ mod tests {
 
     fn test_config(path: impl AsRef<Path>, read_only: bool) -> ConnectionConfig {
         ConnectionConfig {
+            options: Default::default(),
             driver: "duckdb".to_string(),
             host: path.as_ref().to_string_lossy().into_owned(),
             port: 0,
@@ -2501,6 +2502,7 @@ mod tests {
         let driver = DuckDbDriver::new();
 
         let config = ConnectionConfig {
+            options: Default::default(),
             driver: "duckdb".to_string(),
             host: ":memory:".to_string(),
             port: 0,
@@ -2531,6 +2533,7 @@ mod tests {
         let driver = DuckDbDriver::new();
 
         let config = ConnectionConfig {
+            options: Default::default(),
             driver: "duckdb".to_string(),
             host: ":memory:".to_string(),
             port: 0,
@@ -2589,6 +2592,7 @@ mod tests {
         let driver = DuckDbDriver::new();
 
         let config = ConnectionConfig {
+            options: Default::default(),
             driver: "duckdb".to_string(),
             host: ":memory:".to_string(),
             port: 0,
@@ -2624,6 +2628,7 @@ mod tests {
         let driver = DuckDbDriver::new();
 
         let config = ConnectionConfig {
+            options: Default::default(),
             driver: "duckdb".to_string(),
             host: ":memory:".to_string(),
             port: 0,

@@ -384,7 +384,7 @@ pub async fn connect(
     let min = config.pool_min_connections.unwrap_or(2).min(max);
     let timeout = config.pool_acquire_timeout_secs.unwrap_or(15) as u64;
 
-    let pool = create_pg_pool(conn_str, max, min, timeout, false, false).await?;
+    let pool = create_pg_pool(conn_str, max, min, timeout, true, false).await?;
 
     let session_id = SessionId::new();
     let session = Arc::new(PgCompatSession::new(pool));
@@ -2526,6 +2526,24 @@ fn decode_trigger_events(tg_type: i32) -> Vec<TriggerEvent> {
 
 // Connection string builder
 
+/// Characters that would end the path segment or be misread inside it. `:` and
+/// `@` stay literal — MotherDuck's `md:` database relies on it.
+const DB_SEGMENT: &percent_encoding::AsciiSet = &percent_encoding::CONTROLS
+    .add(b' ')
+    .add(b'"')
+    .add(b'#')
+    .add(b'%')
+    .add(b'/')
+    .add(b'<')
+    .add(b'>')
+    .add(b'?')
+    .add(b'\\')
+    .add(b'^')
+    .add(b'`')
+    .add(b'{')
+    .add(b'|')
+    .add(b'}');
+
 pub fn build_pg_connection_string(config: &ConnectionConfig, default_db: &str) -> String {
     use percent_encoding::{NON_ALPHANUMERIC, utf8_percent_encode};
 
@@ -2540,10 +2558,16 @@ pub fn build_pg_connection_string(config: &ConnectionConfig, default_db: &str) -
 
     let encoded_user = utf8_percent_encode(&config.username, NON_ALPHANUMERIC);
     let encoded_pass = utf8_percent_encode(&config.password, NON_ALPHANUMERIC);
+    let encoded_db = utf8_percent_encode(db, DB_SEGMENT);
 
     format!(
         "postgres://{}:{}@{}:{}/{}?sslmode={}",
-        encoded_user, encoded_pass, config.host, config.port, db, ssl_mode
+        encoded_user,
+        encoded_pass,
+        qore_core::types::host_for_url(&config.host),
+        config.port,
+        encoded_db,
+        ssl_mode
     )
 }
 

@@ -268,6 +268,7 @@
     "connectedSuccess": "Подключение успешно!",
     "connectFail": "Не удалось подключиться",
     "saveSuccess": "Подключение сохранено",
+    "saveFail": "Не удалось сохранить подключение",
     "updateSuccess": "Подключение обновлено",
     "failedRetrieveCredentials": "Не удалось получить учётные данные",
     "failedRetrieveCredentialsEdit": "Не удалось получить учётные данные для редактирования",

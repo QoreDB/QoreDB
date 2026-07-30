@@ -70,6 +70,9 @@ pub struct SavedConnection {
     /// legacy connections.
     #[serde(default)]
     pub ssl_ca_cert: Option<String>,
+    /// Driver options preserved from a parsed connection URL.
+    #[serde(default)]
+    pub options: std::collections::HashMap<String, String>,
     pub project_id: String,
 }
 
@@ -219,6 +222,7 @@ impl SavedConnection {
         };
 
         Ok(ConnectionConfig {
+            options: self.options.clone(),
             driver: self.driver.clone(),
             host: self.host.clone(),
             port: self.port,
@@ -249,6 +253,7 @@ mod tests {
 
     fn base_connection(auth_type: &str, host_key_policy: &str) -> SavedConnection {
         SavedConnection {
+            options: Default::default(),
             id: "conn1".to_string(),
             name: "Test".to_string(),
             driver: "postgres".to_string(),

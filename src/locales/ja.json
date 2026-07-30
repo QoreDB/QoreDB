@@ -268,6 +268,7 @@
     "connectedSuccess": "接続に成功しました！",
     "connectFail": "接続に失敗しました",
     "saveSuccess": "接続を保存しました",
+    "saveFail": "接続の保存に失敗しました",
     "updateSuccess": "接続を更新しました",
     "failedRetrieveCredentials": "認証情報の取得に失敗しました",
     "failedRetrieveCredentialsEdit": "編集用の認証情報の取得に失敗しました",

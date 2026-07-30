@@ -562,6 +562,7 @@ mod tests {
 
     fn make_config(username: &str, password: &str) -> ConnectionConfig {
         ConnectionConfig {
+            options: Default::default(),
             driver: "cockroachdb".to_string(),
             host: "localhost".to_string(),
             port: 26257,

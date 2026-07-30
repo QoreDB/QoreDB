@@ -268,6 +268,7 @@
     "connectedSuccess": "연결에 성공했습니다!",
     "connectFail": "연결에 실패했습니다",
     "saveSuccess": "연결이 저장되었습니다",
+    "saveFail": "연결 저장에 실패했습니다",
     "updateSuccess": "연결이 업데이트되었습니다",
     "failedRetrieveCredentials": "자격 증명을 가져오지 못했습니다",
     "failedRetrieveCredentialsEdit": "편집용 자격 증명을 가져오지 못했습니다",

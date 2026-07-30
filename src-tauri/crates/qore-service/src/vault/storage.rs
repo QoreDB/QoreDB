@@ -269,6 +269,7 @@ mod tests {
         );
 
         let connection = SavedConnection {
+            options: Default::default(),
             id: connection_id.clone(),
             name: "test-connection".to_string(),
             driver: "postgres".to_string(),

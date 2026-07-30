@@ -27,6 +27,8 @@ export interface ConnectionConfig {
   search_auth_mode?: SearchAuthMode;
   /** Path to a custom CA certificate (PEM) for TLS verification. */
   ssl_ca_cert?: string;
+  /** Driver options preserved from a parsed URL. */
+  options?: Record<string, string>;
 }
 
 export type SearchAuthMode = 'none' | 'basic' | 'api_key' | 'bearer';
@@ -96,6 +98,8 @@ export interface SavedConnection {
   search_auth_mode?: SearchAuthMode;
   /** Path to a custom CA certificate (PEM) for TLS verification. */
   ssl_ca_cert?: string;
+  /** Driver options preserved from a parsed URL. */
+  options?: Record<string, string>;
   ssh_tunnel?: {
     host: string;
     port: number;

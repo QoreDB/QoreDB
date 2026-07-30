@@ -268,6 +268,7 @@
     "connectedSuccess": "连接成功！",
     "connectFail": "连接失败",
     "saveSuccess": "连接已保存",
+    "saveFail": "保存连接失败",
     "updateSuccess": "连接已更新",
     "failedRetrieveCredentials": "获取凭据失败",
     "failedRetrieveCredentialsEdit": "获取编辑凭据失败",

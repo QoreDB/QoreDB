@@ -446,6 +446,7 @@ mod tests {
 
     fn make_config(username: &str, password: &str) -> ConnectionConfig {
         ConnectionConfig {
+            options: Default::default(),
             driver: "supabase".to_string(),
             host: "db.PROJECT.supabase.co".to_string(),
             port: 5432,

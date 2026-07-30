@@ -21,7 +21,7 @@ use qore_core::traits::DataEngine;
 use qore_core::types::{
     CancelSupport, Collection, CollectionList, CollectionListOptions, CollectionType, ColumnInfo,
     ConnectionConfig, Namespace, PaginatedQueryResult, QueryId, QueryResult, Row as QRow, RowData,
-    SessionId, TableColumn, TableQueryOptions, TableSchema, Value,
+    SessionId, TableColumn, TableQueryOptions, TableSchema, Value, host_for_url,
 };
 
 use crate::redis_safety::{RedisQueryClass, classify};
@@ -52,11 +52,8 @@ impl RedisDriver {
 
     fn build_connection_string(config: &ConnectionConfig) -> String {
         let scheme = if config.ssl { "rediss" } else { "redis" };
-        let db = config
-            .database
-            .as_deref()
-            .and_then(|d| d.parse::<u16>().ok())
-            .unwrap_or(0);
+        let db = Self::config_db_index(config);
+        let host = host_for_url(&config.host);
 
         if !config.username.is_empty() || !config.password.is_empty() {
             let user = if config.username.is_empty() {
@@ -67,11 +64,22 @@ impl RedisDriver {
             let password = Self::encode_userinfo_component(&config.password);
             format!(
                 "{}://{}:{}@{}:{}/{}",
-                scheme, user, password, config.host, config.port, db
+                scheme, user, password, host, config.port, db
             )
         } else {
-            format!("{}://{}:{}/{}", scheme, config.host, config.port, db)
+            format!("{}://{}:{}/{}", scheme, host, config.port, db)
         }
+    }
+
+    /// Database index from the config. Accepts `3` and `db3`, the sidebar label.
+    fn config_db_index(config: &ConnectionConfig) -> u16 {
+        config
+            .database
+            .as_deref()
+            .map(str::trim)
+            .filter(|d| !d.is_empty())
+            .map(Self::parse_db_index)
+            .unwrap_or(0)
     }
 
     /// Default timeout for Redis connection and operations (10 seconds)
@@ -111,11 +119,7 @@ impl RedisDriver {
         })?
         .map_err(|e| EngineError::connection_failed(format!("PING failed: {}", e)))?;
 
-        let db = config
-            .database
-            .as_deref()
-            .and_then(|d| d.parse::<u16>().ok())
-            .unwrap_or(0);
+        let db = Self::config_db_index(config);
 
         Ok((conn, db))
     }
@@ -1966,6 +1970,7 @@ mod tests {
     #[test]
     fn test_build_connection_string_simple() {
         let config = ConnectionConfig {
+            options: Default::default(),
             driver: "redis".to_string(),
             host: "localhost".to_string(),
             port: 6379,
@@ -1994,6 +1999,7 @@ mod tests {
     #[test]
     fn test_build_connection_string_with_auth() {
         let config = ConnectionConfig {
+            options: Default::default(),
             driver: "redis".to_string(),
             host: "redis.example.com".to_string(),
             port: 6380,
@@ -2022,6 +2028,7 @@ mod tests {
     #[test]
     fn test_build_connection_string_encodes_credentials() {
         let config = ConnectionConfig {
+            options: Default::default(),
             driver: "redis".to_string(),
             host: "localhost".to_string(),
             port: 6379,

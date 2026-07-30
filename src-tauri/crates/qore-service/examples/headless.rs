@@ -13,6 +13,7 @@ async fn main() {
         .into_owned();
 
     let config = ConnectionConfig {
+        options: Default::default(),
         driver: "sqlite".into(),
         host: path.clone(),
         port: 0,

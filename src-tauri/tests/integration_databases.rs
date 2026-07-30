@@ -70,6 +70,7 @@ fn is_service_unavailable(err: &EngineError) -> bool {
 
 fn postgres_config() -> ConnectionConfig {
     ConnectionConfig {
+        options: Default::default(),
         driver: "postgres".to_string(),
         host: env_or_default("QOREDB_TEST_PG_HOST", "127.0.0.1"),
         port: env_u16_or_default("QOREDB_TEST_PG_PORT", 54321),
@@ -94,6 +95,7 @@ fn postgres_config() -> ConnectionConfig {
 
 fn mysql_config() -> ConnectionConfig {
     ConnectionConfig {
+        options: Default::default(),
         driver: "mysql".to_string(),
         host: env_or_default("QOREDB_TEST_MYSQL_HOST", "127.0.0.1"),
         port: env_u16_or_default("QOREDB_TEST_MYSQL_PORT", 3306),
@@ -118,6 +120,7 @@ fn mysql_config() -> ConnectionConfig {
 
 fn mongo_config() -> ConnectionConfig {
     ConnectionConfig {
+        options: Default::default(),
         driver: "mongodb".to_string(),
         host: env_or_default("QOREDB_TEST_MONGO_HOST", "127.0.0.1"),
         port: env_u16_or_default("QOREDB_TEST_MONGO_PORT", 27017),
@@ -142,6 +145,7 @@ fn mongo_config() -> ConnectionConfig {
 
 fn clickhouse_config() -> ConnectionConfig {
     ConnectionConfig {
+        options: Default::default(),
         driver: "clickhouse".to_string(),
         host: env_or_default("QOREDB_TEST_CLICKHOUSE_HOST", "127.0.0.1"),
         port: env_u16_or_default("QOREDB_TEST_CLICKHOUSE_PORT", 8123),
@@ -168,6 +172,7 @@ fn clickhouse_config() -> ConnectionConfig {
 
 fn redis_config() -> ConnectionConfig {
     ConnectionConfig {
+        options: Default::default(),
         driver: "redis".to_string(),
         host: env_or_default("QOREDB_TEST_REDIS_HOST", "127.0.0.1"),
         port: env_u16_or_default("QOREDB_TEST_REDIS_PORT", 6379),
@@ -192,6 +197,7 @@ fn redis_config() -> ConnectionConfig {
 
 fn elasticsearch_config() -> ConnectionConfig {
     ConnectionConfig {
+        options: Default::default(),
         driver: "elasticsearch".to_string(),
         host: env_or_default("QOREDB_TEST_ES_HOST", "127.0.0.1"),
         port: env_u16_or_default("QOREDB_TEST_ES_PORT", 9200),
@@ -1596,6 +1602,7 @@ async fn postgres_exact_numeric_round_trip() -> EngineResult<()> {
 
 fn embedded_config(driver: &str, path: &std::path::Path) -> ConnectionConfig {
     ConnectionConfig {
+        options: Default::default(),
         driver: driver.to_string(),
         host: path.to_string_lossy().to_string(),
         port: 0,

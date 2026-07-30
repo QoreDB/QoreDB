@@ -33,6 +33,7 @@ pub trait SshTunnelBackend: Send + Sync {
         config: &SshTunnelConfig,
         remote_host: &str,
         remote_port: u16,
+        local_port: Option<u16>,
     ) -> EngineResult<Box<dyn SshTunnelHandle>>;
 }
 
@@ -49,8 +50,30 @@ impl SshTunnel {
         remote_host: &str,
         remote_port: u16,
     ) -> EngineResult<Self> {
+        Self::open_inner(config, remote_host, remote_port, None).await
+    }
+
+    /// Reopens a tunnel on a specific local port: pools bake the forwarded port in,
+    /// so a reconnection on a new port leaves them pointing at a dead socket.
+    pub async fn open_on_port(
+        config: &SshTunnelConfig,
+        remote_host: &str,
+        remote_port: u16,
+        local_port: u16,
+    ) -> EngineResult<Self> {
+        Self::open_inner(config, remote_host, remote_port, Some(local_port)).await
+    }
+
+    async fn open_inner(
+        config: &SshTunnelConfig,
+        remote_host: &str,
+        remote_port: u16,
+        local_port: Option<u16>,
+    ) -> EngineResult<Self> {
         let backend = select_backend(config)?;
-        let handle = backend.open(config, remote_host, remote_port).await?;
+        let handle = backend
+            .open(config, remote_host, remote_port, local_port)
+            .await?;
         let local_port = handle.local_port();
         Ok(Self {
             local_port,
@@ -118,22 +141,29 @@ impl SshTunnelBackend for OpenSshBackend {
         config: &SshTunnelConfig,
         remote_host: &str,
         remote_port: u16,
+        local_port: Option<u16>,
     ) -> EngineResult<Box<dyn SshTunnelHandle>> {
-        let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
-            .await
-            .map_err(|e| EngineError::SshError {
-                message: format!("Failed to bind local port: {}", e),
-            })?;
+        let local_port = match local_port {
+            Some(port) => port,
+            None => {
+                let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.map_err(
+                    |e| EngineError::SshError {
+                        message: format!("Failed to bind local port: {}", e),
+                    },
+                )?;
 
-        let local_port = listener
-            .local_addr()
-            .map_err(|e| EngineError::SshError {
-                message: format!("Failed to get local address: {}", e),
-            })?
-            .port();
+                let port = listener
+                    .local_addr()
+                    .map_err(|e| EngineError::SshError {
+                        message: format!("Failed to get local address: {}", e),
+                    })?
+                    .port();
 
-        // Release the port so ssh can rebind it for the actual forwarding.
-        drop(listener);
+                // Release the port so ssh can rebind it for the actual forwarding.
+                drop(listener);
+                port
+            }
+        };
 
         if let SshAuth::Key {
             private_key_path, ..
@@ -160,6 +190,7 @@ impl SshTunnelBackend for OpenSshBackend {
             .stdin(Stdio::null())
             .stdout(Stdio::null())
             .stderr(Stdio::piped())
+            .kill_on_drop(true)
             .spawn()
             .map_err(|e| EngineError::SshError {
                 message: format!("Failed to spawn SSH process: {}. Is OpenSSH installed?", e),

@@ -1870,6 +1870,7 @@ mod tests {
         let db_path = dir.path().join("test.db");
 
         let config = ConnectionConfig {
+            options: Default::default(),
             driver: "sqlite".to_string(),
             host: db_path.to_string_lossy().to_string(),
             port: 0,
@@ -1900,6 +1901,7 @@ mod tests {
         let driver = SqliteDriver::new();
 
         let config = ConnectionConfig {
+            options: Default::default(),
             driver: "sqlite".to_string(),
             host: ":memory:".to_string(),
             port: 0,
@@ -1962,6 +1964,7 @@ mod tests {
         let db_path = dir.path().join("truncate.db");
 
         let config = ConnectionConfig {
+            options: Default::default(),
             driver: "sqlite".to_string(),
             host: db_path.to_string_lossy().to_string(),
             port: 0,
@@ -2042,6 +2045,7 @@ mod tests {
         let driver = SqliteDriver::new();
 
         let config = ConnectionConfig {
+            options: Default::default(),
             driver: "sqlite".to_string(),
             host: ":memory:".to_string(),
             port: 0,
@@ -2109,6 +2113,7 @@ mod tests {
         let driver = SqliteDriver::new();
 
         let config = ConnectionConfig {
+            options: Default::default(),
             driver: "sqlite".to_string(),
             host: ":memory:".to_string(),
             port: 0,

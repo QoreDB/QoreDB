@@ -161,7 +161,14 @@ export function ConnectionModal({
     try {
       const connectionId = editConnection?.id || `conn_${Date.now()}`;
       const savedConnection = buildSavedConnection(formData, connectionId);
-      await saveConnection(buildSaveConnectionInput(formData, connectionId));
+      // Vault and keyring failures come back as `{success:false}`, not a throw.
+      const saveResult = await saveConnection(buildSaveConnectionInput(formData, connectionId));
+
+      if (!saveResult.success) {
+        setError(saveResult.error || t('connection.saveFail'));
+        toast.error(t('connection.saveFail'), { description: saveResult.error });
+        return;
+      }
 
       emitUiEvent(UI_EVENT_CONNECTIONS_CHANGED);
 
@@ -199,7 +206,13 @@ export function ConnectionModal({
     try {
       const connectionId = editConnection?.id || `conn_${Date.now()}`;
       const savedConnection = buildSavedConnection(formData, connectionId);
-      await saveConnection(buildSaveConnectionInput(formData, connectionId));
+      const saveResult = await saveConnection(buildSaveConnectionInput(formData, connectionId));
+
+      if (!saveResult.success) {
+        setError(saveResult.error || t('connection.saveFail'));
+        toast.error(t('connection.saveFail'), { description: saveResult.error });
+        return;
+      }
 
       emitUiEvent(UI_EVENT_CONNECTIONS_CHANGED);
       toast.success(isEditMode ? t('connection.updateSuccess') : t('connection.saveSuccess'));

@@ -212,8 +212,11 @@ impl MySqlDriver {
             .host(&config.host)
             .port(config.port)
             .username(&config.username)
-            .password(&config.password)
             .ssl_mode(Self::resolve_ssl_mode(config));
+
+        if !config.password.is_empty() {
+            opts = opts.password(&config.password);
+        }
 
         if let Some(db) = config.database.as_deref() {
             let db = db.trim();
@@ -577,7 +580,7 @@ impl DataEngine for MySqlDriver {
             max_connections,
             min_connections,
             acquire_timeout as u64,
-            false,
+            true,
             false,
         )
         .await?;

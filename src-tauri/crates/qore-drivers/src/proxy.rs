@@ -18,6 +18,8 @@ use tokio::time::{Duration, timeout};
 use qore_core::error::{EngineError, EngineResult};
 use qore_core::types::{ProxyConfig, ProxyType};
 
+const MAX_CONNECT_HEADER_BYTES: usize = 16 * 1024;
+
 /// Handle for an active proxy tunnel.
 pub struct ProxyTunnel {
     local_port: u16,
@@ -152,6 +154,12 @@ impl ProxyTunnel {
     }
 }
 
+impl Drop for ProxyTunnel {
+    fn drop(&mut self) {
+        self.shutdown.notify_one();
+    }
+}
+
 /// Handles a single client connection by tunneling it through the proxy.
 async fn handle_client(
     client_stream: TcpStream,
@@ -161,10 +169,11 @@ async fn handle_client(
 ) -> EngineResult<()> {
     let connect_timeout = Duration::from_secs(config.connect_timeout_secs as u64);
 
-    let proxy_stream = match config.proxy_type {
-        ProxyType::Socks5 => {
-            connect_socks5(config, remote_host, remote_port, connect_timeout).await?
-        }
+    let (proxy_stream, early_bytes) = match config.proxy_type {
+        ProxyType::Socks5 => (
+            connect_socks5(config, remote_host, remote_port, connect_timeout).await?,
+            Vec::new(),
+        ),
         ProxyType::HttpConnect => {
             connect_http(config, remote_host, remote_port, connect_timeout).await?
         }
@@ -172,6 +181,16 @@ async fn handle_client(
 
     let (mut client_read, mut client_write) = tokio::io::split(client_stream);
     let (mut proxy_read, mut proxy_write) = tokio::io::split(proxy_stream);
+
+    // MySQL and PostgreSQL speak first: the greeting can share the CONNECT segment.
+    if !early_bytes.is_empty() {
+        client_write
+            .write_all(&early_bytes)
+            .await
+            .map_err(|e| EngineError::ProxyError {
+                message: format!("Failed to forward server greeting: {}", e),
+            })?;
+    }
 
     tokio::select! {
         r = tokio::io::copy(&mut client_read, &mut proxy_write) => {
@@ -200,17 +219,17 @@ async fn connect_socks5(
     let target = (remote_host, remote_port);
 
     let stream = timeout(connect_timeout, async {
-        match (&config.username, &config.password) {
-            (Some(user), Some(pass)) if !user.is_empty() => {
+        match config.username.as_deref().filter(|u| !u.is_empty()) {
+            Some(user) => {
                 tokio_socks::tcp::Socks5Stream::connect_with_password(
                     proxy_addr.as_str(),
                     target,
                     user,
-                    pass,
+                    config.password.as_deref().unwrap_or(""),
                 )
                 .await
             }
-            _ => tokio_socks::tcp::Socks5Stream::connect(proxy_addr.as_str(), target).await,
+            None => tokio_socks::tcp::Socks5Stream::connect(proxy_addr.as_str(), target).await,
         }
     })
     .await
@@ -227,13 +246,15 @@ async fn connect_socks5(
     Ok(stream.into_inner())
 }
 
-/// Connects through an HTTP CONNECT proxy.
+/// Connects through an HTTP CONNECT proxy. Returns the tunnelled stream and any
+/// bytes read past the response headers (the target server's greeting can share
+/// the same segment as the `200`).
 async fn connect_http(
     config: &ProxyConfig,
     remote_host: &str,
     remote_port: u16,
     connect_timeout: Duration,
-) -> EngineResult<TcpStream> {
+) -> EngineResult<(TcpStream, Vec<u8>)> {
     let proxy_addr = format!("{}:{}", config.host, config.port);
 
     let mut stream = timeout(connect_timeout, TcpStream::connect(&proxy_addr))
@@ -253,13 +274,12 @@ async fn connect_http(
         remote_host, remote_port, remote_host, remote_port
     );
 
-    if let (Some(user), Some(pass)) = (&config.username, &config.password) {
-        if !user.is_empty() {
-            use base64::Engine;
-            let credentials =
-                base64::engine::general_purpose::STANDARD.encode(format!("{}:{}", user, pass));
-            request.push_str(&format!("Proxy-Authorization: Basic {}\r\n", credentials));
-        }
+    if let Some(user) = config.username.as_deref().filter(|u| !u.is_empty()) {
+        use base64::Engine;
+        let pass = config.password.as_deref().unwrap_or("");
+        let credentials =
+            base64::engine::general_purpose::STANDARD.encode(format!("{}:{}", user, pass));
+        request.push_str(&format!("Proxy-Authorization: Basic {}\r\n", credentials));
     }
 
     request.push_str("\r\n");
@@ -271,19 +291,45 @@ async fn connect_http(
             message: format!("Failed to send CONNECT request: {}", e),
         })?;
 
-    // Only the status line is needed; a single 1KB read covers the whole header block in practice.
-    let mut buf = [0u8; 1024];
-    let n = stream
-        .read(&mut buf)
-        .await
-        .map_err(|e| EngineError::ProxyError {
-            message: format!("Failed to read CONNECT response: {}", e),
-        })?;
+    // Anything past `\r\n\r\n` already belongs to the tunnelled connection.
+    let mut received = Vec::new();
+    let header_end = loop {
+        let mut buf = [0u8; 1024];
+        let n = stream
+            .read(&mut buf)
+            .await
+            .map_err(|e| EngineError::ProxyError {
+                message: format!("Failed to read CONNECT response: {}", e),
+            })?;
 
-    let response = String::from_utf8_lossy(&buf[..n]);
-    let status_line = response.lines().next().unwrap_or("");
+        if n == 0 {
+            return Err(EngineError::ProxyError {
+                message: "Proxy closed the connection before completing CONNECT".to_string(),
+            });
+        }
 
-    if !status_line.contains("200") {
+        received.extend_from_slice(&buf[..n]);
+
+        if let Some(pos) = find_header_end(&received) {
+            break pos;
+        }
+
+        if received.len() > MAX_CONNECT_HEADER_BYTES {
+            return Err(EngineError::ProxyError {
+                message: "Proxy CONNECT response headers are too large".to_string(),
+            });
+        }
+    };
+
+    let headers = String::from_utf8_lossy(&received[..header_end]);
+    let status_line = headers.lines().next().unwrap_or("");
+
+    let status_ok = status_line
+        .split_whitespace()
+        .nth(1)
+        .is_some_and(|code| code == "200");
+
+    if !status_ok {
         return Err(EngineError::ProxyError {
             message: format!(
                 "HTTP CONNECT failed: {}",
@@ -292,7 +338,15 @@ async fn connect_http(
         });
     }
 
-    Ok(stream)
+    Ok((stream, received[header_end..].to_vec()))
+}
+
+/// Byte offset just past the `\r\n\r\n` (or `\n\n`) terminating the headers.
+fn find_header_end(buf: &[u8]) -> Option<usize> {
+    buf.windows(4)
+        .position(|w| w == b"\r\n\r\n")
+        .map(|pos| pos + 4)
+        .or_else(|| buf.windows(2).position(|w| w == b"\n\n").map(|pos| pos + 2))
 }
 
 /// Sanitize proxy response to avoid leaking sensitive information.
@@ -308,6 +362,18 @@ fn sanitize_proxy_response(response: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn finds_header_end_and_keeps_trailing_bytes() {
+        let buf = b"HTTP/1.1 200 Connection established\r\n\r\n\x0a\x00\x00\x00greeting";
+        let end = find_header_end(buf).expect("header block should be complete");
+        assert_eq!(&buf[end..], b"\x0a\x00\x00\x00greeting");
+    }
+
+    #[test]
+    fn header_end_is_none_while_headers_are_incomplete() {
+        assert!(find_header_end(b"HTTP/1.1 200 Connection established\r\n").is_none());
+    }
 
     #[test]
     fn sanitizes_long_proxy_response() {

@@ -1504,9 +1504,9 @@ fn build_base_url(config: &ConnectionConfig) -> EngineResult<Url> {
 
     let scheme = if config.ssl { "https" } else { "http" };
     let host = if config.host.trim().is_empty() {
-        "localhost"
+        "localhost".to_string()
     } else {
-        config.host.trim()
+        qore_core::types::host_for_url(config.host.trim()).into_owned()
     };
     let port = if config.port == 0 { 9200 } else { config.port };
 
@@ -1955,6 +1955,7 @@ mod tests {
 
     fn base_cfg() -> ConnectionConfig {
         ConnectionConfig {
+            options: Default::default(),
             driver: "elasticsearch".into(),
             host: "localhost".into(),
             port: 9200,

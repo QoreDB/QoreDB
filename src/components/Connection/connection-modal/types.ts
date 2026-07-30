@@ -44,6 +44,8 @@ export interface ConnectionFormData {
   proxyConnectTimeoutSecs: number;
   useUrl: boolean;
   connectionUrl: string;
+  /** Driver options carried over from a parsed URL; no field edits them. */
+  options: Record<string, string>;
 }
 
 export const initialConnectionFormData: ConnectionFormData = {
@@ -84,4 +86,5 @@ export const initialConnectionFormData: ConnectionFormData = {
   proxyConnectTimeoutSecs: 10,
   useUrl: false,
   connectionUrl: '',
+  options: {},
 };

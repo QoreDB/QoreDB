@@ -127,7 +127,25 @@ impl SqlServerDriver {
         } else {
             EncryptionLevel::NotSupported
         });
-        tib_config.trust_cert();
+
+        // Verification is opt-in through ssl_mode: LAN instances usually present
+        // a self-signed certificate, so the default stays permissive.
+        match config.ssl_mode.as_deref() {
+            Some("verify-ca" | "verify-full" | "verify-identity") => {
+                match config
+                    .ssl_ca_cert
+                    .as_deref()
+                    .map(str::trim)
+                    .filter(|p| !p.is_empty())
+                {
+                    Some(path) => tib_config.trust_cert_ca(path),
+                    // Nothing configured means the system trust store.
+                    None => {}
+                }
+            }
+            _ => tib_config.trust_cert(),
+        }
+
         Ok(tib_config)
     }
 
@@ -2192,6 +2210,7 @@ mod tests {
 
     fn base_config() -> ConnectionConfig {
         ConnectionConfig {
+            options: Default::default(),
             driver: "sqlserver".to_string(),
             host: "localhost".to_string(),
             port: 1433,

@@ -296,6 +296,7 @@
     "connectedSuccess": "Connecté avec succès !",
     "connectFail": "Échec de la connexion",
     "saveSuccess": "Connexion enregistrée",
+    "saveFail": "Échec de l'enregistrement de la connexion",
     "updateSuccess": "Connexion mise à jour",
     "failedRetrieveCredentials": "Échec de la récupération des identifiants",
     "failedRetrieveCredentialsEdit": "Échec de la récupération des identifiants pour modification",
@@ -1515,7 +1516,7 @@
     "reset": "Réinitialiser"
   },
   "dbtree": {
-    "emptyNamespaces": "Aucune base de donnÃ©es ou schÃ©ma",
+    "emptyNamespaces": "Aucune base de données ou schéma",
     "schemasHeader": "SCHÉMAS",
     "databasesHeader": "BASES DE DONNÉES",
     "schema": "Schéma",

@@ -445,6 +445,7 @@ mod tests {
 
     fn make_config() -> ConnectionConfig {
         ConnectionConfig {
+            options: Default::default(),
             driver: "neon".to_string(),
             host: "ep-cool-darkness-123.us-east-1.aws.neon.tech".to_string(),
             port: 5432,

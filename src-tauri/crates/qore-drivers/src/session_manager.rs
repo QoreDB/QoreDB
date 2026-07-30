@@ -39,6 +39,46 @@ fn enforce_ssh_host_key_policy(config: &ConnectionConfig) -> EngineResult<()> {
     Ok(())
 }
 
+/// Rejects the proxy + SSH combination: `ssh -L` resolves the forwarding target
+/// on the bastion, so chaining them lands on the bastion's own loopback.
+fn enforce_supported_topology(config: &ConnectionConfig) -> EngineResult<()> {
+    if config.proxy.is_some() && config.ssh_tunnel.is_some() {
+        return Err(EngineError::ConnectionFailed {
+            message: "Combining a network proxy with an SSH tunnel is not supported. \
+                      Keep one of the two on this connection."
+                .to_string(),
+        });
+    }
+    Ok(())
+}
+
+/// Disconnects a session the driver opened when the connect future is cancelled
+/// before registration: nothing else can reach it afterwards.
+struct ConnectCleanup {
+    driver: Arc<dyn DataEngine>,
+    session_id: Option<SessionId>,
+}
+
+impl ConnectCleanup {
+    fn disarm(&mut self) {
+        self.session_id = None;
+    }
+}
+
+impl Drop for ConnectCleanup {
+    fn drop(&mut self) {
+        let Some(session_id) = self.session_id.take() else {
+            return;
+        };
+        let driver = Arc::clone(&self.driver);
+        if let Ok(handle) = tokio::runtime::Handle::try_current() {
+            handle.spawn(async move {
+                let _ = driver.disconnect(session_id).await;
+            });
+        }
+    }
+}
+
 /// Connection health status for a single session.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -106,6 +146,7 @@ impl SessionManager {
     )]
     pub async fn test_connection(&self, config: &ConnectionConfig) -> EngineResult<()> {
         enforce_ssh_host_key_policy(config)?;
+        enforce_supported_topology(config)?;
 
         let driver = self
             .registry
@@ -120,29 +161,19 @@ impl SessionManager {
                 tunneled_config.host = "127.0.0.1".to_string();
                 tunneled_config.port = proxy_tunnel.local_port();
 
-                if let Some(ref ssh_config) = config.ssh_tunnel {
-                    let tunnel =
-                        SshTunnel::open(ssh_config, &tunneled_config.host, tunneled_config.port)
-                            .await?;
-                    tunneled_config.host = "127.0.0.1".to_string();
-                    tunneled_config.port = tunnel.local_port();
-                    let result = driver.test_connection(&tunneled_config).await;
-                    let _ = proxy_tunnel.close().await;
-                    return result;
-                }
-
                 let result = driver.test_connection(&tunneled_config).await;
                 let _ = proxy_tunnel.close().await;
                 return result;
             }
 
             if let Some(ref ssh_config) = config.ssh_tunnel {
-                let tunnel = SshTunnel::open(ssh_config, &config.host, config.port).await?;
+                let mut tunnel = SshTunnel::open(ssh_config, &config.host, config.port).await?;
                 let mut tunneled_config = config.clone();
                 tunneled_config.host = "127.0.0.1".to_string();
                 tunneled_config.port = tunnel.local_port();
-                // Tunnel drops at end of scope, which closes the forwarding.
-                return driver.test_connection(&tunneled_config).await;
+                let result = driver.test_connection(&tunneled_config).await;
+                let _ = tunnel.close().await;
+                return result;
             }
 
             driver.test_connection(config).await
@@ -169,6 +200,7 @@ impl SessionManager {
     )]
     pub async fn connect(&self, config: ConnectionConfig) -> EngineResult<SessionId> {
         enforce_ssh_host_key_policy(&config)?;
+        enforce_supported_topology(&config)?;
 
         let driver = self
             .registry
@@ -176,47 +208,39 @@ impl SessionManager {
             .ok_or_else(|| EngineError::driver_not_found(&config.driver))?;
 
         let connect_future = async {
-            let (mut effective_config, proxy_tunnel) = if let Some(ref proxy_config) = config.proxy
-            {
-                let proxy_tunnel =
-                    ProxyTunnel::open(proxy_config, &config.host, config.port).await?;
-                let mut tunneled = config.clone();
-                tunneled.host = "127.0.0.1".to_string();
-                tunneled.port = proxy_tunnel.local_port();
-                (tunneled, Some(proxy_tunnel))
-            } else {
-                (config.clone(), None)
-            };
+            let mut effective_config = config.clone();
 
-            // SSH tunnel may be layered on top of the proxy.
-            let tunnel = if let Some(ref ssh_config) = config.ssh_tunnel {
-                let tunnel =
-                    SshTunnel::open(ssh_config, &effective_config.host, effective_config.port)
-                        .await?;
-                effective_config.host = "127.0.0.1".to_string();
-                effective_config.port = tunnel.local_port();
-                Some(tunnel)
-            } else {
-                None
-            };
-
-            let session_id = match driver.connect(&effective_config).await {
-                Ok(id) => id,
-                Err(e) => {
-                    // Close tunnels explicitly on failure so the port is released immediately.
-                    if let Some(mut tun) = tunnel {
-                        let _ = tun.close().await;
-                    }
-                    if let Some(mut pt) = proxy_tunnel {
-                        let _ = pt.close().await;
-                    }
-                    return Err(e);
+            let proxy_tunnel = match config.proxy {
+                Some(ref proxy_config) => {
+                    let proxy_tunnel =
+                        ProxyTunnel::open(proxy_config, &config.host, config.port).await?;
+                    effective_config.host = "127.0.0.1".to_string();
+                    effective_config.port = proxy_tunnel.local_port();
+                    Some(proxy_tunnel)
                 }
+                None => None,
             };
+
+            let tunnel = match config.ssh_tunnel {
+                Some(ref ssh_config) => {
+                    let tunnel = SshTunnel::open(ssh_config, &config.host, config.port).await?;
+                    effective_config.host = "127.0.0.1".to_string();
+                    effective_config.port = tunnel.local_port();
+                    Some(tunnel)
+                }
+                None => None,
+            };
+
+            let mut cleanup = ConnectCleanup {
+                driver: Arc::clone(&driver),
+                session_id: None,
+            };
+
+            let session_id = driver.connect(&effective_config).await?;
+            cleanup.session_id = Some(session_id);
 
             let suffix = match (proxy_tunnel.is_some(), tunnel.is_some()) {
-                (true, true) => " (Proxy+SSH)",
-                (true, false) => " (Proxy)",
+                (true, _) => " (Proxy)",
                 (false, true) => " (SSH)",
                 (false, false) => "",
             };
@@ -242,6 +266,7 @@ impl SessionManager {
 
             let mut sessions = self.sessions.write().await;
             sessions.insert(session_id, session);
+            cleanup.disarm();
 
             Ok(session_id)
         };
@@ -280,15 +305,25 @@ impl SessionManager {
             return Err(err);
         }
 
+        // The session is already out of the map: a second `disconnect` is impossible.
+        let mut first_error = None;
+
         if let Some(ref mut tunnel) = session.tunnel {
-            tunnel.close().await?;
+            if let Err(e) = tunnel.close().await {
+                first_error = Some(e);
+            }
         }
 
         if let Some(ref mut proxy_tunnel) = session.proxy_tunnel {
-            proxy_tunnel.close().await?;
+            if let Err(e) = proxy_tunnel.close().await {
+                first_error = first_error.or(Some(e));
+            }
         }
 
-        Ok(())
+        match first_error {
+            Some(e) => Err(e),
+            None => Ok(()),
+        }
     }
 
     pub async fn get_driver(&self, session_id: SessionId) -> EngineResult<Arc<dyn DataEngine>> {
@@ -434,9 +469,12 @@ impl SessionManager {
             .is_ok()
     }
 
-    /// Attempts to reconnect a broken SSH tunnel for a session.
-    /// Returns the new tunnel on success.
-    async fn reconnect_tunnel(config: &ConnectionConfig) -> EngineResult<SshTunnel> {
+    /// Reopens a broken SSH tunnel on the port the pool already targets. The
+    /// caller must close the previous tunnel first so ssh can rebind it.
+    async fn reconnect_tunnel(
+        config: &ConnectionConfig,
+        local_port: u16,
+    ) -> EngineResult<SshTunnel> {
         enforce_ssh_host_key_policy(config)?;
 
         let ssh_config = config
@@ -447,12 +485,13 @@ impl SessionManager {
             })?;
 
         tracing::info!(
-            "Reconnecting SSH tunnel to {}:{}",
+            "Reconnecting SSH tunnel to {}:{} on local port {}",
             ssh_config.host,
-            ssh_config.port
+            ssh_config.port,
+            local_port
         );
 
-        SshTunnel::open(ssh_config, &config.host, config.port).await
+        SshTunnel::open_on_port(ssh_config, &config.host, config.port, local_port).await
     }
 
     /// Runs one health-check cycle across all sessions.
@@ -486,6 +525,9 @@ impl SessionManager {
             };
 
             if !tunnel_ok {
+                // What the frontend was told, so the terminal state is announced.
+                let mut announced = previous_health;
+
                 let should_reconnect = {
                     let sessions = self.sessions.read().await;
                     match sessions.get(&sid) {
@@ -502,38 +544,72 @@ impl SessionManager {
                         }
                     }
 
-                    if previous_health != ConnectionHealth::Reconnecting {
+                    if announced != ConnectionHealth::Reconnecting {
+                        announced = ConnectionHealth::Reconnecting;
                         events.push(ConnectionHealthEvent {
                             session_id: sid.0.to_string(),
                             health: ConnectionHealth::Reconnecting,
                         });
                     }
 
-                    let config = {
-                        let sessions = self.sessions.read().await;
-                        match sessions.get(&sid) {
-                            Some(s) => s.config.clone(),
+                    let reconnect = {
+                        let mut sessions = self.sessions.write().await;
+                        match sessions.get_mut(&sid) {
+                            Some(s) => match s.tunnel.take() {
+                                Some(mut old_tunnel) => {
+                                    let local_port = old_tunnel.local_port();
+                                    let _ = old_tunnel.close().await;
+                                    Some((s.config.clone(), local_port))
+                                }
+                                None => None,
+                            },
                             None => continue,
                         }
                     };
 
-                    match Self::reconnect_tunnel(&config).await {
+                    let Some((config, local_port)) = reconnect else {
+                        continue;
+                    };
+
+                    match Self::reconnect_tunnel(&config, local_port).await {
                         Ok(new_tunnel) => {
-                            let mut sessions = self.sessions.write().await;
-                            if let Some(s) = sessions.get_mut(&sid) {
-                                // Best-effort close: failures here are logged by the tunnel itself.
-                                if let Some(ref mut old_tunnel) = s.tunnel {
-                                    let _ = old_tunnel.close().await;
+                            {
+                                let mut sessions = self.sessions.write().await;
+                                match sessions.get_mut(&sid) {
+                                    Some(s) => s.tunnel = Some(new_tunnel),
+                                    None => continue,
                                 }
-                                s.tunnel = Some(new_tunnel);
-                                s.health = ConnectionHealth::Healthy;
-                                s.consecutive_failures = 0;
+                            }
+
+                            // A live forwarding says nothing about the pooled
+                            // connections behind it.
+                            let health = if self.ping(sid).await.is_ok() {
+                                ConnectionHealth::Healthy
+                            } else {
+                                ConnectionHealth::Unhealthy
+                            };
+
+                            {
+                                let mut sessions = self.sessions.write().await;
+                                if let Some(s) = sessions.get_mut(&sid) {
+                                    s.health = health;
+                                    if health == ConnectionHealth::Healthy {
+                                        s.consecutive_failures = 0;
+                                    } else {
+                                        s.consecutive_failures += 1;
+                                    }
+                                }
+                            }
+
+                            if health == ConnectionHealth::Healthy {
                                 tracing::info!("SSH tunnel reconnected for session {}", sid.0);
                             }
-                            events.push(ConnectionHealthEvent {
-                                session_id: sid.0.to_string(),
-                                health: ConnectionHealth::Healthy,
-                            });
+                            if health != announced {
+                                events.push(ConnectionHealthEvent {
+                                    session_id: sid.0.to_string(),
+                                    health,
+                                });
+                            }
                             continue;
                         }
                         Err(e) => {
@@ -551,7 +627,7 @@ impl SessionManager {
                     s.consecutive_failures += 1;
                     s.health = ConnectionHealth::Unhealthy;
                 }
-                if previous_health != ConnectionHealth::Unhealthy {
+                if announced != ConnectionHealth::Unhealthy {
                     events.push(ConnectionHealthEvent {
                         session_id: sid.0.to_string(),
                         health: ConnectionHealth::Unhealthy,
@@ -624,6 +700,7 @@ mod tests {
 
     fn config_with(environment: &str, ssh: Option<SshTunnelConfig>) -> ConnectionConfig {
         ConnectionConfig {
+            options: Default::default(),
             driver: "postgres".into(),
             host: "db.example.com".into(),
             port: 5432,

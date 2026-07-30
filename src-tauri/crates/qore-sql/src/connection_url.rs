@@ -154,6 +154,10 @@ impl ConnectionUrlParser for MongoDbUrlParser {
         }
 
         let mut options = HashMap::new();
+        // The scheme is the only carrier of SRV, and the form keeps fields only.
+        if is_srv {
+            options.insert("srv".to_string(), "true".to_string());
+        }
         // SRV scheme implies TLS by default.
         let ssl_default = if is_srv { Some(true) } else { None };
         let mut ssl_explicit = None;

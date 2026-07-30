@@ -47,6 +47,37 @@ function mapDriverString(driver: string | undefined): Driver | undefined {
   }
 }
 
+/**
+ * Canonical SSL mode from a parsed URL. MySQL spells it `ssl-mode` with
+ * uppercase values, PostgreSQL `sslmode` with lowercase ones.
+ */
+function normalizeSslMode(options: Record<string, string> | undefined): string | undefined {
+  const raw = options?.['ssl-mode'] ?? options?.sslmode;
+  if (!raw) return undefined;
+
+  switch (raw.trim().toLowerCase()) {
+    case 'disabled':
+    case 'disable':
+      return 'disable';
+    case 'preferred':
+    case 'prefer':
+    case 'allow':
+      return 'prefer';
+    case 'required':
+    case 'require':
+      return 'require';
+    case 'verify_ca':
+    case 'verify-ca':
+      return 'verify-ca';
+    case 'verify_identity':
+    case 'verify-identity':
+    case 'verify-full':
+      return 'verify-full';
+    default:
+      return undefined;
+  }
+}
+
 function preserveCompatibleSelectedDriver(selected: Driver, parsed: Driver): Driver {
   if (
     parsed === Driver.Postgres &&
@@ -120,6 +151,7 @@ export function useConnectionForm(options: {
         proxyConnectTimeoutSecs: proxy ? proxy.connect_timeout_secs : 10,
         useUrl: false,
         connectionUrl: '',
+        options: editConnection.options ?? {},
       });
     } else {
       setFormData(initialConnectionFormData);
@@ -196,8 +228,9 @@ export function useConnectionForm(options: {
           (driver === Driver.Motherduck && !prev.database ? 'md:' : prev.database),
         ssl: config.ssl ?? (driver === Driver.Motherduck ? true : prev.ssl),
         sslMode:
-          config.options?.sslmode ??
+          normalizeSslMode(config.options) ??
           (driver === Driver.Motherduck && !prev.sslMode ? 'verify-full' : prev.sslMode),
+        options: config.options ?? prev.options,
       };
     });
   }, []);

@@ -82,6 +82,8 @@ pub struct SaveConnectionInput {
     pub search_auth_mode: Option<String>,
     #[serde(default)]
     pub ssl_ca_cert: Option<String>,
+    #[serde(default)]
+    pub options: std::collections::HashMap<String, String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -193,6 +195,55 @@ pub async fn lock_vault(
     })
 }
 
+/// Secrets carried by a save request. A `None` secondary secret means
+/// "unchanged": the edit form never repopulates them.
+struct IncomingSecrets {
+    db_password: String,
+    ssh: Option<(Option<String>, Option<String>)>,
+    proxy: Option<Option<String>>,
+}
+
+impl IncomingSecrets {
+    fn merge_with(&self, previous: Option<&StoredCredentials>) -> StoredCredentials {
+        fn keep(
+            sent: Option<&String>,
+            stored: Option<&Sensitive<String>>,
+        ) -> Option<Sensitive<String>> {
+            match sent {
+                Some(value) => Some(Sensitive::new(value.clone())),
+                None => stored.cloned(),
+            }
+        }
+
+        let (ssh_password, ssh_key_passphrase) = match &self.ssh {
+            Some((password, passphrase)) => (
+                keep(
+                    password.as_ref(),
+                    previous.and_then(|p| p.ssh_password.as_ref()),
+                ),
+                keep(
+                    passphrase.as_ref(),
+                    previous.and_then(|p| p.ssh_key_passphrase.as_ref()),
+                ),
+            ),
+            None => (None, None),
+        };
+
+        StoredCredentials {
+            db_password: Sensitive::new(self.db_password.clone()),
+            ssh_password,
+            ssh_key_passphrase,
+            proxy_password: match &self.proxy {
+                Some(password) => keep(
+                    password.as_ref(),
+                    previous.and_then(|p| p.proxy_password.as_ref()),
+                ),
+                None => None,
+            },
+        }
+    }
+}
+
 #[tauri::command]
 pub async fn save_connection(
     app: AppHandle,
@@ -232,7 +283,19 @@ pub async fn save_connection(
         connect_timeout_secs: p.connect_timeout_secs,
     });
 
+    let incoming = IncomingSecrets {
+        db_password: input.password.clone(),
+        ssh: input.ssh_tunnel.as_ref().map(|s| {
+            (
+                s.password.clone(),
+                s.key_passphrase.clone(),
+            )
+        }),
+        proxy: input.proxy.as_ref().map(|p| p.password.clone()),
+    };
+
     let connection = SavedConnection {
+        options: input.options.clone(),
         id: input.id.clone(),
         name: input.name,
         driver: input.driver,
@@ -256,24 +319,12 @@ pub async fn save_connection(
         project_id: input.project_id,
     };
 
-    let credentials = StoredCredentials {
-        db_password: Sensitive::new(input.password),
-        ssh_password: input
-            .ssh_tunnel
-            .as_ref()
-            .and_then(|s| s.password.clone().map(Sensitive::new)),
-        ssh_key_passphrase: input
-            .ssh_tunnel
-            .as_ref()
-            .and_then(|s| s.key_passphrase.clone().map(Sensitive::new)),
-        proxy_password: input
-            .proxy
-            .as_ref()
-            .and_then(|p| p.password.clone().map(Sensitive::new)),
-    };
-
     let result = match get_workspace_store(&ws_manager).await {
-        Some(ws_store) => ws_store.save_connection(&connection, &credentials),
+        Some(ws_store) => {
+            let previous = ws_store.get_credentials(&connection.id).ok();
+            let credentials = incoming.merge_with(previous.as_ref());
+            ws_store.save_connection(&connection, &credentials)
+        }
         None => {
             let storage_dir = app
                 .path()
@@ -284,6 +335,8 @@ pub async fn save_connection(
                 storage_dir,
                 Box::new(KeyringProvider::new()),
             );
+            let previous = storage.get_credentials(&connection.id).ok();
+            let credentials = incoming.merge_with(previous.as_ref());
             storage.save_connection(&connection, &credentials)
         }
     };

@@ -453,6 +453,7 @@ mod tests {
     #[test]
     fn timescaledb_connection_string_default_db() {
         let cfg = ConnectionConfig {
+            options: Default::default(),
             driver: "timescaledb".to_string(),
             host: "localhost".to_string(),
             port: 5432,

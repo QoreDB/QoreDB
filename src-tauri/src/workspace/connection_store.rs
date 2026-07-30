@@ -286,6 +286,7 @@ mod tests {
 
     fn make_connection(id: &str, name: &str) -> SavedConnection {
         SavedConnection {
+            options: Default::default(),
             id: id.to_string(),
             name: name.to_string(),
             driver: "postgres".to_string(),

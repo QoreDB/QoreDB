@@ -10,7 +10,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-      pull-requests: write
     outputs:
       notes: ${{ steps.read.outputs.content }}
     steps:
@@ -36,37 +35,6 @@ jobs:
             cat CHANGES.md
             echo 'EOF'
           } >> "$GITHUB_OUTPUT"
-
-      - name: Update CHANGELOG.md
-        uses: orhun/git-cliff-action@v4
-        with:
-          config: cliff.toml
-          args: --output CHANGELOG.md
-
-      - name: Create PR for CHANGELOG.md
-        continue-on-error: true
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          branch="chore/changelog-${{ github.ref_name }}"
-          git checkout -b "$branch"
-          git add CHANGELOG.md
-          git diff --cached --quiet && echo "No changes" && exit 0
-          git commit -m "chore(release): update CHANGELOG.md for ${{ github.ref_name }}"
-          git push origin "$branch" --force
-          existing_pr=$(gh pr list --head "$branch" --json number --jq '.[0].number' 2>/dev/null || true)
-          if [ -n "$existing_pr" ]; then
-            echo "PR #$existing_pr already exists, updating..."
-          else
-            gh pr create \
-              --title "chore(release): update CHANGELOG.md for ${{ github.ref_name }}" \
-              --body "Auto-generated changelog update for release ${{ github.ref_name }}." \
-              --base main \
-              --head "$branch"
-          fi
-          gh pr merge "$branch" --auto --squash
 
   build:
     needs: release-notes

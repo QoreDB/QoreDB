@@ -70,7 +70,7 @@ duckdb = "1.4"
 
 [package]
 name = "qoredb"
-version = "0.1.35"
+version = "0.1.36"
 description = "Next gen DB Client"
 authors = ["Raphaël Plassart <raphael.plassart@gmail.com>"]
 edition = "2024"

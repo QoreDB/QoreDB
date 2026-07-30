@@ -3,7 +3,7 @@ name: Release
 on:
   push:
     tags:
-      - 'v*'
+      - "v*"
 
 jobs:
   release-notes:
@@ -12,6 +12,7 @@ jobs:
       contents: write
     outputs:
       notes: ${{ steps.read.outputs.content }}
+      release_id: ${{ steps.draft.outputs.id }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -36,6 +37,27 @@ jobs:
             echo 'EOF'
           } >> "$GITHUB_OUTPUT"
 
+      - name: Create the draft release
+        id: draft
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          id=$(gh api "repos/$REPO/releases" --paginate \
+            --jq "[.[] | select(.tag_name==\"$TAG\")] | first | .id // empty")
+          if [ -z "$id" ]; then
+            body=$(cat CHANGES.md)
+            id=$(gh api "repos/$REPO/releases" \
+              -f tag_name="$TAG" \
+              -f name="QoreDB $TAG" \
+              -f body="$body" \
+              -F draft=true \
+              -F prerelease=false \
+              --jq '.id')
+          fi
+          echo "id=$id" >> "$GITHUB_OUTPUT"
+
   build:
     needs: release-notes
     permissions:
@@ -44,18 +66,18 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - platform: 'macos-latest'
-            args: '--target aarch64-apple-darwin'
-            target: 'aarch64-apple-darwin'
-          - platform: 'macos-latest'
-            args: '--target x86_64-apple-darwin'
-            target: 'x86_64-apple-darwin'
-          - platform: 'ubuntu-22.04'
-            args: ''
-            target: ''
-          - platform: 'windows-2022'
-            args: ''
-            target: ''
+          - platform: "macos-latest"
+            args: "--target aarch64-apple-darwin"
+            target: "aarch64-apple-darwin"
+          - platform: "macos-latest"
+            args: "--target x86_64-apple-darwin"
+            target: "x86_64-apple-darwin"
+          - platform: "ubuntu-22.04"
+            args: ""
+            target: ""
+          - platform: "windows-2022"
+            args: ""
+            target: ""
 
     runs-on: ${{ matrix.platform }}
 
@@ -77,7 +99,7 @@ jobs:
       - name: Rust cache
         uses: swatinem/rust-cache@v2
         with:
-          workspaces: './src-tauri -> target'
+          workspaces: "./src-tauri -> target"
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -85,8 +107,8 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 'lts/*'
-          cache: 'pnpm'
+          node-version: "lts/*"
+          cache: "pnpm"
 
       - name: Install frontend dependencies
         run: pnpm install --frozen-lockfile
@@ -118,12 +140,9 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           PUBLIC_KEY_BASE64: ${{ secrets.PUBLIC_KEY_BASE64 }}
         with:
-          tagName: ${{ github.ref_name }}
-          releaseName: 'QoreDB ${{ github.ref_name }}'
-          releaseBody: ${{ needs.release-notes.outputs.notes }}
-          releaseDraft: true
-          prerelease: false
-          includeUpdaterJson: true
+          releaseId: ${{ needs.release-notes.outputs.release_id }}
+          # latest.json is assembled once by the updater-json job below.
+          includeUpdaterJson: false
           args: ${{ matrix.args }} --features pro,duckdb-bundled --verbose
 
       - name: Build MSIX (Windows only)
@@ -316,9 +335,27 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
+          draft: true
           files: |
             src-tauri/target/release/bundle/msix/*.msix
             src-tauri/target/release/bundle/msix/*.appinstaller
+
+  updater-json:
+    needs: [release-notes, build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build the updater manifest
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
+          RELEASE_ID: ${{ needs.release-notes.outputs.release_id }}
+        run: node scripts/updater-json.mjs
 
   sbom:
     needs: build
@@ -344,8 +381,8 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 'lts/*'
-          cache: 'pnpm'
+          node-version: "lts/*"
+          cache: "pnpm"
 
       - name: Install frontend dependencies
         run: pnpm install --frozen-lockfile
@@ -370,7 +407,8 @@ jobs:
             sbom-frontend.cdx.json
 
   cleanup-sig:
-    needs: [build, sbom]
+    # After updater-json: the manifest is built from those .sig assets.
+    needs: [build, sbom, updater-json]
     runs-on: ubuntu-latest
     permissions:
       contents: write

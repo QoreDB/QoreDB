@@ -529,9 +529,12 @@ impl SessionManager {
                 let mut announced = previous_health;
 
                 let should_reconnect = {
-                    let sessions = self.sessions.read().await;
-                    match sessions.get(&sid) {
-                        Some(s) => s.consecutive_failures >= Self::RECONNECT_THRESHOLD,
+                    let mut sessions = self.sessions.write().await;
+                    match sessions.get_mut(&sid) {
+                        Some(s) => {
+                            s.consecutive_failures += 1;
+                            s.consecutive_failures >= Self::RECONNECT_THRESHOLD
+                        }
                         None => continue,
                     }
                 };
@@ -624,7 +627,6 @@ impl SessionManager {
 
                 let mut sessions = self.sessions.write().await;
                 if let Some(s) = sessions.get_mut(&sid) {
-                    s.consecutive_failures += 1;
                     s.health = ConnectionHealth::Unhealthy;
                 }
                 if announced != ConnectionHealth::Unhealthy {

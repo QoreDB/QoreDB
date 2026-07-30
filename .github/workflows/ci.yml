@@ -24,6 +24,13 @@ jobs:
           workspaces: "src-tauri -> target"
           key: "ci"
 
+      - name: Ensure the DuckDB prebuilt library is present
+        run: |
+          cd src-tauri
+          if ! ls target/duckdb-download/*/*/libduckdb.so >/dev/null 2>&1; then
+            rm -rf target/*/.fingerprint/libduckdb-sys-* target/*/build/libduckdb-sys-*
+          fi
+
       - name: Install system dependencies
         run: |
           sudo apt-get update
@@ -45,7 +52,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: 'pnpm'
+          cache: "pnpm"
 
       - name: Install frontend dependencies
         run: pnpm install --frozen-lockfile

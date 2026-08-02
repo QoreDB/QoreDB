@@ -45,11 +45,28 @@ const DEFAULT_STATUS: LicenseStatus = {
   is_founder: false,
 };
 
+const LICENSE_STATUS_RETRY_DELAYS_MS = [0, 250, 1000, 2500];
+
 const LicenseContext = createContext<LicenseContextValue | null>(null);
 
 function activePaidTier(status: LicenseStatus): Exclude<LicenseTier, 'core'> | null {
   if (status.tier === 'core' || status.is_expired) return null;
   return status.tier;
+}
+
+async function loadLicenseStatus(): Promise<LicenseStatus> {
+  let lastError: unknown;
+  for (const delay of LICENSE_STATUS_RETRY_DELAYS_MS) {
+    if (delay > 0) {
+      await new Promise(resolve => window.setTimeout(resolve, delay));
+    }
+    try {
+      return await getLicenseStatus();
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  throw lastError;
 }
 
 export function LicenseProvider({ children }: { children: ReactNode }) {
@@ -58,9 +75,9 @@ export function LicenseProvider({ children }: { children: ReactNode }) {
   const [proActivation, setProActivation] = useState<ProActivationEvent | null>(null);
 
   useEffect(() => {
-    getLicenseStatus()
+    loadLicenseStatus()
       .then(setStatus)
-      .catch(() => {})
+      .catch(error => console.warn('Failed to load the stored license', error))
       .finally(() => setLoading(false));
   }, []);
 

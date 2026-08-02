@@ -13,6 +13,7 @@ const LICENSE_USERNAME: &str = "license_key";
 pub struct LicenseManager {
     provider: Box<dyn CredentialProvider>,
     cached_status: LicenseStatus,
+    storage_loaded: bool,
     /// Dev-only: override the effective tier without a real license key.
     /// Only compiled in debug builds — cannot exist in release binaries.
     #[cfg(debug_assertions)]
@@ -24,10 +25,13 @@ impl LicenseManager {
         let mut manager = Self {
             provider,
             cached_status: LicenseStatus::default(),
+            storage_loaded: false,
             #[cfg(debug_assertions)]
             dev_override_tier: None,
         };
-        manager.refresh_status();
+        if let Err(error) = manager.load_status() {
+            tracing::warn!("Failed to load the stored license: {error}");
+        }
         manager
     }
 
@@ -53,6 +57,13 @@ impl LicenseManager {
             };
         }
         self.cached_status.clone()
+    }
+
+    pub fn load_status(&mut self) -> Result<LicenseStatus, LicenseError> {
+        if !self.storage_loaded {
+            self.refresh_status()?;
+        }
+        Ok(self.effective_status())
     }
 
     /// Dev-only: set a tier override. Pass None to clear.
@@ -86,6 +97,7 @@ impl LicenseManager {
             is_founder: payload.is_founder,
         };
         self.cached_status = status.clone();
+        self.storage_loaded = true;
         Ok(status)
     }
 
@@ -95,18 +107,26 @@ impl LicenseManager {
             .delete_password(LICENSE_SERVICE, LICENSE_USERNAME)
             .map_err(|e| LicenseError::Storage(e.to_string()))?;
         self.cached_status = LicenseStatus::default();
+        self.storage_loaded = true;
         Ok(())
     }
 
-    /// Loads the stored key from keyring and refreshes the cached status.
-    fn refresh_status(&mut self) {
-        let stored_key = match self
+    fn refresh_status(&mut self) -> Result<(), LicenseError> {
+        let has_stored_key = self
+            .provider
+            .has_credential(LICENSE_SERVICE, LICENSE_USERNAME)
+            .map_err(|error| LicenseError::Storage(error.to_string()))?;
+
+        if !has_stored_key {
+            self.cached_status = LicenseStatus::default();
+            self.storage_loaded = true;
+            return Ok(());
+        }
+
+        let stored_key = self
             .provider
             .get_password(LICENSE_SERVICE, LICENSE_USERNAME)
-        {
-            Ok(key) => key,
-            Err(_) => return,
-        };
+            .map_err(|error| LicenseError::Storage(error.to_string()))?;
 
         match verify_license(&stored_key) {
             Ok(payload) => {
@@ -120,6 +140,7 @@ impl LicenseManager {
                     seats: payload.seats,
                     is_founder: payload.is_founder,
                 };
+                self.storage_loaded = true;
             }
             Err(LicenseError::Expired) => {
                 // Expose payload metadata for the UI while forcing the tier
@@ -135,22 +156,26 @@ impl LicenseManager {
                         seats: payload.seats,
                         is_founder: payload.is_founder,
                     };
+                    self.storage_loaded = true;
                 }
             }
             Err(_) => {
-                // Drop corrupt or tampered keys so we don't keep retrying them.
                 let _ = self
                     .provider
                     .delete_password(LICENSE_SERVICE, LICENSE_USERNAME);
+                self.cached_status = LicenseStatus::default();
+                self.storage_loaded = true;
             }
         }
+        Ok(())
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::vault::backend::MockProvider;
+    use crate::vault::backend::{CredentialError, MockProvider};
+    use qore_core::error::{EngineError, EngineResult};
 
     fn make_manager() -> LicenseManager {
         LicenseManager::new(Box::new(MockProvider::new()))
@@ -177,6 +202,44 @@ mod tests {
         let mut mgr = make_manager();
         assert!(mgr.deactivate().is_ok());
         assert_eq!(mgr.status().tier, LicenseTier::Core);
+    }
+
+    struct UnavailableProvider;
+
+    impl CredentialProvider for UnavailableProvider {
+        fn set_password(&self, _: &str, _: &str, _: &str) -> EngineResult<()> {
+            Err(EngineError::internal("unavailable"))
+        }
+
+        fn get_password(&self, _: &str, _: &str) -> EngineResult<String> {
+            Err(EngineError::internal("unavailable"))
+        }
+
+        fn delete_password(&self, _: &str, _: &str) -> EngineResult<()> {
+            Err(EngineError::internal("unavailable"))
+        }
+
+        fn has_credential(&self, _: &str, _: &str) -> Result<bool, CredentialError> {
+            Err(CredentialError::TemporarilyUnavailable(
+                "test keyring outage".to_string(),
+            ))
+        }
+
+        fn delete_credential(&self, _: &str, _: &str) -> Result<(), CredentialError> {
+            Err(CredentialError::TemporarilyUnavailable(
+                "test keyring outage".to_string(),
+            ))
+        }
+    }
+
+    #[test]
+    fn storage_failure_is_not_reported_as_core_license() {
+        let mut manager = LicenseManager::new(Box::new(UnavailableProvider));
+
+        let result = manager.load_status();
+
+        assert!(matches!(result, Err(LicenseError::Storage(_))));
+        assert!(!manager.storage_loaded);
     }
 
     // NOTE: Full activate/deactivate roundtrip tests require the production

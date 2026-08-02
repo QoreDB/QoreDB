@@ -1,5 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 
+//! Driver tests against real engines from `docker-compose.yml`.
+//!
+//! A service that is not running makes its tests skip, so a partial local
+//! stack yields a green suite instead of noise. CI starts the containers it
+//! relies on and sets the matching `QOREDB_TEST_<SERVICE>_REQUIRED` variable,
+//! which turns the skip back into a failure — a container that dies there is a
+//! red build, not a silent gap.
+
 use qoredb_lib::engine::{
     drivers::{
         clickhouse::ClickHouseDriver, duckdb::DuckDbDriver, elasticsearch::ElasticsearchDriver,
@@ -43,12 +51,63 @@ fn env_bool_or_default(key: &str, default: bool) -> bool {
         .unwrap_or(default)
 }
 
-fn redis_test_required() -> bool {
-    env_bool_or_default("QOREDB_TEST_REDIS_REQUIRED", false)
+#[derive(Clone, Copy)]
+enum Service {
+    Postgres,
+    MySql,
+    Mongo,
+    Redis,
+    ClickHouse,
+    Search,
 }
 
-fn search_test_required() -> bool {
-    env_bool_or_default("QOREDB_TEST_SEARCH_REQUIRED", false)
+impl Service {
+    fn label(self) -> &'static str {
+        match self {
+            Service::Postgres => "PostgreSQL",
+            Service::MySql => "MySQL",
+            Service::Mongo => "MongoDB",
+            Service::Redis => "Redis",
+            Service::ClickHouse => "ClickHouse",
+            Service::Search => "Elasticsearch",
+        }
+    }
+
+    fn env_var(self) -> &'static str {
+        match self {
+            Service::Postgres => "QOREDB_TEST_POSTGRES_REQUIRED",
+            Service::MySql => "QOREDB_TEST_MYSQL_REQUIRED",
+            Service::Mongo => "QOREDB_TEST_MONGO_REQUIRED",
+            Service::Redis => "QOREDB_TEST_REDIS_REQUIRED",
+            Service::ClickHouse => "QOREDB_TEST_CLICKHOUSE_REQUIRED",
+            Service::Search => "QOREDB_TEST_SEARCH_REQUIRED",
+        }
+    }
+
+    fn required(self) -> bool {
+        env_bool_or_default(self.env_var(), false)
+    }
+}
+
+/// `Ok(None)` when the service is unreachable and not required — the caller
+/// returns early and the test counts as passed.
+fn connect_or_skip<T>(
+    result: EngineResult<T>,
+    service: Service,
+    test_name: &str,
+) -> EngineResult<Option<T>> {
+    match result {
+        Ok(value) => Ok(Some(value)),
+        Err(err) if !service.required() && is_service_unavailable(&err) => {
+            eprintln!(
+                "{test_name} skipped: {} is unavailable (set {}=true to fail instead): {err}",
+                service.label(),
+                service.env_var()
+            );
+            Ok(None)
+        }
+        Err(err) => Err(err),
+    }
 }
 
 fn is_service_unavailable(err: &EngineError) -> bool {
@@ -392,7 +451,11 @@ async fn connect_clickhouse() -> EngineResult<(Arc<ClickHouseDriver>, SessionId,
 
 #[tokio::test]
 async fn postgres_e2e() -> EngineResult<()> {
-    let (driver, session, config) = connect_postgres().await?;
+    let Some((driver, session, config)) =
+        connect_or_skip(connect_postgres().await, Service::Postgres, "postgres_e2e")?
+    else {
+        return Ok(());
+    };
     let table = unique_name("qoredb_pg");
 
     driver
@@ -522,7 +585,11 @@ async fn postgres_e2e() -> EngineResult<()> {
 
 #[tokio::test]
 async fn mysql_e2e() -> EngineResult<()> {
-    let (driver, session, config) = connect_mysql().await?;
+    let Some((driver, session, config)) =
+        connect_or_skip(connect_mysql().await, Service::MySql, "mysql_e2e")?
+    else {
+        return Ok(());
+    };
     let table = unique_name("qoredb_mysql");
 
     driver
@@ -654,7 +721,11 @@ async fn mysql_e2e() -> EngineResult<()> {
 
 #[tokio::test]
 async fn mongodb_e2e() -> EngineResult<()> {
-    let (driver, session, config) = connect_mongo().await?;
+    let Some((driver, session, config)) =
+        connect_or_skip(connect_mongo().await, Service::Mongo, "mongodb_e2e")?
+    else {
+        return Ok(());
+    };
     let db_name = config
         .database
         .clone()
@@ -713,16 +784,10 @@ async fn mongodb_e2e() -> EngineResult<()> {
 
 #[tokio::test]
 async fn redis_e2e() -> EngineResult<()> {
-    let (driver, session, _config) = match connect_redis().await {
-        Ok(conn) => conn,
-        Err(err) if !redis_test_required() && is_service_unavailable(&err) => {
-            eprintln!(
-                "redis_e2e skipped: Redis is unavailable (set QOREDB_TEST_REDIS_REQUIRED=true to fail instead): {}",
-                err
-            );
-            return Ok(());
-        }
-        Err(err) => return Err(err),
+    let Some((driver, session, _config)) =
+        connect_or_skip(connect_redis().await, Service::Redis, "redis_e2e")?
+    else {
+        return Ok(());
     };
     let ns0 = Namespace::new("db0");
     let ns1 = Namespace::new("db1");
@@ -989,7 +1054,14 @@ async fn assert_keyset_pagination<D: DataEngine + ?Sized>(
 /// mixed sort directions, and a table written to between two pages.
 #[tokio::test]
 async fn postgres_keyset_pagination() -> EngineResult<()> {
-    let (driver, session, config) = connect_postgres().await?;
+    let Some((driver, session, config)) = connect_or_skip(
+        connect_postgres().await,
+        Service::Postgres,
+        "postgres_keyset_pagination",
+    )?
+    else {
+        return Ok(());
+    };
     let table = unique_name("qoredb_keyset");
     let db_name = config
         .database
@@ -1169,7 +1241,14 @@ async fn postgres_keyset_pagination() -> EngineResult<()> {
 /// placeholders rather than numbered ones.
 #[tokio::test]
 async fn mysql_keyset_pagination() -> EngineResult<()> {
-    let (driver, session, config) = connect_mysql().await?;
+    let Some((driver, session, config)) = connect_or_skip(
+        connect_mysql().await,
+        Service::MySql,
+        "mysql_keyset_pagination",
+    )?
+    else {
+        return Ok(());
+    };
     let table = unique_name("qoredb_keyset");
     let namespace = Namespace::new(config.database.clone().unwrap_or_else(|| DEFAULT_DB.into()));
 
@@ -1217,16 +1296,13 @@ async fn mysql_keyset_pagination() -> EngineResult<()> {
 /// rather than sent to the engine.
 #[tokio::test]
 async fn elasticsearch_count_free_pagination() -> EngineResult<()> {
-    let (driver, session, _config) = match connect_elasticsearch().await {
-        Ok(conn) => conn,
-        Err(err) if !search_test_required() && is_service_unavailable(&err) => {
-            eprintln!(
-                "elasticsearch_count_free_pagination skipped: Elasticsearch is unavailable (set QOREDB_TEST_SEARCH_REQUIRED=true to fail instead): {}",
-                err
-            );
-            return Ok(());
-        }
-        Err(err) => return Err(err),
+    let Some((driver, session, _config)) = connect_or_skip(
+        connect_elasticsearch().await,
+        Service::Search,
+        "elasticsearch_count_free_pagination",
+    )?
+    else {
+        return Ok(());
     };
 
     let index = unique_name("qoredb_es");
@@ -1334,7 +1410,14 @@ async fn test_streaming<D: DataEngine + ?Sized>(
 
 #[tokio::test]
 async fn postgres_streaming() -> EngineResult<()> {
-    let (driver, session, _config) = connect_postgres().await?;
+    let Some((driver, session, _config)) = connect_or_skip(
+        connect_postgres().await,
+        Service::Postgres,
+        "postgres_streaming",
+    )?
+    else {
+        return Ok(());
+    };
     let table = unique_name("qoredb_pg_stream");
 
     driver
@@ -1369,7 +1452,11 @@ async fn postgres_streaming() -> EngineResult<()> {
 
 #[tokio::test]
 async fn mysql_streaming() -> EngineResult<()> {
-    let (driver, session, _config) = connect_mysql().await?;
+    let Some((driver, session, _config)) =
+        connect_or_skip(connect_mysql().await, Service::MySql, "mysql_streaming")?
+    else {
+        return Ok(());
+    };
     let table = unique_name("qoredb_mysql_stream");
 
     driver
@@ -1404,7 +1491,11 @@ async fn mysql_streaming() -> EngineResult<()> {
 
 #[tokio::test]
 async fn mongodb_streaming() -> EngineResult<()> {
-    let (driver, session, config) = connect_mongo().await?;
+    let Some((driver, session, config)) =
+        connect_or_skip(connect_mongo().await, Service::Mongo, "mongodb_streaming")?
+    else {
+        return Ok(());
+    };
     let db_name = config.database.unwrap_or_else(|| DEFAULT_DB.to_string());
     let collection = unique_name("qoredb_mongo_stream");
 
@@ -1432,14 +1523,13 @@ async fn mongodb_streaming() -> EngineResult<()> {
 
 #[tokio::test]
 async fn clickhouse_e2e() -> EngineResult<()> {
-    let connect_result = connect_clickhouse().await;
-    let (driver, session, config) = match connect_result {
-        Ok(t) => t,
-        Err(err) if is_service_unavailable(&err) => {
-            eprintln!("clickhouse not reachable, skipping: {err}");
-            return Ok(());
-        }
-        Err(err) => return Err(err),
+    let Some((driver, session, config)) = connect_or_skip(
+        connect_clickhouse().await,
+        Service::ClickHouse,
+        "clickhouse_e2e",
+    )?
+    else {
+        return Ok(());
     };
 
     let table = unique_name("qoredb_ch");
@@ -1540,7 +1630,14 @@ async fn clickhouse_e2e() -> EngineResult<()> {
 /// the driver can bind text to a non-text column.
 #[tokio::test]
 async fn postgres_exact_numeric_round_trip() -> EngineResult<()> {
-    let (driver, session, config) = connect_postgres().await?;
+    let Some((driver, session, config)) = connect_or_skip(
+        connect_postgres().await,
+        Service::Postgres,
+        "postgres_exact_numeric_round_trip",
+    )?
+    else {
+        return Ok(());
+    };
     let table = unique_name("qoredb_pg_num");
     let db_name = config
         .database
@@ -1817,7 +1914,14 @@ async fn duckdb_keyset_pagination() -> EngineResult<()> {
 /// whole round trip on the two rows that collapse onto the same double.
 #[tokio::test]
 async fn postgres_large_bigint_key_targets_its_own_row() -> EngineResult<()> {
-    let (driver, session, config) = connect_postgres().await?;
+    let Some((driver, session, config)) = connect_or_skip(
+        connect_postgres().await,
+        Service::Postgres,
+        "postgres_large_bigint_key_targets_its_own_row",
+    )?
+    else {
+        return Ok(());
+    };
     let table = unique_name("qoredb_pg_bigkey");
     let db_name = config
         .database

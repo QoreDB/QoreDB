@@ -2216,7 +2216,13 @@
     "detectedPKHint": "Click to use the detected primary key columns",
     "noCommonColumns": "No common columns between the two sources. Choose compatible tables.",
     "noCommonColumnsWarning": "No common columns. Comparing by column position.",
-    "trivialCommonColumnsWarning": "Only common columns are {{columns}}. The diff may be misleading."
+    "trivialCommonColumnsWarning": "Only common columns are {{columns}}. The diff may be misleading.",
+    "rowLimit": "Row limit",
+    "truncatedWarning": "Comparison limited to the first {{limit}} rows ({{sides}}). Rows come back in no guaranteed order, so this diff may not be exhaustive.",
+    "side": {
+      "left": "left",
+      "right": "right"
+    }
   },
   "virtualRelations": {
     "title": "Virtual Relations",

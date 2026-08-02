@@ -2177,7 +2177,13 @@
     "detectedPKHint": "Klicken, um die erkannten Primärschlüsselspalten zu verwenden",
     "noCommonColumns": "Keine gemeinsamen Spalten zwischen den beiden Quellen. Wählen Sie kompatible Tabellen.",
     "noCommonColumnsWarning": "Keine gemeinsamen Spalten. Vergleich nach Spaltenposition.",
-    "trivialCommonColumnsWarning": "Einzige gemeinsame Spalten sind {{columns}}. Der Vergleich könnte irreführend sein."
+    "trivialCommonColumnsWarning": "Einzige gemeinsame Spalten sind {{columns}}. Der Vergleich könnte irreführend sein.",
+    "rowLimit": "Zeilenlimit",
+    "truncatedWarning": "Vergleich auf die ersten {{limit}} Zeilen begrenzt ({{sides}}). Die Zeilen kommen ohne garantierte Reihenfolge zurück, dieser Diff ist daher möglicherweise nicht vollständig.",
+    "side": {
+      "left": "links",
+      "right": "rechts"
+    }
   },
   "virtualRelations": {
     "title": "Virtuelle Relationen",

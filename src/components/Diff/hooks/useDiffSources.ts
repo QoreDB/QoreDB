@@ -131,6 +131,14 @@ function resolveDefaultNamespace(
   return namespaces[0];
 }
 
+/**
+ * Table-mode diffs read a bounded page, so a large table is compared on a
+ * prefix rather than in full. The bound is surfaced and adjustable because a
+ * silent one turns a partial answer into an apparently complete one.
+ */
+export const DIFF_ROW_LIMITS = [1_000, 5_000, 10_000, 25_000] as const;
+export const DEFAULT_DIFF_ROW_LIMIT = DIFF_ROW_LIMITS[0];
+
 export interface UseDiffSourcesOptions {
   activeConnection?: SavedConnection | null;
   initialNamespace?: Namespace;
@@ -163,6 +171,11 @@ export interface UseDiffSourcesReturn {
   trivialCommonColumns: string[];
   compareBlockedReason: 'missingResults' | null;
   compareWarning: 'noCommonColumns' | 'trivialCommonColumns' | null;
+
+  rowLimit: number;
+  setRowLimit: (limit: number) => void;
+  /** A side whose table page came back full: the diff may not be exhaustive. */
+  truncatedSides: ('left' | 'right')[];
 
   swap: () => void;
   refresh: () => Promise<void>;
@@ -234,6 +247,7 @@ export function useDiffSources({
   const leftConnectionIdRef = useRef<string | undefined>(leftSource.connectionId);
   const rightConnectionIdRef = useRef<string | undefined>(rightSource.connectionId);
 
+  const [rowLimit, setRowLimit] = useState<number>(DEFAULT_DIFF_ROW_LIMIT);
   const [keyColumns, setKeyColumns] = useState<string[]>([]);
   const [diffResult, setDiffResult] = useState<DiffResult | null>(null);
   const [comparing, setComparing] = useState(false);
@@ -557,7 +571,7 @@ export function useDiffSources({
             source.sessionId,
             source.namespace,
             source.tableName,
-            1000
+            rowLimit
           );
           if (response.success && response.result) {
             result = response.result;
@@ -587,7 +601,7 @@ export function useDiffSources({
         });
       }
     },
-    []
+    [rowLimit]
   );
 
   const executeLeft = useCallback(async () => {
@@ -915,7 +929,18 @@ export function useDiffSources({
     [leftSource.result, rightSource.result]
   );
 
+  // `previewTable` gives no total, so a full page is the only signal that rows
+  // were left behind. It over-reports on a table whose size is an exact
+  // multiple of the limit, which is the safe direction to be wrong in.
+  const truncatedSides = (['left', 'right'] as const).filter(side => {
+    const source = side === 'left' ? leftSource : rightSource;
+    return source.mode === 'table' && (source.result?.rows.length ?? 0) >= rowLimit;
+  });
+
   return {
+    rowLimit,
+    setRowLimit,
+    truncatedSides,
     leftSource,
     rightSource,
     setLeftConnection,

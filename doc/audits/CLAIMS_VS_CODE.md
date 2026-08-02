@@ -18,14 +18,18 @@
 
 | | Findings |
 | --- | --- |
-| **Resolved** (11) | A1, A2, B1, B2, B3, B4, B5, C1, C2, D2, D8 |
+| **Resolved** (13) | A1, A2, B1, B2, B3, B4, B5, B9, C1, C2, C8, D2, D8 |
 | **Partially resolved** (2) | C10 (migrations fixed, query path not), D1 (one of four comments) |
-| **Open** (17) | B6, B7, B8, B9, B10, B11, C3, C4, C5, C6, C7, C8, C9, D6, D7, D9, D10 |
+| **Open** (15) | B6, B7, B8, B10, B11, C3, C4, C5, C6, C7, C9, D6, D7, D9, D10 |
+
+B9 and C8 were fixed on 2026-08-02, the day of this re-verification pass; their
+notes record what shipped.
 
 Both Critical findings are closed, and every finding that pointed at the Instant
-Data API is closed with tests behind it. What remains is almost entirely the
-category this document exists to name: prose that outlived the code it described.
-Fifteen of the seventeen open findings are sentences, not defects.
+Data API is closed with tests behind it. What remains is now entirely the category
+this document exists to name: prose that outlived the code it described. **Every
+open finding is a sentence, not a defect** — the two that were not (B9, C8) were
+fixed the same day.
 
 D3, D4 and D5 are not defects and carry no status — they record absent guardrails
 worth knowing when the features are described. They were not re-verified in depth.
@@ -51,11 +55,16 @@ a TouchID requirement and still denies the redaction that ships. None of this
 moved, which is the expected outcome — nothing in the release process makes prose
 fail.
 
-The two that are not sentences are worth separating out. **B9** (the Visual Data
-Diff silently caps at 1,000 rows) is still a wrong answer presented as a complete
-one, and remains the only open finding that can mislead a user about their own
-data. **C9** (two built-in safety rules that do not do what they are named) is
-still a control that reads as protection and is not, on staging.
+Two findings were not sentences, and both were fixed the same day. **B9** — the
+Visual Data Diff capping silently at 1,000 rows — was the only one that could
+mislead a user about their own data; the bound is now adjustable and announced,
+including the fact that the rows come back unordered. **C8** was one line in a
+dialect resolver plus the button that led to it.
+
+**C9** remains the sharpest thing left: two built-in safety rules that do not do
+what their names say, so `UPDATE users SET x=1;` still runs unconfirmed on
+staging. It is a control that reads as protection and is not — it stays at the
+top of the list.
 
 ### Original assessment, 2026-07-17
 
@@ -393,6 +402,13 @@ capabilities of which three do not exist.
 ### B9. Visual Data Diff silently truncates at 1,000 rows
 
 > **Re-verified 2026-08-02** — **Open.** `useDiffSources.ts:556-560` still passes a hardcoded `1000`.
+>
+> **Fixed 2026-08-02.** The bound is now state (`DIFF_ROW_LIMITS`, default 1 000, adjustable to 25 000),
+> a full page on either side raises a warning naming the limit and the sides affected, and changing the
+> limit re-runs both sides. The warning also states that the rows come back in no guaranteed order —
+> `preview_table` still has no `ORDER BY`, so a bounded diff is a prefix of an arbitrary order rather
+> than of a stable one. Over-reports on a table whose row count is an exact multiple of the limit,
+> which is the safe direction.
 
 **Reality:** table-mode diffs call `previewTable(sessionId, namespace, tableName, 1000)`
 — hardcoded (`useDiffSources.ts:555-561`). `QueryResult` carries no truncation
@@ -594,6 +610,12 @@ the one whose claims they will actually test.
 ### C8. Data Generator rejects four PostgreSQL-compatible drivers
 
 > **Re-verified 2026-08-02** — **Open.** `from_driver_id` (`qore-sql/src/generator.rs:49-57`) still knows only the four base ids. Two drivers have been added since (Valkey, and the search engines), so the gap between this resolver and the other three has grown.
+>
+> **Fixed 2026-08-02.** `cockroachdb`, `cockroach`, `neon`, `supabase` and `timescaledb` now resolve to
+> `Postgres`, with a test asserting they never reach the unknown-driver branch and a second asserting the
+> document and key-value drivers still resolve to `None`. The UI half is closed too: the Data Generator
+> button is now gated on `supportsSQL`, so it no longer appears on MongoDB, Redis or the search drivers
+> only to fail after the click.
 
 **Reality:** the generator resolves its dialect through
 `qore_sql::generator::SqlDialect::from_driver_id` (`data_generator.rs:109`), which
@@ -856,14 +878,13 @@ They are listed because they shape what the feature can be sold as.
 Rewritten 2026-08-02 for what is left. The original ordering is preserved below
 for the record.
 
-**The two that can mislead a user, not just a reader:**
+**The one that can still mislead a user, not just a reader:**
 
-1. **B9** — surface and configure the Visual Diff row cap. A diff of an arbitrary
-   1,000 rows still presents itself as exhaustive. This is the only open finding
-   where the product returns a wrong answer rather than an overstated one.
-2. **C9** — wire `context.is_dangerous` into `check_rule`. Fixes both built-in
+1. **C9** — wire `context.is_dangerous` into `check_rule`. Fixes both built-in
    rule bugs and the first-word classification weakness in one change, and closes
    the staging hole where `UPDATE users SET x=1;` runs unconfirmed.
+
+*(B9 and C8, which led this list, shipped on 2026-08-02.)*
 
 **Then the false claims, cheapest first. All strings:**
 
@@ -882,20 +903,17 @@ for the record.
 
 **Then the code:**
 
-8. **C8** — one line in `from_driver_id`. Unblocks four drivers in the Data
-   Generator and removes the Sandbox's spurious warning. The gap has widened
-   since July as drivers were added.
-9. **C10** — carry the migrations token pattern (**C1**) over to the query path.
+8. **C10** — carry the migrations token pattern (**C1**) over to the query path.
    The store already exists; this is wiring.
-10. **C6** — `saveSandboxState` still has no `try`/`catch`, and the notebook draft
+9. **C6** — `saveSandboxState` still has no `try`/`catch`, and the notebook draft
     still writes query results to `localStorage` and swallows the quota error.
-11. **C5** — pass `sandboxMode` through to the Data Generator, or disable its
+10. **C5** — pass `sandboxMode` through to the Data Generator, or disable its
     execute path while sandbox mode is active.
-12. **D10** — stop pre-checking capabilities in the consent dialog.
-13. **C4** — capture original row values and apply with an optimistic `WHERE`.
+11. **D10** — stop pre-checking capabilities in the consent dialog.
+12. **C4** — capture original row values and apply with an optimistic `WHERE`.
     Turns a documented caveat into a selling point.
-14. **C3** — decide deliberately whether backend licence checks are wanted.
-15. **D1** — three stale doc-comments left: `auth.rs:5`, `api/mod.rs:12-13`,
+13. **C3** — decide deliberately whether backend licence checks are wanted.
+14. **D1** — three stale doc-comments left: `auth.rs:5`, `api/mod.rs:12-13`,
     `tls.rs:33`.
 
 **Standing:** D3, D4, D5 need no action beyond being stated honestly wherever the

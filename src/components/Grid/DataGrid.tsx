@@ -32,7 +32,7 @@ import { useShareLinks } from '@/hooks/useShareLinks';
 import { useStreamingExport } from '@/hooks/useStreamingExport';
 import { aiExplainResult } from '@/lib/ai';
 import { BULK_EDIT_CORE_LIMIT } from '@/lib/bulkEdit';
-import type { Driver } from '@/lib/connection/drivers';
+import { type Driver, getDriverMetadata } from '@/lib/connection/drivers';
 import { type ExportDataDetail, UI_EVENT_EXPORT_DATA } from '@/lib/events/uiEvents';
 import type { ExportConfig } from '@/lib/export';
 import { exactIntText, isExactInt } from '@/lib/query/exactInt';
@@ -862,6 +862,9 @@ export function DataGrid({
     isFeatureEnabled('data_generator') &&
     !readOnly &&
     mutationsSupported &&
+    // The generator emits SQL INSERTs, so a document or key-value driver can
+    // only ever fail after the click.
+    (!driver || getDriverMetadata(driver).supportsSQL) &&
     Boolean(sessionId) &&
     Boolean(tableName) &&
     Boolean(namespace);

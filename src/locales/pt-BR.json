@@ -2177,7 +2177,13 @@
     "detectedPKHint": "Clique para usar as colunas de chave primária detectadas",
     "noCommonColumns": "Nenhuma coluna em comum entre as duas fontes. Escolha tabelas compatíveis.",
     "noCommonColumnsWarning": "Nenhuma coluna em comum. Comparando por posição de coluna.",
-    "trivialCommonColumnsWarning": "As únicas colunas em comum são {{columns}}. A comparação pode ser enganosa."
+    "trivialCommonColumnsWarning": "As únicas colunas em comum são {{columns}}. A comparação pode ser enganosa.",
+    "rowLimit": "Limite de linhas",
+    "truncatedWarning": "Comparação limitada às primeiras {{limit}} linhas ({{sides}}). As linhas voltam sem ordem garantida, então este diff pode não ser exaustivo.",
+    "side": {
+      "left": "esquerda",
+      "right": "direita"
+    }
   },
   "virtualRelations": {
     "title": "Relações Virtuais",

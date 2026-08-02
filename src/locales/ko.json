@@ -2177,7 +2177,13 @@
     "detectedPKHint": "감지된 기본 키 컬럼을 사용하려면 클릭하세요",
     "noCommonColumns": "두 소스 사이에 공통 컬럼이 없습니다. 호환되는 테이블을 선택하세요.",
     "noCommonColumnsWarning": "공통 컬럼이 없습니다. 컬럼 위치로 비교합니다.",
-    "trivialCommonColumnsWarning": "공통 컬럼이 {{columns}}뿐입니다. 비교 결과가 부정확할 수 있습니다."
+    "trivialCommonColumnsWarning": "공통 컬럼이 {{columns}}뿐입니다. 비교 결과가 부정확할 수 있습니다.",
+    "rowLimit": "행 제한",
+    "truncatedWarning": "비교가 처음 {{limit}}행으로 제한되었습니다({{sides}}). 행 순서는 보장되지 않으므로 이 비교가 완전하지 않을 수 있습니다.",
+    "side": {
+      "left": "왼쪽",
+      "right": "오른쪽"
+    }
   },
   "virtualRelations": {
     "title": "가상 관계",

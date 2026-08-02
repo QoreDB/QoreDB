@@ -2177,7 +2177,13 @@
     "detectedPKHint": "クリックして検出された主キーカラムを使用",
     "noCommonColumns": "2つのソース間に共通のカラムがありません。互換性のあるテーブルを選択してください。",
     "noCommonColumnsWarning": "共通のカラムがありません。カラム位置で比較します。",
-    "trivialCommonColumnsWarning": "共通のカラムは {{columns}} のみです。差分が誤解を招く可能性があります。"
+    "trivialCommonColumnsWarning": "共通のカラムは {{columns}} のみです。差分が誤解を招く可能性があります。",
+    "rowLimit": "行数の上限",
+    "truncatedWarning": "比較は先頭 {{limit}} 行に限定されています（{{sides}}）。行の順序は保証されないため、この差分は網羅的でない可能性があります。",
+    "side": {
+      "left": "左",
+      "right": "右"
+    }
   },
   "virtualRelations": {
     "title": "仮想リレーション",

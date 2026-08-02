@@ -2177,7 +2177,13 @@
     "detectedPKHint": "Haz clic para usar las columnas de clave primaria detectadas",
     "noCommonColumns": "No hay columnas en común entre las dos fuentes. Elige tablas compatibles.",
     "noCommonColumnsWarning": "Sin columnas en común. Comparando por posición de columna.",
-    "trivialCommonColumnsWarning": "Las únicas columnas en común son {{columns}}. La comparación puede ser engañosa."
+    "trivialCommonColumnsWarning": "Las únicas columnas en común son {{columns}}. La comparación puede ser engañosa.",
+    "rowLimit": "Límite de filas",
+    "truncatedWarning": "Comparación limitada a las primeras {{limit}} filas ({{sides}}). Las filas llegan sin orden garantizado, así que este diff puede no ser exhaustivo.",
+    "side": {
+      "left": "izquierda",
+      "right": "derecha"
+    }
   },
   "virtualRelations": {
     "title": "Relaciones virtuales",

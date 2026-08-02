@@ -2177,7 +2177,13 @@
     "detectedPKHint": "点击使用检测到的主键列",
     "noCommonColumns": "两个数据源之间没有公共列。请选择兼容的表。",
     "noCommonColumnsWarning": "没有公共列。按列位置进行比较。",
-    "trivialCommonColumnsWarning": "公共列仅有 {{columns}}。对比结果可能有误导性。"
+    "trivialCommonColumnsWarning": "公共列仅有 {{columns}}。对比结果可能有误导性。",
+    "rowLimit": "行数上限",
+    "truncatedWarning": "比较仅覆盖前 {{limit}} 行（{{sides}}）。返回顺序没有保证，因此该差异可能不完整。",
+    "side": {
+      "left": "左侧",
+      "right": "右侧"
+    }
   },
   "virtualRelations": {
     "title": "虚拟关系",

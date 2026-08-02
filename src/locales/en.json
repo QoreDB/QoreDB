@@ -1457,7 +1457,8 @@
     "refreshData": "Refresh table",
     "toggleSandbox": "Toggle Sandbox Mode",
     "pressToClose": "Press ? or Esc to close",
-    "exitZenMode": "Exit Zen Mode"
+    "exitZenMode": "Exit Zen Mode",
+    "aiInlineEdit": "Inline AI edit"
   },
   "toolbar": {
     "moreActions": "More actions",
@@ -2550,6 +2551,19 @@
       "sampleRowsDescription": "Share a few sample rows with the AI to improve its suggestions. Sensitive columns stay masked unless allowed below.",
       "sensitiveData": "Sensitive data",
       "sensitiveDataDescription": "Let the AI see sensitive values (emails, names, phone numbers…). When disabled, these columns are masked before anything is sent to the provider."
+    },
+    "inlineEdit": {
+      "title": "Rewrite the query",
+      "titleSelection": "Rewrite the selection",
+      "placeholder": "Describe the change — for example “add a filter on the last 30 days”",
+      "notConfigured": "No AI provider configured. Pick one in the settings.",
+      "working": "Generating…",
+      "noQuery": "The model did not return a usable query.",
+      "identical": "No change",
+      "dangerous": "Sensitive query",
+      "apply": "Replace the query",
+      "applySelection": "Replace the selection",
+      "generate": "Generate"
     }
   },
   "agentChat": {

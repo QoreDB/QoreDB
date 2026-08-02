@@ -168,6 +168,7 @@ The following files are currently marked Premium (`BUSL-1.1`), grouped by module
 - `src/hooks/useAgentChat.ts`
 - `src/lib/ai.ts`
 - `src/lib/agent.ts`
+- `src/lib/query/inlineEditDiff.ts`
 - `src/providers/AiPreferencesProvider.tsx`
 - `src-tauri/src/ai/*`
 - `src-tauri/src/commands/ai.rs`

@@ -1421,7 +1421,8 @@
     "refreshData": "テーブルを更新",
     "toggleSandbox": "サンドボックスモードの切り替え",
     "pressToClose": "? または Esc で閉じる",
-    "exitZenMode": "Zen モードを終了"
+    "exitZenMode": "Zen モードを終了",
+    "aiInlineEdit": "インライン AI 編集"
   },
   "toolbar": {
     "moreActions": "その他のアクション",
@@ -2511,6 +2512,19 @@
       "sampleRowsDescription": "AI の提案精度を高めるため、サンプル行をいくつか共有します。機密性の高い列は、下で許可しない限りマスクされたままです。",
       "sensitiveData": "機密データ",
       "sensitiveDataDescription": "AI に機密性の高い値(メールアドレス、氏名、電話番号など)の閲覧を許可します。無効の場合、これらの列はプロバイダーへの送信前にマスクされます。"
+    },
+    "inlineEdit": {
+      "title": "クエリを書き換える",
+      "titleSelection": "選択範囲を書き換える",
+      "placeholder": "変更内容を記述してください — 例:「直近30日の絞り込みを追加」",
+      "notConfigured": "AI プロバイダーが未設定です。設定から選択してください。",
+      "working": "生成中…",
+      "noQuery": "モデルは使用可能なクエリを返しませんでした。",
+      "identical": "変更なし",
+      "dangerous": "注意が必要なクエリ",
+      "apply": "クエリを置き換える",
+      "applySelection": "選択範囲を置き換える",
+      "generate": "生成"
     }
   },
   "agentChat": {

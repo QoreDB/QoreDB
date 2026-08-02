@@ -1421,7 +1421,8 @@
     "refreshData": "Tabelle aktualisieren",
     "toggleSandbox": "Sandbox-Modus umschalten",
     "pressToClose": "Drücken Sie ? oder Esc zum Schließen",
-    "exitZenMode": "Zen-Modus beenden"
+    "exitZenMode": "Zen-Modus beenden",
+    "aiInlineEdit": "Inline-KI-Bearbeitung"
   },
   "toolbar": {
     "moreActions": "Weitere Aktionen",
@@ -2511,6 +2512,19 @@
       "sampleRowsDescription": "Einige Beispielzeilen mit der KI teilen, um ihre Vorschläge zu verbessern. Sensible Spalten bleiben maskiert, sofern unten nicht erlaubt.",
       "sensitiveData": "Sensible Daten",
       "sensitiveDataDescription": "Der KI erlauben, sensible Werte zu sehen (E-Mails, Namen, Telefonnummern …). Wenn deaktiviert, werden diese Spalten vor dem Senden an den Anbieter maskiert."
+    },
+    "inlineEdit": {
+      "title": "Abfrage umschreiben",
+      "titleSelection": "Auswahl umschreiben",
+      "placeholder": "Beschreibe die Änderung — zum Beispiel „Filter auf die letzten 30 Tage hinzufügen“",
+      "notConfigured": "Kein KI-Anbieter konfiguriert. Wähle einen in den Einstellungen.",
+      "working": "Wird generiert…",
+      "noQuery": "Das Modell hat keine verwendbare Abfrage geliefert.",
+      "identical": "Keine Änderung",
+      "dangerous": "Sensible Abfrage",
+      "apply": "Abfrage ersetzen",
+      "applySelection": "Auswahl ersetzen",
+      "generate": "Generieren"
     }
   },
   "agentChat": {

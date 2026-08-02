@@ -137,7 +137,12 @@ Risque principal : divergence des formats tool-call entre providers. Mitigation 
 
 Chaque point est livrable indépendamment, dans l'ordre qu'on veut.
 
-1. **Cmd+K dans l'éditeur** : sélection (ou requête entière) + instruction → réécriture proposée en diff (réutiliser les composants Diff existants, eux aussi Premium) → appliquer/annuler. Raccourci enregistré dans `useKeyboardShortcuts`.
+1. ~~**Cmd+K dans l'éditeur**~~ — livré en `Cmd+I` : `Cmd+K` reste Spotlight, et éclipser un raccourci global
+   documenté pour un seul composant coûtait plus que le gain de conformité. Sélection (ou requête entière)
+   + instruction → diff ligne à ligne → appliquer/annuler. Les composants `Diff/` existants portent un diff
+   de **données** (lignes/colonnes), inutilisable pour du texte : `lib/query/inlineEditDiff.ts` fait le
+   diff de lignes, sans dépendance ajoutée. Raccourci déclaré dans `lib/shortcuts/defaults.ts`, donc
+   personnalisable et présent dans la cheatsheet.
 2. **Schema browser** : « Expliquer cette table » (describe + LLM) dans le menu contextuel et brancher enfin `ai_summarize_schema` au niveau base (« Résumer ce schéma »). Sortie dans le panneau IA.
 3. **Erreurs** : « Corriger avec l'IA » sur les toasts d'erreur de requête (aujourd'hui seulement dans QueryPanelResults).
 4. **Résultats** : l'explication s'affiche dans le panneau IA (fil de conversation) au lieu de l'overlay détaché de DataGrid — supprime l'état `aiExplanation` local.

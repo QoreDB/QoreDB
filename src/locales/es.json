@@ -1421,7 +1421,8 @@
     "refreshData": "Actualizar tabla",
     "toggleSandbox": "Alternar Modo Sandbox",
     "pressToClose": "Presiona ? o Esc para cerrar",
-    "exitZenMode": "Salir del modo Zen"
+    "exitZenMode": "Salir del modo Zen",
+    "aiInlineEdit": "Edición IA en línea"
   },
   "toolbar": {
     "moreActions": "Más acciones",
@@ -2511,6 +2512,19 @@
       "sampleRowsDescription": "Compartir algunas filas de ejemplo con la IA para mejorar sus sugerencias. Las columnas sensibles permanecen enmascaradas salvo autorización abajo.",
       "sensitiveData": "Datos sensibles",
       "sensitiveDataDescription": "Permitir que la IA vea valores sensibles (correos, nombres, teléfonos…). Si está desactivado, estas columnas se enmascaran antes de enviar nada al proveedor."
+    },
+    "inlineEdit": {
+      "title": "Reescribir la consulta",
+      "titleSelection": "Reescribir la selección",
+      "placeholder": "Describe el cambio — por ejemplo «añade un filtro de los últimos 30 días»",
+      "notConfigured": "Ningún proveedor de IA configurado. Elige uno en los ajustes.",
+      "working": "Generando…",
+      "noQuery": "El modelo no devolvió una consulta utilizable.",
+      "identical": "Sin cambios",
+      "dangerous": "Consulta sensible",
+      "apply": "Reemplazar la consulta",
+      "applySelection": "Reemplazar la selección",
+      "generate": "Generar"
     }
   },
   "agentChat": {

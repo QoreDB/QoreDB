@@ -2564,6 +2564,12 @@
       "apply": "Remplacer la requête",
       "applySelection": "Remplacer la sélection",
       "generate": "Générer"
+    },
+    "explain": {
+      "explainTable": "Expliquer cette table",
+      "summarizeSchema": "Résumer ce schéma",
+      "tableTitle": "Table {{table}}",
+      "schemaTitle": "Schéma {{namespace}}"
     }
   },
   "agentChat": {

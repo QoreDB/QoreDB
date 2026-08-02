@@ -2525,6 +2525,12 @@
       "apply": "クエリを置き換える",
       "applySelection": "選択範囲を置き換える",
       "generate": "生成"
+    },
+    "explain": {
+      "explainTable": "このテーブルを説明",
+      "summarizeSchema": "このスキーマを要約",
+      "tableTitle": "テーブル {{table}}",
+      "schemaTitle": "スキーマ {{namespace}}"
     }
   },
   "agentChat": {

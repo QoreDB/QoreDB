@@ -2564,6 +2564,12 @@
       "apply": "Replace the query",
       "applySelection": "Replace the selection",
       "generate": "Generate"
+    },
+    "explain": {
+      "explainTable": "Explain this table",
+      "summarizeSchema": "Summarize this schema",
+      "tableTitle": "Table {{table}}",
+      "schemaTitle": "Schema {{namespace}}"
     }
   },
   "agentChat": {

@@ -2525,6 +2525,12 @@
       "apply": "Abfrage ersetzen",
       "applySelection": "Auswahl ersetzen",
       "generate": "Generieren"
+    },
+    "explain": {
+      "explainTable": "Diese Tabelle erklären",
+      "summarizeSchema": "Dieses Schema zusammenfassen",
+      "tableTitle": "Tabelle {{table}}",
+      "schemaTitle": "Schema {{namespace}}"
     }
   },
   "agentChat": {

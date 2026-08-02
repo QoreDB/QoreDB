@@ -2525,6 +2525,12 @@
       "apply": "Reemplazar la consulta",
       "applySelection": "Reemplazar la selección",
       "generate": "Generar"
+    },
+    "explain": {
+      "explainTable": "Explicar esta tabla",
+      "summarizeSchema": "Resumir este esquema",
+      "tableTitle": "Tabla {{table}}",
+      "schemaTitle": "Esquema {{namespace}}"
     }
   },
   "agentChat": {

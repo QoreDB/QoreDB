@@ -2525,6 +2525,12 @@
       "apply": "替换查询",
       "applySelection": "替换所选内容",
       "generate": "生成"
+    },
+    "explain": {
+      "explainTable": "解释这张表",
+      "summarizeSchema": "总结该模式",
+      "tableTitle": "表 {{table}}",
+      "schemaTitle": "模式 {{namespace}}"
     }
   },
   "agentChat": {

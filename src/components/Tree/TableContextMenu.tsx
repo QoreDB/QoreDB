@@ -64,6 +64,7 @@ interface TableContextMenuProps {
   onCompareWith?: (collection: Collection, targetConnectionId?: string) => void;
   onSchemaDiff?: (collection: Collection, targetConnectionId: string) => void;
   onAiGenerate?: (collection: Collection) => void;
+  onAiExplain?: (collection: Collection) => void;
   onNewQuery?: (collection: Collection) => void;
   onVirtualRelationChanged?: () => void;
   children: React.ReactNode;
@@ -165,6 +166,7 @@ export function TableContextMenu({
   onCompareWith,
   onSchemaDiff,
   onAiGenerate,
+  onAiExplain,
   onNewQuery,
   onVirtualRelationChanged,
   children,
@@ -351,6 +353,13 @@ export function TableContextMenu({
             <ContextMenuItem onClick={() => onAiGenerate(collection)}>
               <Sparkles size={14} className="mr-2" />
               {t('ai.generateForTable')}
+            </ContextMenuItem>
+          )}
+
+          {onAiExplain && (
+            <ContextMenuItem onClick={() => onAiExplain(collection)}>
+              <Sparkles size={14} className="mr-2" />
+              {t('ai.explain.explainTable')}
             </ContextMenuItem>
           )}
 

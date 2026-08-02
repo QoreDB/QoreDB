@@ -77,6 +77,8 @@ interface DBTreeProps {
   onCompareTable?: (collection: Collection) => void;
   onSchemaDiff?: (collection: Collection, targetConnectionId: string) => void;
   onAiGenerateForTable?: (collection: Collection) => void;
+  onAiExplainTable?: (collection: Collection) => void;
+  onAiSummarizeNamespace?: (namespace: Namespace) => void;
   onNewQueryForTable?: (collection: Collection) => void;
   onOpenRoutineSource?: (routine: Routine, namespace: Namespace) => void;
   onCreateRoutine?: (routineType: 'Function' | 'Procedure', namespace: Namespace) => void;
@@ -98,6 +100,8 @@ export function DBTree({
   onCompareTable,
   onSchemaDiff,
   onAiGenerateForTable,
+  onAiExplainTable,
+  onAiSummarizeNamespace,
   onNewQueryForTable,
   onOpenRoutineSource,
   onCreateRoutine,
@@ -497,6 +501,7 @@ export function DBTree({
             <DatabaseContextMenu
               onOpen={() => openNamespace(ns)}
               onRefresh={() => refreshCollections(ns)}
+              onAiSummarize={onAiSummarizeNamespace ? () => onAiSummarizeNamespace(ns) : undefined}
               onCreateTable={() => {
                 setCreateTableNamespace(ns);
                 setCreateTableOpen(true);
@@ -626,6 +631,7 @@ export function DBTree({
                             onCompareWith={onCompareTable}
                             onSchemaDiff={onSchemaDiff}
                             onAiGenerate={onAiGenerateForTable}
+                            onAiExplain={onAiExplainTable}
                             onNewQuery={onNewQueryForTable}
                           >
                             <button
@@ -679,6 +685,7 @@ export function DBTree({
                             onCompareWith={onCompareTable}
                             onSchemaDiff={onSchemaDiff}
                             onAiGenerate={onAiGenerateForTable}
+                            onAiExplain={onAiExplainTable}
                             onNewQuery={onNewQueryForTable}
                           >
                             <button
@@ -734,6 +741,7 @@ export function DBTree({
                             onCompareWith={onCompareTable}
                             onSchemaDiff={onSchemaDiff}
                             onAiGenerate={onAiGenerateForTable}
+                            onAiExplain={onAiExplainTable}
                             onNewQuery={onNewQueryForTable}
                           >
                             <button

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { lazy, Suspense, useCallback, useEffect, useMemo } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Toaster } from 'sonner';
 import {
@@ -19,6 +19,7 @@ import {
   isSandboxActive,
 } from '@/lib/sandbox/sandboxStore';
 import { getShortcut } from '@/utils/platform';
+import { SchemaExplainDialog } from './components/AI/SchemaExplainDialog';
 import { AppOverlays } from './components/AppOverlays';
 import { DatabaseBrowser, type DatabaseBrowserTab } from './components/Browser/DatabaseBrowser';
 import { TableBrowser, type TableBrowserTab } from './components/Browser/TableBrowser';
@@ -374,6 +375,19 @@ export function AppLayout() {
     },
     [openTab, t, activeConnection?.id]
   );
+
+  const [aiExplainTarget, setAiExplainTarget] = useState<{
+    namespace?: Namespace;
+    table?: string;
+  } | null>(null);
+
+  const handleAiExplainTable = useCallback((collection: Collection) => {
+    setAiExplainTarget({ namespace: collection.namespace, table: collection.name });
+  }, []);
+
+  const handleAiSummarizeNamespace = useCallback((namespace: Namespace) => {
+    setAiExplainTarget({ namespace });
+  }, []);
 
   const handleAiGenerateForTable = useCallback(
     (collection: Collection) => {
@@ -912,6 +926,8 @@ export function AppLayout() {
                 onCompareTable={handleCompareTable}
                 onSchemaDiff={handleSchemaDiff}
                 onAiGenerateForTable={handleAiGenerateForTable}
+                onAiExplainTable={handleAiExplainTable}
+                onAiSummarizeNamespace={handleAiSummarizeNamespace}
                 onNewQueryForTable={handleNewQueryForTable}
                 onOpenRoutineSource={handleOpenRoutineSource}
                 onCreateRoutine={handleCreateRoutine}
@@ -1041,6 +1057,15 @@ export function AppLayout() {
           </main>
         </div>
       </div>
+
+      {aiExplainTarget && (
+        <SchemaExplainDialog
+          sessionId={sessionId}
+          namespace={aiExplainTarget.namespace}
+          table={aiExplainTarget.table}
+          onClose={() => setAiExplainTarget(null)}
+        />
+      )}
 
       <AppOverlays
         onConnected={handleConnected}

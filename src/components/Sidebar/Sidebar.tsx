@@ -72,6 +72,8 @@ interface SidebarProps {
   onCompareTable?: (collection: Collection) => void;
   onSchemaDiff?: (collection: Collection, targetConnectionId: string) => void;
   onAiGenerateForTable?: (collection: Collection) => void;
+  onAiExplainTable?: (collection: Collection) => void;
+  onAiSummarizeNamespace?: (namespace: Namespace) => void;
   onNewQueryForTable?: (collection: Collection) => void;
   onOpenRoutineSource?: (routine: Routine, namespace: Namespace) => void;
   onCreateRoutine?: (routineType: 'Function' | 'Procedure', namespace: Namespace) => void;
@@ -100,6 +102,8 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(function Sidebar(
     onCompareTable,
     onSchemaDiff,
     onAiGenerateForTable,
+    onAiExplainTable,
+    onAiSummarizeNamespace,
     onNewQueryForTable,
     onOpenRoutineSource,
     onCreateRoutine,
@@ -307,6 +311,8 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(function Sidebar(
                 onCompareTable={onCompareTable}
                 onSchemaDiff={onSchemaDiff}
                 onAiGenerateForTable={onAiGenerateForTable}
+                onAiExplainTable={onAiExplainTable}
+                onAiSummarizeNamespace={onAiSummarizeNamespace}
                 onNewQueryForTable={onNewQueryForTable}
                 onOpenRoutineSource={onOpenRoutineSource}
                 onCreateRoutine={onCreateRoutine}

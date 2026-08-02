@@ -2525,6 +2525,12 @@
       "apply": "Заменить запрос",
       "applySelection": "Заменить выделение",
       "generate": "Сгенерировать"
+    },
+    "explain": {
+      "explainTable": "Объяснить эту таблицу",
+      "summarizeSchema": "Кратко описать схему",
+      "tableTitle": "Таблица {{table}}",
+      "schemaTitle": "Схема {{namespace}}"
     }
   },
   "agentChat": {

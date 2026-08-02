@@ -6,8 +6,11 @@
 # ============================================================================
 
 [workspace]
-members = ["crates/*"]
+members = ["crates/*", "vendor/sqlx-mysql"]
 resolver = "2"
+
+[patch.crates-io]
+sqlx-mysql = { path = "vendor/sqlx-mysql" }
 
 [workspace.dependencies]
 serde = { version = "1", features = ["derive"] }

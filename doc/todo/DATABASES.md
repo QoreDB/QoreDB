@@ -36,6 +36,7 @@
 ### NoSQL Key-Value
 
 - [x] **Redis** — Cache / store in-memory
+- [x] **Valkey** — Fork open-source de Redis (driver Redis mutualisé, schémas `valkey://`)
 
 ### Search
 
@@ -61,7 +62,6 @@
 
 ### NoSQL Key-Value
 
-- [ ] **Valkey** — Fork open-source de Redis (réutilise le driver Redis)
 - [ ] **Memcached** — Cache distribué
 - [ ] **Amazon DynamoDB** — Key-value AWS
 
@@ -152,6 +152,5 @@ pub trait DataEngine: Send + Sync {
 
 | Priorité | Database      | Raison                                         |
 | -------- | ------------- | ---------------------------------------------- |
-| +        | Valkey        | Fork Redis, réutilise le driver existant       |
 | +        | Oracle        | Angle enterprise (QorePlatform)                |
 | +        | Neo4j         | Niche mais différenciant (graphe / Cypher)     |

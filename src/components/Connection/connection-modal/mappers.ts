@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Driver } from '@/lib/connection/drivers';
+import { Driver, isKeyValueDriver } from '@/lib/connection/drivers';
 import type { ConnectionConfig, Environment, SavedConnection } from '@/lib/tauri';
 
 import type { ConnectionFormData } from './types';
@@ -170,7 +170,7 @@ export function getMissingRequirements(formData: ConnectionFormData): string[] {
   const searchNeedsUser = isSearchDriver(formData.driver) && formData.searchAuthMode === 'basic';
   const authRequired =
     formData.driver !== Driver.Mongodb &&
-    formData.driver !== Driver.Redis &&
+    !isKeyValueDriver(formData.driver) &&
     (!isSearchDriver(formData.driver) || searchNeedsUser);
   // SQLite and DuckDB are file-based: only the file path (stored in host) matters
   const isFileBased = formData.driver === Driver.Sqlite || formData.driver === Driver.Duckdb;

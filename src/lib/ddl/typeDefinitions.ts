@@ -172,6 +172,7 @@ export const COLUMN_TYPES: Record<Driver, ColumnType[]> = {
   [Driver.Mysql]: MYSQL_TYPES,
   [Driver.Mongodb]: [],
   [Driver.Redis]: [],
+  [Driver.Valkey]: [],
   [Driver.Sqlite]: SQLITE_TYPES,
   [Driver.Duckdb]: DUCKDB_TYPES,
   [Driver.Motherduck]: DUCKDB_TYPES,

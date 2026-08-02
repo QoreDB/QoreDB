@@ -5,6 +5,7 @@ export enum Driver {
   Mysql = 'mysql',
   Mongodb = 'mongodb',
   Redis = 'redis',
+  Valkey = 'valkey',
   Sqlite = 'sqlite',
   Duckdb = 'duckdb',
   Motherduck = 'motherduck',
@@ -247,6 +248,29 @@ export const DRIVERS: Record<Driver, DriverMetadata> = {
     id: Driver.Redis,
     label: 'Redis',
     icon: 'redis.png',
+    defaultPort: 6379,
+    namespaceLabel: 'dbtree.database',
+    namespacePluralLabel: 'dbtree.databases',
+    collectionLabel: 'dbtree.key',
+    collectionPluralLabel: 'dbtree.keys',
+    treeRootLabel: 'dbtree.databasesHeader',
+    createAction: 'none',
+    databaseFieldLabel: 'connection.databaseIndex',
+    supportsSchemas: false,
+    supportsSQL: false,
+    dataModel: 'key-value',
+    isDocumentBased: false,
+    identifier: {
+      quoteStart: '',
+      quoteEnd: '',
+      namespaceStrategy: 'database',
+    },
+    queries: {},
+  },
+  [Driver.Valkey]: {
+    id: Driver.Valkey,
+    label: 'Valkey',
+    icon: 'valkey.png',
     defaultPort: 6379,
     namespaceLabel: 'dbtree.database',
     namespacePluralLabel: 'dbtree.databases',
@@ -685,6 +709,11 @@ export const DRIVERS: Record<Driver, DriverMetadata> = {
 
 export function getDriverMetadata(driver: Driver | string): DriverMetadata {
   return DRIVERS[driver as Driver] ?? DRIVERS[Driver.Postgres];
+}
+
+/** Redis and its wire-compatible forks: same key browser, same commands. */
+export function isKeyValueDriver(driver: Driver | string): boolean {
+  return getDriverMetadata(driver).dataModel === 'key-value';
 }
 
 // Legacy exports for backward compatibility

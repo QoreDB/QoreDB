@@ -44,6 +44,14 @@ const DRIVER_SCHEMA_OBJECT_CAPABILITIES: Record<Driver, DriverSchemaObjectCapabi
     events: false,
     sequences: false,
   },
+  valkey: {
+    routines: false,
+    functions: false,
+    procedures: false,
+    triggers: false,
+    events: false,
+    sequences: false,
+  },
   sqlite: {
     routines: false,
     functions: false,

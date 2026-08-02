@@ -357,9 +357,16 @@
     "neonHint": "Neon: 初回接続時にエンドポイントが起動するまで 5〜10 秒かかる場合があります。",
     "timescaledbHint": "TimescaleDB: timescaledb 拡張が有効な PostgreSQL として接続。",
     "driverGroups": {
-      "sql": "SQL",
-      "nosql": "NoSQL"
+      "all": "すべて",
+      "relational": "リレーショナル",
+      "document": "ドキュメント",
+      "keyValue": "キーバリュー",
+      "timeSeries": "時系列",
+      "search": "検索",
+      "graph": "グラフ"
     },
+    "driverSearch": "エンジンを検索…",
+    "driverSearchEmpty": "「{{query}}」に一致するエンジンはありません",
     "clickhouse": {
       "cluster": "クラスター名（任意）",
       "clusterPlaceholder": "例: shard_cluster",

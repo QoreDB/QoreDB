@@ -357,9 +357,16 @@
     "neonHint": "Neon: 端点首次连接可能需要 5–10 秒唤醒。",
     "timescaledbHint": "TimescaleDB: 像启用了 timescaledb 扩展的 PostgreSQL 一样连接。",
     "driverGroups": {
-      "sql": "SQL",
-      "nosql": "NoSQL"
+      "all": "全部",
+      "relational": "关系型",
+      "document": "文档型",
+      "keyValue": "键值型",
+      "timeSeries": "时序型",
+      "search": "搜索型",
+      "graph": "图数据库"
     },
+    "driverSearch": "搜索数据库引擎…",
+    "driverSearchEmpty": "没有匹配“{{query}}”的引擎",
     "clickhouse": {
       "cluster": "集群名称（可选）",
       "clusterPlaceholder": "例如 shard_cluster",

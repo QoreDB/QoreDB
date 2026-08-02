@@ -357,9 +357,16 @@
     "neonHint": "Neon: 첫 연결 시 엔드포인트 깨어남에 5–10초 걸릴 수 있습니다.",
     "timescaledbHint": "TimescaleDB: timescaledb 확장이 활성화된 PostgreSQL처럼 연결됩니다.",
     "driverGroups": {
-      "sql": "SQL",
-      "nosql": "NoSQL"
+      "all": "전체",
+      "relational": "관계형",
+      "document": "문서형",
+      "keyValue": "키-값",
+      "timeSeries": "시계열",
+      "search": "검색",
+      "graph": "그래프"
     },
+    "driverSearch": "엔진 검색…",
+    "driverSearchEmpty": "“{{query}}”와 일치하는 엔진이 없습니다",
     "clickhouse": {
       "cluster": "클러스터 이름 (선택)",
       "clusterPlaceholder": "예: shard_cluster",

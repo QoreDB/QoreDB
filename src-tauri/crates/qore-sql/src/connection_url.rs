@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 //! Connection URL / DSN parsing into normalized `PartialConnectionConfig`.
-//! Supports PostgreSQL, MySQL, MongoDB, Redis, SQL Server, CockroachDB.
+//! Supports PostgreSQL, MySQL, MongoDB, Redis, Valkey, SQL Server, CockroachDB.
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -209,15 +209,33 @@ impl ConnectionUrlParser for MongoDbUrlParser {
     }
 }
 
-pub struct RedisUrlParser;
+pub struct RedisUrlParser {
+    driver_id: &'static str,
+    schemes: &'static [&'static str],
+    tls_scheme: &'static str,
+}
+
+impl RedisUrlParser {
+    pub const REDIS: Self = Self {
+        driver_id: "redis",
+        schemes: &["redis", "rediss"],
+        tls_scheme: "rediss",
+    };
+
+    pub const VALKEY: Self = Self {
+        driver_id: "valkey",
+        schemes: &["valkey", "valkeys"],
+        tls_scheme: "valkeys",
+    };
+}
 
 impl ConnectionUrlParser for RedisUrlParser {
     fn driver_id(&self) -> &str {
-        "redis"
+        self.driver_id
     }
 
     fn schemes(&self) -> &[&str] {
-        &["redis", "rediss"]
+        self.schemes
     }
 
     fn default_port(&self) -> u16 {
@@ -225,7 +243,7 @@ impl ConnectionUrlParser for RedisUrlParser {
     }
 
     fn parse(&self, url: &Url) -> ParseResult<PartialConnectionConfig> {
-        let is_tls = url.scheme() == "rediss";
+        let is_tls = url.scheme() == self.tls_scheme;
 
         // Redis path is a numeric DB index (e.g. /0, /2), kept verbatim.
         let base = extract_base(
@@ -332,7 +350,8 @@ impl ConnectionUrlParserRegistry {
         registry.register(Box::new(PostgresUrlParser));
         registry.register(Box::new(MySqlUrlParser));
         registry.register(Box::new(MongoDbUrlParser));
-        registry.register(Box::new(RedisUrlParser));
+        registry.register(Box::new(RedisUrlParser::REDIS));
+        registry.register(Box::new(RedisUrlParser::VALKEY));
         registry.register(Box::new(SqlServerUrlParser));
         registry.register(Box::new(CockroachDbUrlParser));
 
@@ -780,6 +799,22 @@ mod tests {
         let result = parse_connection_url("redis://:mypassword@localhost:6379").unwrap();
         assert_eq!(result.username, None);
         assert_eq!(result.password.as_deref(), Some("mypassword"));
+    }
+
+    #[test]
+    fn test_valkey_url_keeps_its_own_driver() {
+        let result = parse_connection_url("valkey://default:secret@localhost:6379/2").unwrap();
+        assert_eq!(result.driver.as_deref(), Some("valkey"));
+        assert_eq!(result.port, Some(6379));
+        assert_eq!(result.database.as_deref(), Some("2"));
+        assert_eq!(result.ssl, Some(false));
+    }
+
+    #[test]
+    fn test_valkeys_tls() {
+        let result = parse_connection_url("valkeys://valkey.example.com:6380/0").unwrap();
+        assert_eq!(result.driver.as_deref(), Some("valkey"));
+        assert_eq!(result.ssl, Some(true));
     }
 
     #[test]

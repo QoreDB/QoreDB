@@ -5,6 +5,11 @@
 //! Implements the DataEngine trait for Redis using the redis-rs crate.
 //! Redis is a key-value store; this driver maps keys as "collections" and
 //! displays their contents in type-specific tabular formats.
+//!
+//! Valkey is served by the same engine under a second identity: the fork is
+//! wire-compatible with Redis and still advertises `redis_version` in `INFO`,
+//! so there is nothing to detect and nothing to branch on. Only the driver id
+//! and the display name differ.
 
 use std::collections::{BinaryHeap, HashMap};
 use std::sync::Arc;
@@ -37,14 +42,46 @@ pub struct RedisSession {
     pub environment: String,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum RedisFlavor {
+    Redis,
+    Valkey,
+}
+
+impl RedisFlavor {
+    fn driver_id(self) -> &'static str {
+        match self {
+            RedisFlavor::Redis => "redis",
+            RedisFlavor::Valkey => "valkey",
+        }
+    }
+
+    fn driver_name(self) -> &'static str {
+        match self {
+            RedisFlavor::Redis => "Redis",
+            RedisFlavor::Valkey => "Valkey",
+        }
+    }
+}
+
 pub struct RedisDriver {
+    flavor: RedisFlavor,
     sessions: Arc<RwLock<HashMap<SessionId, Arc<RedisSession>>>>,
     active_queries: Arc<Mutex<HashMap<QueryId, (SessionId, AbortHandle)>>>,
 }
 
 impl RedisDriver {
     pub fn new() -> Self {
+        Self::with_flavor(RedisFlavor::Redis)
+    }
+
+    pub fn valkey() -> Self {
+        Self::with_flavor(RedisFlavor::Valkey)
+    }
+
+    fn with_flavor(flavor: RedisFlavor) -> Self {
         Self {
+            flavor,
             sessions: Arc::new(RwLock::new(HashMap::new())),
             active_queries: Arc::new(Mutex::new(HashMap::new())),
         }
@@ -888,11 +925,11 @@ impl Default for RedisDriver {
 #[async_trait]
 impl DataEngine for RedisDriver {
     fn driver_id(&self) -> &'static str {
-        "redis"
+        self.flavor.driver_id()
     }
 
     fn driver_name(&self) -> &'static str {
-        "Redis"
+        self.flavor.driver_name()
     }
 
     async fn test_connection(&self, config: &ConnectionConfig) -> EngineResult<()> {
@@ -1966,6 +2003,18 @@ impl DataEngine for RedisDriver {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn valkey_flavor_only_changes_identity() {
+        let redis = RedisDriver::new();
+        let valkey = RedisDriver::valkey();
+        assert_eq!(redis.driver_id(), "redis");
+        assert_eq!(redis.driver_name(), "Redis");
+        assert_eq!(valkey.driver_id(), "valkey");
+        assert_eq!(valkey.driver_name(), "Valkey");
+        assert_eq!(redis.cancel_support(), valkey.cancel_support());
+        assert_eq!(redis.supports_mutations(), valkey.supports_mutations());
+    }
 
     #[test]
     fn test_build_connection_string_simple() {

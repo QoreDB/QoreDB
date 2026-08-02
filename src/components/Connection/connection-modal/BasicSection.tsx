@@ -7,7 +7,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { DEFAULT_PORTS, Driver, getDriverMetadata } from '@/lib/connection/drivers';
+import {
+  DEFAULT_PORTS,
+  Driver,
+  getDriverMetadata,
+  isKeyValueDriver,
+} from '@/lib/connection/drivers';
 import { ENVIRONMENT_CONFIG } from '@/lib/environment';
 import type { MssqlAuthMode, SearchAuthMode } from '@/lib/tauri';
 import { cn } from '@/lib/utils';
@@ -31,10 +36,10 @@ export function BasicSection({
   const { t } = useTranslation();
 
   const isFileBased = formData.driver === Driver.Sqlite || formData.driver === Driver.Duckdb;
-  const usernameRequired = formData.driver !== Driver.Mongodb && formData.driver !== Driver.Redis;
+  const usernameRequired = formData.driver !== Driver.Mongodb && !isKeyValueDriver(formData.driver);
   const isSqlServer = formData.driver === Driver.SqlServer;
   const isClickhouse = formData.driver === Driver.Clickhouse;
-  const isRedis = formData.driver === Driver.Redis;
+  const isRedis = isKeyValueDriver(formData.driver);
   const isSearch =
     formData.driver === Driver.Elasticsearch || formData.driver === Driver.OpenSearch;
   const driverMeta = getDriverMetadata(formData.driver);

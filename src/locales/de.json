@@ -357,9 +357,16 @@
     "neonHint": "Neon: Endpoints brauchen beim ersten Connect 5–10s zum Aufwachen.",
     "timescaledbHint": "TimescaleDB: verbindet sich wie PostgreSQL mit aktivierter timescaledb-Extension.",
     "driverGroups": {
-      "sql": "SQL",
-      "nosql": "NoSQL"
+      "all": "Alle",
+      "relational": "Relational",
+      "document": "Dokument",
+      "keyValue": "Schlüssel-Wert",
+      "timeSeries": "Zeitreihen",
+      "search": "Suche",
+      "graph": "Graph"
     },
+    "driverSearch": "Engine suchen…",
+    "driverSearchEmpty": "Keine Engine passt zu „{{query}}“",
     "clickhouse": {
       "cluster": "Cluster-Name (optional)",
       "clusterPlaceholder": "z. B. shard_cluster",

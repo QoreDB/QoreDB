@@ -357,9 +357,16 @@
     "neonHint": "Neon: los endpoints pueden tardar 5–10s en despertar en la primera conexión.",
     "timescaledbHint": "TimescaleDB: se conecta como PostgreSQL con la extensión timescaledb activada.",
     "driverGroups": {
-      "sql": "SQL",
-      "nosql": "NoSQL"
+      "all": "Todos",
+      "relational": "Relacional",
+      "document": "Documental",
+      "keyValue": "Clave-valor",
+      "timeSeries": "Series temporales",
+      "search": "Búsqueda",
+      "graph": "Grafos"
     },
+    "driverSearch": "Buscar un motor…",
+    "driverSearchEmpty": "Ningún motor coincide con «{{query}}»",
     "clickhouse": {
       "cluster": "Nombre del clúster (opcional)",
       "clusterPlaceholder": "p. ej. shard_cluster",

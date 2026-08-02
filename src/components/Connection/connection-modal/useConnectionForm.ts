@@ -24,6 +24,8 @@ function mapDriverString(driver: string | undefined): Driver | undefined {
       return Driver.Mongodb;
     case 'redis':
       return Driver.Redis;
+    case 'valkey':
+      return Driver.Valkey;
     case 'sqlite':
     case 'sqlite3':
       return Driver.Sqlite;

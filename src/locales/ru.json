@@ -357,9 +357,16 @@
     "neonHint": "Neon: эндпойнты могут просыпаться 5–10 с при первом подключении.",
     "timescaledbHint": "TimescaleDB: подключение как к PostgreSQL с включённым расширением timescaledb.",
     "driverGroups": {
-      "sql": "SQL",
-      "nosql": "NoSQL"
+      "all": "Все",
+      "relational": "Реляционные",
+      "document": "Документные",
+      "keyValue": "Ключ-значение",
+      "timeSeries": "Временные ряды",
+      "search": "Поисковые",
+      "graph": "Графовые"
     },
+    "driverSearch": "Поиск движка…",
+    "driverSearchEmpty": "Нет движков по запросу «{{query}}»",
     "clickhouse": {
       "cluster": "Имя кластера (опционально)",
       "clusterPlaceholder": "напр. shard_cluster",

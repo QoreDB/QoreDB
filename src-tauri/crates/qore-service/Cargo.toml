@@ -60,6 +60,7 @@ all-drivers = [
     "driver-sqlserver",
     "driver-supabase",
     "driver-timescaledb",
+    "driver-valkey",
 ]
 driver-clickhouse = ["qore-drivers/driver-clickhouse"]
 driver-cockroachdb = ["qore-drivers/driver-cockroachdb"]
@@ -77,4 +78,5 @@ driver-sqlite = ["qore-drivers/driver-sqlite"]
 driver-sqlserver = ["qore-drivers/driver-sqlserver"]
 driver-supabase = ["qore-drivers/driver-supabase"]
 driver-timescaledb = ["qore-drivers/driver-timescaledb"]
+driver-valkey = ["qore-drivers/driver-valkey"]
 duckdb-bundled = ["driver-duckdb", "qore-drivers/duckdb-bundled"]

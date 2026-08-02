@@ -34,7 +34,8 @@ export type ShortcutId =
   | 'openLibrary'
   | 'fulltextSearch'
   | 'refreshData'
-  | 'toggleSandbox';
+  | 'toggleSandbox'
+  | 'aiInlineEdit';
 
 export interface ShortcutDefinition {
   id: ShortcutId;

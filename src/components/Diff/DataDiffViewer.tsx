@@ -86,6 +86,9 @@ export function DataDiffViewer({
     trivialCommonColumns,
     compareBlockedReason,
     compareWarning,
+    rowLimit,
+    setRowLimit,
+    truncatedSides,
   } = useDiffSources({
     activeConnection,
     initialNamespace: namespace,
@@ -267,6 +270,12 @@ export function DataDiffViewer({
           rightNamespace={rightSource.namespace}
           leftTableName={leftSource.tableName}
           rightTableName={rightSource.tableName}
+          rowLimit={rowLimit}
+          onRowLimitChange={limit => {
+            setRowLimit(limit);
+            void refresh();
+          }}
+          truncatedSides={truncatedSides}
         />
       </div>
 

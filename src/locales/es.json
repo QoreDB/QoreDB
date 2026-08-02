@@ -357,9 +357,16 @@
     "neonHint": "Neon: los endpoints pueden tardar 5–10s en despertar en la primera conexión.",
     "timescaledbHint": "TimescaleDB: se conecta como PostgreSQL con la extensión timescaledb activada.",
     "driverGroups": {
-      "sql": "SQL",
-      "nosql": "NoSQL"
+      "all": "Todos",
+      "relational": "Relacional",
+      "document": "Documental",
+      "keyValue": "Clave-valor",
+      "timeSeries": "Series temporales",
+      "search": "Búsqueda",
+      "graph": "Grafos"
     },
+    "driverSearch": "Buscar un motor…",
+    "driverSearchEmpty": "Ningún motor coincide con «{{query}}»",
     "clickhouse": {
       "cluster": "Nombre del clúster (opcional)",
       "clusterPlaceholder": "p. ej. shard_cluster",
@@ -1414,7 +1421,8 @@
     "refreshData": "Actualizar tabla",
     "toggleSandbox": "Alternar Modo Sandbox",
     "pressToClose": "Presiona ? o Esc para cerrar",
-    "exitZenMode": "Salir del modo Zen"
+    "exitZenMode": "Salir del modo Zen",
+    "aiInlineEdit": "Edición IA en línea"
   },
   "toolbar": {
     "moreActions": "Más acciones",
@@ -2169,7 +2177,13 @@
     "detectedPKHint": "Haz clic para usar las columnas de clave primaria detectadas",
     "noCommonColumns": "No hay columnas en común entre las dos fuentes. Elige tablas compatibles.",
     "noCommonColumnsWarning": "Sin columnas en común. Comparando por posición de columna.",
-    "trivialCommonColumnsWarning": "Las únicas columnas en común son {{columns}}. La comparación puede ser engañosa."
+    "trivialCommonColumnsWarning": "Las únicas columnas en común son {{columns}}. La comparación puede ser engañosa.",
+    "rowLimit": "Límite de filas",
+    "truncatedWarning": "Comparación limitada a las primeras {{limit}} filas ({{sides}}). Las filas llegan sin orden garantizado, así que este diff puede no ser exhaustivo.",
+    "side": {
+      "left": "izquierda",
+      "right": "derecha"
+    }
   },
   "virtualRelations": {
     "title": "Relaciones virtuales",
@@ -2504,6 +2518,25 @@
       "sampleRowsDescription": "Compartir algunas filas de ejemplo con la IA para mejorar sus sugerencias. Las columnas sensibles permanecen enmascaradas salvo autorización abajo.",
       "sensitiveData": "Datos sensibles",
       "sensitiveDataDescription": "Permitir que la IA vea valores sensibles (correos, nombres, teléfonos…). Si está desactivado, estas columnas se enmascaran antes de enviar nada al proveedor."
+    },
+    "inlineEdit": {
+      "title": "Reescribir la consulta",
+      "titleSelection": "Reescribir la selección",
+      "placeholder": "Describe el cambio — por ejemplo «añade un filtro de los últimos 30 días»",
+      "notConfigured": "Ningún proveedor de IA configurado. Elige uno en los ajustes.",
+      "working": "Generando…",
+      "noQuery": "El modelo no devolvió una consulta utilizable.",
+      "identical": "Sin cambios",
+      "dangerous": "Consulta sensible",
+      "apply": "Reemplazar la consulta",
+      "applySelection": "Reemplazar la selección",
+      "generate": "Generar"
+    },
+    "explain": {
+      "explainTable": "Explicar esta tabla",
+      "summarizeSchema": "Resumir este esquema",
+      "tableTitle": "Tabla {{table}}",
+      "schemaTitle": "Esquema {{namespace}}"
     }
   },
   "agentChat": {

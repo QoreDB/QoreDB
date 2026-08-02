@@ -1386,6 +1386,7 @@ mod tests {
             "clickhouse",
             "mongodb",
             "redis",
+            "valkey",
             "elasticsearch",
             "opensearch",
         ] {

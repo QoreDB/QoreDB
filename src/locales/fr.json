@@ -386,9 +386,16 @@
     "neonHint": "Neon : les endpoints peuvent mettre 5–10s à se réveiller à la première connexion.",
     "timescaledbHint": "TimescaleDB : se connecte comme PostgreSQL avec l'extension timescaledb activée.",
     "driverGroups": {
-      "sql": "SQL",
-      "nosql": "NoSQL"
+      "all": "Tous",
+      "relational": "Relationnel",
+      "document": "Document",
+      "keyValue": "Clé-valeur",
+      "timeSeries": "Séries temporelles",
+      "search": "Recherche",
+      "graph": "Graphe"
     },
+    "driverSearch": "Rechercher un moteur…",
+    "driverSearchEmpty": "Aucun moteur ne correspond à « {{query}} »",
     "clickhouse": {
       "cluster": "Nom du cluster (optionnel)",
       "clusterPlaceholder": "ex. shard_cluster",
@@ -1450,7 +1457,8 @@
     "refreshData": "Actualiser la table",
     "toggleSandbox": "Basculer le mode Sandbox",
     "pressToClose": "Appuyez sur ? ou Échap pour fermer",
-    "exitZenMode": "Quitter le mode Zen"
+    "exitZenMode": "Quitter le mode Zen",
+    "aiInlineEdit": "Édition IA en ligne"
   },
   "toolbar": {
     "moreActions": "Plus d'actions",
@@ -2208,7 +2216,13 @@
     "detectedPKHint": "Cliquez pour utiliser les colonnes de clé primaire détectées",
     "noCommonColumns": "Aucune colonne commune entre les deux sources. Choisissez des tables compatibles.",
     "noCommonColumnsWarning": "Aucune colonne commune. Comparaison par position des colonnes.",
-    "trivialCommonColumnsWarning": "Seules colonnes communes : {{columns}}. Le diff peut être trompeur."
+    "trivialCommonColumnsWarning": "Seules colonnes communes : {{columns}}. Le diff peut être trompeur.",
+    "rowLimit": "Limite de lignes",
+    "truncatedWarning": "Comparaison limitée aux {{limit}} premières lignes ({{sides}}). Les lignes reviennent sans ordre garanti : ce diff peut ne pas être exhaustif.",
+    "side": {
+      "left": "gauche",
+      "right": "droite"
+    }
   },
   "virtualRelations": {
     "title": "Relations virtuelles",
@@ -2543,6 +2557,25 @@
       "sampleRowsDescription": "Partager quelques lignes d'exemple avec l'IA pour améliorer ses suggestions. Les colonnes sensibles restent masquées sauf autorisation ci-dessous.",
       "sensitiveData": "Données sensibles",
       "sensitiveDataDescription": "Autoriser l'IA à voir les valeurs sensibles (e-mails, noms, téléphones…). Désactivé, ces colonnes sont masquées avant tout envoi au fournisseur."
+    },
+    "inlineEdit": {
+      "title": "Réécrire la requête",
+      "titleSelection": "Réécrire la sélection",
+      "placeholder": "Décrivez la modification — par exemple « ajoute un filtre sur les 30 derniers jours »",
+      "notConfigured": "Aucun fournisseur IA configuré. Choisissez-en un dans les réglages.",
+      "working": "Génération en cours…",
+      "noQuery": "Le modèle n'a pas renvoyé de requête exploitable.",
+      "identical": "Aucun changement",
+      "dangerous": "Requête sensible",
+      "apply": "Remplacer la requête",
+      "applySelection": "Remplacer la sélection",
+      "generate": "Générer"
+    },
+    "explain": {
+      "explainTable": "Expliquer cette table",
+      "summarizeSchema": "Résumer ce schéma",
+      "tableTitle": "Table {{table}}",
+      "schemaTitle": "Schéma {{namespace}}"
     }
   },
   "agentChat": {

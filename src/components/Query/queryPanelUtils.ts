@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { QueryDialect } from '@/lib/connection/driverCapabilities';
-import { Driver } from '@/lib/connection/drivers';
+import { type Driver, isKeyValueDriver } from '@/lib/connection/drivers';
 import { MONGO_TEMPLATES } from '../Editor/mongo-constants';
 import { SEARCH_DEFAULT_QUERY } from '../Editor/search-constants';
 
@@ -55,8 +55,8 @@ export function shouldRefreshSchema(
 ): boolean {
   if (!queryToCheck.trim()) return false;
 
-  // Redis: always refresh
-  if (driver === Driver.Redis) return true;
+  // Redis family: always refresh
+  if (driver && isKeyValueDriver(driver)) return true;
 
   if (isDocumentBased) {
     return (

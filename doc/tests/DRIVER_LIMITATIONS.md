@@ -186,6 +186,9 @@ they are routed through the mutation confirmation path like any other write.
 - Cancellation is best-effort: the client task is aborted, but server-side
   work may continue.
 - Connection supports both `redis://` and `rediss://` (TLS) URL schemes.
+- Valkey is served by the same driver under the `valkey` id and adds the
+  `valkey://` / `valkeys://` schemes. Every limitation above applies
+  unchanged; the fork is wire-compatible and is not probed for its flavor.
 - Authentication is optional — many development setups run without a password.
 
 ### Lua scripting

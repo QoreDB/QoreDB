@@ -1,10 +1,12 @@
 # Public Claims vs Code Reality
 
-> **Status:** Needs update
+> **Status:** Current
 > **Original date:** 2026-07-17
-> **Last reviewed:** 2026-07-17
-> **Code baseline:** `d7857030f650e16c5fa8890b01bf1769539f377a`
+> **Last reviewed:** 2026-08-02
+> **Code baseline:** `bc3b03644b553e064f23355e2c8afa1f24a83a44` (originally `d785703`)
 > **Review depth:** Full re-audit of nine features, read-only against the code.
+> Every finding below was re-checked against the current tree on 2026-08-02 and
+> carries a dated status note.
 > **Scope:** Instant Data API, Sandbox mode, Migrations Manager, Notebooks, Data
 > Generator, Visual Data Diff, production guardrails, the plugin system, and the
 > vault/SSH/local-first surface. Every public claim about these (README, in-app
@@ -12,7 +14,59 @@
 > covered: performance claims ("~25% faster", "~15MB binary", "sub-second
 > startup"), the remaining drivers, and export/backup.
 
+## Status at a glance (2026-08-02)
+
+| | Findings |
+| --- | --- |
+| **Resolved** (13) | A1, A2, B1, B2, B3, B4, B5, B9, C1, C2, C8, D2, D8 |
+| **Partially resolved** (2) | C10 (migrations fixed, query path not), D1 (one of four comments) |
+| **Open** (15) | B6, B7, B8, B10, B11, C3, C4, C5, C6, C7, C9, D6, D7, D9, D10 |
+
+B9 and C8 were fixed on 2026-08-02, the day of this re-verification pass; their
+notes record what shipped.
+
+Both Critical findings are closed, and every finding that pointed at the Instant
+Data API is closed with tests behind it. What remains is now entirely the category
+this document exists to name: prose that outlived the code it described. **Every
+open finding is a sentence, not a defect** — the two that were not (B9, C8) were
+fixed the same day.
+
+D3, D4 and D5 are not defects and carry no status — they record absent guardrails
+worth knowing when the features are described. They were not re-verified in depth.
+
 ## Executive Summary
+
+### Update, 2026-08-02
+
+The one genuine defect is fixed. SQL Server now verifies certificates when the
+user asks for verification (**A2**), and the Instant Data API — which carried
+four findings — is closed on all four, with tests asserting the OpenAPI contract
+so it cannot drift back silently. Two fixes came out better than this document
+proposed: the migrations acknowledgement became a backend-issued token rather
+than an honest client boolean (**C1**), and the Universal Query Interceptor
+became universal, going from one call site to eight (**D8**) — the code caught up
+with the claim instead of the claim shrinking to the code.
+
+The July diagnosis holds for what is left. Fifteen of the seventeen open findings
+are sentences: the README still says plugins execute no code while `wasmi` runs on
+the query path, still describes a side-by-side diff view that is unified, still
+credits Argon2 to a keychain that does not use it. `THREAT_MODEL.md` still invents
+a TouchID requirement and still denies the redaction that ships. None of this
+moved, which is the expected outcome — nothing in the release process makes prose
+fail.
+
+Two findings were not sentences, and both were fixed the same day. **B9** — the
+Visual Data Diff capping silently at 1,000 rows — was the only one that could
+mislead a user about their own data; the bound is now adjustable and announced,
+including the fact that the rows come back unordered. **C8** was one line in a
+dialect resolver plus the button that led to it.
+
+**C9** remains the sharpest thing left: two built-in safety rules that do not do
+what their names say, so `UPDATE users SET x=1;` still runs unconfirmed on
+staging. It is a control that reads as protection and is not — it stays at the
+top of the list.
+
+### Original assessment, 2026-07-17
 
 The engineering is, in the main, better than what is written about it. The
 Migrations Manager state model is unusually careful: `check_guard` is a pure
@@ -61,6 +115,8 @@ Findings are ordered by what they cost if left alone, not by engineering effort.
 
 ### A1. The Sandbox in-app description is false
 
+> **Re-verified 2026-08-02** — **Resolved.** The discovery copy now describes grid staging and carries the caveat the old one lacked — "SQL editor queries are not sandboxed" (`en.json`, `license.upgrade.features.sandbox`).
+
 **Where claimed:** `src/locales/en.json:2225-2231` (`ProDiscoveryPanel`), and the
 eight other locale files carrying the same block.
 
@@ -102,6 +158,8 @@ change, and it is the single highest-value item in this document.
 
 ### A2. SQL Server TLS certificates are never validated
 
+> **Re-verified 2026-08-02** — **Resolved.** `sqlserver.rs:132-147` calls `trust_cert()` only outside `verify-ca` / `verify-full` / `verify-identity`, and wires `ssl_ca_cert` through `trust_cert_ca` for the pinned-CA case.
+
 This one is not a documentation gap. It is a defect.
 
 **Where:** `src-tauri/crates/qore-drivers/src/drivers/sqlserver.rs:124-129`.
@@ -142,6 +200,8 @@ interception.
 
 ### B1. "Applied and rolled back transactionally" is false on MySQL and MariaDB
 
+> **Re-verified 2026-08-02** — **Resolved.** `README.md:119` now qualifies the claim: "transactional rollback when the driver supports it (MySQL/MariaDB DDL is non-transactional)".
+
 **Where claimed:** `README.md:85` (Features → Data operations → Migrations Manager).
 
 **Reality:** `src-tauri/src/commands/migrations.rs:640-654` computes
@@ -164,6 +224,8 @@ correctly and can be reused verbatim.
 
 ### B2. "Expose saved queries as read-only REST endpoints" — there are no saved queries
 
+> **Re-verified 2026-08-02** — **Resolved.** `README.md:129` says "parameterized SQL queries" — the wording this finding proposed.
+
 **Where claimed:** `README.md:85` (Data quality & integration → Instant Data API),
 and `instantApi.description` in the locale files.
 
@@ -176,6 +238,8 @@ that does not exist.
 the picker — it is a small change and would make the claim true.
 
 ### B3. The generated OpenAPI document does not match the handler
+
+> **Re-verified 2026-08-02** — **Resolved.** The document emits `{data, count, truncated}`, drops `page`, and builds `servers` from the live bind address. Tests now assert all three (`openapi.rs:271-300`), so the contract cannot drift again silently.
 
 Three separate defects in one shipped artifact. This is the worst kind of gap:
 consumers generate clients from it and the clients break.
@@ -195,6 +259,8 @@ do not describe the OpenAPI output as a usable client contract.
 
 ### B4. Instant Data API endpoints are never validated at creation
 
+> **Re-verified 2026-08-02** — **Resolved.** `create_endpoint` calls `validate_endpoint_definition` before issuing a token, with the ordering made explicit in a comment (`instant_api.rs:198-207`).
+
 **Where implied:** the read-only guarantee, as presented everywhere.
 
 **Reality:** `create_endpoint` (`src-tauri/src/commands/instant_api.rs:150-178`)
@@ -208,6 +274,8 @@ UX suggests the endpoint is valid.
 function is already imported in the crate.
 
 ### B5. "Nothing leaves your machine by default" is false
+
+> **Re-verified 2026-08-02** — **Resolved, both halves.** No analytics SDK ships at all, and `README.md:36` now names the update check outright: "The only outbound call is the GitHub update check: it never fires before you've been through onboarding, and you can switch it off."
 
 **Where claimed:** `README.md:35`, and the local-first framing generally.
 
@@ -256,6 +324,8 @@ Settings."
 
 ### B6. "No code execution" is false for plugins
 
+> **Re-verified 2026-08-02** — **Open.** `README.md:122`, `doc/FEATURES.csv:94` and `plugins/mod.rs:5-9` still say no code is executed, while `wasmi` still runs `run_pre_execute` on the query path (`commands/query.rs:217`). The drift has widened: the runtime gained capabilities and secrets modules since this was written.
+
 **Where claimed:** `README.md:120` ("Install declarative plugins ... no code
 execution"), `doc/FEATURES.csv:93` ("Déclaratif uniquement — aucune exécution de
 code. WASM hooks et sandboxing à venir."), and `src-tauri/src/plugins/mod.rs:5-9`.
@@ -283,6 +353,8 @@ you read.
 header. The sandbox is good work; it deserves to be claimed.
 
 ### B7. Notebook chart cells and inter-cell references cannot be reached
+
+> **Re-verified 2026-08-02** — **Open.** `chart` is still absent from the add-cell menu (`NotebookToolbar.tsx:265-282`), and `config.label` is still read-only in `src/` (`ChartCell.tsx:44`), so a reference still cannot resolve. `README.md:38` still advertises charts.
 
 **Where claimed:** `README.md:137` ("Inter-cell references and Chart cells (bar,
 line, pie, scatter) _[Pro]_") and `README.md:37` ("charts").
@@ -312,6 +384,8 @@ label field and the Add Cell entry — the rendering is already done.
 
 ### B8. Visual Data Diff: three false claims, one of them in-app
 
+> **Re-verified 2026-08-02** — **Open.** `README.md:99` and `en.json:2311-2313` are unchanged.
+
 **Where claimed:** `README.md:97` and `src/locales/en.json:2235-2237`.
 
 | Claim | Reality |
@@ -326,6 +400,15 @@ surface as **A1**. A user comparing Pro tiers is reading a list of four
 capabilities of which three do not exist.
 
 ### B9. Visual Data Diff silently truncates at 1,000 rows
+
+> **Re-verified 2026-08-02** — **Open.** `useDiffSources.ts:556-560` still passes a hardcoded `1000`.
+>
+> **Fixed 2026-08-02.** The bound is now state (`DIFF_ROW_LIMITS`, default 1 000, adjustable to 25 000),
+> a full page on either side raises a warning naming the limit and the sides affected, and changing the
+> limit re-runs both sides. The warning also states that the rows come back in no guaranteed order —
+> `preview_table` still has no `ORDER BY`, so a bounded diff is a prefix of an arbitrary order rather
+> than of a stable one. Over-reports on a table whose row count is an exact multiple of the limit,
+> which is the safe direction.
 
 **Reality:** table-mode diffs call `previewTable(sessionId, namespace, tableName, 1000)`
 — hardcoded (`useDiffSources.ts:555-561`). `QueryResult` carries no truncation
@@ -342,6 +425,8 @@ so the workaround exists — it is just undiscoverable.
 feature cannot be honestly marketed, which is why it has no page.
 
 ### B10. Data Generator: "constraints honored" is largely false
+
+> **Re-verified 2026-08-02** — **Open.** `README.md:130` still claims constraints are honoured, and `TableColumn` (`qore-core/src/types.rs:1020-1034`) still carries no length, uniqueness or CHECK information.
 
 **Where claimed:** `README.md:113` ("Schema-aware test/seed data (types,
 constraints and foreign keys honored), realistic values").
@@ -373,6 +458,8 @@ missing fields. Honest wording: "types, defaults and foreign keys honoured".
 
 ### B11. "Native OS keychain storage (Argon2)" is misleading
 
+> **Re-verified 2026-08-02** — **Open.** `README.md:35` and `README.md:156` are unchanged.
+
 **Where claimed:** `README.md:153`, `README.md:204`.
 
 **Reality:** in the default configuration Argon2 plays no part in credential
@@ -400,6 +487,8 @@ no permission restriction on Windows.
 
 ### C1. Production confirmation on migrations is neutralised by the frontend
 
+> **Re-verified 2026-08-02** — **Resolved**, and more thoroughly than this finding proposed. The acknowledgement is no longer a client boolean: the panel requests a backend-issued confirmation token (`MigrationsPanel.tsx:295-301`) which the command verifies server-side (`migrations.rs:51, 924, 1006`). A direct IPC call without a valid token is refused.
+
 **Reality:** `src/components/Migrations/MigrationsPanel.tsx:293` and `:312` pass
 `acknowledged: true` unconditionally. The backend branch
 `prod_require_confirmation && !acknowledged` (`migrations.rs:575`) is therefore
@@ -416,6 +505,8 @@ gives a reviewed-and-approved production migration.
 
 ### C2. Migration driver allowlist is cosmetic
 
+> **Re-verified 2026-08-02** — **Resolved.** `schema_migration_driver_supported` now lives in the backend (`migrations.rs:46`) and gates both entry points (`:530`, `:997`), with a test over the unsupported list.
+
 **Reality:** `SCHEMA_MIGRATION_DRIVERS` exists only in TypeScript
 (`src/lib/migrations/drivers.ts:8-20`; three usages, all frontend). The backend
 enforces nothing beyond `driver.capabilities().mutations`
@@ -427,6 +518,8 @@ executes SQL split under the wrong rules.
 **Fix:** mirror the allowlist in `apply_migration`.
 
 ### C3. Licence gating is frontend-only across all three features
+
+> **Re-verified 2026-08-02** — **Open**, unchanged. `license_manager` is still read only by `commands/license.rs` and by the sandbox for its Core row limit. Instant Data API and schema diff remain frontend-gated.
 
 | Feature | Gate | Backend check |
 | --- | --- | --- |
@@ -441,6 +534,8 @@ always patch the binary. Worth a deliberate decision rather than drift.
 
 ### C4. Sandbox has no write-write conflict detection
 
+> **Re-verified 2026-08-02** — **Open.** The apply path still infers conflicts from `affected_rows == 0` (`sandbox.rs:300, 321, 335`); no original values are captured.
+
 **Reality:** conflict handling is partial and after the fact. `validateSandboxChanges`
 (`src/components/Table/TableBrowser.tsx:353-411`) compares captured schema to live
 schema — columns, types, nullability, PK — but never data. At apply,
@@ -453,6 +548,8 @@ Documented as a limit on the new feature page. Flagged here because the fix
 and would turn a caveat into a selling point.
 
 ### C5. The Data Generator bypasses Sandbox mode
+
+> **Re-verified 2026-08-02** — **Open.** `DataGeneratorDialog` still takes neither `sandboxMode` nor `onSandboxUpdate`.
 
 **Reality:** `DataGeneratorDialog` has neither a `sandboxMode` nor an
 `onSandboxUpdate` prop (`src/components/Grid/DataGeneratorDialog.tsx:24-34`), and
@@ -478,6 +575,8 @@ generator's execute path while sandbox mode is active. Moving `SqlPreview` to
 
 ### C6. `localStorage` quota is unhandled in the sandbox
 
+> **Re-verified 2026-08-02** — **Open.** `saveSandboxState` (`sandboxStore.ts:53-55`) still has no `try`/`catch`, and `saveDraft` (`notebookIO.ts:87-93`) still swallows the quota error while serialising results.
+
 **Reality:** `saveSandboxState` (`src/lib/sandbox/sandboxStore.ts:53-55`) has no
 try/catch. The quota is roughly 5-10 MB. A `QuotaExceededError` propagates raw.
 There is no cap on pending changes and no TTL on changes or backups. A bulk edit
@@ -491,6 +590,8 @@ The user loses their draft with no warning. `stripForSave` is applied to file
 saves (`:20`) but not to drafts.
 
 ### C7. `THREAT_MODEL.md` claims a biometric control that does not exist
+
+> **Re-verified 2026-08-02** — **Open.** `THREAT_MODEL.md:21` still claims the TouchID requirement.
 
 **Where claimed:** `doc/security/THREAT_MODEL.md:21` — "Access requires OS-level
 authentication (e.g. TouchID/Password on macOS)".
@@ -507,6 +608,14 @@ the one whose claims they will actually test.
 **Fix:** delete the sentence.
 
 ### C8. Data Generator rejects four PostgreSQL-compatible drivers
+
+> **Re-verified 2026-08-02** — **Open.** `from_driver_id` (`qore-sql/src/generator.rs:49-57`) still knows only the four base ids. Two drivers have been added since (Valkey, and the search engines), so the gap between this resolver and the other three has grown.
+>
+> **Fixed 2026-08-02.** `cockroachdb`, `cockroach`, `neon`, `supabase` and `timescaledb` now resolve to
+> `Postgres`, with a test asserting they never reach the unknown-driver branch and a second asserting the
+> document and key-value drivers still resolve to `None`. The UI half is closed too: the Data Generator
+> button is now gated on `supportsSQL`, so it no longer appears on MongoDB, Redis or the search drivers
+> only to fail after the click.
 
 **Reality:** the generator resolves its dialect through
 `qore_sql::generator::SqlDialect::from_driver_id` (`data_generator.rs:109`), which
@@ -529,6 +638,8 @@ after the user clicks Generate.
 **Fix:** one line in `from_driver_id`.
 
 ### C9. Two built-in safety rules do not do what they are named
+
+> **Re-verified 2026-08-02** — **Open.** The pattern at `safety.rs:61` is unchanged, and `is_dangerous` is still only written (`safety.rs:316`), never read by `check_rule`.
 
 **Reality:** `builtin-confirm-update-no-where` uses the pattern
 `^UPDATE\s+\S+\s+SET\s+[^;]+$` (`qore-service/src/interceptor/safety.rs:61`).
@@ -557,6 +668,8 @@ weakness and both pattern bugs at once.
 
 ### C10. Production confirmation trusts a client-supplied flag
 
+> **Re-verified 2026-08-02** — **Partially resolved.** The migrations path moved to backend-issued tokens (see **C1**). The query path did not: `acknowledged_dangerous` still travels from the renderer as a plain boolean (`commands/query.rs:116, 185, 1077`). The token store now exists, so closing this is wiring, not design.
+
 **Reality:** `acknowledgedDangerous` travels from the renderer
 (`src/lib/tauri/query.ts:65,93`) to `preflight(..., acknowledged)`
 (`qore-service/src/query.rs:259`). The backend accepts it without proof. Anyone
@@ -578,6 +691,8 @@ against intent. That is a defensible product position — it is just not what
 
 ### D1. Stale doc-comments
 
+> **Re-verified 2026-08-02** — **Partially resolved.** The `openapi.rs` header now says "verified response schemas" and matches the code. Three remain stale: `auth.rs:5` still credits `OsRng` while `issue_token` uses `thread_rng()` (`:39`), `api/mod.rs:12-13` still promises app-lock and workspace-switch shutdown hooks that do not exist, and `tls.rs:33` still claims 30 days without setting `not_after`.
+
 | Location | Says | Reality |
 | --- | --- | --- |
 | `src-tauri/src/api/auth.rs:5` | Tokens generated with `OsRng` | `thread_rng()` (`auth.rs:39`). `OsRng` is used only for the Argon2 salt (`auth.rs:47`). Still a CSPRNG, still safe — but do not repeat "OsRng" publicly. |
@@ -586,6 +701,8 @@ against intent. That is a defensible product position — it is just not what
 | `src-tauri/src/api/openapi.rs:8` | "No response schemas" | The code emits them (`openapi.rs:161-169`). |
 
 ### D6. `THREAT_MODEL.md` denies a feature that exists
+
+> **Re-verified 2026-08-02** — **Open.** `THREAT_MODEL.md:50` still denies the redaction that ships.
 
 `doc/security/THREAT_MODEL.md:50` states: "**Current limitation**: The interceptor
 audit/profiling pipeline currently stores **raw query text** locally."
@@ -599,6 +716,8 @@ Worth pairing with **C7**: the same file invents a TouchID requirement that does
 not exist and denies a redaction feature that does. It needs a pass, not a patch.
 
 ### D7. "Full retained trail" overstates the audit log
+
+> **Re-verified 2026-08-02** — **Open.** `README.md:162` still says "full retained trail".
 
 `README.md:159` says "JSONL/CSV export from the **full retained trail**".
 Defensible on the word "retained", misleading in practice: the cache holds
@@ -615,6 +734,8 @@ default, configurable)".
 
 ### D8. "Universal Query Interceptor" is not universal
 
+> **Re-verified 2026-08-02** — **Resolved by the code rather than the copy.** `pre_execute` now runs from the mutation path, migrations, import, triggers, routines, sequences and maintenance as well as `execute_query` — eight call sites where there was one. The README claim is now substantially true; what is left is the specialised paths' own duplicated constants, which is a refactor, not a false claim.
+
 `README.md:158`. `pre_execute` is called at exactly one site
 (`qore-service/src/query.rs:388`). The specialised command paths —
 `routines.rs`, `sequences.rs`, `import.rs`, `maintenance.rs`, `triggers.rs` —
@@ -624,6 +745,8 @@ duplicated elsewhere. `PRODUCTION_SAFETY.md:36` and `THREAT_MODEL.md:31` already
 admit this; the README does not.
 
 ### D9. The README conflates two unrelated subsystems
+
+> **Re-verified 2026-08-02** — **Open.** `README.md:160` and `changelog.ts:197` still conflate the two subsystems.
 
 `README.md:157`: "Query rate limiting — Per-connection guardrail ..., **plus a
 filesystem capability allow-list**."
@@ -639,6 +762,8 @@ allow-list (`:31-32`). `src/data/changelog.ts:165` repeats the same conflation.
 
 ### D10. The consent dialog inverts its own security model
 
+> **Re-verified 2026-08-02** — **Open.** `ConsentDialog.tsx:107` still pre-checks every requested capability.
+
 `ConsentDialog.tsx:107` pre-checks every capability the manifest requested
 (`setGrants(new Set(initialGrants ?? requestedCaps(plugin)))`). The backend model
 is carefully opt-in — consent is intersected with the manifest, checks happen at
@@ -649,6 +774,8 @@ Given that `queryRead` + `http` together are the exfiltration path, this is the
 one UI default worth reconsidering.
 
 ### D2. Declared telemetry was never instrumented
+
+> **Re-verified 2026-08-02** — **Resolved** — see the note below, which was already recorded.
 
 `doc/release/EVENTS.md:56-60` declares `instant_api_started`,
 `instant_api_endpoint_created` and `instant_api_request` (sampled 1/100). None of
@@ -748,38 +875,58 @@ They are listed because they shape what the feature can be sold as.
 
 ## Recommended Sequence
 
-**Ship first — one code fix, no debate:**
+Rewritten 2026-08-02 for what is left. The original ordering is preserved below
+for the record.
 
-1. **A2** — validate SQL Server TLS certificates. The only finding here where a
-   user is denied a protection they explicitly asked for. Everything else in this
-   document is a sentence; this one is a vulnerability.
+**The one that can still mislead a user, not just a reader:**
+
+1. **C9** — wire `context.is_dangerous` into `check_rule`. Fixes both built-in
+   rule bugs and the first-word classification weakness in one change, and closes
+   the staging hole where `UPDATE users SET x=1;` runs unconfirmed.
+
+*(B9 and C8, which led this list, shipped on 2026-08-02.)*
 
 **Then the false claims, cheapest first. All strings:**
 
-2. **A1** — rewrite the Sandbox discovery-panel copy in all nine locales.
-3. **B8** — remove the three non-existent Visual Diff bullets from `en.json` and
-   fix "side-by-side" in the README. Same surface as A1: Pro discovery copy.
-4. **B5** — amend the local-first claim, or make the update check opt-in.
-5. **B6** — the plugin "no code execution" claim, in three places.
-6. **B1, B2, B7, B10, B11** — the remaining README corrections.
-7. **C7, D6** — `THREAT_MODEL.md` needs a pass: it invents a control that does
-   not exist and denies one that does.
+3. **B6** — the plugin "no code execution" claim, in three places
+   (`README.md:122`, `FEATURES.csv:94`, `plugins/mod.rs:5-9`). The sandbox is the
+   strongest thing in the codebase and is still being described as absent.
+4. **B8** — remove the three non-existent Visual Diff bullets from `en.json` and
+   fix "side-by-side" in the README. Still the only false claim shipping *inside*
+   the product.
+5. **C7, D6** — `THREAT_MODEL.md` still needs one pass, not two patches: it
+   invents a control that does not exist and denies one that does.
+6. **B10, B11, D7, D9** — the remaining README corrections.
+7. **B7** — either remove charts and inter-cell references from the README, or
+   ship the label field and the Add Cell entry. The rendering has been done for
+   months; only the two inputs are missing.
 
-**Then the code, in order of what it buys:**
+**Then the code:**
 
-8. **C8** — one line. Unblocks four drivers in the Data Generator and removes the
-   Sandbox's spurious warning.
-9. **C9** — wire `context.is_dangerous` into `check_rule`. Fixes both built-in
-   rule bugs and the first-word classification weakness together.
-10. **B9** — surface and configure the Visual Diff row cap. Blocking a feature
-    page today.
-11. **B3, B4, C1, C2, C10** — the OpenAPI contract, endpoint validation, and the
-    acknowledgement paths.
-12. **D10** — stop pre-checking capabilities in the consent dialog.
+8. **C10** — carry the migrations token pattern (**C1**) over to the query path.
+   The store already exists; this is wiring.
+9. **C6** — `saveSandboxState` still has no `try`/`catch`, and the notebook draft
+    still writes query results to `localStorage` and swallows the quota error.
+10. **C5** — pass `sandboxMode` through to the Data Generator, or disable its
+    execute path while sandbox mode is active.
+11. **D10** — stop pre-checking capabilities in the consent dialog.
+12. **C4** — capture original row values and apply with an optimistic `WHERE`.
+    Turns a documented caveat into a selling point.
 13. **C3** — decide deliberately whether backend licence checks are wanted.
+14. **D1** — three stale doc-comments left: `auth.rs:5`, `api/mod.rs:12-13`,
+    `tls.rs:33`.
 
-**Standing:** D1, D2, D7, D8, D9 are cleanup. D3, D4, D5 need no action beyond
-being stated honestly wherever the features are described.
+**Standing:** D3, D4, D5 need no action beyond being stated honestly wherever the
+features are described.
+
+<details>
+<summary>Original sequence, 2026-07-17</summary>
+
+**Ship first — one code fix, no debate:** A2. **Then the false claims, cheapest
+first:** A1, B8, B5, B6, then B1/B2/B7/B10/B11, then C7/D6. **Then the code:**
+C8, C9, B9, then B3/B4/C1/C2/C10, D10, C3.
+
+</details>
 
 The showcase feature pages already carry the honest wording for seven of the nine
 features audited (`/features/instant-api`, `/features/sandbox`,
@@ -796,7 +943,10 @@ honest page would read as a defect list.
 
 Nine independent read-only passes over the codebase at baseline
 `d7857030f650e16c5fa8890b01bf1769539f377a`, each tracing public claims to
-implementation. Every finding cites file and line. Claims that could not be traced
+implementation. The 2026-08-02 pass re-checked each of the thirty findings
+against `bc3b036`, at the file and line the finding cites, and recorded the
+outcome inline. It did not look for new findings, so the scope note below still
+bounds what this document covers. Every finding cites file and line. Claims that could not be traced
 to code are recorded as absent rather than inferred. Numeric values quoted here
 were re-verified directly against the source after the passes completed.
 

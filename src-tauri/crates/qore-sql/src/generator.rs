@@ -48,7 +48,10 @@ pub enum SqlDialect {
 impl SqlDialect {
     pub fn from_driver_id(driver_id: &str) -> Option<Self> {
         match driver_id.to_lowercase().as_str() {
-            "postgres" | "postgresql" => Some(SqlDialect::Postgres),
+            // The managed Postgres drivers speak the same DML as Postgres; they
+            // differ in connection handling, not in generated SQL.
+            "postgres" | "postgresql" | "cockroachdb" | "cockroach" | "neon" | "supabase"
+            | "timescaledb" => Some(SqlDialect::Postgres),
             "mysql" | "mariadb" => Some(SqlDialect::MySql),
             "sqlite" => Some(SqlDialect::Sqlite),
             "sqlserver" | "mssql" => Some(SqlDialect::SqlServer),
@@ -484,6 +487,24 @@ pub fn generate_migration_script(driver_id: &str, changes: &[SandboxChangeDto]) 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn managed_postgres_drivers_resolve_to_postgres() {
+        for driver in ["cockroachdb", "neon", "supabase", "timescaledb"] {
+            assert_eq!(
+                SqlDialect::from_driver_id(driver),
+                Some(SqlDialect::Postgres),
+                "{driver} must not fall through to the unknown-driver branch"
+            );
+        }
+    }
+
+    #[test]
+    fn non_sql_drivers_have_no_dialect() {
+        for driver in ["mongodb", "redis", "valkey", "elasticsearch"] {
+            assert_eq!(SqlDialect::from_driver_id(driver), None);
+        }
+    }
 
     #[test]
     fn test_quote_ident_postgres() {

@@ -1,9 +1,21 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { ScrollArea } from '@/components/ui/scroll-area';
-import type { Driver } from '@/lib/connection/drivers';
-import { DRIVER_ICONS, DRIVER_LABELS } from '@/lib/connection/drivers';
+import { Search } from 'lucide-react';
+import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { Input } from '@/components/ui/input';
+import type { DataModel, Driver } from '@/lib/connection/drivers';
+import { DRIVERS } from '@/lib/connection/drivers';
 import { cn } from '@/lib/utils';
+
+const MODEL_LABELS: { model: DataModel; labelKey: string }[] = [
+  { model: 'relational', labelKey: 'connection.driverGroups.relational' },
+  { model: 'document', labelKey: 'connection.driverGroups.document' },
+  { model: 'key-value', labelKey: 'connection.driverGroups.keyValue' },
+  { model: 'time-series', labelKey: 'connection.driverGroups.timeSeries' },
+  { model: 'search', labelKey: 'connection.driverGroups.search' },
+  { model: 'graph', labelKey: 'connection.driverGroups.graph' },
+];
 
 export function DriverPicker(props: {
   driver: Driver;
@@ -11,46 +23,103 @@ export function DriverPicker(props: {
   onChange: (driver: Driver) => void;
 }) {
   const { driver, isEditMode, onChange } = props;
+  const { t } = useTranslation();
+  const [query, setQuery] = useState('');
+  const [model, setModel] = useState<DataModel | null>(null);
+
+  const all = Object.values(DRIVERS);
+  const filters = MODEL_LABELS.filter(f => all.some(meta => meta.dataModel === f.model));
+
+  const needle = query.trim().toLowerCase();
+  const visible = all.filter(
+    meta =>
+      (model === null || meta.dataModel === model) && meta.label.toLowerCase().includes(needle)
+  );
 
   return (
-    <ScrollArea className="max-h-[60vh]">
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 px-1 py-1 pr-3">
-        {(Object.keys(DRIVER_LABELS) as Driver[]).map(d => (
+    <div className="space-y-3">
+      <div className="relative px-1">
+        <Search
+          size={14}
+          className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+        />
+        <Input
+          value={query}
+          onChange={e => setQuery(e.target.value)}
+          placeholder={t('connection.driverSearch')}
+          disabled={isEditMode}
+          autoFocus
+          className="pl-9"
+        />
+      </div>
+
+      <div className="flex flex-wrap gap-2 px-1">
+        {[{ model: null, labelKey: 'connection.driverGroups.all' }, ...filters].map(filter => (
           <button
-            key={d}
+            key={filter.model ?? 'all'}
             type="button"
-            className={cn(
-              'flex flex-col items-center gap-2 p-3 rounded-xl border-2 transition-all hover:scale-[1.02] active:scale-[0.98]',
-              driver === d
-                ? 'border-accent bg-accent/5'
-                : 'border-border bg-background hover:border-foreground/20 hover:bg-muted/50'
-            )}
-            onClick={() => onChange(d)}
+            onClick={() => setModel(filter.model)}
             disabled={isEditMode}
+            className={cn(
+              'inline-flex items-center gap-1.5 px-2.5 py-1 text-xs rounded-full border transition-colors',
+              model === filter.model
+                ? 'bg-primary text-primary-foreground border-primary'
+                : 'bg-muted/50 text-muted-foreground border-border hover:bg-muted hover:text-foreground'
+            )}
           >
-            <div
-              className={cn(
-                'flex items-center justify-center w-12 h-12 rounded-xl p-2 transition-colors shadow-sm',
-                driver === d ? 'bg-accent/10' : 'bg-muted'
-              )}
-            >
-              <img
-                src={`/databases/${DRIVER_ICONS[d]}`}
-                alt={DRIVER_LABELS[d]}
-                className="w-full h-full object-contain"
-              />
-            </div>
-            <span
-              className={cn(
-                'text-xs font-semibold text-center',
-                driver === d ? 'text-accent' : 'text-foreground'
-              )}
-            >
-              {DRIVER_LABELS[d]}
-            </span>
+            {t(filter.labelKey)}
           </button>
         ))}
       </div>
-    </ScrollArea>
+
+      {/* Native scroll: Radix ScrollArea sizes its viewport with `h-full`, which
+          resolves to `auto` under a `max-h` root — the content is clipped and
+          nothing scrolls. */}
+      <div className="max-h-[55vh] overflow-y-auto">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 px-1 py-1 pr-3">
+          {visible.map(meta => (
+            <button
+              key={meta.id}
+              type="button"
+              className={cn(
+                'flex flex-col items-center gap-2 p-3 rounded-xl border-2 transition-all hover:scale-[1.02] active:scale-[0.98]',
+                driver === meta.id
+                  ? 'border-accent bg-accent/5'
+                  : 'border-border bg-background hover:border-foreground/20 hover:bg-muted/50'
+              )}
+              onClick={() => onChange(meta.id)}
+              disabled={isEditMode}
+            >
+              <div
+                className={cn(
+                  'flex items-center justify-center w-12 h-12 rounded-xl p-2 transition-colors shadow-sm',
+                  driver === meta.id ? 'bg-accent/10' : 'bg-muted'
+                )}
+              >
+                <img
+                  src={`/databases/${meta.icon}`}
+                  alt={meta.label}
+                  className="w-full h-full object-contain"
+                />
+              </div>
+              <span
+                className={cn(
+                  'text-xs font-semibold text-center',
+                  driver === meta.id ? 'text-accent' : 'text-foreground'
+                )}
+              >
+                {meta.label}
+              </span>
+            </button>
+          ))}
+        </div>
+
+        {visible.length === 0 && (
+          <p className="py-8 text-center text-sm text-muted-foreground">
+            {t('connection.driverSearchEmpty', { query: query.trim() })}
+          </p>
+        )}
+      </div>
+    </div>
   );
 }

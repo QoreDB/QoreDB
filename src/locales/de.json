@@ -357,9 +357,16 @@
     "neonHint": "Neon: Endpoints brauchen beim ersten Connect 5–10s zum Aufwachen.",
     "timescaledbHint": "TimescaleDB: verbindet sich wie PostgreSQL mit aktivierter timescaledb-Extension.",
     "driverGroups": {
-      "sql": "SQL",
-      "nosql": "NoSQL"
+      "all": "Alle",
+      "relational": "Relational",
+      "document": "Dokument",
+      "keyValue": "Schlüssel-Wert",
+      "timeSeries": "Zeitreihen",
+      "search": "Suche",
+      "graph": "Graph"
     },
+    "driverSearch": "Engine suchen…",
+    "driverSearchEmpty": "Keine Engine passt zu „{{query}}“",
     "clickhouse": {
       "cluster": "Cluster-Name (optional)",
       "clusterPlaceholder": "z. B. shard_cluster",
@@ -1414,7 +1421,8 @@
     "refreshData": "Tabelle aktualisieren",
     "toggleSandbox": "Sandbox-Modus umschalten",
     "pressToClose": "Drücken Sie ? oder Esc zum Schließen",
-    "exitZenMode": "Zen-Modus beenden"
+    "exitZenMode": "Zen-Modus beenden",
+    "aiInlineEdit": "Inline-KI-Bearbeitung"
   },
   "toolbar": {
     "moreActions": "Weitere Aktionen",
@@ -2169,7 +2177,13 @@
     "detectedPKHint": "Klicken, um die erkannten Primärschlüsselspalten zu verwenden",
     "noCommonColumns": "Keine gemeinsamen Spalten zwischen den beiden Quellen. Wählen Sie kompatible Tabellen.",
     "noCommonColumnsWarning": "Keine gemeinsamen Spalten. Vergleich nach Spaltenposition.",
-    "trivialCommonColumnsWarning": "Einzige gemeinsame Spalten sind {{columns}}. Der Vergleich könnte irreführend sein."
+    "trivialCommonColumnsWarning": "Einzige gemeinsame Spalten sind {{columns}}. Der Vergleich könnte irreführend sein.",
+    "rowLimit": "Zeilenlimit",
+    "truncatedWarning": "Vergleich auf die ersten {{limit}} Zeilen begrenzt ({{sides}}). Die Zeilen kommen ohne garantierte Reihenfolge zurück, dieser Diff ist daher möglicherweise nicht vollständig.",
+    "side": {
+      "left": "links",
+      "right": "rechts"
+    }
   },
   "virtualRelations": {
     "title": "Virtuelle Relationen",
@@ -2504,6 +2518,25 @@
       "sampleRowsDescription": "Einige Beispielzeilen mit der KI teilen, um ihre Vorschläge zu verbessern. Sensible Spalten bleiben maskiert, sofern unten nicht erlaubt.",
       "sensitiveData": "Sensible Daten",
       "sensitiveDataDescription": "Der KI erlauben, sensible Werte zu sehen (E-Mails, Namen, Telefonnummern …). Wenn deaktiviert, werden diese Spalten vor dem Senden an den Anbieter maskiert."
+    },
+    "inlineEdit": {
+      "title": "Abfrage umschreiben",
+      "titleSelection": "Auswahl umschreiben",
+      "placeholder": "Beschreibe die Änderung — zum Beispiel „Filter auf die letzten 30 Tage hinzufügen“",
+      "notConfigured": "Kein KI-Anbieter konfiguriert. Wähle einen in den Einstellungen.",
+      "working": "Wird generiert…",
+      "noQuery": "Das Modell hat keine verwendbare Abfrage geliefert.",
+      "identical": "Keine Änderung",
+      "dangerous": "Sensible Abfrage",
+      "apply": "Abfrage ersetzen",
+      "applySelection": "Auswahl ersetzen",
+      "generate": "Generieren"
+    },
+    "explain": {
+      "explainTable": "Diese Tabelle erklären",
+      "summarizeSchema": "Dieses Schema zusammenfassen",
+      "tableTitle": "Tabelle {{table}}",
+      "schemaTitle": "Schema {{namespace}}"
     }
   },
   "agentChat": {

@@ -15,6 +15,7 @@ export const CONNECTION_URL_PLACEHOLDERS = {
   [Driver.Mariadb]: 'mysql://user:password@localhost:3306/mydb',
   [Driver.Mongodb]: 'mongodb://user:password@localhost:27017/mydb',
   [Driver.Redis]: 'redis://default:password@localhost:6379/0',
+  [Driver.Valkey]: 'valkey://default:password@localhost:6379/0',
   [Driver.Motherduck]:
     'postgresql://postgres:motherduck_token@pg.<region>-aws.motherduck.com:5432/md:?sslmode=verify-full',
   [Driver.SqlServer]: 'sqlserver://user:password@localhost:1433/mydb?encrypt=true',

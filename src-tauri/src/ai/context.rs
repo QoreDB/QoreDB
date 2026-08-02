@@ -81,7 +81,7 @@ pub fn clamp_history(history: &[AiMessage]) -> Vec<AiMessage> {
 pub fn dialect_for_driver(driver_id: &str) -> QueryDialect {
     match driver_id {
         "mongodb" => QueryDialect::MongoMql,
-        "redis" => QueryDialect::Redis,
+        "redis" | "valkey" => QueryDialect::Redis,
         _ => QueryDialect::Sql,
     }
 }

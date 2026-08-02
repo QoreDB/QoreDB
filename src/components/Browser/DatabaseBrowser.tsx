@@ -75,6 +75,7 @@ import {
   Driver,
   type DriverMetadata,
   getDriverMetadata,
+  isKeyValueDriver,
 } from '../../lib/connection/drivers';
 import {
   type Collection,
@@ -1036,7 +1037,7 @@ export function DatabaseBrowser({
         />
       )}
 
-      {driver === Driver.Redis && (
+      {isKeyValueDriver(driver) && (
         <LuaScriptModal
           isOpen={luaModalOpen}
           onClose={() => setLuaModalOpen(false)}
@@ -1159,7 +1160,7 @@ function DatabaseBrowserHeader({
           </Button>
         )}
 
-        {driver === Driver.Redis && !readOnly && (
+        {isKeyValueDriver(driver) && !readOnly && (
           <>
             <Button
               variant="ghost"

@@ -26,7 +26,7 @@ pub mod pg_compat;
 pub mod postgres;
 #[cfg(feature = "sqlx-postgres")]
 pub mod postgres_utils;
-#[cfg(feature = "driver-redis")]
+#[cfg(any(feature = "driver-redis", feature = "driver-valkey"))]
 pub mod redis;
 #[cfg(any(feature = "driver-elasticsearch", feature = "driver-opensearch"))]
 pub mod search_compat;

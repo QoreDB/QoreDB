@@ -286,9 +286,11 @@ export async function aiExplainResult(
 export async function aiSummarizeSchema(
   sessionId: string,
   config: AiConfig,
-  namespace?: Namespace
+  namespace?: Namespace,
+  /** Narrows the summary to a single table. */
+  table?: string
 ): Promise<AiResponse> {
-  return invoke('ai_summarize_schema', { sessionId, config, namespace });
+  return invoke('ai_summarize_schema', { sessionId, config, namespace, table });
 }
 
 export async function aiFixError(request: AiRequest): Promise<void> {

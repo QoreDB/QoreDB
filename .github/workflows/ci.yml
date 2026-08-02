@@ -100,6 +100,9 @@ jobs:
       - name: Run backend tests
         env:
           RUST_TEST_THREADS: 1
+          QOREDB_TEST_POSTGRES_REQUIRED: "true"
+          QOREDB_TEST_MYSQL_REQUIRED: "true"
+          QOREDB_TEST_MONGO_REQUIRED: "true"
           PUBLIC_KEY_BASE64: ${{ vars.PUBLIC_KEY_BASE64 }}
         run: |
           dbus-run-session -- bash -c "cd src-tauri && cargo test"

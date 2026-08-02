@@ -8,6 +8,7 @@ const DIALECT_MAP: Record<Driver, SqlLanguage> = {
   [Driver.Mysql]: 'mysql',
   [Driver.Mongodb]: 'sql',
   [Driver.Redis]: 'sql',
+  [Driver.Valkey]: 'sql',
   [Driver.Sqlite]: 'sqlite',
   [Driver.SqlServer]: 'tsql',
   [Driver.Duckdb]: 'sql',

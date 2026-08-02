@@ -7,6 +7,7 @@ import {
   FileCode,
   Plus,
   RefreshCw,
+  Sparkles,
   Trash2,
   Upload,
   Wrench,
@@ -35,6 +36,7 @@ interface DatabaseContextMenuProps {
   onRestore?: () => void;
   onImportSql?: () => void;
   onTruncateAll?: () => void;
+  onAiSummarize?: () => void;
   canCreateTable: boolean;
   canDelete: boolean;
   canExportSchema: boolean;
@@ -55,6 +57,7 @@ export function DatabaseContextMenu({
   onRestore,
   onImportSql,
   onTruncateAll,
+  onAiSummarize,
   canCreateTable,
   canDelete,
   canExportSchema,
@@ -78,6 +81,12 @@ export function DatabaseContextMenu({
           <RefreshCw size={14} />
           {t('dbtree.refresh')}
         </ContextMenuItem>
+        {onAiSummarize && (
+          <ContextMenuItem onSelect={onAiSummarize}>
+            <Sparkles size={14} />
+            {t('ai.explain.summarizeSchema')}
+          </ContextMenuItem>
+        )}
         {canBackup && onBackup && onRestore ? (
           <>
             <ContextMenuSeparator />

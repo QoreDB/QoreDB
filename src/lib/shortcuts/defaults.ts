@@ -86,4 +86,12 @@ export const SHORTCUT_DEFINITIONS: ShortcutDefinition[] = [
     labelKey: 'cheatsheet.fulltextSearch',
     defaultChord: { modifiers: ['mod', 'shift'], key: 'f' },
   },
+  {
+    id: 'aiInlineEdit',
+    category: 'editor',
+    labelKey: 'cheatsheet.aiInlineEdit',
+    defaultChord: { modifiers: ['mod'], key: 'i' },
+    // Fires from inside the SQL editor, which is a contentEditable target.
+    worksInTextInput: true,
+  },
 ];

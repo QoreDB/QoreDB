@@ -77,6 +77,7 @@ all-drivers = [
     "driver-sqlserver",
     "driver-supabase",
     "driver-timescaledb",
+    "driver-valkey",
 ]
 driver-clickhouse = ["dep:reqwest"]
 driver-cockroachdb = ["sqlx-postgres"]
@@ -94,6 +95,7 @@ driver-sqlite = ["dep:futures", "dep:sqlx", "sqlx/sqlite"]
 driver-sqlserver = ["dep:bb8", "dep:bb8-tiberius", "dep:tiberius", "dep:tokio-util"]
 driver-supabase = ["sqlx-postgres"]
 driver-timescaledb = ["sqlx-postgres"]
+driver-valkey = ["dep:futures", "dep:redis"]
 duckdb-bundled = ["driver-duckdb", "duckdb/bundled"]
 sqlx-mysql = ["dep:futures", "dep:sqlx", "sqlx/mysql"]
 sqlx-postgres = ["dep:futures", "dep:sqlx", "sqlx/postgres"]

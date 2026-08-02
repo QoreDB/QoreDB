@@ -62,7 +62,7 @@ pub fn redact_query(query: &str, driver_id: &str) -> String {
 
     let base = match driver_id.to_lowercase().as_str() {
         "mongodb" | "mongo" => redact_mongo(query),
-        "redis" => redact_redis(query),
+        "redis" | "valkey" => redact_redis(query),
         _ => redact_sql(query),
     };
 

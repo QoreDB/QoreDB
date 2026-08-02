@@ -18,7 +18,7 @@ and which code baseline was checked.
 | [GDPR_AUDIT.md](GDPR_AUDIT.md) | 2025-02-21 | 2026-07-08 | Reviewed, targeted refresh | Add a user-facing local-data lifecycle view and purge controls. |
 | [OWASP_ALIGNMENT.md](OWASP_ALIGNMENT.md) | 2026-03-23 | 2026-07-08 | Reviewed, targeted refresh | Monitor remaining dependency-health warnings and add export/governance regression tests. |
 | [SOC2_ALIGNMENT.md](SOC2_ALIGNMENT.md) | 2026-03-23 | 2026-07-08 | Reviewed, targeted refresh | Finish local data lifecycle controls and keep dependency-audit evidence current. |
-| [CLAIMS_VS_CODE.md](CLAIMS_VS_CODE.md) | 2026-07-17 | 2026-07-17 | Needs update | Validate SQL Server TLS certificates (A2), then rewrite the Sandbox and Visual Diff discovery-panel strings. Extend the pass to performance claims and the remaining drivers. |
+| [CLAIMS_VS_CODE.md](CLAIMS_VS_CODE.md) | 2026-07-17 | 2026-08-02 | Reviewed, 11 of 30 findings closed | Surface the Visual Diff 1,000-row cap (B9) and wire `is_dangerous` into the safety rules (C9) — the two open findings that are not just wording. Then the plugin "no code execution" claim (B6) and the Visual Diff discovery strings (B8). Extend the pass to performance claims and the remaining drivers. |
 | [BUILD_WEIGHT_AUDIT.md](BUILD_WEIGHT_AUDIT.md) | 2026-07-26 | 2026-07-26 | Reviewed, targeted optimization applied | Validate static DuckDB packaging on the full release matrix; evaluate Arrow version alignment separately. |
 
 `PLUGIN_TRUST.md` was not present in `doc/audits` during this review pass, so

@@ -55,6 +55,7 @@ impl From<crate::engine::connection_url::PartialConnectionConfig> for PartialCon
 /// - MySQL: `mysql://`
 /// - MongoDB: `mongodb://` and `mongodb+srv://`
 /// - Redis: `redis://` and `rediss://` (TLS)
+/// - Valkey: `valkey://` and `valkeys://` (TLS)
 ///
 /// The parsed fields can be merged with explicit form values to create a complete
 /// ConnectionConfig. URL values are parsed first, then explicit values override them.
@@ -109,6 +110,8 @@ pub fn get_supported_url_schemes() -> Vec<String> {
         "mongodb+srv".to_string(),
         "redis".to_string(),
         "rediss".to_string(),
+        "valkey".to_string(),
+        "valkeys".to_string(),
     ]
 }
 

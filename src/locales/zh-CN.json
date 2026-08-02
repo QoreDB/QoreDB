@@ -357,9 +357,16 @@
     "neonHint": "Neon: 端点首次连接可能需要 5–10 秒唤醒。",
     "timescaledbHint": "TimescaleDB: 像启用了 timescaledb 扩展的 PostgreSQL 一样连接。",
     "driverGroups": {
-      "sql": "SQL",
-      "nosql": "NoSQL"
+      "all": "全部",
+      "relational": "关系型",
+      "document": "文档型",
+      "keyValue": "键值型",
+      "timeSeries": "时序型",
+      "search": "搜索型",
+      "graph": "图数据库"
     },
+    "driverSearch": "搜索数据库引擎…",
+    "driverSearchEmpty": "没有匹配“{{query}}”的引擎",
     "clickhouse": {
       "cluster": "集群名称（可选）",
       "clusterPlaceholder": "例如 shard_cluster",
@@ -1414,7 +1421,8 @@
     "refreshData": "刷新表",
     "toggleSandbox": "切换沙盒模式",
     "pressToClose": "按 ? 或 Esc 关闭",
-    "exitZenMode": "退出专注模式"
+    "exitZenMode": "退出专注模式",
+    "aiInlineEdit": "行内 AI 编辑"
   },
   "toolbar": {
     "moreActions": "更多操作",
@@ -2169,7 +2177,13 @@
     "detectedPKHint": "点击使用检测到的主键列",
     "noCommonColumns": "两个数据源之间没有公共列。请选择兼容的表。",
     "noCommonColumnsWarning": "没有公共列。按列位置进行比较。",
-    "trivialCommonColumnsWarning": "公共列仅有 {{columns}}。对比结果可能有误导性。"
+    "trivialCommonColumnsWarning": "公共列仅有 {{columns}}。对比结果可能有误导性。",
+    "rowLimit": "行数上限",
+    "truncatedWarning": "比较仅覆盖前 {{limit}} 行（{{sides}}）。返回顺序没有保证，因此该差异可能不完整。",
+    "side": {
+      "left": "左侧",
+      "right": "右侧"
+    }
   },
   "virtualRelations": {
     "title": "虚拟关系",
@@ -2504,6 +2518,25 @@
       "sampleRowsDescription": "与 AI 共享少量示例行以改进建议。除非在下方允许,敏感列仍保持脱敏。",
       "sensitiveData": "敏感数据",
       "sensitiveDataDescription": "允许 AI 查看敏感值(邮箱、姓名、电话等)。关闭时,这些列会在发送给提供商之前被脱敏。"
+    },
+    "inlineEdit": {
+      "title": "重写查询",
+      "titleSelection": "重写所选内容",
+      "placeholder": "描述要做的修改 —— 例如“加一个最近 30 天的过滤条件”",
+      "notConfigured": "尚未配置 AI 提供商，请在设置中选择一个。",
+      "working": "生成中…",
+      "noQuery": "模型没有返回可用的查询。",
+      "identical": "没有变化",
+      "dangerous": "敏感查询",
+      "apply": "替换查询",
+      "applySelection": "替换所选内容",
+      "generate": "生成"
+    },
+    "explain": {
+      "explainTable": "解释这张表",
+      "summarizeSchema": "总结该模式",
+      "tableTitle": "表 {{table}}",
+      "schemaTitle": "模式 {{namespace}}"
     }
   },
   "agentChat": {

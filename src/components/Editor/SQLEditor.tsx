@@ -44,6 +44,8 @@ interface SQLEditorProps {
 export interface SQLEditorHandle {
   insertSnippet: (snippetText: string) => void;
   getSelection: () => string;
+  /** Replaces the selection, or the whole document when nothing is selected. */
+  replaceSelectionOrAll: (text: string) => void;
   focus: () => void;
 }
 
@@ -387,6 +389,17 @@ export const SQLEditor = forwardRef<SQLEditorHandle, SQLEditorProps>(function SQ
         if (!view) return '';
         const { from, to } = view.state.selection.main;
         return view.state.sliceDoc(from, to);
+      },
+      replaceSelectionOrAll: text => {
+        const view = viewRef.current;
+        if (!view || readOnlyRef.current) return;
+        const { from, to } = view.state.selection.main;
+        const range = from === to ? { from: 0, to: view.state.doc.length } : { from, to };
+        view.dispatch({
+          changes: { ...range, insert: text },
+          selection: { anchor: range.from + text.length },
+        });
+        view.focus();
       },
       focus: () => {
         viewRef.current?.focus();

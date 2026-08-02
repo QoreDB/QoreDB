@@ -357,9 +357,16 @@
     "neonHint": "Neon: 初回接続時にエンドポイントが起動するまで 5〜10 秒かかる場合があります。",
     "timescaledbHint": "TimescaleDB: timescaledb 拡張が有効な PostgreSQL として接続。",
     "driverGroups": {
-      "sql": "SQL",
-      "nosql": "NoSQL"
+      "all": "すべて",
+      "relational": "リレーショナル",
+      "document": "ドキュメント",
+      "keyValue": "キーバリュー",
+      "timeSeries": "時系列",
+      "search": "検索",
+      "graph": "グラフ"
     },
+    "driverSearch": "エンジンを検索…",
+    "driverSearchEmpty": "「{{query}}」に一致するエンジンはありません",
     "clickhouse": {
       "cluster": "クラスター名（任意）",
       "clusterPlaceholder": "例: shard_cluster",
@@ -1414,7 +1421,8 @@
     "refreshData": "テーブルを更新",
     "toggleSandbox": "サンドボックスモードの切り替え",
     "pressToClose": "? または Esc で閉じる",
-    "exitZenMode": "Zen モードを終了"
+    "exitZenMode": "Zen モードを終了",
+    "aiInlineEdit": "インライン AI 編集"
   },
   "toolbar": {
     "moreActions": "その他のアクション",
@@ -2169,7 +2177,13 @@
     "detectedPKHint": "クリックして検出された主キーカラムを使用",
     "noCommonColumns": "2つのソース間に共通のカラムがありません。互換性のあるテーブルを選択してください。",
     "noCommonColumnsWarning": "共通のカラムがありません。カラム位置で比較します。",
-    "trivialCommonColumnsWarning": "共通のカラムは {{columns}} のみです。差分が誤解を招く可能性があります。"
+    "trivialCommonColumnsWarning": "共通のカラムは {{columns}} のみです。差分が誤解を招く可能性があります。",
+    "rowLimit": "行数の上限",
+    "truncatedWarning": "比較は先頭 {{limit}} 行に限定されています（{{sides}}）。行の順序は保証されないため、この差分は網羅的でない可能性があります。",
+    "side": {
+      "left": "左",
+      "right": "右"
+    }
   },
   "virtualRelations": {
     "title": "仮想リレーション",
@@ -2504,6 +2518,25 @@
       "sampleRowsDescription": "AI の提案精度を高めるため、サンプル行をいくつか共有します。機密性の高い列は、下で許可しない限りマスクされたままです。",
       "sensitiveData": "機密データ",
       "sensitiveDataDescription": "AI に機密性の高い値(メールアドレス、氏名、電話番号など)の閲覧を許可します。無効の場合、これらの列はプロバイダーへの送信前にマスクされます。"
+    },
+    "inlineEdit": {
+      "title": "クエリを書き換える",
+      "titleSelection": "選択範囲を書き換える",
+      "placeholder": "変更内容を記述してください — 例:「直近30日の絞り込みを追加」",
+      "notConfigured": "AI プロバイダーが未設定です。設定から選択してください。",
+      "working": "生成中…",
+      "noQuery": "モデルは使用可能なクエリを返しませんでした。",
+      "identical": "変更なし",
+      "dangerous": "注意が必要なクエリ",
+      "apply": "クエリを置き換える",
+      "applySelection": "選択範囲を置き換える",
+      "generate": "生成"
+    },
+    "explain": {
+      "explainTable": "このテーブルを説明",
+      "summarizeSchema": "このスキーマを要約",
+      "tableTitle": "テーブル {{table}}",
+      "schemaTitle": "スキーマ {{namespace}}"
     }
   },
   "agentChat": {

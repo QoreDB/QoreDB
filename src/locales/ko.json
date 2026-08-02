@@ -357,9 +357,16 @@
     "neonHint": "Neon: 첫 연결 시 엔드포인트 깨어남에 5–10초 걸릴 수 있습니다.",
     "timescaledbHint": "TimescaleDB: timescaledb 확장이 활성화된 PostgreSQL처럼 연결됩니다.",
     "driverGroups": {
-      "sql": "SQL",
-      "nosql": "NoSQL"
+      "all": "전체",
+      "relational": "관계형",
+      "document": "문서형",
+      "keyValue": "키-값",
+      "timeSeries": "시계열",
+      "search": "검색",
+      "graph": "그래프"
     },
+    "driverSearch": "엔진 검색…",
+    "driverSearchEmpty": "“{{query}}”와 일치하는 엔진이 없습니다",
     "clickhouse": {
       "cluster": "클러스터 이름 (선택)",
       "clusterPlaceholder": "예: shard_cluster",
@@ -1414,7 +1421,8 @@
     "refreshData": "테이블 새로고침",
     "toggleSandbox": "샌드박스 모드 전환",
     "pressToClose": "? 또는 Esc를 눌러 닫기",
-    "exitZenMode": "집중 모드 종료"
+    "exitZenMode": "집중 모드 종료",
+    "aiInlineEdit": "인라인 AI 편집"
   },
   "toolbar": {
     "moreActions": "더 많은 작업",
@@ -2169,7 +2177,13 @@
     "detectedPKHint": "감지된 기본 키 컬럼을 사용하려면 클릭하세요",
     "noCommonColumns": "두 소스 사이에 공통 컬럼이 없습니다. 호환되는 테이블을 선택하세요.",
     "noCommonColumnsWarning": "공통 컬럼이 없습니다. 컬럼 위치로 비교합니다.",
-    "trivialCommonColumnsWarning": "공통 컬럼이 {{columns}}뿐입니다. 비교 결과가 부정확할 수 있습니다."
+    "trivialCommonColumnsWarning": "공통 컬럼이 {{columns}}뿐입니다. 비교 결과가 부정확할 수 있습니다.",
+    "rowLimit": "행 제한",
+    "truncatedWarning": "비교가 처음 {{limit}}행으로 제한되었습니다({{sides}}). 행 순서는 보장되지 않으므로 이 비교가 완전하지 않을 수 있습니다.",
+    "side": {
+      "left": "왼쪽",
+      "right": "오른쪽"
+    }
   },
   "virtualRelations": {
     "title": "가상 관계",
@@ -2504,6 +2518,25 @@
       "sampleRowsDescription": "AI 제안 품질을 높이기 위해 샘플 행 몇 개를 공유합니다. 민감한 열은 아래에서 허용하지 않는 한 마스킹된 상태로 유지됩니다.",
       "sensitiveData": "민감한 데이터",
       "sensitiveDataDescription": "AI가 민감한 값(이메일, 이름, 전화번호 등)을 볼 수 있도록 허용합니다. 비활성화하면 해당 열은 공급자에게 전송되기 전에 마스킹됩니다."
+    },
+    "inlineEdit": {
+      "title": "쿼리 다시 작성",
+      "titleSelection": "선택 영역 다시 작성",
+      "placeholder": "변경 내용을 설명하세요 — 예: “최근 30일 필터 추가”",
+      "notConfigured": "AI 공급자가 설정되지 않았습니다. 설정에서 선택하세요.",
+      "working": "생성 중…",
+      "noQuery": "모델이 사용할 수 있는 쿼리를 반환하지 않았습니다.",
+      "identical": "변경 없음",
+      "dangerous": "민감한 쿼리",
+      "apply": "쿼리 바꾸기",
+      "applySelection": "선택 영역 바꾸기",
+      "generate": "생성"
+    },
+    "explain": {
+      "explainTable": "이 테이블 설명",
+      "summarizeSchema": "이 스키마 요약",
+      "tableTitle": "테이블 {{table}}",
+      "schemaTitle": "스키마 {{namespace}}"
     }
   },
   "agentChat": {

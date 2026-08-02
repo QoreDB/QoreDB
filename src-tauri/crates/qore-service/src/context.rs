@@ -25,7 +25,7 @@ use qore_drivers::drivers::neon::NeonDriver;
 use qore_drivers::drivers::opensearch::OpenSearchDriver;
 #[cfg(feature = "driver-postgres")]
 use qore_drivers::drivers::postgres::PostgresDriver;
-#[cfg(feature = "driver-redis")]
+#[cfg(any(feature = "driver-redis", feature = "driver-valkey"))]
 use qore_drivers::drivers::redis::RedisDriver;
 #[cfg(feature = "driver-sqlite")]
 use qore_drivers::drivers::sqlite::SqliteDriver;
@@ -72,6 +72,8 @@ impl ServiceContext {
         registry.register(Arc::new(MongoDriver::new()));
         #[cfg(feature = "driver-redis")]
         registry.register(Arc::new(RedisDriver::new()));
+        #[cfg(feature = "driver-valkey")]
+        registry.register(Arc::new(RedisDriver::valkey()));
         #[cfg(feature = "driver-sqlite")]
         registry.register(Arc::new(SqliteDriver::new()));
         #[cfg(feature = "driver-duckdb")]

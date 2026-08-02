@@ -137,8 +137,18 @@ Risque principal : divergence des formats tool-call entre providers. Mitigation 
 
 Chaque point est livrable indépendamment, dans l'ordre qu'on veut.
 
-1. **Cmd+K dans l'éditeur** : sélection (ou requête entière) + instruction → réécriture proposée en diff (réutiliser les composants Diff existants, eux aussi Premium) → appliquer/annuler. Raccourci enregistré dans `useKeyboardShortcuts`.
-2. **Schema browser** : « Expliquer cette table » (describe + LLM) dans le menu contextuel et brancher enfin `ai_summarize_schema` au niveau base (« Résumer ce schéma »). Sortie dans le panneau IA.
+1. ~~**Cmd+K dans l'éditeur**~~ — livré en `Cmd+I` : `Cmd+K` reste Spotlight, et éclipser un raccourci global
+   documenté pour un seul composant coûtait plus que le gain de conformité. Sélection (ou requête entière)
+   + instruction → diff ligne à ligne → appliquer/annuler. Les composants `Diff/` existants portent un diff
+   de **données** (lignes/colonnes), inutilisable pour du texte : `lib/query/inlineEditDiff.ts` fait le
+   diff de lignes, sans dépendance ajoutée. Raccourci déclaré dans `lib/shortcuts/defaults.ts`, donc
+   personnalisable et présent dans la cheatsheet.
+2. ~~**Schema browser**~~ — livré : « Expliquer cette table » et « Résumer ce schéma » dans les menus
+   contextuels de l'arbre. `ai_summarize_schema` prend un `table` optionnel plutôt qu'une seconde
+   commande ; le nom sert aussi d'indice de priorisation au constructeur de contexte, pour que la table
+   visée survive au plafond `MAX_TABLES` sur un schéma large. Sortie dans un dialogue et non dans le
+   panneau IA : le panneau vit dans un onglet query, l'arbre non — y router la réponse aurait demandé
+   d'ouvrir un onglet pour afficher un paragraphe.
 3. **Erreurs** : « Corriger avec l'IA » sur les toasts d'erreur de requête (aujourd'hui seulement dans QueryPanelResults).
 4. **Résultats** : l'explication s'affiche dans le panneau IA (fil de conversation) au lieu de l'overlay détaché de DataGrid — supprime l'état `aiExplanation` local.
 

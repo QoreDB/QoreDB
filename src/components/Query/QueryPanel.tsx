@@ -4,7 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { AiAssistantPanel } from '@/components/AI/AiAssistantPanel';
-import { UI_EVENT_OPEN_HISTORY } from '@/lib/events/uiEvents';
+import { InlineEditDialog } from '@/components/AI/InlineEditDialog';
+import { UI_EVENT_AI_INLINE_EDIT, UI_EVENT_OPEN_HISTORY } from '@/lib/events/uiEvents';
 import { createNotebookTab } from '@/lib/tabs';
 import { recordQueryAndMaybeNotify } from '@/lib/usageBanner';
 import { useLicense } from '@/providers/LicenseProvider';
@@ -164,6 +165,9 @@ export function QueryPanel({
   const [queryToSave, setQueryToSave] = useState<string>('');
   const [showAiPanel, setShowAiPanel] = useState(initialShowAiPanel ?? false);
   const [pendingAiFix, setPendingAiFix] = useState<{ query: string; error: string } | null>(null);
+  const [inlineEdit, setInlineEdit] = useState<{ source: string; isSelection: boolean } | null>(
+    null
+  );
 
   // Editor resize state
   const [editorHeight, setEditorHeight] = useState(loadEditorHeight);
@@ -981,6 +985,20 @@ export function QueryPanel({
     return () => window.removeEventListener(UI_EVENT_OPEN_HISTORY, handler);
   }, [isActive]);
 
+  useEffect(() => {
+    if (!isActive || isDocument) return;
+    const handler = () => {
+      const selection = sqlEditorRef.current?.getSelection() ?? '';
+      const isSelection = selection.trim().length > 0;
+      const source = isSelection ? selection : queryRef.current;
+      if (!source.trim()) return;
+      // Pressing the shortcut again while the dialog is up must not reset it.
+      setInlineEdit(prev => prev ?? { source, isSelection });
+    };
+    window.addEventListener(UI_EVENT_AI_INLINE_EDIT, handler);
+    return () => window.removeEventListener(UI_EVENT_AI_INLINE_EDIT, handler);
+  }, [isActive, isDocument]);
+
   return (
     <div
       ref={containerRef}
@@ -1111,6 +1129,20 @@ export function QueryPanel({
           onOverrideLimits={handleOverrideLimits}
         />
       </div>
+
+      {inlineEdit && (
+        <InlineEditDialog
+          open
+          source={inlineEdit.source}
+          isSelection={inlineEdit.isSelection}
+          sessionId={sessionId}
+          namespace={
+            activeNamespace ?? (connectionDatabase ? { database: connectionDatabase } : undefined)
+          }
+          onApply={rewritten => sqlEditorRef.current?.replaceSelectionOrAll(rewritten)}
+          onClose={() => setInlineEdit(null)}
+        />
+      )}
 
       <QueryHistory
         isOpen={historyOpen}

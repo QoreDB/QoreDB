@@ -5,6 +5,7 @@ import { KeyboardCheatsheet } from '@/components/KeyboardCheatsheet';
 import { useShortcutBindings } from '@/hooks/useKeyboardShortcuts';
 import {
   emitUiEvent,
+  UI_EVENT_AI_INLINE_EDIT,
   UI_EVENT_REFRESH_TABLE,
   UI_EVENT_TOGGLE_SANDBOX,
 } from '@/lib/events/uiEvents';
@@ -115,6 +116,9 @@ export function ShortcutProvider({ children }: { children: ReactNode }) {
         break;
       case 'toggleSandbox':
         if (sessionId) emitUiEvent(UI_EVENT_TOGGLE_SANDBOX);
+        break;
+      case 'aiInlineEdit':
+        if (sessionId && activeTab?.type === 'query') emitUiEvent(UI_EVENT_AI_INLINE_EDIT);
         break;
     }
   }

@@ -34,7 +34,7 @@ DBeaver, pgAdmin, phpMyAdmin do the job — but they feel slow, dated, and full 
 | ⚡ **Native performance** | Rust + Tauri. No Electron tax — small binary, instant startup, low memory. ~25% faster on real workloads than the previous baseline (Apple Silicon). |
 | 🔒 **Local-first & secure** | Credentials in your OS keychain (Argon2). Dev/Staging/Prod guards, dangerous query detection, read-only mode. |
 | 🕵️ **Zero telemetry** | No analytics SDK ships in the binary — nothing to opt out of. Your data, queries and credentials never leave your machine. Crash reports stay on disk until *you* choose to share one, and log exports are scrubbed of credentials. The only outbound call is the GitHub update check: it never fires before you've been through onboarding, and you can switch it off. |
-| 🧩 **SQL + NoSQL, unified** | One UI for PostgreSQL, MySQL, MariaDB, SQL Server, SQLite, DuckDB, CockroachDB, ClickHouse, MongoDB, Redis, Elasticsearch and OpenSearch — plus first-class support for Supabase, Neon, MotherDuck and TimescaleDB. |
+| 🧩 **SQL + NoSQL, unified** | One UI for PostgreSQL, MySQL, MariaDB, SQL Server, SQLite, DuckDB, CockroachDB, ClickHouse, MongoDB, Redis, Valkey, Elasticsearch and OpenSearch — plus first-class support for Supabase, Neon, MotherDuck and TimescaleDB. |
 | 📓 **Notebooks built-in** | Executable SQL/Mongo + Markdown documents with parameters, charts and Git-diffable `.qnb` files. |
 | 🛡️ **Safety-first** | Universal Query Interceptor, audit logging, sandbox mode with migration generation. Production damage is harder to do by accident. |
 | 🤝 **Open core** | Apache 2.0 core, readable and auditable. Premium add-ons under BUSL-1.1 — never at the expense of the open-source experience. |
@@ -54,6 +54,7 @@ DBeaver, pgAdmin, phpMyAdmin do the job — but they feel slow, dated, and full 
   <img src="public/databases/cockroachdb.png" alt="CockroachDB" height="40" />&nbsp;&nbsp;
   <img src="public/databases/mongodb.png" alt="MongoDB" height="40" />&nbsp;&nbsp;
   <img src="public/databases/redis.png" alt="Redis" height="40" />&nbsp;&nbsp;
+  <img src="public/databases/valkey.png" alt="Valkey" height="40" />&nbsp;&nbsp;
   <img src="public/databases/supabase.png" alt="Supabase" height="40" />&nbsp;&nbsp;
   <img src="public/databases/neon.png" alt="Neon" height="40" />&nbsp;&nbsp;
   <img src="public/databases/timescaledb.png" alt="TimescaleDB" height="40" />&nbsp;&nbsp;
@@ -142,10 +143,11 @@ DBeaver, pgAdmin, phpMyAdmin do the job — but they feel slow, dated, and full 
 </details>
 
 <details>
-<summary><b>MongoDB &amp; Redis</b></summary>
+<summary><b>MongoDB, Redis &amp; Valkey</b></summary>
 
 - **MongoDB** — Bulk write/find, aggregation pipeline validation, regex and text search, native index management UI
 - **Redis** — Create, edit and delete keys and values across all Redis types from the UI, with Lua script evaluation
+- **Valkey** — Same driver and same features as Redis; connects over `valkey://` / `valkeys://` or the Redis schemes
 </details>
 
 <details>
@@ -181,6 +183,8 @@ DBeaver, pgAdmin, phpMyAdmin do the job — but they feel slow, dated, and full 
 
 - Contextual query generation and error correction
 - Schema-aware suggestions
+- Inline rewrite (`Cmd+I`) — describe a change in plain language and review it as a diff before it replaces the selection or the query
+- Explain a table or summarize a schema straight from the tree
 - Natural-language DataGrid filters — describe a filter in plain language, preview the generated `WHERE` clause before applying
 - Q, your database agent — ask in natural language; Q explores the schema, runs read-only queries and answers with real data. Writes require explicit approval and are always blocked in production; conversations persist without storing query results
 - Bring your own key (OpenAI, Anthropic, …)

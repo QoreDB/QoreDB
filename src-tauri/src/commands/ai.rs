@@ -40,6 +40,7 @@ pub async fn ai_summarize_schema(
     _session_id: String,
     _config: serde_json::Value,
     _namespace: Option<serde_json::Value>,
+    _table: Option<String>,
 ) -> Result<serde_json::Value, String> {
     Err(PRO_REQUIRED.to_string())
 }
@@ -278,6 +279,8 @@ pub async fn ai_summarize_schema(
     session_id: String,
     config: AiConfig,
     namespace: Option<Namespace>,
+    // When set, the summary narrows to that table instead of the namespace.
+    table: Option<String>,
 ) -> Result<AiResponse, String> {
     let (session_manager, ai_manager, virtual_relations) = {
         let s = state.lock().await;
@@ -297,6 +300,12 @@ pub async fn ai_summarize_schema(
 
     let ns = namespace.unwrap_or_else(|| Namespace::new("default"));
 
+    let table = table.map(|t| t.trim().to_string()).filter(|t| !t.is_empty());
+
+    // The hint drives table prioritisation inside the context builder, so a
+    // named table survives the MAX_TABLES cut on a wide schema.
+    let hint = table.clone().unwrap_or_default();
+
     let schema_ctx = context::build_context(
         &session_manager,
         sid,
@@ -304,16 +313,22 @@ pub async fn ai_summarize_schema(
         &driver_id,
         &virtual_relations,
         None,
-        "",
+        &hint,
         false,
         !config.allow_sensitive_data,
     )
     .await?;
 
-    let user_prompt = "Summarize this database schema in a clear and concise way. Describe the main tables, their purposes, and the relationships between them.";
+    let user_prompt = match table.as_deref() {
+        Some(name) => format!(
+            "Explain the table `{name}`: what it holds, what each column is for, its keys, \
+             and how it relates to the other tables. Be concise."
+        ),
+        None => "Summarize this database schema in a clear and concise way. Describe the main tables, their purposes, and the relationships between them.".to_string(),
+    };
 
     let (content, tokens_used) =
-        collect_streamed_response(&ai_manager, &config, &schema_ctx.system_prompt, user_prompt)
+        collect_streamed_response(&ai_manager, &config, &schema_ctx.system_prompt, &user_prompt)
             .await?;
 
     Ok(AiResponse {

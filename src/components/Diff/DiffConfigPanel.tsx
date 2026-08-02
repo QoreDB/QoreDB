@@ -1,11 +1,18 @@
 // SPDX-License-Identifier: BUSL-1.1
 
 import { AlertTriangle, GitCompare, Key, Loader2, Sparkles, X } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import {
   TooltipContent,
   TooltipProvider,
@@ -14,6 +21,7 @@ import {
 } from '@/components/ui/tooltip';
 import { type ColumnInfo, describeTable, type Namespace } from '@/lib/tauri';
 import { cn } from '@/lib/utils';
+import { DIFF_ROW_LIMITS } from './hooks/useDiffSources';
 
 interface DiffConfigPanelProps {
   leftColumns?: ColumnInfo[];
@@ -31,6 +39,9 @@ interface DiffConfigPanelProps {
   rightNamespace?: Namespace;
   leftTableName?: string;
   rightTableName?: string;
+  rowLimit: number;
+  onRowLimitChange: (limit: number) => void;
+  truncatedSides: ('left' | 'right')[];
 }
 
 export function DiffConfigPanel({
@@ -49,8 +60,12 @@ export function DiffConfigPanel({
   rightNamespace,
   leftTableName,
   rightTableName,
+  rowLimit,
+  onRowLimitChange,
+  truncatedSides,
 }: DiffConfigPanelProps) {
   const { t } = useTranslation();
+  const rowLimitId = useId();
   const [autoDetectPK, setAutoDetectPK] = useState(true);
   const [detectedPK, setDetectedPK] = useState<string[]>([]);
   const [loadingPK, setLoadingPK] = useState(false);
@@ -220,6 +235,36 @@ export function DiffConfigPanel({
         <div className="flex items-start gap-2 text-sm text-warning">
           <AlertTriangle size={14} className="mt-0.5" />
           <span>{compareWarningText}</span>
+        </div>
+      )}
+
+      <div className="flex items-center gap-2 text-sm">
+        <Label htmlFor={rowLimitId} className="text-muted-foreground">
+          {t('diff.rowLimit')}
+        </Label>
+        <Select value={String(rowLimit)} onValueChange={value => onRowLimitChange(Number(value))}>
+          <SelectTrigger id={rowLimitId} className="h-8 w-32">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {DIFF_ROW_LIMITS.map(limit => (
+              <SelectItem key={limit} value={String(limit)}>
+                {limit.toLocaleString()}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {truncatedSides.length > 0 && (
+        <div className="flex items-start gap-2 text-sm text-warning">
+          <AlertTriangle size={14} className="mt-0.5 shrink-0" />
+          <span>
+            {t('diff.truncatedWarning', {
+              limit: rowLimit.toLocaleString(),
+              sides: truncatedSides.map(side => t(`diff.side.${side}`)).join(' / '),
+            })}
+          </span>
         </div>
       )}
 

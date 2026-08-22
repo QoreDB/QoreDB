@@ -1,12 +1,12 @@
 # Plan produit — Pagination et rendu des données
 
-> Statut au 25 juillet 2026
+> Statut au 21 août 2026
 >
 > - Verticale 1 — chargement sans comptage bloquant : livrée, correctifs appliqués, dette de contrat résorbée
 > - Verticale 2 — total honnête et opérations annulables : livrée
 > - Verticale 3 — coût du tri et de la recherche : livrée
 > - Verticale 4 — pagination stable par curseur : livrée, sauf l'édition sous curseur (9.6) et le forçage de stratégie (9.7)
-> - Verticale 5 — mémoire et rendu progressif : à concevoir
+> - Verticale 5 — mémoire et rendu progressif : livrée, cf. 10.1 à 10.5 et 13
 > - Verticale 6 — cohérence et sécurité : transverse
 >
 > Le découpage a été révisé après audit du code livré. Correspondance avec la

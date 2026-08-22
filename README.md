@@ -34,7 +34,7 @@ DBeaver, pgAdmin, phpMyAdmin do the job — but they feel slow, dated, and full 
 | ⚡ **Native performance** | Rust + Tauri. No Electron tax — small binary, instant startup, low memory. ~25% faster on real workloads than the previous baseline (Apple Silicon). |
 | 🔒 **Local-first & secure** | Credentials in your OS keychain (Argon2). Dev/Staging/Prod guards, dangerous query detection, read-only mode. |
 | 🕵️ **Zero telemetry** | No analytics SDK ships in the binary — nothing to opt out of. Your data, queries and credentials never leave your machine. Crash reports stay on disk until *you* choose to share one, and log exports are scrubbed of credentials. The only outbound call is the GitHub update check: it never fires before you've been through onboarding, and you can switch it off. |
-| 🧩 **SQL + NoSQL, unified** | One UI for PostgreSQL, MySQL, MariaDB, SQL Server, SQLite, DuckDB, CockroachDB, ClickHouse, MongoDB, Redis, Valkey, Elasticsearch and OpenSearch — plus first-class support for Supabase, Neon, MotherDuck and TimescaleDB. |
+| 🧩 **SQL + NoSQL, unified** | One UI for PostgreSQL, MySQL, MariaDB, SQL Server, SQLite, DuckDB, CockroachDB, ClickHouse, MongoDB, Redis, Valkey, Dragonfly, Elasticsearch and OpenSearch — plus first-class support for Supabase, Neon, PlanetScale, Amazon DocumentDB, MotherDuck and TimescaleDB. |
 | 📓 **Notebooks built-in** | Executable SQL/Mongo + Markdown documents with parameters, charts and Git-diffable `.qnb` files. |
 | 🛡️ **Safety-first** | Universal Query Interceptor, audit logging, sandbox mode with migration generation. Production damage is harder to do by accident. |
 | 🤝 **Open core** | Apache 2.0 core, readable and auditable. Premium add-ons under BUSL-1.1 — never at the expense of the open-source experience. |
@@ -47,14 +47,17 @@ DBeaver, pgAdmin, phpMyAdmin do the job — but they feel slow, dated, and full 
   <img src="public/databases/postgresql.png" alt="PostgreSQL" height="40" />&nbsp;&nbsp;
   <img src="public/databases/mysql.png" alt="MySQL" height="40" />&nbsp;&nbsp;
   <img src="public/databases/mariadb.png" alt="MariaDB" height="40" />&nbsp;&nbsp;
+  <img src="public/databases/planetscale.png" alt="PlanetScale" height="40" />&nbsp;&nbsp;
   <img src="public/databases/sqlserver.png" alt="SQL Server" height="40" />&nbsp;&nbsp;
   <img src="public/databases/sqlite.png" alt="SQLite" height="40" />&nbsp;&nbsp;
   <img src="public/databases/duckdb.png" alt="DuckDB" height="40" />&nbsp;&nbsp;
   <img src="public/databases/motherduck.png" alt="MotherDuck" height="40" />&nbsp;&nbsp;
   <img src="public/databases/cockroachdb.png" alt="CockroachDB" height="40" />&nbsp;&nbsp;
   <img src="public/databases/mongodb.png" alt="MongoDB" height="40" />&nbsp;&nbsp;
+  <img src="public/databases/documentdb.png" alt="Amazon DocumentDB" height="40" />&nbsp;&nbsp;
   <img src="public/databases/redis.png" alt="Redis" height="40" />&nbsp;&nbsp;
   <img src="public/databases/valkey.png" alt="Valkey" height="40" />&nbsp;&nbsp;
+  <img src="public/databases/dragonfly.png" alt="Dragonfly" height="40" />&nbsp;&nbsp;
   <img src="public/databases/supabase.png" alt="Supabase" height="40" />&nbsp;&nbsp;
   <img src="public/databases/neon.png" alt="Neon" height="40" />&nbsp;&nbsp;
   <img src="public/databases/timescaledb.png" alt="TimescaleDB" height="40" />&nbsp;&nbsp;
@@ -116,6 +119,7 @@ DBeaver, pgAdmin, phpMyAdmin do the job — but they feel slow, dated, and full 
 - **Export pipeline** — CSV, JSON, SQL, HTML, self-contained HTML (+ XLSX/Parquet in Pro)
 - **Cross-database federation** — Query and join across active connections via DuckDB
 - **Sandbox mode** — Stage grid edits locally, review the generated DML, then apply or export it; SQL editor queries are not sandboxed
+- **Query Replay Lab** — Record a set of queries while you work, replay it after a migration or against another connection, and get a report of what broke, what returns a different row count, what changed in content and what got slower; open the baseline ↔ run diff from any report row. Sets are shared through Git and carry expectations, never result rows _[Pro]_
 - **Migrations Manager** — Versioned `.sql` schema migrations in `.qoredb/migrations/`, shared through Git, applied with per-statement safety checks and transactional rollback when the driver supports it (MySQL/MariaDB DDL is non-transactional), with an applied-state history table (+ schema-diff generation, drift detection and Prod↔Staging schema diff in Pro)
 - **Backup &amp; restore** — Visual wrappers around `pg_dump`, `mysqldump`, `mongodump` and `sqlite3 .dump`, with streaming logs, cancel mid-run and tool-path overrides
 - **Query result cache** — Recent table navigation served instantly from a local cache, auto-invalidated when you change data through QoreDB
@@ -143,11 +147,14 @@ DBeaver, pgAdmin, phpMyAdmin do the job — but they feel slow, dated, and full 
 </details>
 
 <details>
-<summary><b>MongoDB, Redis &amp; Valkey</b></summary>
+<summary><b>MongoDB, Redis &amp; wire-compatible engines</b></summary>
 
 - **MongoDB** — Bulk write/find, aggregation pipeline validation, regex and text search, native index management UI
+- **Amazon DocumentDB** — Same driver and same features as MongoDB, with TLS forced on connect; VPC clusters go through the built-in SSH tunnel
 - **Redis** — Create, edit and delete keys and values across all Redis types from the UI, with Lua script evaluation
 - **Valkey** — Same driver and same features as Redis; connects over `valkey://` / `valkeys://` or the Redis schemes
+- **Dragonfly** — Same driver and same features as Redis; connects over the Redis schemes
+- **PlanetScale** — Same driver and same features as MySQL, with TLS forced on connect
 </details>
 
 <details>

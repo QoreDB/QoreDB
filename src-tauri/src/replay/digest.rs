@@ -13,8 +13,6 @@ use crate::engine::types::{QueryResult, Value};
 
 pub struct DigestOutcome {
     pub digest: String,
-    /// The result had more rows than the bound, so the digest covers a prefix
-    /// of the sorted rows rather than the whole set.
     pub partial: bool,
 }
 

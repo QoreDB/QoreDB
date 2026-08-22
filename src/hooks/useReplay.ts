@@ -33,6 +33,7 @@ import {
   startRecording,
   stopRecording,
 } from '@/lib/replay';
+import { getSecretPolicy } from '@/lib/replayPreferences';
 import { listSessions, type SessionListItem } from '@/lib/tauri';
 import { listen, type UnlistenFn } from '@/lib/transport';
 
@@ -159,6 +160,9 @@ export function useReplay(sessionId: string | null) {
           ignored_columns: options.ignoredColumns,
           capture_mode: options.captureMode,
           allow_production_capture: options.allowProductionCapture,
+          // Read at start: the set is governed by the policy in force when it
+          // was recorded, not by whatever the setting says later.
+          secret_policy: getSecretPolicy(),
         });
         setRecording(status);
         setPreviews([]);

@@ -14,6 +14,7 @@ use crate::interceptor::{QueryContext, QueryExecutionResult, fingerprint_query};
 
 use super::capture::CaptureStore;
 use super::digest::compute_digest;
+use super::secrets::{SecretPolicy, looks_like_secret};
 use super::types::{
     CaptureMode, CaptureStopReason, ExpectedOutcome, REPLAY_SET_VERSION, ReplayEntry, ReplaySet,
     ReplaySource, RunMeta, query_preview,
@@ -31,6 +32,11 @@ pub struct RecordingOptions {
     pub capture_mode: CaptureMode,
     pub max_captured_rows: usize,
     pub capture_budget_bytes: u64,
+    /// How the set treats query text that looks like it carries a credential.
+    pub secret_policy: SecretPolicy,
+    /// The interceptor's user-defined redaction patterns, so one place governs
+    /// both the audit log and what a set flags.
+    pub secret_patterns: Vec<String>,
 }
 
 struct RecordingSession {
@@ -50,6 +56,10 @@ struct RecordingSession {
     captured_bytes: u64,
     stop_reason: Option<CaptureStopReason>,
     ignored_other_session: usize,
+    secret_policy: SecretPolicy,
+    secret_patterns: Vec<String>,
+    /// Entry ids whose query looks like it carries a credential.
+    flagged: Vec<String>,
 }
 
 /// What the UI shows while a recording is live.
@@ -64,6 +74,9 @@ pub struct RecordingStatus {
     pub capture_stopped_reason: Option<CaptureStopReason>,
     /// Executions seen from another connection and left out.
     pub ignored_other_session: usize,
+    /// Recorded queries that look like they carry a credential.
+    pub secrets_detected: usize,
+    pub secret_policy: SecretPolicy,
 }
 
 #[derive(Default)]
@@ -96,6 +109,8 @@ impl Recorder {
             capture_mode: s.capture_mode,
             capture_stopped_reason: s.stop_reason,
             ignored_other_session: s.ignored_other_session,
+            secrets_detected: s.flagged.len(),
+            secret_policy: s.secret_policy,
         })
     }
 
@@ -144,6 +159,9 @@ impl Recorder {
             captured_bytes: 0,
             stop_reason,
             ignored_other_session: 0,
+            secret_policy: options.secret_policy,
+            secret_patterns: options.secret_patterns,
+            flagged: Vec::new(),
         };
 
         *self.session.write() = Some(session);
@@ -216,6 +234,12 @@ impl Recorder {
             }
         }
 
+        if session.secret_policy != SecretPolicy::Off
+            && looks_like_secret(&context.query, &session.secret_patterns)
+        {
+            session.flagged.push(entry_id.clone());
+        }
+
         session.entries.push(ReplayEntry {
             id: entry_id,
             order,
@@ -237,7 +261,18 @@ impl Recorder {
     /// Ends the recording and hands back the set plus the baseline run it
     /// captured. `None` when nothing was recording.
     pub fn stop(&self) -> Option<(ReplaySet, RunMeta)> {
-        let session = self.session.write().take()?;
+        let mut session = self.session.write().take()?;
+
+        // Redacting is the caller's explicit choice: it makes the set
+        // shareable without reservation and unreplayable in the same move,
+        // which is why the set carries the fact.
+        let redacted = session.secret_policy == SecretPolicy::Redact;
+        if redacted {
+            for entry in &mut session.entries {
+                entry.query =
+                    crate::interceptor::redact_query_forced(&entry.query, &entry.driver_id);
+            }
+        }
 
         let entry_count = session.entries.len();
         let set = ReplaySet {
@@ -250,6 +285,7 @@ impl Recorder {
                 environment: session.environment.clone(),
             },
             ignored_columns: session.ignored_columns.clone(),
+            redacted,
             entries: session.entries,
         };
 
@@ -293,6 +329,7 @@ impl Recorder {
             return Err("No such recorded entry".to_string());
         }
         let removed = session.entries.remove(index);
+        session.flagged.retain(|id| id != &removed.id);
         let _ = capture_store.delete_entry(&session.run_id, &removed.id);
         for (position, entry) in session.entries.iter_mut().enumerate() {
             entry.order = position as u32 + 1;
@@ -300,14 +337,22 @@ impl Recorder {
         Ok(())
     }
 
-    pub fn recorded_previews(&self) -> Vec<(u32, String, bool)> {
+    /// `(order, preview, is_mutation, looks_like_secret)` per recorded entry.
+    pub fn recorded_previews(&self) -> Vec<(u32, String, bool, bool)> {
         self.session
             .read()
             .as_ref()
             .map(|s| {
                 s.entries
                     .iter()
-                    .map(|e| (e.order, query_preview(&e.query), e.is_mutation))
+                    .map(|e| {
+                        (
+                            e.order,
+                            query_preview(&e.query),
+                            e.is_mutation,
+                            s.flagged.contains(&e.id),
+                        )
+                    })
                     .collect()
             })
             .unwrap_or_default()
@@ -362,6 +407,16 @@ mod tests {
         }
     }
 
+    /// Assembled at runtime so no source literal looks like a live key to a
+    /// secret scanner.
+    fn sample_key() -> String {
+        format!("sk_{}_{}", "live", "4eC39HqLyjWDarjt")
+    }
+
+    fn secret_query() -> String {
+        format!("SELECT * FROM users WHERE api_key = '{}'", sample_key())
+    }
+
     fn options(mode: CaptureMode) -> RecordingOptions {
         RecordingOptions {
             name: "checkout".to_string(),
@@ -371,6 +426,8 @@ mod tests {
             capture_mode: mode,
             max_captured_rows: 1000,
             capture_budget_bytes: 64 * 1024,
+            secret_policy: SecretPolicy::Warn,
+            secret_patterns: Vec::new(),
         }
     }
 
@@ -681,6 +738,109 @@ mod tests {
             "the other connection's query must not be in the set"
         );
         assert_eq!(run.entry_count, 1);
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// The default policy flags without touching the query: the set stays
+    /// replayable, and the user decides what to drop.
+    #[test]
+    fn warn_flags_the_entry_but_leaves_it_replayable() {
+        let (capture, dir) = store();
+        let recorder = Recorder::new();
+        recorder
+            .start(
+                options(CaptureMode::Full),
+                "postgres".into(),
+                None,
+                "staging".into(),
+                false,
+            )
+            .unwrap();
+
+        recorder.record(
+            &context(&secret_query()),
+            None,
+            &exec(true, 1.0),
+            None,
+            &capture,
+        );
+        recorder.record(
+            &context("SELECT id FROM orders WHERE status = 'pending'"),
+            None,
+            &exec(true, 1.0),
+            None,
+            &capture,
+        );
+
+        let status = recorder.status().unwrap();
+        assert_eq!(status.secrets_detected, 1, "only the credential is flagged");
+
+        let previews = recorder.recorded_previews();
+        assert!(previews[0].3, "the api_key query is flagged");
+        assert!(!previews[1].3, "the harmless literal is not");
+
+        let (set, _) = recorder.stop().unwrap();
+        assert!(!set.redacted);
+        assert!(
+            set.entries[0].query.contains(&sample_key()),
+            "warning must not alter the query, or the set stops replaying"
+        );
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// Redacting is the opposite trade: shareable without reservation, and
+    /// no longer replayable — which the set records so the runner refuses it.
+    #[test]
+    fn redact_strips_the_literals_and_marks_the_set() {
+        let (capture, dir) = store();
+        let recorder = Recorder::new();
+        let mut opts = options(CaptureMode::Full);
+        opts.secret_policy = SecretPolicy::Redact;
+        recorder
+            .start(opts, "postgres".into(), None, "staging".into(), false)
+            .unwrap();
+
+        recorder.record(
+            &context(&secret_query()),
+            None,
+            &exec(true, 1.0),
+            None,
+            &capture,
+        );
+
+        let (set, _) = recorder.stop().unwrap();
+        assert!(set.redacted);
+        assert!(!set.entries[0].query.contains(&sample_key()));
+        // The assignment pattern gets there first, so the marker is `***`
+        // rather than `[REDACTED]`; either way the value is gone.
+        assert!(set.entries[0].query.contains("***") || set.entries[0].query.contains("REDACTED"));
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn the_off_policy_flags_nothing() {
+        let (capture, dir) = store();
+        let recorder = Recorder::new();
+        let mut opts = options(CaptureMode::Full);
+        opts.secret_policy = SecretPolicy::Off;
+        recorder
+            .start(opts, "postgres".into(), None, "staging".into(), false)
+            .unwrap();
+
+        recorder.record(
+            &context("SELECT * FROM t WHERE password = 'hunter2'"),
+            None,
+            &exec(true, 1.0),
+            None,
+            &capture,
+        );
+
+        assert_eq!(recorder.status().unwrap().secrets_detected, 0);
+        let (set, _) = recorder.stop().unwrap();
+        assert!(set.entries[0].query.contains("hunter2"));
 
         let _ = std::fs::remove_dir_all(&dir);
     }

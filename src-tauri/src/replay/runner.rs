@@ -31,6 +31,8 @@ use super::types::{
 pub const MUTATION_EXCLUDED: &str = "Mutation excluded from replay";
 pub const MUTATION_PRODUCTION_BLOCKED: &str = "Mutations are never replayed against production";
 pub const CANCELLED: &str = "Replay cancelled";
+pub const SET_IS_REDACTED: &str =
+    "This replay set was recorded with redaction: its queries cannot be replayed";
 pub const SAME_CONNECTION: &str = "A/B replay needs two different connections";
 
 pub struct ReplayServices<'a> {
@@ -79,6 +81,10 @@ pub async fn run_set(
     cancel: &AtomicBool,
     mut on_progress: impl FnMut(ReplayProgress),
 ) -> Result<ReplayReport, String> {
+    if set.redacted {
+        return Err(SET_IS_REDACTED.to_string());
+    }
+
     let driver = services
         .session_manager
         .get_driver(session)
@@ -565,6 +571,7 @@ mod tests {
                 environment: "staging".to_string(),
             },
             ignored_columns: Vec::new(),
+            redacted: false,
             entries,
         }
     }

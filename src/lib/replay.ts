@@ -4,6 +4,9 @@ import type { Namespace, QueryResult } from '@/lib/tauri';
 import { invoke } from '@/lib/transport';
 
 export type CaptureMode = 'full' | 'metadata_only';
+
+/** How a recording treats query text that looks like it carries a credential. */
+export type SecretPolicy = 'off' | 'warn' | 'redact';
 export type CaptureStopReason = 'budget_exceeded' | 'metadata_only' | 'production_policy';
 export type ReplayVerdict =
   | 'match'
@@ -38,6 +41,8 @@ export interface ReplaySet {
   created_at: string;
   source: { driver_id: string; connection_label?: string | null; environment: string };
   ignored_columns: string[];
+  /** Query text was redacted on the way in: shareable, and not replayable. */
+  redacted: boolean;
   entries: ReplayEntry[];
 }
 
@@ -48,6 +53,7 @@ export interface ReplaySetSummary {
   driver_id: string;
   environment: string;
   entry_count: number;
+  redacted: boolean;
 }
 
 export interface RunMeta {
@@ -129,12 +135,16 @@ export interface RecordingStatus {
   capture_stopped_reason?: CaptureStopReason | null;
   /** Executions seen from another connection and left out. */
   ignored_other_session: number;
+  /** Recorded queries that look like they carry a credential. */
+  secrets_detected: number;
+  secret_policy: SecretPolicy;
 }
 
 export interface RecordedPreview {
   order: number;
   query_preview: string;
   is_mutation: boolean;
+  looks_like_secret: boolean;
 }
 
 export interface ReplayProgress {
@@ -162,6 +172,7 @@ export interface StartRecordingRequest {
   ignored_columns: string[];
   capture_mode: CaptureMode;
   allow_production_capture: boolean;
+  secret_policy: SecretPolicy;
 }
 
 export async function startRecording(request: StartRecordingRequest): Promise<RecordingStatus> {

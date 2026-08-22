@@ -89,6 +89,10 @@ pub struct ReplaySet {
     /// `updated_at` reports a diff on every run.
     #[serde(default)]
     pub ignored_columns: Vec<String>,
+    /// Query text was redacted on the way in. Shareable without reservation,
+    /// and no longer replayable — a redacted literal does not match anything.
+    #[serde(default)]
+    pub redacted: bool,
     pub entries: Vec<ReplayEntry>,
 }
 
@@ -100,6 +104,7 @@ pub struct ReplaySetSummary {
     pub driver_id: String,
     pub environment: String,
     pub entry_count: usize,
+    pub redacted: bool,
 }
 
 /// The local half: one directory per run under `data_dir/replays/<run_id>/`,

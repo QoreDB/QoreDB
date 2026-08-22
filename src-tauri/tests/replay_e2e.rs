@@ -31,6 +31,7 @@ use qoredb_lib::engine::types::{ConnectionConfig, QueryId, SessionId};
 use qoredb_lib::replay::capture::CaptureStore;
 use qoredb_lib::replay::recorder::{Recorder, RecordingOptions};
 use qoredb_lib::replay::runner::{ReplayServices, run_set};
+use qoredb_lib::replay::secrets::SecretPolicy;
 use qoredb_lib::replay::types::{CaptureMode, ReplayRunOptions, ReplayVerdict};
 
 fn env_or_default(key: &str, default: &str) -> String {
@@ -197,6 +198,8 @@ async fn a_renamed_column_is_reported_as_broken_after_replay() -> EngineResult<(
                 capture_mode: CaptureMode::Full,
                 max_captured_rows: 1000,
                 capture_budget_bytes: 8 * 1024 * 1024,
+                secret_policy: SecretPolicy::Warn,
+                secret_patterns: Vec::new(),
             },
             "postgres".to_string(),
             None,
@@ -319,6 +322,8 @@ async fn changed_content_is_a_digest_diff_unless_the_column_is_ignored() -> Engi
                     capture_mode: CaptureMode::Full,
                     max_captured_rows: 1000,
                     capture_budget_bytes: 8 * 1024 * 1024,
+                    secret_policy: SecretPolicy::Warn,
+                    secret_patterns: Vec::new(),
                 },
                 "postgres".to_string(),
                 None,
@@ -419,6 +424,8 @@ async fn a_recorded_set_never_carries_row_values() -> EngineResult<()> {
                 capture_mode: CaptureMode::Full,
                 max_captured_rows: 1000,
                 capture_budget_bytes: 8 * 1024 * 1024,
+                secret_policy: SecretPolicy::Warn,
+                secret_patterns: Vec::new(),
             },
             "postgres".to_string(),
             None,

@@ -674,6 +674,10 @@
     "ignoredColumns": "Colunas ignoradas",
     "ignoredColumnsHint": "Separadas por vírgulas. Excluídas da comparação para que um carimbo de data e hora não aponte uma diferença a cada execução.",
     "queryTextWarning": "O conjunto é versionado no seu repositório com o texto das consultas como está. Um literal dentro de uma consulta — chave, senha, conteúdo — é versionado junto. As linhas de resultado nunca são.",
+    "secretsDetected": "{{count}} consultas contêm o que parece ser uma credencial. Remova-as antes de compartilhar o conjunto, ou mude para expurgação nas configurações.",
+    "secretsRedacted": "{{count}} consultas continham o que parece ser uma credencial e foram expurgadas.",
+    "looksLikeSecret": "Parece uma credencial",
+    "redactedCannotReplay": "Este conjunto foi gravado com expurgação: suas consultas não correspondem mais a nada, então não pode ser reexecutado. Continua legível como inventário.",
     "captureValues": "Capturar os valores",
     "captureValuesOn": "As linhas ficam salvas localmente, as diferenças podem ser mostradas.",
     "captureValuesOff": "Apenas metadados e assinaturas: as diferenças são apontadas, não mostradas.",
@@ -740,6 +744,17 @@
       "ignoredColumns": "Não foi possível atualizar as colunas ignoradas",
       "noBaseline": "Este conjunto não tem captura de referência para comparar",
       "loadCapture": "Não foi possível carregar as linhas capturadas"
+    },
+    "settings": {
+      "title": "Conjuntos de reexecução e credenciais",
+      "description": "Um conjunto é versionado com o texto de suas consultas, então uma credencial escrita dentro vai junto. As linhas de resultado nunca.",
+      "policyLabel": "Quando uma consulta gravada parece carregar uma credencial",
+      "off": "Não fazer nada",
+      "warn": "Sinalizar (recomendado)",
+      "redact": "Expurgar o texto da consulta",
+      "offHint": "Nada é verificado. Para conjuntos que nunca saem da sua máquina.",
+      "warnHint": "A entrada é sinalizada durante a gravação para que você possa removê-la. O conjunto continua reexecutável.",
+      "redactHint": "Os literais são removidos na saída. O conjunto fica seguro para compartilhar e não pode mais ser reexecutado."
     }
   },
   "settings": {

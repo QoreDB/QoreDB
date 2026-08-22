@@ -674,6 +674,10 @@
     "ignoredColumns": "忽略的列",
     "ignoredColumnsHint": "以逗号分隔。这些列不参与比较，避免时间戳在每次重放时都报告差异。",
     "queryTextWarning": "集合会连同查询原文一起提交到仓库。查询中的字面量（密钥、密码、载荷）也会一并进入版本库。结果数据行永远不会。",
+    "secretsDetected": "有 {{count}} 条查询包含疑似凭据的内容。分享集合前请移除，或在设置中改为脱敏。",
+    "secretsRedacted": "已对 {{count}} 条包含疑似凭据的查询做脱敏处理。",
+    "looksLikeSecret": "疑似凭据",
+    "redactedCannotReplay": "该集合在录制时启用了脱敏：其查询已无法匹配任何内容，因此不能重放。作为清单仍可阅读。",
     "captureValues": "保存结果值",
     "captureValuesOn": "数据行保存在本地，可以展示差异。",
     "captureValuesOff": "仅元数据与摘要：只报告差异，不展示内容。",
@@ -740,6 +744,17 @@
       "ignoredColumns": "无法更新忽略的列",
       "noBaseline": "该集合没有可用于比较的基准快照",
       "loadCapture": "无法加载已保存的数据行"
+    },
+    "settings": {
+      "title": "重放集合与凭据",
+      "description": "重放集合会连同查询原文一起进入版本库，写在查询里的凭据也会一并提交。结果数据行永远不会。",
+      "policyLabel": "当录制的查询疑似包含凭据时",
+      "off": "不做处理",
+      "warn": "标记出来（推荐）",
+      "redact": "对查询原文脱敏",
+      "offHint": "不做任何检查。适用于不离开本机的集合。",
+      "warnHint": "录制过程中会标记出来，方便你随时移除。集合仍可重放。",
+      "redactHint": "写出时去掉字面量。集合可以放心分享，但不再能重放。"
     }
   },
   "settings": {

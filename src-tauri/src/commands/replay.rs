@@ -20,7 +20,8 @@ use crate::replay::types::{
     ReplaySet, ReplaySetSummary, RunMeta,
 };
 use crate::replay::{
-    CaptureStore, Recorder, RecordingOptions, RecordingStatus, ReplaySetStore, slugify,
+    CaptureStore, Recorder, RecordingOptions, RecordingStatus, ReplaySetStore, SecretPolicy,
+    slugify,
 };
 use crate::workspace::write_registry::WriteRegistry;
 
@@ -111,6 +112,9 @@ pub struct StartRecordingRequest {
     pub max_captured_rows: Option<usize>,
     #[serde(default)]
     pub capture_budget_bytes: Option<u64>,
+    /// How the recording treats query text that looks like a credential.
+    #[serde(default)]
+    pub secret_policy: SecretPolicy,
 }
 
 #[derive(Debug, Serialize)]
@@ -118,6 +122,9 @@ pub struct RecordedPreview {
     pub order: u32,
     pub query_preview: String,
     pub is_mutation: bool,
+    /// The query text looks like it carries a credential, and the set is
+    /// versioned: worth dropping before sharing.
+    pub looks_like_secret: bool,
 }
 
 #[tauri::command]
@@ -150,6 +157,11 @@ pub async fn replay_start_recording(
         .unwrap_or_else(|_| "development".to_string());
     let connection_label = session_manager.connection_key(session).await;
     let project = project_id(&ws_manager).await;
+    // One place governs both the audit log and what a set flags.
+    let secret_patterns = {
+        let guard = state.lock().await;
+        guard.interceptor.get_config().redaction_patterns
+    };
 
     let defaults = ReplayRunOptions::default();
     replay.recorder.start(
@@ -165,6 +177,8 @@ pub async fn replay_start_recording(
             capture_budget_bytes: request
                 .capture_budget_bytes
                 .unwrap_or(defaults.capture_budget_bytes),
+            secret_policy: request.secret_policy,
+            secret_patterns,
         },
         driver.driver_id().to_string(),
         connection_label,
@@ -189,11 +203,14 @@ pub async fn replay_recorded_previews(
         .recorder
         .recorded_previews()
         .into_iter()
-        .map(|(order, query_preview, is_mutation)| RecordedPreview {
-            order,
-            query_preview,
-            is_mutation,
-        })
+        .map(
+            |(order, query_preview, is_mutation, looks_like_secret)| RecordedPreview {
+                order,
+                query_preview,
+                is_mutation,
+                looks_like_secret,
+            },
+        )
         .collect())
 }
 
@@ -270,6 +287,7 @@ pub async fn replay_stop_recording(
         driver_id: set.source.driver_id,
         environment: set.source.environment,
         entry_count: set.entries.len(),
+        redacted: set.redacted,
     })
 }
 

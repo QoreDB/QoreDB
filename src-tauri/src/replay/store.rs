@@ -115,6 +115,7 @@ impl ReplaySetStore {
                 driver_id: set.source.driver_id,
                 environment: set.source.environment,
                 entry_count: set.entries.len(),
+                redacted: set.redacted,
             });
         }
 
@@ -177,6 +178,7 @@ mod tests {
                 environment: "staging".to_string(),
             },
             ignored_columns: vec!["updated_at".to_string()],
+            redacted: false,
             entries: vec![ReplayEntry {
                 id: uuid::Uuid::new_v4().to_string(),
                 order: 1,

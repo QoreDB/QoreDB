@@ -674,6 +674,10 @@
     "ignoredColumns": "Columnas ignoradas",
     "ignoredColumnsHint": "Separadas por comas. Se excluyen de la comparación para que una marca de tiempo no señale una diferencia en cada ejecución.",
     "queryTextWarning": "El conjunto se versiona en tu repositorio con el texto de las consultas tal cual. Un literal dentro de una consulta — clave, contraseña, contenido — se versiona con ella. Las filas de resultados nunca.",
+    "secretsDetected": "{{count}} consultas contienen algo que parece una credencial. Quítalas antes de compartir el conjunto, o cambia a expurgación en los ajustes.",
+    "secretsRedacted": "{{count}} consultas contenían algo que parece una credencial y se han expurgado.",
+    "looksLikeSecret": "Parece una credencial",
+    "redactedCannotReplay": "Este conjunto se grabó con expurgación: sus consultas ya no coinciden con nada, así que no puede reproducirse. Sigue siendo legible como inventario.",
     "captureValues": "Capturar los valores",
     "captureValuesOn": "Las filas se guardan localmente, las diferencias se pueden mostrar.",
     "captureValuesOff": "Solo metadatos y huellas: las diferencias se señalan, no se muestran.",
@@ -740,6 +744,17 @@
       "ignoredColumns": "No se pudieron actualizar las columnas ignoradas",
       "noBaseline": "Este conjunto no tiene captura de referencia para comparar",
       "loadCapture": "No se pudieron cargar las filas capturadas"
+    },
+    "settings": {
+      "title": "Conjuntos de reproducción y credenciales",
+      "description": "Un conjunto se versiona con el texto de sus consultas, así que una credencial escrita dentro se guarda con él. Las filas de resultados nunca.",
+      "policyLabel": "Cuando una consulta grabada parece llevar una credencial",
+      "off": "No hacer nada",
+      "warn": "Señalarla (recomendado)",
+      "redact": "Expurgar el texto de la consulta",
+      "offHint": "No se comprueba nada. Para conjuntos que nunca salen de tu máquina.",
+      "warnHint": "La entrada se señala durante la grabación para que puedas quitarla. El conjunto sigue siendo reproducible.",
+      "redactHint": "Los literales se retiran a la salida. El conjunto se vuelve compartible sin reservas y ya no puede reproducirse."
     }
   },
   "settings": {

@@ -59,7 +59,16 @@ pub fn redact_query(query: &str, driver_id: &str) -> String {
     if !is_redaction_enabled() {
         return query.to_string();
     }
+    redact_query_forced(query, driver_id)
+}
 
+/// Same redaction, ignoring the interceptor's global switch.
+///
+/// That switch governs what gets *persisted in the audit log*. Sharing a
+/// query outside the machine — an exported library, a replay set headed for
+/// Git — is a separate decision, and turning off audit redaction must not
+/// silently turn off redaction on the way out.
+pub fn redact_query_forced(query: &str, driver_id: &str) -> String {
     let base = match driver_id.to_lowercase().as_str() {
         "mongodb" | "mongo" | "documentdb" => redact_mongo(query),
         "redis" | "valkey" | "dragonfly" => redact_redis(query),

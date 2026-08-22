@@ -44,10 +44,38 @@ raison.
 **Ce qui est versionné en revanche, c'est le texte des requêtes, tel quel.** Une requête
 rejouable ne peut pas être expurgée : un littéral qu'elle contient — `WHERE api_key = '…'`,
 un `AUTH`, une charge Redis — part dans le dépôt avec elle. C'est le même compromis que la
-query library, déjà versionnée avec du SQL brut, et l'interface le dit avant de démarrer un
-enregistrement. Deux tests fixent la frontière : l'un vérifie qu'aucune ligne de résultat
-n'atteint le fichier, l'autre qu'un littéral de requête y est bien conservé — pour que le
-premier ne se lise pas comme une garantie plus large qu'elle ne l'est.
+query library, déjà versionnée avec du SQL brut. Deux tests fixent la frontière : l'un vérifie
+qu'aucune ligne de résultat n'atteint le fichier, l'autre qu'un littéral de requête y est bien
+conservé — pour que le premier ne se lise pas comme une garantie plus large qu'elle ne l'est.
+
+### Le curseur entre sécurité et rejeu
+
+Le risque n'est pas « il y a des littéraux » mais « il y a un identifiant » : expurger
+`WHERE status = 'pending'` ne protège rien et casse le rejeu. `secrets.rs` ne porte donc que
+des motifs ciblés — chaînes de connexion avec identifiants, assignations `password=` /
+`token=` / `api_key=`, `AUTH`, formes de clés reconnaissables (Stripe, AWS, GitHub, JWT) — plus
+les motifs que l'utilisateur a déjà définis pour l'intercepteur, une seule liste gouvernant les
+deux. La règle fourre-tout « tout littéral chaîne » que la redaction applique au journal
+d'audit est délibérément écartée : elle signalerait chaque requête et apprendrait à ignorer
+l'avertissement.
+
+Trois positions, réglables dans les paramètres de sécurité :
+
+| Position | Effet | Le jeu reste rejouable |
+| --- | --- | --- |
+| Aucune | rien n'est vérifié | oui |
+| **Signaler** (défaut) | l'entrée est marquée pendant l'enregistrement, retirable d'un clic | oui |
+| Expurger | les littéraux sont retirés à l'écriture | **non** |
+
+Le défaut signale plutôt qu'il n'expurge, parce que le vrai risque est le secret qui part *par
+inadvertance* : le signaler laisse la décision à qui sait si la valeur est sensible. Expurger
+protège sans réserve mais retire à la fonctionnalité son objet — un littéral expurgé ne
+correspond plus à rien. Le jeu porte donc `redacted: true`, le runner refuse de le rejouer et
+l'interface l'explique au lieu de produire un rapport faux.
+
+La redaction utilisée ici ignore volontairement l'interrupteur global de l'intercepteur
+(`redact_query_forced`) : celui-ci gouverne ce qui est *écrit dans le journal d'audit*, et le
+désactiver ne doit pas désactiver silencieusement l'expurgation de ce qui sort de la machine.
 
 Le digest est un SHA-256 déterministe des lignes. Sur un résultat court à faible entropie, il
 reste attaquable par dictionnaire ; il ne vaut pas anonymisation.

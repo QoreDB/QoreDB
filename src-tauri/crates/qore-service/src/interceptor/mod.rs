@@ -24,5 +24,6 @@ pub use export::{AuditExportFormat, export_entries};
 pub use fingerprint::fingerprint_query;
 pub use pipeline::InterceptorPipeline;
 pub use profiling::ProfilingStore;
+pub use redaction::redact_query_forced;
 pub use safety::SafetyEngine;
 pub use types::*;

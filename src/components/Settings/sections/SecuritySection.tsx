@@ -4,7 +4,18 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { InterceptorSettingsPanel } from '@/components/Interceptor';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import type { SecretPolicy } from '@/lib/replay';
+import { getSecretPolicy, setSecretPolicy } from '@/lib/replayPreferences';
 import { getSafetyPolicy, type SafetyPolicy, setSafetyPolicy } from '@/lib/tauri';
+import { useLicense } from '@/providers/LicenseProvider';
 import { SettingsCard } from '../SettingsCard';
 
 interface SecuritySectionProps {
@@ -21,6 +32,8 @@ const DEFAULTS = {
 export function SecuritySection({ searchQuery }: SecuritySectionProps) {
   const { t } = useTranslation();
   const [policy, setPolicy] = useState<SafetyPolicy | null>(null);
+  const [secretPolicy, setSecretPolicyState] = useState<SecretPolicy>(getSecretPolicy);
+  const { isFeatureEnabled } = useLicense();
   const [policyError, setPolicyError] = useState<string | null>(null);
   const [policySaving, setPolicySaving] = useState(false);
 
@@ -154,6 +167,41 @@ export function SecuritySection({ searchQuery }: SecuritySectionProps) {
           {policyError ? <p className="text-xs text-destructive">{policyError}</p> : null}
         </div>
       </SettingsCard>
+
+      {isFeatureEnabled('query_replay') && (
+        <SettingsCard
+          id="replay-secrets"
+          title={t('replay.settings.title')}
+          description={t('replay.settings.description')}
+          searchQuery={searchQuery}
+        >
+          <div className="space-y-2">
+            <Label htmlFor="replay-secret-policy" className="text-xs">
+              {t('replay.settings.policyLabel')}
+            </Label>
+            <Select
+              value={secretPolicy}
+              onValueChange={value => {
+                const next = value as SecretPolicy;
+                setSecretPolicyState(next);
+                setSecretPolicy(next);
+              }}
+            >
+              <SelectTrigger id="replay-secret-policy" className="h-8 w-72 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="off">{t('replay.settings.off')}</SelectItem>
+                <SelectItem value="warn">{t('replay.settings.warn')}</SelectItem>
+                <SelectItem value="redact">{t('replay.settings.redact')}</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              {t(`replay.settings.${secretPolicy}Hint`)}
+            </p>
+          </div>
+        </SettingsCard>
+      )}
 
       <SettingsCard
         id="interceptor"

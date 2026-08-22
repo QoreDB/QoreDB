@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: BUSL-1.1
 
-import { Circle, Square, Trash2, X } from 'lucide-react';
+import { Circle, KeyRound, Square, Trash2, X } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
@@ -85,6 +85,17 @@ export function RecordingPanel({
           </p>
         )}
 
+        {recording.secrets_detected > 0 && (
+          <p className="flex items-start gap-1.5 text-xs text-[var(--color-warning)]">
+            <KeyRound size={12} className="mt-0.5 shrink-0" />
+            <span>
+              {recording.secret_policy === 'redact'
+                ? t('replay.secretsRedacted', { count: recording.secrets_detected })
+                : t('replay.secretsDetected', { count: recording.secrets_detected })}
+            </span>
+          </p>
+        )}
+
         {previews.length > 0 && (
           <ul className="max-h-48 overflow-y-auto space-y-1">
             {previews.map((preview, index) => (
@@ -96,6 +107,13 @@ export function RecordingPanel({
                   {preview.order}
                 </span>
                 <span className="font-mono truncate flex-1">{preview.query_preview}</span>
+                {preview.looks_like_secret && (
+                  <KeyRound
+                    size={11}
+                    className="shrink-0 text-[var(--color-warning)]"
+                    aria-label={t('replay.looksLikeSecret')}
+                  />
+                )}
                 {preview.is_mutation && (
                   <span className="shrink-0 text-[var(--color-warning)]">
                     {t('replay.mutation')}

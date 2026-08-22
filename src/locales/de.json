@@ -674,6 +674,10 @@
     "ignoredColumns": "Ignorierte Spalten",
     "ignoredColumnsHint": "Durch Komma getrennt. Vom Vergleich ausgenommen, damit ein Zeitstempel nicht bei jedem Lauf einen Unterschied meldet.",
     "queryTextWarning": "Das Set wird mit dem unveränderten Abfragetext in Ihr Repository übernommen. Ein Literal in einer Abfrage — Schlüssel, Passwort, Nutzdaten — wird mitversioniert. Ergebniszeilen niemals.",
+    "secretsDetected": "{{count}} Abfragen enthalten etwas, das wie ein Zugangsdatum aussieht. Entfernen Sie sie vor dem Teilen, oder wechseln Sie in den Einstellungen zur Redaktion.",
+    "secretsRedacted": "{{count}} Abfragen enthielten etwas, das wie ein Zugangsdatum aussieht, und wurden redigiert.",
+    "looksLikeSecret": "Sieht wie ein Zugangsdatum aus",
+    "redactedCannotReplay": "Dieses Set wurde mit Redaktion aufgezeichnet: Seine Abfragen treffen auf nichts mehr zu und können nicht abgespielt werden. Als Inventar bleibt es lesbar.",
     "captureValues": "Ergebniswerte erfassen",
     "captureValuesOn": "Zeilen werden lokal gespeichert, Unterschiede können angezeigt werden.",
     "captureValuesOff": "Nur Metadaten und Prüfsummen: Unterschiede werden gemeldet, nicht angezeigt.",
@@ -740,6 +744,17 @@
       "ignoredColumns": "Ignorierte Spalten konnten nicht aktualisiert werden",
       "noBaseline": "Dieses Set hat keine Referenzerfassung zum Vergleich",
       "loadCapture": "Erfasste Zeilen konnten nicht geladen werden"
+    },
+    "settings": {
+      "title": "Replay-Sets und Zugangsdaten",
+      "description": "Ein Replay-Set wird mit dem Text seiner Abfragen versioniert, ein darin geschriebenes Zugangsdatum also mit übernommen. Ergebniszeilen niemals.",
+      "policyLabel": "Wenn eine aufgezeichnete Abfrage ein Zugangsdatum zu enthalten scheint",
+      "off": "Nichts tun",
+      "warn": "Markieren (empfohlen)",
+      "redact": "Abfragetext redigieren",
+      "offHint": "Es wird nichts geprüft. Für Sets, die Ihren Rechner nie verlassen.",
+      "warnHint": "Der Eintrag wird während der Aufzeichnung markiert, damit Sie ihn entfernen können. Das Set bleibt abspielbar.",
+      "redactHint": "Literale werden beim Herausschreiben entfernt. Das Set wird bedenkenlos teilbar und lässt sich nicht mehr abspielen."
     }
   },
   "settings": {

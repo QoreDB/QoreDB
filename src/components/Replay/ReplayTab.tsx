@@ -316,7 +316,8 @@ export function ReplayTab({ sessionId, environment, onOpenDiff }: ReplayTabProps
                   <Button
                     size="sm"
                     className="h-7 gap-1.5"
-                    disabled={!sessionId}
+                    disabled={!sessionId || activeSet.redacted}
+                    title={activeSet.redacted ? t('replay.redactedCannotReplay') : undefined}
                     onClick={() => {
                       const options = {
                         ...DEFAULT_RUN_OPTIONS,
@@ -337,7 +338,11 @@ export function ReplayTab({ sessionId, environment, onOpenDiff }: ReplayTabProps
             </div>
 
             <div className="flex-1 min-h-0 p-4">
-              {running ? (
+              {activeSet.redacted ? (
+                <p className="py-8 text-center text-xs text-muted-foreground">
+                  {t('replay.redactedCannotReplay')}
+                </p>
+              ) : running ? (
                 <div className="flex h-full flex-col items-center justify-center gap-2">
                   <Loader2 size={20} className="animate-spin text-muted-foreground" />
                   {progress && (

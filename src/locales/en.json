@@ -703,6 +703,10 @@
     "ignoredColumns": "Ignored columns",
     "ignoredColumnsHint": "Comma-separated. Excluded from the comparison so a timestamp does not report a difference on every run.",
     "queryTextWarning": "The set is committed to your repository with the query text as-is. A literal inside a query — a key, a password, a payload — is versioned with it. Result rows never are.",
+    "secretsDetected": "{{count}} queries contain what looks like a credential. Remove them before sharing the set, or switch to redaction in Settings.",
+    "secretsRedacted": "{{count}} queries contained what looks like a credential and were redacted.",
+    "looksLikeSecret": "Looks like a credential",
+    "redactedCannotReplay": "This set was recorded with redaction: its queries no longer match anything, so it cannot be replayed. It stays readable as an inventory.",
     "captureValues": "Capture result values",
     "captureValuesOn": "Rows are stored locally, so differences can be shown.",
     "captureValuesOff": "Metadata and digests only: differences are reported, not shown.",
@@ -769,6 +773,17 @@
       "ignoredColumns": "Failed to update the ignored columns",
       "noBaseline": "This set has no baseline capture to compare against",
       "loadCapture": "Failed to load the captured rows"
+    },
+    "settings": {
+      "title": "Replay sets and credentials",
+      "description": "A replay set is versioned with the text of its queries, so a credential written inside one is committed with it. Result rows never are.",
+      "policyLabel": "When a recorded query looks like it carries a credential",
+      "off": "Do nothing",
+      "warn": "Flag it (recommended)",
+      "redact": "Redact the query text",
+      "offHint": "Nothing is checked. For sets that never leave your machine.",
+      "warnHint": "The entry is flagged while you record so you can drop it. The set stays replayable.",
+      "redactHint": "Literals are stripped on the way out. The set becomes safe to share and can no longer be replayed."
     }
   },
   "settings": {

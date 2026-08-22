@@ -370,6 +370,7 @@ mod tests {
                 environment: "staging".into(),
             },
             ignored_columns: Vec::new(),
+            redacted: false,
             entries: vec![ReplayEntry {
                 id: "e1".into(),
                 order: 1,

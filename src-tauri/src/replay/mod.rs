@@ -12,10 +12,12 @@ pub mod compare;
 pub mod digest;
 pub mod recorder;
 pub mod runner;
+pub mod secrets;
 pub mod store;
 pub mod types;
 
 pub use capture::CaptureStore;
 pub use recorder::{Recorder, RecordingOptions, RecordingStatus};
+pub use secrets::{SecretPolicy, looks_like_secret};
 pub use store::{ReplaySetStore, slugify, validate_slug};
 pub use types::*;

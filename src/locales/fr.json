@@ -703,6 +703,10 @@
     "ignoredColumns": "Colonnes ignorées",
     "ignoredColumnsHint": "Séparées par des virgules. Exclues de la comparaison pour qu'un horodatage ne signale pas un écart à chaque rejeu.",
     "queryTextWarning": "Le jeu est versionné dans votre dépôt avec le texte des requêtes tel quel. Un littéral présent dans une requête — clé, mot de passe, contenu — est versionné avec elle. Les lignes de résultat ne le sont jamais.",
+    "secretsDetected": "{{count}} requêtes contiennent ce qui ressemble à un identifiant. Retirez-les avant de partager le jeu, ou passez en expurgation dans les réglages.",
+    "secretsRedacted": "{{count}} requêtes contenaient ce qui ressemble à un identifiant et ont été expurgées.",
+    "looksLikeSecret": "Ressemble à un identifiant",
+    "redactedCannotReplay": "Ce jeu a été enregistré avec expurgation : ses requêtes ne correspondent plus à rien, il ne peut donc pas être rejoué. Il reste lisible comme inventaire.",
     "captureValues": "Capturer les valeurs",
     "captureValuesOn": "Les lignes sont stockées localement, les écarts peuvent être montrés.",
     "captureValuesOff": "Métadonnées et empreintes seulement : les écarts sont signalés, pas montrés.",
@@ -769,6 +773,17 @@
       "ignoredColumns": "Impossible de mettre à jour les colonnes ignorées",
       "noBaseline": "Ce jeu n'a pas de capture de référence à comparer",
       "loadCapture": "Impossible de charger les lignes capturées"
+    },
+    "settings": {
+      "title": "Jeux de rejeu et identifiants",
+      "description": "Un jeu de rejeu est versionné avec le texte de ses requêtes : un identifiant écrit dans l'une d'elles part dans le dépôt avec elle. Les lignes de résultat, jamais.",
+      "policyLabel": "Quand une requête enregistrée semble porter un identifiant",
+      "off": "Ne rien faire",
+      "warn": "Le signaler (recommandé)",
+      "redact": "Expurger le texte de la requête",
+      "offHint": "Aucune vérification. Pour les jeux qui ne quittent pas votre machine.",
+      "warnHint": "L'entrée est signalée pendant l'enregistrement pour que vous puissiez la retirer. Le jeu reste rejouable.",
+      "redactHint": "Les littéraux sont retirés à la sortie. Le jeu devient partageable sans réserve et ne peut plus être rejoué."
     }
   },
   "settings": {

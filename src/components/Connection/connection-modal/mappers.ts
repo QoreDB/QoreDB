@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { isDocumentDatabase } from '@/lib/connection/driverCapabilities';
 import { Driver, isKeyValueDriver } from '@/lib/connection/drivers';
 import type { ConnectionConfig, Environment, SavedConnection } from '@/lib/tauri';
-
 import type { ConnectionFormData } from './types';
 
 /** Search engines (Elasticsearch / OpenSearch) that carry a `search_auth_mode`. */
@@ -169,7 +169,7 @@ export function getMissingRequirements(formData: ConnectionFormData): string[] {
   // Search engines (ES/OS) only need a username in basic-auth mode.
   const searchNeedsUser = isSearchDriver(formData.driver) && formData.searchAuthMode === 'basic';
   const authRequired =
-    formData.driver !== Driver.Mongodb &&
+    !isDocumentDatabase(formData.driver) &&
     !isKeyValueDriver(formData.driver) &&
     (!isSearchDriver(formData.driver) || searchNeedsUser);
   // SQLite and DuckDB are file-based: only the file path (stored in host) matters

@@ -74,7 +74,7 @@ jobs:
         run: cd src-tauri && cargo deny check
 
       - name: Start database containers
-        run: docker compose up -d postgres mysql mongodb
+        run: docker compose up -d postgres mysql mongodb mongodb-tls dragonfly
 
       - name: Wait for databases
         run: |
@@ -96,6 +96,8 @@ jobs:
           wait_for postgres docker compose exec -T postgres pg_isready -U qoredb -d testdb
           wait_for mysql docker compose exec -T mysql mysqladmin ping -uroot -proot_test --silent
           wait_for mongodb docker compose exec -T mongodb mongosh -u qoredb -p qoredb_test --authenticationDatabase admin --quiet --eval "db.runCommand({ ping: 1 })"
+          wait_for dragonfly docker compose exec -T dragonfly redis-cli -a qoredb_test --no-auth-warning ping
+          wait_for mongodb-tls docker compose exec -T mongodb-tls mongosh --tls --tlsCAFile /tls/ca.crt -u qoredb -p qoredb_test --authenticationDatabase admin --quiet --eval "db.runCommand({ ping: 1 })"
 
       - name: Run backend tests
         env:
@@ -103,6 +105,9 @@ jobs:
           QOREDB_TEST_POSTGRES_REQUIRED: "true"
           QOREDB_TEST_MYSQL_REQUIRED: "true"
           QOREDB_TEST_MONGO_REQUIRED: "true"
+          QOREDB_TEST_DRAGONFLY_REQUIRED: "true"
+          QOREDB_TEST_PLANETSCALE_REQUIRED: "true"
+          QOREDB_TEST_DOCUMENTDB_REQUIRED: "true"
           PUBLIC_KEY_BASE64: ${{ vars.PUBLIC_KEY_BASE64 }}
         run: |
           dbus-run-session -- bash -c "cd src-tauri && cargo test"

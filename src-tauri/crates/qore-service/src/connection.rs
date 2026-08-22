@@ -54,10 +54,10 @@ pub fn normalize_config(mut config: ConnectionConfig) -> Result<ConnectionConfig
     }
     config.host = host.to_string();
 
-    let is_mongodb = config.driver == "mongodb";
+    let is_mongodb = matches!(config.driver.as_str(), "mongodb" | "documentdb");
     let is_sqlite = config.driver == "sqlite";
     let is_duckdb = config.driver == "duckdb";
-    let is_redis = config.driver == "redis" || config.driver == "valkey";
+    let is_redis = matches!(config.driver.as_str(), "redis" | "valkey" | "dragonfly");
     let is_file_based = is_sqlite || is_duckdb;
     // SQL Server "Windows (Integrated)" uses the current OS/AD session — no username.
     let is_mssql_integrated =

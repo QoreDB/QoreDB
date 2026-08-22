@@ -4,14 +4,17 @@ export enum Driver {
   Postgres = 'postgres',
   Mysql = 'mysql',
   Mongodb = 'mongodb',
+  DocumentDb = 'documentdb',
   Redis = 'redis',
   Valkey = 'valkey',
+  Dragonfly = 'dragonfly',
   Sqlite = 'sqlite',
   Duckdb = 'duckdb',
   Motherduck = 'motherduck',
   SqlServer = 'sqlserver',
   Cockroachdb = 'cockroachdb',
   Mariadb = 'mariadb',
+  PlanetScale = 'planetscale',
   Supabase = 'supabase',
   Neon = 'neon',
   Timescaledb = 'timescaledb',
@@ -221,10 +224,78 @@ export const DRIVERS: Record<Driver, DriverMetadata> = {
       },
     },
   },
+  [Driver.PlanetScale]: {
+    id: Driver.PlanetScale,
+    label: 'PlanetScale',
+    icon: 'planetscale.png',
+    defaultPort: 3306,
+    namespaceLabel: 'dbtree.database',
+    namespacePluralLabel: 'dbtree.databases',
+    collectionLabel: 'dbtree.table',
+    collectionPluralLabel: 'dbtree.tables',
+    treeRootLabel: 'dbtree.databasesHeader',
+    createAction: 'database',
+    databaseFieldLabel: 'connection.database',
+    supportsSchemas: false,
+    supportsSQL: true,
+    dataModel: 'relational',
+    isDocumentBased: false,
+    identifier: {
+      quoteStart: '`',
+      quoteEnd: '`',
+      namespaceStrategy: 'database',
+    },
+    queries: {
+      databaseSizeQuery: db => {
+        const d = assertSafeSqlIdent(db, 'database');
+        return `SELECT COALESCE(SUM(IFNULL(data_length, 0) + IFNULL(index_length, 0)), 0) as size
+          FROM information_schema.tables WHERE table_schema = '${d}'`;
+      },
+      tableSizeQuery: (db, table) => {
+        const d = assertSafeSqlIdent(db, 'database');
+        const t = assertSafeSqlIdent(table, 'table');
+        return `SELECT data_length + index_length as total_bytes, table_rows
+          FROM information_schema.tables
+          WHERE table_schema = '${d}' AND table_name = '${t}'`;
+      },
+      indexCountQuery: db => {
+        const d = assertSafeSqlIdent(db, 'database');
+        return `SELECT COUNT(DISTINCT index_name) as cnt
+          FROM information_schema.statistics WHERE table_schema = '${d}'`;
+      },
+      tableIndexesQuery: table => {
+        const t = assertSafeSqlIdent(table, 'table');
+        return `SHOW INDEX FROM \`${t}\``;
+      },
+    },
+  },
   [Driver.Mongodb]: {
     id: Driver.Mongodb,
     label: 'MongoDB',
     icon: 'mongodb.png',
+    defaultPort: 27017,
+    namespaceLabel: 'dbtree.database',
+    namespacePluralLabel: 'dbtree.databases',
+    collectionLabel: 'dbtree.collection',
+    collectionPluralLabel: 'dbtree.collections',
+    treeRootLabel: 'dbtree.databasesHeader',
+    createAction: 'database',
+    databaseFieldLabel: 'connection.database',
+    supportsSchemas: false,
+    supportsSQL: false,
+    dataModel: 'document',
+    isDocumentBased: true,
+    identifier: {
+      quoteStart: '"',
+      quoteEnd: '"',
+      namespaceStrategy: 'database',
+    },
+    queries: {},
+  },
+  [Driver.DocumentDb]: {
+    id: Driver.DocumentDb,
+    label: 'Amazon DocumentDB',
+    icon: 'documentdb.png',
     defaultPort: 27017,
     namespaceLabel: 'dbtree.database',
     namespacePluralLabel: 'dbtree.databases',
@@ -271,6 +342,29 @@ export const DRIVERS: Record<Driver, DriverMetadata> = {
     id: Driver.Valkey,
     label: 'Valkey',
     icon: 'valkey.png',
+    defaultPort: 6379,
+    namespaceLabel: 'dbtree.database',
+    namespacePluralLabel: 'dbtree.databases',
+    collectionLabel: 'dbtree.key',
+    collectionPluralLabel: 'dbtree.keys',
+    treeRootLabel: 'dbtree.databasesHeader',
+    createAction: 'none',
+    databaseFieldLabel: 'connection.databaseIndex',
+    supportsSchemas: false,
+    supportsSQL: false,
+    dataModel: 'key-value',
+    isDocumentBased: false,
+    identifier: {
+      quoteStart: '',
+      quoteEnd: '',
+      namespaceStrategy: 'database',
+    },
+    queries: {},
+  },
+  [Driver.Dragonfly]: {
+    id: Driver.Dragonfly,
+    label: 'Dragonfly',
+    icon: 'dragonfly.png',
     defaultPort: 6379,
     namespaceLabel: 'dbtree.database',
     namespacePluralLabel: 'dbtree.databases',

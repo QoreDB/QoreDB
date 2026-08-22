@@ -2110,7 +2110,10 @@ async fn get_json(builder: reqwest::RequestBuilder) -> Result<Value, String> {
 pub fn extract_query_from_response(response: &str, driver_id: &str) -> Option<String> {
     let blocks = collect_code_blocks(response);
 
-    let is_sql = !matches!(driver_id, "mongodb" | "redis" | "valkey");
+    let is_sql = !matches!(
+        driver_id,
+        "mongodb" | "documentdb" | "redis" | "valkey" | "dragonfly"
+    );
     if is_sql {
         if let Some(parsed) = blocks.iter().rev().find(|b| {
             looks_like_query(b) && crate::engine::sql_safety::analyze_sql(driver_id, b).is_ok()

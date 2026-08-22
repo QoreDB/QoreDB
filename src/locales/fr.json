@@ -412,6 +412,9 @@
       "tlsWarning": "Les identifiants sont envoyés en clair sans TLS. Activez SSL/TLS.",
       "caCert": "Certificat CA",
       "caCertHint": "Chemin vers un certificat CA (PEM) pour vérifier le serveur en TLS. Laissez vide pour utiliser le magasin de confiance système."
+    },
+    "documentdb": {
+      "caCertHint": "Les clusters DocumentDB sont signés par une CA Amazon. Indiquez ici le fichier global-bundle.pem publié par Amazon ; laissez vide pour utiliser le magasin de certificats du système."
     }
   },
   "sidebar": {

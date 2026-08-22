@@ -8,6 +8,8 @@ export function getTriggerTemplate(driver: Driver, namespace: Namespace): string
     case Driver.Postgres:
       return postgresCreateTrigger(namespace);
     case Driver.Mysql:
+    case Driver.Mariadb:
+    case Driver.PlanetScale:
       return mysqlCreateTrigger(namespace);
     case Driver.SqlServer:
       return sqlserverCreateTrigger(namespace);

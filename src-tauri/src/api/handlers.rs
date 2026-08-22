@@ -314,7 +314,7 @@ impl ParamDialect {
             "postgres" | "postgresql" | "cockroachdb" | "neon" | "supabase" | "timescaledb" => {
                 Some(Self::Postgres)
             }
-            "mysql" | "mariadb" => Some(Self::MySql),
+            "mysql" | "mariadb" | "planetscale" => Some(Self::MySql),
             "sqlite" => Some(Self::Sqlite),
             "duckdb" | "motherduck" => Some(Self::DuckDb),
             "sqlserver" | "mssql" => Some(Self::SqlServer),

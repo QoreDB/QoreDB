@@ -1316,9 +1316,9 @@ impl FulltextSearchStrategy for SqlServerSearchStrategy {
 pub fn get_search_strategy(driver_id: &str) -> Box<dyn FulltextSearchStrategy> {
     match driver_id.to_lowercase().as_str() {
         "postgres" | "postgresql" => Box::new(PostgresSearchStrategy::new()),
-        "mysql" | "mariadb" => Box::new(MySqlSearchStrategy::new()),
+        "mysql" | "mariadb" | "planetscale" => Box::new(MySqlSearchStrategy::new()),
         "sqlite" | "sqlite3" => Box::new(SqliteSearchStrategy::new()),
-        "mongodb" | "mongo" => Box::new(MongoSearchStrategy::new()),
+        "mongodb" | "mongo" | "documentdb" => Box::new(MongoSearchStrategy::new()),
         "sqlserver" | "mssql" => Box::new(SqlServerSearchStrategy::new()),
         _ => Box::new(PostgresSearchStrategy::new()),
     }

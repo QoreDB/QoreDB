@@ -26,6 +26,12 @@ function mapDriverString(driver: string | undefined): Driver | undefined {
       return Driver.Redis;
     case 'valkey':
       return Driver.Valkey;
+    case 'dragonfly':
+      return Driver.Dragonfly;
+    case 'documentdb':
+      return Driver.DocumentDb;
+    case 'planetscale':
+      return Driver.PlanetScale;
     case 'sqlite':
     case 'sqlite3':
       return Driver.Sqlite;

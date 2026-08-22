@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Driver } from '../../lib/connection/drivers';
+import { isDocumentDatabase } from '../../lib/connection/driverCapabilities';
+import type { Driver } from '../../lib/connection/drivers';
 import type { TableColumn, TableSchema, Value } from '../../lib/tauri';
 
 export type RowModalMode = 'insert' | 'update';
@@ -62,7 +63,7 @@ export function buildInitialRowModalState({
     }
   });
 
-  if (mode === 'update' && initialData && driver === Driver.Mongodb) {
+  if (mode === 'update' && initialData && !!driver && isDocumentDatabase(driver)) {
     const schemaColNames = new Set(schema.columns.map(c => c.name));
     Object.keys(initialData).forEach(key => {
       if (!schemaColNames.has(key)) {

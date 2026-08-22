@@ -383,6 +383,9 @@
       "tlsWarning": "TLS 없이 자격 증명이 평문으로 전송됩니다. SSL/TLS를 활성화하세요.",
       "caCert": "CA 인증서",
       "caCertHint": "TLS로 서버를 확인하기 위한 PEM CA 인증서 경로입니다. 비워두면 시스템 신뢰 저장소를 사용합니다."
+    },
+    "documentdb": {
+      "caCertHint": "DocumentDB 클러스터는 Amazon CA가 서명합니다. Amazon이 배포하는 global-bundle.pem 파일을 지정하세요. 비워 두면 시스템 인증서 저장소를 사용합니다."
     }
   },
   "sidebar": {

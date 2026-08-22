@@ -105,8 +105,10 @@ export const TRUNCATE_ALL_DRIVERS = new Set([
   'timescaledb',
   'mysql',
   'mariadb',
+  'planetscale',
   'sqlite',
   'mongodb',
+  'documentdb',
 ]);
 
 export async function truncateAll(

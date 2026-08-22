@@ -7,6 +7,8 @@ use qore_core::DriverRegistry;
 use qore_drivers::drivers::clickhouse::ClickHouseDriver;
 #[cfg(feature = "driver-cockroachdb")]
 use qore_drivers::drivers::cockroachdb::CockroachDbDriver;
+#[cfg(feature = "driver-documentdb")]
+use qore_drivers::drivers::documentdb::DocumentDbDriver;
 #[cfg(feature = "driver-duckdb")]
 use qore_drivers::drivers::duckdb::DuckDbDriver;
 #[cfg(feature = "driver-elasticsearch")]
@@ -23,9 +25,15 @@ use qore_drivers::drivers::mysql::MySqlDriver;
 use qore_drivers::drivers::neon::NeonDriver;
 #[cfg(feature = "driver-opensearch")]
 use qore_drivers::drivers::opensearch::OpenSearchDriver;
+#[cfg(feature = "driver-planetscale")]
+use qore_drivers::drivers::planetscale::PlanetScaleDriver;
 #[cfg(feature = "driver-postgres")]
 use qore_drivers::drivers::postgres::PostgresDriver;
-#[cfg(any(feature = "driver-redis", feature = "driver-valkey"))]
+#[cfg(any(
+    feature = "driver-dragonfly",
+    feature = "driver-redis",
+    feature = "driver-valkey"
+))]
 use qore_drivers::drivers::redis::RedisDriver;
 #[cfg(feature = "driver-sqlite")]
 use qore_drivers::drivers::sqlite::SqliteDriver;
@@ -70,10 +78,14 @@ impl ServiceContext {
         registry.register(Arc::new(MySqlDriver::new()));
         #[cfg(feature = "driver-mongodb")]
         registry.register(Arc::new(MongoDriver::new()));
+        #[cfg(feature = "driver-documentdb")]
+        registry.register(Arc::new(DocumentDbDriver::new()));
         #[cfg(feature = "driver-redis")]
         registry.register(Arc::new(RedisDriver::new()));
         #[cfg(feature = "driver-valkey")]
         registry.register(Arc::new(RedisDriver::valkey()));
+        #[cfg(feature = "driver-dragonfly")]
+        registry.register(Arc::new(RedisDriver::dragonfly()));
         #[cfg(feature = "driver-sqlite")]
         registry.register(Arc::new(SqliteDriver::new()));
         #[cfg(feature = "driver-duckdb")]
@@ -86,6 +98,8 @@ impl ServiceContext {
         registry.register(Arc::new(SqlServerDriver::new()));
         #[cfg(feature = "driver-mariadb")]
         registry.register(Arc::new(MariaDbDriver::new()));
+        #[cfg(feature = "driver-planetscale")]
+        registry.register(Arc::new(PlanetScaleDriver::new()));
         #[cfg(feature = "driver-supabase")]
         registry.register(Arc::new(SupabaseDriver::new()));
         #[cfg(feature = "driver-neon")]

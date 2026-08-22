@@ -6,16 +6,21 @@ import { Driver } from './drivers';
  * Drivers whose connection strings can be parsed by the backend URL parser.
  *
  * Managed and compatible drivers intentionally reuse their wire protocol:
- * MariaDB uses MySQL URLs, while Supabase, Neon, TimescaleDB and MotherDuck's
+ * MariaDB and PlanetScale use MySQL URLs, DocumentDB uses MongoDB URLs,
+ * Dragonfly uses Redis URLs, while Supabase, Neon, TimescaleDB and MotherDuck's
  * Postgres endpoint use PostgreSQL URLs.
  */
 export const CONNECTION_URL_PLACEHOLDERS = {
   [Driver.Postgres]: 'postgresql://user:password@localhost:5432/mydb',
   [Driver.Mysql]: 'mysql://user:password@localhost:3306/mydb',
   [Driver.Mariadb]: 'mysql://user:password@localhost:3306/mydb',
+  [Driver.PlanetScale]: 'mysql://user:password@aws.connect.psdb.cloud:3306/mydb?ssl-mode=required',
   [Driver.Mongodb]: 'mongodb://user:password@localhost:27017/mydb',
+  [Driver.DocumentDb]:
+    'mongodb://user:password@docdb-cluster.cluster-id.region.docdb.amazonaws.com:27017/mydb?tls=true',
   [Driver.Redis]: 'redis://default:password@localhost:6379/0',
   [Driver.Valkey]: 'valkey://default:password@localhost:6379/0',
+  [Driver.Dragonfly]: 'redis://default:password@localhost:6379/0',
   [Driver.Motherduck]:
     'postgresql://postgres:motherduck_token@pg.<region>-aws.motherduck.com:5432/md:?sslmode=verify-full',
   [Driver.SqlServer]: 'sqlserver://user:password@localhost:1433/mydb?encrypt=true',

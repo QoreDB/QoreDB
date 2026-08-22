@@ -383,6 +383,9 @@
       "tlsWarning": "Las credenciales se envían en texto plano sin TLS. Habilite SSL/TLS.",
       "caCert": "Certificado CA",
       "caCertHint": "Ruta a un certificado CA (PEM) para verificar el servidor por TLS. Déjelo vacío para usar el almacén de confianza del sistema."
+    },
+    "documentdb": {
+      "caCertHint": "Los clústeres de DocumentDB están firmados por una CA de Amazon. Indica aquí el archivo global-bundle.pem que publica Amazon; déjalo vacío para usar el almacén de certificados del sistema."
     }
   },
   "sidebar": {

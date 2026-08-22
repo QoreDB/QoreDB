@@ -44,7 +44,7 @@ impl Dialect {
     pub fn from_driver_id(driver_id: &str) -> Option<Self> {
         match driver_id.to_ascii_lowercase().as_str() {
             "postgres" | "postgresql" | "cockroachdb" | "cockroach" => Some(Dialect::Postgres),
-            "mysql" | "mariadb" => Some(Dialect::MySql),
+            "mysql" | "mariadb" | "planetscale" => Some(Dialect::MySql),
             "sqlite" => Some(Dialect::Sqlite),
             "sqlserver" | "mssql" => Some(Dialect::SqlServer),
             "duckdb" | "motherduck" => Some(Dialect::DuckDb),

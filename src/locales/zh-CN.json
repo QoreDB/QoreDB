@@ -383,6 +383,9 @@
       "tlsWarning": "未启用 TLS，凭据将以明文发送。请启用 SSL/TLS。",
       "caCert": "CA 证书",
       "caCertHint": "用于通过 TLS 验证服务器的 PEM CA 证书路径。留空则使用系统信任库。"
+    },
+    "documentdb": {
+      "caCertHint": "DocumentDB 集群由 Amazon CA 签发。请指向 Amazon 发布的 global-bundle.pem 文件；留空则使用系统证书库。"
     }
   },
   "sidebar": {

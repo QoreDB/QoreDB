@@ -34,8 +34,8 @@ pub fn fingerprint_query(query: &str, driver_id: &str) -> String {
 fn normalize(query: &str, driver_id: &str) -> String {
     let driver = driver_id.to_ascii_lowercase();
     match driver.as_str() {
-        "mongodb" => normalize_mongo(query),
-        "redis" | "valkey" => normalize_redis(query),
+        "mongodb" | "documentdb" => normalize_mongo(query),
+        "redis" | "valkey" | "dragonfly" => normalize_redis(query),
         _ => normalize_sql(query),
     }
 }

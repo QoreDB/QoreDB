@@ -383,6 +383,9 @@
       "tlsWarning": "TLSなしで認証情報が平文で送信されます。SSL/TLSを有効にしてください。",
       "caCert": "CA証明書",
       "caCertHint": "TLSでサーバーを検証するためのPEM CA証明書のパス。空欄の場合はシステムのトラストストアを使用します。"
+    },
+    "documentdb": {
+      "caCertHint": "DocumentDB クラスターは Amazon の CA によって署名されています。Amazon が公開する global-bundle.pem を指定してください。空欄のままにするとシステムの証明書ストアを使います。"
     }
   },
   "sidebar": {

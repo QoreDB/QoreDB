@@ -20,7 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { isDocumentDatabase } from '../../lib/connection/driverCapabilities';
+import { isDocumentDatabase, isMySqlFamily } from '../../lib/connection/driverCapabilities';
 import { getDriverMetadata } from '../../lib/connection/drivers';
 import {
   type CharsetInfo,
@@ -69,7 +69,7 @@ export function CreateDatabaseModal({
 
   const driverMeta = getDriverMetadata(driver);
   const isDocument = isDocumentDatabase(driver);
-  const isMysql = driver === 'mysql';
+  const isMysql = isMySqlFamily(driver);
   const confirmationLabel = (connectionDatabase || connectionName || 'PROD').trim() || 'PROD';
 
   // Collations filtered by selected charset

@@ -4,17 +4,23 @@
 pub mod clickhouse;
 #[cfg(feature = "driver-cockroachdb")]
 pub mod cockroachdb;
+#[cfg(feature = "driver-documentdb")]
+pub mod documentdb;
 #[cfg(feature = "driver-duckdb")]
 pub mod duckdb;
 #[cfg(feature = "driver-elasticsearch")]
 pub mod elasticsearch;
 #[cfg(feature = "driver-mariadb")]
 pub mod mariadb;
-#[cfg(feature = "driver-mongodb")]
+#[cfg(any(feature = "driver-documentdb", feature = "driver-mongodb"))]
 pub mod mongodb;
 #[cfg(feature = "driver-motherduck")]
 pub mod motherduck;
-#[cfg(any(feature = "driver-mariadb", feature = "driver-mysql"))]
+#[cfg(any(
+    feature = "driver-mariadb",
+    feature = "driver-mysql",
+    feature = "driver-planetscale"
+))]
 pub mod mysql;
 #[cfg(feature = "driver-neon")]
 pub mod neon;
@@ -22,11 +28,17 @@ pub mod neon;
 pub mod opensearch;
 #[cfg(feature = "sqlx-postgres")]
 pub mod pg_compat;
+#[cfg(feature = "driver-planetscale")]
+pub mod planetscale;
 #[cfg(feature = "driver-postgres")]
 pub mod postgres;
 #[cfg(feature = "sqlx-postgres")]
 pub mod postgres_utils;
-#[cfg(any(feature = "driver-redis", feature = "driver-valkey"))]
+#[cfg(any(
+    feature = "driver-dragonfly",
+    feature = "driver-redis",
+    feature = "driver-valkey"
+))]
 pub mod redis;
 #[cfg(any(feature = "driver-elasticsearch", feature = "driver-opensearch"))]
 pub mod search_compat;

@@ -383,6 +383,9 @@
       "tlsWarning": "Anmeldedaten werden ohne TLS im Klartext gesendet. Aktivieren Sie SSL/TLS.",
       "caCert": "CA-Zertifikat",
       "caCertHint": "Pfad zu einem PEM-CA-Zertifikat zur TLS-Überprüfung des Servers. Leer lassen, um den System-Truststore zu verwenden."
+    },
+    "documentdb": {
+      "caCertHint": "DocumentDB-Cluster sind von einer Amazon-CA signiert. Geben Sie hier die von Amazon veröffentlichte global-bundle.pem an; leer lassen, um den System-Zertifikatspeicher zu verwenden."
     }
   },
   "sidebar": {

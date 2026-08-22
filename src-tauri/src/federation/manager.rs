@@ -183,7 +183,7 @@ async fn prepare_duckdb(
         .into_iter()
         .zip(plan.sources.iter())
         .map(|(result, source)| {
-            if source.driver_id == "mongodb" {
+            if matches!(source.driver_id.as_str(), "mongodb" | "documentdb") {
                 flatten_mongo_documents(result)
             } else {
                 result

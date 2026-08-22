@@ -31,6 +31,7 @@ import {
   getSchemaObjectCapabilities,
   getTerminology,
   isDocumentDatabase,
+  isMySqlFamily,
 } from '../../lib/connection/driverCapabilities';
 import { type Driver, getDriverMetadata } from '../../lib/connection/drivers';
 import {
@@ -949,7 +950,7 @@ export function DBTree({
                               sessionId={connectionId}
                               environment={connection?.environment || 'development'}
                               readOnly={connection?.read_only || false}
-                              supportsToggle={driver !== 'mysql'}
+                              supportsToggle={!isMySqlFamily(driver)}
                               onViewSource={trig =>
                                 expandedNamespace && onOpenTriggerSource?.(trig, expandedNamespace)
                               }

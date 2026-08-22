@@ -10,6 +10,7 @@ export const SCHEMA_MIGRATION_DRIVERS = new Set([
   'cockroachdb',
   'mysql',
   'mariadb',
+  'planetscale',
   'sqlite',
   'duckdb',
   'motherduck',
@@ -20,4 +21,4 @@ export const SCHEMA_MIGRATION_DRIVERS = new Set([
 ]);
 
 /** DDL auto-commits here, so a failed migration can't be fully rolled back. */
-export const NON_TX_DDL_DRIVERS = new Set(['mysql', 'mariadb']);
+export const NON_TX_DDL_DRIVERS = new Set(['mysql', 'mariadb', 'planetscale']);

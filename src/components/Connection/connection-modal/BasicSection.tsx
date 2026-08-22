@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
+import { isDocumentDatabase } from '@/lib/connection/driverCapabilities';
 import {
   DEFAULT_PORTS,
   Driver,
@@ -36,7 +37,8 @@ export function BasicSection({
   const { t } = useTranslation();
 
   const isFileBased = formData.driver === Driver.Sqlite || formData.driver === Driver.Duckdb;
-  const usernameRequired = formData.driver !== Driver.Mongodb && !isKeyValueDriver(formData.driver);
+  const usernameRequired =
+    !isDocumentDatabase(formData.driver) && !isKeyValueDriver(formData.driver);
   const isSqlServer = formData.driver === Driver.SqlServer;
   const isClickhouse = formData.driver === Driver.Clickhouse;
   const isRedis = isKeyValueDriver(formData.driver);
@@ -257,10 +259,21 @@ export function BasicSection({
             </div>
           )}
 
-          {isSearch && formData.ssl && (
-            <Field label={t('connection.search.caCert')} hint={t('connection.search.caCertHint')}>
+          {(isSearch || isDocumentDatabase(formData.driver)) && formData.ssl && (
+            <Field
+              label={t('connection.search.caCert')}
+              hint={
+                formData.driver === Driver.DocumentDb
+                  ? t('connection.documentdb.caCertHint')
+                  : t('connection.search.caCertHint')
+              }
+            >
               <Input
-                placeholder="/etc/ssl/certs/ca.pem"
+                placeholder={
+                  formData.driver === Driver.DocumentDb
+                    ? '/path/to/global-bundle.pem'
+                    : '/etc/ssl/certs/ca.pem'
+                }
                 value={formData.sslCaCert}
                 onChange={e => onChange('sslCaCert', e.target.value)}
                 spellCheck={false}

@@ -412,6 +412,9 @@
       "tlsWarning": "Credentials are sent in clear text without TLS. Enable SSL/TLS.",
       "caCert": "CA certificate",
       "caCertHint": "Path to a PEM CA certificate to verify the server over TLS. Leave empty to use the system trust store."
+    },
+    "documentdb": {
+      "caCertHint": "DocumentDB clusters are signed by an Amazon CA. Point this at the global-bundle.pem file Amazon publishes; leave it empty to use the system trust store."
     }
   },
   "sidebar": {

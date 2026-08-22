@@ -98,7 +98,7 @@ fn dialect_for(driver_id: &str) -> SplitDialect {
             nested_block_comments: true,
             ..base
         },
-        "mysql" | "mariadb" => SplitDialect {
+        "mysql" | "mariadb" | "planetscale" => SplitDialect {
             backtick_ident: true,
             backslash_escape: true,
             hash_comment: true,

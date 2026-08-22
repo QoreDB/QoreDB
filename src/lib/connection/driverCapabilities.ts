@@ -52,6 +52,32 @@ const DRIVER_SCHEMA_OBJECT_CAPABILITIES: Record<Driver, DriverSchemaObjectCapabi
     events: false,
     sequences: false,
   },
+  dragonfly: {
+    routines: false,
+    functions: false,
+    procedures: false,
+    triggers: false,
+    events: false,
+    sequences: false,
+  },
+  documentdb: {
+    routines: false,
+    functions: false,
+    procedures: false,
+    triggers: false,
+    events: false,
+    sequences: false,
+  },
+  // Vitess implements neither stored routines, triggers nor the event
+  // scheduler; offering them would surface objects the engine refuses.
+  planetscale: {
+    routines: false,
+    functions: false,
+    procedures: false,
+    triggers: false,
+    events: false,
+    sequences: false,
+  },
   sqlite: {
     routines: false,
     functions: false,
@@ -152,6 +178,14 @@ const DRIVER_SCHEMA_OBJECT_CAPABILITIES: Record<Driver, DriverSchemaObjectCapabi
 
 export function isDocumentDatabase(driver: Driver | string): boolean {
   return getDriverMetadata(driver).isDocumentBased;
+}
+
+/**
+ * MySQL wire family: same dialect, same `information_schema`, same DDL.
+ * MariaDB and PlanetScale differ from MySQL in ways the UI does not model.
+ */
+export function isMySqlFamily(driver: Driver | string): boolean {
+  return driver === 'mysql' || driver === 'mariadb' || driver === 'planetscale';
 }
 
 export function isRelationalDatabase(driver: Driver | string): boolean {

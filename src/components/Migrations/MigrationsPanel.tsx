@@ -32,6 +32,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { isMySqlFamily } from '@/lib/connection/driverCapabilities';
 import type { Driver } from '@/lib/connection/drivers';
 import type { DdlWarning } from '@/lib/ddl';
 import { loadBaselineFile, saveBaseline, useBaseline } from '@/lib/migrations/baselineStore';
@@ -114,7 +115,7 @@ export function MigrationsPanel({
 
   const isDefault = activeWorkspace == null || activeWorkspace.source === 'default';
   const driverSupported = driver != null && SCHEMA_MIGRATION_DRIVERS.has(driver);
-  const requiresTargetDatabase = driver === 'mysql' || driver === 'mariadb';
+  const requiresTargetDatabase = !!driver && isMySqlFamily(driver);
   const databaseReady = !requiresTargetDatabase || targetDatabase.length > 0;
   const canApply = !!sessionId && driverSupported && !readOnly && databaseReady;
 

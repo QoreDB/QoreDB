@@ -12,7 +12,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Driver } from '../../lib/connection/drivers';
+import { isDocumentDatabase } from '@/lib/connection/driverCapabilities';
+import type { Driver } from '../../lib/connection/drivers';
 import { notify } from '../../lib/notify';
 import {
   insertRow,
@@ -345,7 +346,7 @@ export function RowModal({
               onInputChange={handleInputChange}
             />
 
-            {driver === Driver.Mongodb && (
+            {!!driver && isDocumentDatabase(driver) && (
               <RowModalCustomFields
                 title={t('rowModal.addCustomField')}
                 fieldNameLabel={t('rowModal.fieldName')}

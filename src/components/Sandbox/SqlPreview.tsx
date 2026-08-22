@@ -6,6 +6,7 @@ import { oneDark } from '@codemirror/theme-one-dark';
 import { EditorView, lineNumbers } from '@codemirror/view';
 import { useEffect, useRef } from 'react';
 import { useTheme } from '@/hooks/useTheme';
+import { isMySqlFamily } from '@/lib/connection/driverCapabilities';
 import { Driver } from '@/lib/connection/drivers';
 import { cn } from '@/lib/utils';
 
@@ -23,7 +24,7 @@ export function SqlPreview({ value, dialect = Driver.Postgres, className }: SqlP
   useEffect(() => {
     if (!containerRef.current) return;
 
-    const sqlDialect = dialect === Driver.Mysql ? MySQL : PostgreSQL;
+    const sqlDialect = isMySqlFamily(dialect) ? MySQL : PostgreSQL;
     const extensions = [
       lineNumbers(),
       sql({ dialect: sqlDialect }),

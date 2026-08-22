@@ -53,6 +53,37 @@ the user when picking `text` without a matching index.
 - Namespace listing filters system schemas (`information_schema`, `mysql`,
   `performance_schema`, `sys`).
 
+## PlanetScale
+
+Wire-compatible with MySQL, served by the same driver under the `planetscale`
+id. Everything in the MySQL section applies unchanged; what follows is what
+differs, and what QoreDB does not model.
+
+- TLS is forced on connect: PlanetScale rejects plaintext, so leaving the
+  connection form on "no TLS" would fail with a protocol error rather than a
+  readable one.
+- No URL scheme of its own — PlanetScale hands out `mysql://` strings. The DSN
+  detector recognises `*.psdb.cloud` hosts and picks the driver from there.
+- Foreign keys are not enforced unless the branch has foreign key constraints
+  enabled. The schema explorer still lists whatever `information_schema`
+  reports.
+- **Stored routines, triggers and the event scheduler are unsupported by
+  Vitess**, so the driver reports them as absent and the UI hides them.
+  Announcing MySQL's set would offer schema objects the engine refuses.
+- **Deploy requests are not modelled.** Applying a migration writes directly to
+  the connected branch instead of opening a deploy request. Point the
+  connection at a development branch, not at production.
+- `mysqldump`-based backup is untested against PlanetScale, which restricts
+  some privileges (`PROCESS` in particular) that `mysqldump` expects.
+- Sequences are unsupported, exactly as on MySQL.
+- TLS is forced even when the connection carries an explicit disabling
+  `ssl_mode`: the mode outranks the flag downstream, so leaving it in place
+  would quietly defeat the forcing.
+- Never verified against a live PlanetScale cluster. `planetscale_e2e` runs the
+  driver against the local MySQL service — TLS negotiation, schema
+  introspection and paging all go through the real path — but PlanetScale's own
+  gateway, branches and deploy requests are out of reach without an account.
+
 ## MongoDB
 
 - Query execution supports `find` with simple JSON payloads and a dedicated
@@ -170,6 +201,38 @@ they are routed through the mutation confirmation path like any other write.
   "name": "user_recent_orders" }
 ```
 
+## Amazon DocumentDB
+
+Implements the MongoDB wire protocol, served by the same driver under the
+`documentdb` id. Everything in the MongoDB section applies; what follows is
+what differs.
+
+- TLS is forced on connect. Clusters are signed by an Amazon CA that most
+  machines do not trust, so point `ssl_ca_cert` at the
+  `global-bundle.pem` Amazon publishes — the driver hands that bundle to the
+  TLS layer instead of the system trust store, and refuses to connect if the
+  path does not exist rather than silently falling back.
+- Clusters live in a private VPC: connections usually go through the SSH tunnel
+  the connection form already offers. Through a tunnel the host is the local
+  end while the certificate names the cluster, so hostname verification is
+  relaxed **only then** — the CA is still verified either way.
+- Retryable writes are turned off: DocumentDB does not implement them, and
+  leaving them on makes every write fail. An explicit `retryWrites` option on
+  the connection is never overridden.
+- No URL scheme of its own — DocumentDB hands out `mongodb://` strings. The DSN
+  detector recognises `*.docdb.amazonaws.com` hosts.
+- **DocumentDB is not a complete MongoDB.** Several aggregation operators,
+  `$lookup` beyond its simple form, and some index types are unsupported by the
+  server. The driver delegates as-is, so the server's own error is what the user
+  sees; QoreDB does not rewrite those messages.
+- Never verified against a live DocumentDB cluster. The `mongodb-tls` service
+  in `docker-compose.yml` is the local stand-in: a MongoDB requiring TLS behind
+  a CA that signs a distinct server certificate, the same shape as Amazon's.
+  `documentdb_e2e` connects through it, and
+  `documentdb_refuses_an_unverifiable_certificate` checks that dropping the CA
+  bundle makes the connection fail rather than succeed unverified. What remains
+  untested is DocumentDB's own server behaviour.
+
 ## Redis
 
 - Key browsing uses `SCAN` which is not atomic; keys may be missed or
@@ -189,6 +252,11 @@ they are routed through the mutation confirmation path like any other write.
 - Valkey is served by the same driver under the `valkey` id and adds the
   `valkey://` / `valkeys://` schemes. Every limitation above applies
   unchanged; the fork is wire-compatible and is not probed for its flavor.
+- Dragonfly is served by the same driver under the `dragonfly` id. It has no
+  URL scheme of its own — it announces itself over `redis://` — and is not
+  probed for its flavor either. Every limitation above applies unchanged, and
+  `dragonfly_e2e` in `tests/integration_databases.rs` runs the shared code
+  against a real Dragonfly from `docker-compose.yml`.
 - Authentication is optional — many development setups run without a password.
 
 ### Lua scripting

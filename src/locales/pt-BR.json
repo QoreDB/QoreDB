@@ -586,6 +586,10 @@
     "aiAssistant": {
       "name": "Assistente de IA",
       "description": "Gere e corrija consultas SQL usando linguagem natural"
+    },
+    "queryReplay": {
+      "name": "Reexecução de consultas",
+      "description": "Grave um conjunto de consultas e reexecute-o após uma migração para ver o que mudou"
     }
   },
   "notebook": {
@@ -662,6 +666,82 @@
     "aiGenerate": "Gerar SQL",
     "aiCellInserted": "Célula SQL inserida abaixo"
   },
+  "replay": {
+    "title": "Reexecução de consultas",
+    "openLab": "Abrir a reexecução de consultas",
+    "setName": "Nome do conjunto",
+    "setNamePlaceholder": "fluxo-de-compra",
+    "ignoredColumns": "Colunas ignoradas",
+    "ignoredColumnsHint": "Separadas por vírgulas. Excluídas da comparação para que um carimbo de data e hora não aponte uma diferença a cada execução.",
+    "queryTextWarning": "O conjunto é versionado no seu repositório com o texto das consultas como está. Um literal dentro de uma consulta — chave, senha, conteúdo — é versionado junto. As linhas de resultado nunca são.",
+    "captureValues": "Capturar os valores",
+    "captureValuesOn": "As linhas ficam salvas localmente, as diferenças podem ser mostradas.",
+    "captureValuesOff": "Apenas metadados e assinaturas: as diferenças são apontadas, não mostradas.",
+    "productionCapture": "Capturar valores da produção",
+    "productionCaptureHint": "Desativado por padrão. As linhas de produção não saem desta máquina.",
+    "startRecording": "Iniciar gravação",
+    "recording": "gravando",
+    "stopRecording": "Parar e salvar",
+    "recordedCount": "{{count}} gravadas",
+    "ignoredOtherSession": "{{count}} consultas de outra conexão foram descartadas.",
+    "recordingSaved": "Conjunto \"{{name}}\" salvo",
+    "discardEntry": "Remover esta consulta",
+    "mutation": "mutação",
+    "captureStopped": {
+      "budget_exceeded": "Captura interrompida: a execução atingiu seu limite de armazenamento. As entradas seguintes têm assinatura, mas não linhas.",
+      "metadata_only": "Execução apenas com metadados: as diferenças são apontadas, não mostradas.",
+      "production_policy": "Execução em produção: nenhuma linha foi armazenada."
+    },
+    "noSets": "Nenhum conjunto ainda",
+    "emptyState": "Grave um conjunto de consultas e reexecute-o após uma migração ou em outra conexão para ver o que mudou.",
+    "notRunYet": "Ainda não reexecutado.",
+    "entriesTotal": "{{count}} consultas",
+    "deleteSet": "Excluir conjunto",
+    "recordedOn": "Gravado em {{driver}} · {{environment}}",
+    "ignoring": "ignora {{columns}}",
+    "ignoringNone": "nenhuma coluna ignorada",
+    "editIgnoredColumns": "Editar as colunas ignoradas",
+    "compareToBaseline": "vs. a gravação",
+    "compareToRun": "vs. {{date}}",
+    "compareToConnection": "vs. {{name}}",
+    "sideA": "esta conexão",
+    "sideB": "a outra conexão",
+    "allowMutations": "Reexecutar mutações",
+    "run": "Reexecutar",
+    "progress": "{{completed}} / {{total}}",
+    "partialComparison": "Comparação limitada às linhas capturadas.",
+    "openDiff": "Abrir o diff",
+    "baseline": "Referência",
+    "currentRun": "Esta execução",
+    "verdict": {
+      "match": "idêntica",
+      "broken": "quebrada",
+      "row_count_diff": "número de linhas",
+      "digest_diff": "conteúdo",
+      "slower": "mais lenta",
+      "skipped": "ignorada"
+    },
+    "column": {
+      "query": "Consulta",
+      "verdict": "Veredito",
+      "rows": "Linhas",
+      "duration": "Duração",
+      "runVsExpected": "execução / gravado"
+    },
+    "errors": {
+      "listSets": "Não foi possível listar os conjuntos",
+      "loadSet": "Não foi possível carregar o conjunto",
+      "noConnection": "Conecte-se a um banco de dados primeiro",
+      "startRecording": "Não foi possível iniciar a gravação",
+      "stopRecording": "Não foi possível salvar o conjunto",
+      "discard": "Não foi possível remover a entrada",
+      "run": "A reexecução falhou",
+      "deleteSet": "Não foi possível excluir o conjunto",
+      "ignoredColumns": "Não foi possível atualizar as colunas ignoradas",
+      "noBaseline": "Este conjunto não tem captura de referência para comparar",
+      "loadCapture": "Não foi possível carregar as linhas capturadas"
+    }
+  },
   "settings": {
     "title": "Configurações",
     "language": "Idioma",
@@ -706,7 +786,8 @@
         "export_xlsx": "Exportação XLSX",
         "export_parquet": "Exportação Parquet",
         "query_library_advanced": "Biblioteca de Consultas Avançada",
-        "virtual_relations_auto_suggest": "Sugestão Automática de Relações Virtuais"
+        "virtual_relations_auto_suggest": "Sugestão Automática de Relações Virtuais",
+        "query_replay": "Reexecução de consultas"
       },
       "devOverrideTitle": "Substituição de Licença Dev",
       "devOverrideDescription": "Substituir nível de licença para testes de desenvolvimento. Reinicia ao reiniciar o app.",
@@ -2372,6 +2453,13 @@
           "bullet1": "Zero configuração",
           "bullet2": "Somente leitura por padrão",
           "bullet3": "Ótimo para protótipos e demos"
+        },
+        "query_replay": {
+          "title": "Saber o que a sua migração quebrou",
+          "description": "Grave as consultas que você realmente executa, reexecute-as após uma migração ou em outra conexão, e leia o que mudou em vez de adivinhar.",
+          "bullet1": "Consultas quebradas, diferenças de linhas e de conteúdo, e lentidões em um só relatório",
+          "bullet2": "Os conjuntos ficam em .qoredb/ e são compartilhados por Git — apenas expectativas, nunca linhas de resultado",
+          "bullet3": "Abra o diff referência ↔ execução em qualquer linha, direto do relatório"
         }
       }
     },
@@ -2387,7 +2475,8 @@
       "custom_safety_rules": "Regras de segurança personalizadas requerem uma licença Pro.",
       "query_library_advanced": "A biblioteca de consultas avançada requer uma licença Pro.",
       "virtual_relations_auto_suggest": "A sugestão automática de relações virtuais requer uma licença Pro.",
-      "federation": "A federação entre bancos de dados requer uma licença Pro."
+      "federation": "A federação entre bancos de dados requer uma licença Pro.",
+      "query_replay": "A reexecução de consultas requer uma licença Pro."
     }
   },
   "proDiscovery": {

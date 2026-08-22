@@ -13,6 +13,7 @@ import {
   WifiOff,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { ReplayIndicator } from '@/components/Replay/ReplayIndicator';
 import { SandboxIndicator } from '@/components/Sandbox';
 import { Tooltip } from '@/components/ui/tooltip';
 import { getDriverMetadata } from '@/lib/connection/drivers';
@@ -117,6 +118,8 @@ export function StatusBar({ sessionId, connection, connectionHealth = 'healthy' 
                 )}
               </span>
             )}
+
+            <ReplayIndicator />
 
             <SandboxIndicator sessionId={sessionId} environment={environment} />
 

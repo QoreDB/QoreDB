@@ -379,6 +379,7 @@ export function useNotebook(options: UseNotebookOptions): UseNotebookReturn {
         const response = await executeQuery(sessionId, resolvedSource, {
           namespace: cellNamespace,
           queryId,
+          recordable: true,
         });
 
         if (signal?.aborted) return;

@@ -118,6 +118,7 @@ pub async fn execute_query(
     timeout_ms: Option<u64>,
     stream: Option<bool>,
     bypass_limits: Option<bool>,
+    recordable: Option<bool>,
     on_stream: Channel<InvokeResponseBody>,
 ) -> Result<QueryResponse, String> {
     let requested_bypass = bypass_limits.unwrap_or(false);
@@ -143,6 +144,8 @@ pub async fn execute_query(
             state.license_manager.effective_status().tier,
         )
     };
+    #[cfg(feature = "pro")]
+    let replay = Arc::clone(&state.lock().await.replay);
 
     // Gate governance-limit bypass behind Team+. Without this check, any JS in
     // the webview (or a DevTools call in debug) can pass `bypass_limits=true`
@@ -339,9 +342,31 @@ pub async fn execute_query(
 
     let plugin_ctx = interceptor_context.clone();
     let plugin_host_for_complete = Arc::clone(&plugin_host);
+    // This command also serves DDL modals, browser statistics, the data
+    // generator and diff sources. Callers say whether their execution belongs
+    // in a recording; anything unmarked stays out.
+    #[cfg(feature = "pro")]
+    let recordable = recordable.unwrap_or(false);
+    #[cfg(feature = "pro")]
+    let replay_ctx = interceptor_context.clone();
+    #[cfg(feature = "pro")]
+    let replay_namespace = namespace.clone();
     let on_complete = move |exec: &QueryExecutionResult, result: Option<&QueryResult>| {
         let payload = result.and_then(build_query_read_payload);
         dispatch_plugin_post_execute(&plugin_host_for_complete, &plugin_ctx, exec, payload);
+        #[cfg(feature = "pro")]
+        if let Some(captures) = recordable
+            .then(|| replay.captures_for_recording())
+            .flatten()
+        {
+            replay.recorder.record(
+                &replay_ctx,
+                replay_namespace.as_ref(),
+                exec,
+                result,
+                &captures,
+            );
+        }
     };
 
     let outcome = qore_service::query::execute(

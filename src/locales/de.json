@@ -586,6 +586,10 @@
     "aiAssistant": {
       "name": "KI-Assistent",
       "description": "SQL-Abfragen mit natürlicher Sprache generieren und korrigieren"
+    },
+    "queryReplay": {
+      "name": "Query-Replay",
+      "description": "Ein Set von Abfragen aufzeichnen und nach einer Migration abspielen, um zu sehen, was sich geändert hat"
     }
   },
   "notebook": {
@@ -662,6 +666,82 @@
     "aiGenerate": "SQL generieren",
     "aiCellInserted": "SQL-Zelle unten eingefügt"
   },
+  "replay": {
+    "title": "Query-Replay",
+    "openLab": "Query-Replay öffnen",
+    "setName": "Name des Sets",
+    "setNamePlaceholder": "checkout-flow",
+    "ignoredColumns": "Ignorierte Spalten",
+    "ignoredColumnsHint": "Durch Komma getrennt. Vom Vergleich ausgenommen, damit ein Zeitstempel nicht bei jedem Lauf einen Unterschied meldet.",
+    "queryTextWarning": "Das Set wird mit dem unveränderten Abfragetext in Ihr Repository übernommen. Ein Literal in einer Abfrage — Schlüssel, Passwort, Nutzdaten — wird mitversioniert. Ergebniszeilen niemals.",
+    "captureValues": "Ergebniswerte erfassen",
+    "captureValuesOn": "Zeilen werden lokal gespeichert, Unterschiede können angezeigt werden.",
+    "captureValuesOff": "Nur Metadaten und Prüfsummen: Unterschiede werden gemeldet, nicht angezeigt.",
+    "productionCapture": "Werte aus der Produktion erfassen",
+    "productionCaptureHint": "Standardmäßig aus. Produktionszeilen bleiben auf diesem Rechner.",
+    "startRecording": "Aufzeichnung starten",
+    "recording": "Aufnahme",
+    "stopRecording": "Stoppen und speichern",
+    "recordedCount": "{{count}} aufgezeichnet",
+    "ignoredOtherSession": "{{count}} Abfragen einer anderen Verbindung wurden ausgelassen.",
+    "recordingSaved": "Replay-Set „{{name}}“ gespeichert",
+    "discardEntry": "Diese Abfrage entfernen",
+    "mutation": "Mutation",
+    "captureStopped": {
+      "budget_exceeded": "Erfassung gestoppt: Der Lauf hat sein Speicherbudget erreicht. Spätere Einträge haben eine Prüfsumme, aber keine Zeilen.",
+      "metadata_only": "Lauf nur mit Metadaten: Unterschiede werden gemeldet, nicht angezeigt.",
+      "production_policy": "Produktionslauf: Es wurden keine Zeilen gespeichert."
+    },
+    "noSets": "Noch keine Replay-Sets",
+    "emptyState": "Zeichnen Sie ein Set von Abfragen auf und spielen Sie es nach einer Migration oder gegen eine andere Verbindung erneut ab, um zu sehen, was sich geändert hat.",
+    "notRunYet": "Noch nicht abgespielt.",
+    "entriesTotal": "{{count}} Abfragen",
+    "deleteSet": "Set löschen",
+    "recordedOn": "Aufgezeichnet auf {{driver}} · {{environment}}",
+    "ignoring": "ignoriert {{columns}}",
+    "ignoringNone": "keine ignorierten Spalten",
+    "editIgnoredColumns": "Ignorierte Spalten bearbeiten",
+    "compareToBaseline": "vs. Aufzeichnung",
+    "compareToRun": "vs. {{date}}",
+    "compareToConnection": "vs. {{name}}",
+    "sideA": "diese Verbindung",
+    "sideB": "die andere Verbindung",
+    "allowMutations": "Mutationen abspielen",
+    "run": "Abspielen",
+    "progress": "{{completed}} / {{total}}",
+    "partialComparison": "Vergleich auf die erfassten Zeilen beschränkt.",
+    "openDiff": "Diff öffnen",
+    "baseline": "Referenz",
+    "currentRun": "Dieser Lauf",
+    "verdict": {
+      "match": "identisch",
+      "broken": "defekt",
+      "row_count_diff": "Zeilenanzahl",
+      "digest_diff": "Inhalt",
+      "slower": "langsamer",
+      "skipped": "übersprungen"
+    },
+    "column": {
+      "query": "Abfrage",
+      "verdict": "Ergebnis",
+      "rows": "Zeilen",
+      "duration": "Dauer",
+      "runVsExpected": "Lauf / aufgezeichnet"
+    },
+    "errors": {
+      "listSets": "Replay-Sets konnten nicht aufgelistet werden",
+      "loadSet": "Replay-Set konnte nicht geladen werden",
+      "noConnection": "Stellen Sie zuerst eine Datenbankverbindung her",
+      "startRecording": "Aufzeichnung konnte nicht gestartet werden",
+      "stopRecording": "Replay-Set konnte nicht gespeichert werden",
+      "discard": "Eintrag konnte nicht entfernt werden",
+      "run": "Replay fehlgeschlagen",
+      "deleteSet": "Replay-Set konnte nicht gelöscht werden",
+      "ignoredColumns": "Ignorierte Spalten konnten nicht aktualisiert werden",
+      "noBaseline": "Dieses Set hat keine Referenzerfassung zum Vergleich",
+      "loadCapture": "Erfasste Zeilen konnten nicht geladen werden"
+    }
+  },
   "settings": {
     "title": "Einstellungen",
     "language": "Sprache",
@@ -706,7 +786,8 @@
         "export_xlsx": "XLSX-Export",
         "export_parquet": "Parquet-Export",
         "query_library_advanced": "Erweiterte Abfragebibliothek",
-        "virtual_relations_auto_suggest": "Automatische Vorschläge für virtuelle Relationen"
+        "virtual_relations_auto_suggest": "Automatische Vorschläge für virtuelle Relationen",
+        "query_replay": "Query-Replay"
       },
       "devOverrideTitle": "Entwickler-Lizenz-Override",
       "devOverrideDescription": "Lizenzstufe für Entwicklungstests überschreiben. Wird beim Neustart zurückgesetzt.",
@@ -2372,6 +2453,13 @@
           "bullet1": "Keine Konfiguration erforderlich",
           "bullet2": "Standardmäßig schreibgeschützt",
           "bullet3": "Ideal für Prototypen und Demos"
+        },
+        "query_replay": {
+          "title": "Wissen, was Ihre Migration zerstört hat",
+          "description": "Zeichnen Sie die Abfragen auf, die Sie wirklich ausführen, spielen Sie sie nach einer Migration oder gegen eine andere Verbindung ab und lesen Sie, was sich geändert hat, statt zu raten.",
+          "bullet1": "Defekte Abfragen, Zeilen- und Inhaltsunterschiede sowie Verlangsamungen in einem Bericht",
+          "bullet2": "Replay-Sets liegen in .qoredb/ und werden über Git geteilt — nur Erwartungen, nie Ergebniszeilen",
+          "bullet3": "Diff Referenz ↔ Lauf für jede Zeile direkt aus dem Bericht öffnen"
         }
       }
     },
@@ -2387,7 +2475,8 @@
       "custom_safety_rules": "Benutzerdefinierte Sicherheitsregeln erfordern eine Pro-Lizenz.",
       "query_library_advanced": "Erweiterte Abfragebibliothek erfordert eine Pro-Lizenz.",
       "virtual_relations_auto_suggest": "Automatische Vorschläge für virtuelle Relationen erfordern eine Pro-Lizenz.",
-      "federation": "Datenbankübergreifende Föderierung erfordert eine Pro-Lizenz."
+      "federation": "Datenbankübergreifende Föderierung erfordert eine Pro-Lizenz.",
+      "query_replay": "Query-Replay erfordert eine Pro-Lizenz."
     }
   },
   "proDiscovery": {

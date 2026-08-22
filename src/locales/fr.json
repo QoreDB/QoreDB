@@ -615,6 +615,10 @@
     "aiAssistant": {
       "name": "Assistant IA",
       "description": "Générez et corrigez des requêtes SQL en langage naturel"
+    },
+    "queryReplay": {
+      "name": "Rejeu de requêtes",
+      "description": "Enregistrer un jeu de requêtes et le rejouer après une migration pour voir ce qui a changé"
     }
   },
   "notebook": {
@@ -691,6 +695,82 @@
     "aiGenerate": "Générer le SQL",
     "aiCellInserted": "Cellule SQL insérée en dessous"
   },
+  "replay": {
+    "title": "Rejeu de requêtes",
+    "openLab": "Ouvrir le rejeu de requêtes",
+    "setName": "Nom du jeu",
+    "setNamePlaceholder": "parcours-commande",
+    "ignoredColumns": "Colonnes ignorées",
+    "ignoredColumnsHint": "Séparées par des virgules. Exclues de la comparaison pour qu'un horodatage ne signale pas un écart à chaque rejeu.",
+    "queryTextWarning": "Le jeu est versionné dans votre dépôt avec le texte des requêtes tel quel. Un littéral présent dans une requête — clé, mot de passe, contenu — est versionné avec elle. Les lignes de résultat ne le sont jamais.",
+    "captureValues": "Capturer les valeurs",
+    "captureValuesOn": "Les lignes sont stockées localement, les écarts peuvent être montrés.",
+    "captureValuesOff": "Métadonnées et empreintes seulement : les écarts sont signalés, pas montrés.",
+    "productionCapture": "Capturer les valeurs en production",
+    "productionCaptureHint": "Désactivé par défaut. Les lignes de production ne quittent pas cette machine.",
+    "startRecording": "Démarrer l'enregistrement",
+    "recording": "enregistrement",
+    "stopRecording": "Arrêter et enregistrer",
+    "recordedCount": "{{count}} enregistrées",
+    "ignoredOtherSession": "{{count}} requêtes d'une autre connexion ont été écartées.",
+    "recordingSaved": "Jeu de rejeu « {{name}} » enregistré",
+    "discardEntry": "Retirer cette requête",
+    "mutation": "mutation",
+    "captureStopped": {
+      "budget_exceeded": "Capture interrompue : le rejeu a atteint son budget de stockage. Les entrées suivantes ont une empreinte, pas de lignes.",
+      "metadata_only": "Rejeu en métadonnées seules : les écarts sont signalés, pas montrés.",
+      "production_policy": "Rejeu en production : aucune ligne n'a été stockée."
+    },
+    "noSets": "Aucun jeu de rejeu",
+    "emptyState": "Enregistrez un jeu de requêtes, puis rejouez-le après une migration ou sur une autre connexion pour voir ce qui a changé.",
+    "notRunYet": "Pas encore rejoué.",
+    "entriesTotal": "{{count}} requêtes",
+    "deleteSet": "Supprimer le jeu",
+    "recordedOn": "Enregistré sur {{driver}} · {{environment}}",
+    "ignoring": "ignore {{columns}}",
+    "ignoringNone": "aucune colonne ignorée",
+    "editIgnoredColumns": "Modifier les colonnes ignorées",
+    "compareToBaseline": "vs. l'enregistrement",
+    "compareToRun": "vs. {{date}}",
+    "compareToConnection": "vs. {{name}}",
+    "sideA": "cette connexion",
+    "sideB": "l'autre connexion",
+    "allowMutations": "Rejouer les mutations",
+    "run": "Rejouer",
+    "progress": "{{completed}} / {{total}}",
+    "partialComparison": "Comparaison limitée aux lignes capturées.",
+    "openDiff": "Ouvrir le diff",
+    "baseline": "Référence",
+    "currentRun": "Ce rejeu",
+    "verdict": {
+      "match": "identique",
+      "broken": "cassée",
+      "row_count_diff": "nombre de lignes",
+      "digest_diff": "contenu",
+      "slower": "plus lente",
+      "skipped": "ignorée"
+    },
+    "column": {
+      "query": "Requête",
+      "verdict": "Verdict",
+      "rows": "Lignes",
+      "duration": "Durée",
+      "runVsExpected": "rejeu / enregistré"
+    },
+    "errors": {
+      "listSets": "Impossible de lister les jeux de rejeu",
+      "loadSet": "Impossible de charger le jeu de rejeu",
+      "noConnection": "Connectez-vous d'abord à une base",
+      "startRecording": "Impossible de démarrer l'enregistrement",
+      "stopRecording": "Impossible d'enregistrer le jeu de rejeu",
+      "discard": "Impossible de retirer l'entrée",
+      "run": "Le rejeu a échoué",
+      "deleteSet": "Impossible de supprimer le jeu de rejeu",
+      "ignoredColumns": "Impossible de mettre à jour les colonnes ignorées",
+      "noBaseline": "Ce jeu n'a pas de capture de référence à comparer",
+      "loadCapture": "Impossible de charger les lignes capturées"
+    }
+  },
   "settings": {
     "title": "Paramètres",
     "language": "Langue",
@@ -735,7 +815,8 @@
         "export_xlsx": "Export XLSX",
         "export_parquet": "Export Parquet",
         "query_library_advanced": "Bibliothèque de requêtes avancée",
-        "virtual_relations_auto_suggest": "Suggestion auto de relations virtuelles"
+        "virtual_relations_auto_suggest": "Suggestion auto de relations virtuelles",
+        "query_replay": "Rejeu de requêtes"
       },
       "devOverrideTitle": "Override licence (dev)",
       "devOverrideDescription": "Changer le tier de licence pour le développement. Réinitialisé au redémarrage.",
@@ -2411,6 +2492,13 @@
           "bullet1": "Zéro configuration",
           "bullet2": "Read-only par défaut",
           "bullet3": "Idéal pour prototypes et démos"
+        },
+        "query_replay": {
+          "title": "Savoir ce que votre migration a cassé",
+          "description": "Enregistrez les requêtes que vous exécutez vraiment, rejouez-les après une migration ou sur une autre connexion, et lisez ce qui a changé au lieu de le deviner.",
+          "bullet1": "Requêtes cassées, écarts de lignes et de contenu, ralentissements : un seul rapport",
+          "bullet2": "Les jeux vivent dans .qoredb/ et se partagent par Git — des attentes, jamais de lignes de résultat",
+          "bullet3": "Ouvrez le diff référence ↔ rejeu sur n'importe quelle ligne, depuis le rapport"
         }
       }
     },
@@ -2426,7 +2514,8 @@
       "custom_safety_rules": "Les règles de sécurité personnalisées nécessitent une licence Pro.",
       "query_library_advanced": "La bibliothèque de requêtes avancée nécessite une licence Pro.",
       "virtual_relations_auto_suggest": "La suggestion automatique de relations virtuelles nécessite une licence Pro.",
-      "federation": "La fédération inter-bases nécessite une licence Pro."
+      "federation": "La fédération inter-bases nécessite une licence Pro.",
+      "query_replay": "Le rejeu de requêtes nécessite une licence Pro."
     }
   },
   "proDiscovery": {

@@ -55,6 +55,7 @@ const FederationViewer = lazy(() =>
 const NotebookTab = lazy(() =>
   import('./components/Notebook').then(m => ({ default: m.NotebookTab }))
 );
+const ReplayTab = lazy(() => import('./components/Replay').then(m => ({ default: m.ReplayTab })));
 const SettingsPage = lazy(() =>
   import('./components/Settings/SettingsPage').then(m => ({
     default: m.SettingsPage,
@@ -114,6 +115,7 @@ import {
   createFederationTab,
   createMigrationsTab,
   createNotebookTab,
+  createReplayTab,
   createPluginOutputTab,
   createQueryTab,
   createSchemaDiffTab,
@@ -626,6 +628,11 @@ export function AppLayout() {
               label: t('features.virtualRelations.name'),
               sublabel: t('features.virtualRelations.description'),
             },
+            {
+              id: 'feat_replay',
+              label: t('features.queryReplay.name'),
+              sublabel: t('features.queryReplay.description'),
+            },
           ]
         : [],
     [sessionId, t]
@@ -685,6 +692,7 @@ export function AppLayout() {
         : []),
       { id: 'cmd_open_snapshots', label: t('snapshots.openManager') },
       { id: 'cmd_open_migrations', label: t('migrations.openManager') },
+      ...(sessionId ? [{ id: 'cmd_open_replay', label: t('replay.openLab') }] : []),
       {
         id: 'cmd_open_settings',
         label: t('palette.openSettings'),
@@ -757,6 +765,9 @@ export function AppLayout() {
             return;
           case 'cmd_open_migrations':
             openTab(createMigrationsTab(activeTab?.namespace));
+            return;
+          case 'cmd_open_replay':
+            if (sessionId) openTab(createReplayTab());
             return;
           case 'cmd_open_federation':
             if (sessionId) openTab(createFederationTab());
@@ -842,6 +853,9 @@ export function AppLayout() {
             return;
           case 'feat_snapshots':
             openTab(createSnapshotsTab());
+            return;
+          case 'feat_replay':
+            if (sessionId) openTab(createReplayTab());
             return;
           case 'feat_fulltext':
             if (sessionId) setFulltextSearchOpen(true);
@@ -984,6 +998,7 @@ export function AppLayout() {
                       onClose={handleCloseTab}
                       onNew={handleNewQuery}
                       onNewChat={() => openTab(createChatTab())}
+                      onNewReplay={() => openTab(createReplayTab())}
                       onReorder={reordered =>
                         reorderTabs(
                           reordered.flatMap(t => {
@@ -1340,6 +1355,21 @@ function AppContent({
           onSchemaChange={onSchemaChange}
           onDirtyChange={dirty => onUpdateTab(activeTab.id, { notebookDirty: dirty })}
         />
+      </div>
+    );
+  }
+
+  if (activeTab?.type === 'replay') {
+    return (
+      <div className="flex-1 min-h-0 flex flex-col">
+        <LicenseGate feature="query_replay">
+          <ReplayTab
+            key={activeTab.id}
+            sessionId={sessionId}
+            environment={activeConnection?.environment}
+            onOpenDiff={(left, right, title) => onOpenTab(createDiffTab(left, right, title))}
+          />
+        </LicenseGate>
       </div>
     );
   }

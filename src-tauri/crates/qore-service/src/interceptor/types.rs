@@ -31,7 +31,8 @@ pub fn map_environment(env: &str) -> Environment {
 }
 
 /// Origin of a query, for audit attribution: issued by the user, by the
-/// in-app AI agent, or by an external client via the MCP server.
+/// in-app AI agent, by an external client via the MCP server, or by a Query
+/// Replay Lab run.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum QuerySource {
@@ -39,6 +40,7 @@ pub enum QuerySource {
     User,
     Ai,
     Mcp,
+    Replay,
 }
 
 /// Query operation type for classification

@@ -615,6 +615,10 @@
     "aiAssistant": {
       "name": "AI Assistant",
       "description": "Generate and fix SQL queries using natural language"
+    },
+    "queryReplay": {
+      "name": "Query Replay Lab",
+      "description": "Record a set of queries and replay it after a migration to see what changed"
     }
   },
   "notebook": {
@@ -691,6 +695,82 @@
     "aiGenerate": "Generate SQL",
     "aiCellInserted": "SQL cell inserted below"
   },
+  "replay": {
+    "title": "Query Replay",
+    "openLab": "Open Query Replay",
+    "setName": "Set name",
+    "setNamePlaceholder": "checkout-flow",
+    "ignoredColumns": "Ignored columns",
+    "ignoredColumnsHint": "Comma-separated. Excluded from the comparison so a timestamp does not report a difference on every run.",
+    "queryTextWarning": "The set is committed to your repository with the query text as-is. A literal inside a query — a key, a password, a payload — is versioned with it. Result rows never are.",
+    "captureValues": "Capture result values",
+    "captureValuesOn": "Rows are stored locally, so differences can be shown.",
+    "captureValuesOff": "Metadata and digests only: differences are reported, not shown.",
+    "productionCapture": "Capture values from production",
+    "productionCaptureHint": "Off by default. Production rows stay on this machine.",
+    "startRecording": "Start recording",
+    "recording": "recording",
+    "stopRecording": "Stop and save",
+    "recordedCount": "{{count}} recorded",
+    "ignoredOtherSession": "{{count}} queries from another connection were left out.",
+    "recordingSaved": "Replay set \"{{name}}\" saved",
+    "discardEntry": "Remove this query",
+    "mutation": "mutation",
+    "captureStopped": {
+      "budget_exceeded": "Capture stopped: the run reached its storage budget. Later entries have a digest but no rows.",
+      "metadata_only": "Metadata-only run: differences are reported, not shown.",
+      "production_policy": "Production run: no rows were stored."
+    },
+    "noSets": "No replay sets yet",
+    "emptyState": "Record a set of queries, then replay it after a migration or against another connection to see what changed.",
+    "notRunYet": "Not replayed yet.",
+    "entriesTotal": "{{count}} queries",
+    "deleteSet": "Delete set",
+    "recordedOn": "Recorded on {{driver}} · {{environment}}",
+    "ignoring": "ignoring {{columns}}",
+    "ignoringNone": "no ignored columns",
+    "editIgnoredColumns": "Edit ignored columns",
+    "compareToBaseline": "vs. the recording",
+    "compareToRun": "vs. {{date}}",
+    "compareToConnection": "vs. {{name}}",
+    "sideA": "this connection",
+    "sideB": "the other connection",
+    "allowMutations": "Replay mutations",
+    "run": "Replay",
+    "progress": "{{completed}} / {{total}}",
+    "partialComparison": "Comparison limited to the captured rows.",
+    "openDiff": "Open the diff",
+    "baseline": "Baseline",
+    "currentRun": "This run",
+    "verdict": {
+      "match": "identical",
+      "broken": "broken",
+      "row_count_diff": "row count",
+      "digest_diff": "content",
+      "slower": "slower",
+      "skipped": "skipped"
+    },
+    "column": {
+      "query": "Query",
+      "verdict": "Verdict",
+      "rows": "Rows",
+      "duration": "Duration",
+      "runVsExpected": "run / recorded"
+    },
+    "errors": {
+      "listSets": "Failed to list replay sets",
+      "loadSet": "Failed to load the replay set",
+      "noConnection": "Connect to a database first",
+      "startRecording": "Failed to start recording",
+      "stopRecording": "Failed to save the replay set",
+      "discard": "Failed to remove the entry",
+      "run": "Replay failed",
+      "deleteSet": "Failed to delete the replay set",
+      "ignoredColumns": "Failed to update the ignored columns",
+      "noBaseline": "This set has no baseline capture to compare against",
+      "loadCapture": "Failed to load the captured rows"
+    }
+  },
   "settings": {
     "title": "Settings",
     "language": "Language",
@@ -735,7 +815,8 @@
         "export_xlsx": "XLSX Export",
         "export_parquet": "Parquet Export",
         "query_library_advanced": "Advanced Query Library",
-        "virtual_relations_auto_suggest": "Auto-suggest Virtual Relations"
+        "virtual_relations_auto_suggest": "Auto-suggest Virtual Relations",
+        "query_replay": "Query Replay Lab"
       },
       "devOverrideTitle": "Dev License Override",
       "devOverrideDescription": "Override license tier for development testing. Resets on app restart.",
@@ -2411,6 +2492,13 @@
           "bullet1": "Zero config",
           "bullet2": "Read-only by default",
           "bullet3": "Great for prototypes and demos"
+        },
+        "query_replay": {
+          "title": "Know what your migration broke",
+          "description": "Record the queries you actually run, replay them after a migration or against another connection, and read what changed instead of guessing.",
+          "bullet1": "Broken queries, row-count and content differences, and slowdowns in one report",
+          "bullet2": "Replay sets live in .qoredb/ and are shared through Git — expectations only, never result rows",
+          "bullet3": "Open the baseline ↔ run diff on any row, right from the report"
         }
       }
     },
@@ -2426,7 +2514,8 @@
       "custom_safety_rules": "Custom safety rules require a Pro license.",
       "query_library_advanced": "Advanced query library requires a Pro license.",
       "virtual_relations_auto_suggest": "Auto-suggest virtual relations requires a Pro license.",
-      "federation": "Cross-database federation requires a Pro license."
+      "federation": "Cross-database federation requires a Pro license.",
+      "query_replay": "Query Replay Lab requires a Pro license."
     }
   },
   "proDiscovery": {

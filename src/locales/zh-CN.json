@@ -586,6 +586,10 @@
     "aiAssistant": {
       "name": "AI 助手",
       "description": "使用自然语言生成和修复 SQL 查询"
+    },
+    "queryReplay": {
+      "name": "查询重放",
+      "description": "录制一组查询，在迁移之后重放，查看发生了什么变化"
     }
   },
   "notebook": {
@@ -662,6 +666,82 @@
     "aiGenerate": "生成 SQL",
     "aiCellInserted": "已在下方插入 SQL 单元格"
   },
+  "replay": {
+    "title": "查询重放",
+    "openLab": "打开查询重放",
+    "setName": "集合名称",
+    "setNamePlaceholder": "checkout-flow",
+    "ignoredColumns": "忽略的列",
+    "ignoredColumnsHint": "以逗号分隔。这些列不参与比较，避免时间戳在每次重放时都报告差异。",
+    "queryTextWarning": "集合会连同查询原文一起提交到仓库。查询中的字面量（密钥、密码、载荷）也会一并进入版本库。结果数据行永远不会。",
+    "captureValues": "保存结果值",
+    "captureValuesOn": "数据行保存在本地，可以展示差异。",
+    "captureValuesOff": "仅元数据与摘要：只报告差异，不展示内容。",
+    "productionCapture": "保存生产环境的值",
+    "productionCaptureHint": "默认关闭。生产数据不会离开本机。",
+    "startRecording": "开始录制",
+    "recording": "录制中",
+    "stopRecording": "停止并保存",
+    "recordedCount": "已录制 {{count}} 条",
+    "ignoredOtherSession": "已排除来自其他连接的 {{count}} 条查询。",
+    "recordingSaved": "重放集合“{{name}}”已保存",
+    "discardEntry": "移除此查询",
+    "mutation": "写操作",
+    "captureStopped": {
+      "budget_exceeded": "已停止保存：本次重放达到存储上限。后续条目只有摘要，没有数据行。",
+      "metadata_only": "仅元数据重放：只报告差异，不展示内容。",
+      "production_policy": "生产环境重放：未保存任何数据行。"
+    },
+    "noSets": "暂无重放集合",
+    "emptyState": "录制一组查询，然后在迁移之后或在另一个连接上重放，查看发生了什么变化。",
+    "notRunYet": "尚未重放。",
+    "entriesTotal": "{{count}} 条查询",
+    "deleteSet": "删除集合",
+    "recordedOn": "录制于 {{driver}} · {{environment}}",
+    "ignoring": "忽略 {{columns}}",
+    "ignoringNone": "没有忽略的列",
+    "editIgnoredColumns": "编辑忽略的列",
+    "compareToBaseline": "与录制对比",
+    "compareToRun": "与 {{date}} 对比",
+    "compareToConnection": "与 {{name}} 对比",
+    "sideA": "当前连接",
+    "sideB": "另一个连接",
+    "allowMutations": "重放写操作",
+    "run": "重放",
+    "progress": "{{completed}} / {{total}}",
+    "partialComparison": "比较仅限于已保存的数据行。",
+    "openDiff": "打开差异",
+    "baseline": "基准",
+    "currentRun": "本次重放",
+    "verdict": {
+      "match": "一致",
+      "broken": "失败",
+      "row_count_diff": "行数",
+      "digest_diff": "内容",
+      "slower": "变慢",
+      "skipped": "已跳过"
+    },
+    "column": {
+      "query": "查询",
+      "verdict": "结果",
+      "rows": "行数",
+      "duration": "耗时",
+      "runVsExpected": "本次 / 录制"
+    },
+    "errors": {
+      "listSets": "无法列出重放集合",
+      "loadSet": "无法加载重放集合",
+      "noConnection": "请先连接数据库",
+      "startRecording": "无法开始录制",
+      "stopRecording": "无法保存重放集合",
+      "discard": "无法移除该条目",
+      "run": "重放失败",
+      "deleteSet": "无法删除重放集合",
+      "ignoredColumns": "无法更新忽略的列",
+      "noBaseline": "该集合没有可用于比较的基准快照",
+      "loadCapture": "无法加载已保存的数据行"
+    }
+  },
   "settings": {
     "title": "设置",
     "language": "语言",
@@ -706,7 +786,8 @@
         "export_xlsx": "XLSX 导出",
         "export_parquet": "Parquet 导出",
         "query_library_advanced": "高级查询库",
-        "virtual_relations_auto_suggest": "自动建议虚拟关系"
+        "virtual_relations_auto_suggest": "自动建议虚拟关系",
+        "query_replay": "查询重放"
       },
       "devOverrideTitle": "开发许可证覆盖",
       "devOverrideDescription": "覆盖许可证等级以进行开发测试。应用重启后重置。",
@@ -2372,6 +2453,13 @@
           "bullet1": "零配置",
           "bullet2": "默认只读",
           "bullet3": "非常适合原型和演示"
+        },
+        "query_replay": {
+          "title": "知道迁移到底破坏了什么",
+          "description": "录制你真正执行的查询，在迁移之后或在另一个连接上重放，用事实而不是猜测来了解变化。",
+          "bullet1": "失败的查询、行数与内容差异、性能下降，汇总在一份报告里",
+          "bullet2": "重放集合存放在 .qoredb/ 并通过 Git 共享 —— 只有期望值，不含结果数据行",
+          "bullet3": "在报告的任意一行，直接打开基准 ↔ 本次重放的差异"
         }
       }
     },
@@ -2387,7 +2475,8 @@
       "custom_safety_rules": "自定义安全规则需要 Pro 许可证。",
       "query_library_advanced": "高级查询库需要 Pro 许可证。",
       "virtual_relations_auto_suggest": "自动建议虚拟关系需要 Pro 许可证。",
-      "federation": "跨数据库联合查询需要 Pro 许可证。"
+      "federation": "跨数据库联合查询需要 Pro 许可证。",
+      "query_replay": "查询重放需要 Pro 许可证。"
     }
   },
   "proDiscovery": {

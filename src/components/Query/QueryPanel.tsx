@@ -392,6 +392,7 @@ export function QueryPanel({
                 (connectionDatabase ? { database: connectionDatabase } : undefined),
               streamHandlers,
               bypassLimits,
+              recordable: true,
             });
         const endTime = performance.now();
         const totalTime = endTime - startTime;
@@ -790,6 +791,7 @@ export function QueryPanel({
     switch (dialect) {
       case Driver.Mysql:
       case Driver.Mariadb:
+      case Driver.PlanetScale:
         explainQuery = `EXPLAIN FORMAT=JSON ${trimmed}`;
         break;
       case Driver.Sqlite:

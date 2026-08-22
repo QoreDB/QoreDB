@@ -194,6 +194,15 @@ The following files are currently marked Premium (`BUSL-1.1`), grouped by module
 - `src-tauri/src/federation/*`
 - `src-tauri/src/commands/federation.rs`
 
+#### Query Replay Lab
+
+- `src/components/Replay/*`
+- `src/lib/replay.ts`
+- `src/hooks/useReplay.ts`
+- `src-tauri/src/replay/*`
+- `src-tauri/src/commands/replay.rs`
+- `src-tauri/tests/replay_e2e.rs`
+
 #### Time Travel
 
 - `src/components/TimeTravel/*`

@@ -23,6 +23,7 @@ const PRO_FEATURES: ProFeature[] = [
   'export_parquet',
   'query_library_advanced',
   'virtual_relations_auto_suggest',
+  'query_replay',
 ];
 
 const DEV_TIERS: LicenseTier[] = ['core', 'pro', 'team', 'enterprise'];

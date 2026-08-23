@@ -42,11 +42,12 @@ impl DocumentDbDriver {
         let mut secured = config.clone();
         secured.ssl = true;
 
-        // Unsupported server-side; leaving it on makes every write fail.
+        // Unsupported server-side, so this one is not a preference: leaving it
+        // on makes every write fail. An explicit `true` is overridden rather
+        // than honoured into a broken connection.
         secured
             .options
-            .entry("retryWrites".to_string())
-            .or_insert_with(|| "false".to_string());
+            .insert("retryWrites".to_string(), "false".to_string());
 
         // Through a tunnel the host is 127.0.0.1 while the certificate names
         // the cluster: the chain still has to verify against the CA, only the
@@ -403,9 +404,11 @@ mod tests {
         );
     }
 
-    /// An explicit user setting is never overridden.
+    /// `retryWrites` is not a preference: the engine does not implement it, so
+    /// an explicit `true` would only produce a connection where every write
+    /// fails. It is overridden.
     #[test]
-    fn explicit_options_win() {
+    fn an_explicit_retry_writes_is_overridden() {
         let mut config = ConnectionConfig {
             driver: "documentdb".into(),
             ..Default::default()
@@ -417,6 +420,27 @@ mod tests {
             DocumentDbDriver::documentdb_options(&config)
                 .options
                 .get("retryWrites")
+                .map(String::as_str),
+            Some("false")
+        );
+    }
+
+    /// Hostname relaxation, by contrast, is a preference: a user who set it
+    /// explicitly keeps their value.
+    #[test]
+    fn an_explicit_hostname_setting_is_kept() {
+        let mut config = ConnectionConfig {
+            driver: "documentdb".into(),
+            ssh_tunnel: None,
+            ..Default::default()
+        };
+        config
+            .options
+            .insert("tlsAllowInvalidHostnames".to_string(), "true".to_string());
+        assert_eq!(
+            DocumentDbDriver::documentdb_options(&config)
+                .options
+                .get("tlsAllowInvalidHostnames")
                 .map(String::as_str),
             Some("true")
         );

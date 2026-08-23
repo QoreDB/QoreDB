@@ -156,7 +156,10 @@ pub async fn replay_start_recording(
         .await
         .unwrap_or_else(|_| "development".to_string());
     let connection_label = session_manager.connection_key(session).await;
-    let project = project_id(&ws_manager).await;
+    let (project, workspace_path) = {
+        let mgr = ws_manager.lock().await;
+        (mgr.project_id(), mgr.active().path.clone())
+    };
     // One place governs both the audit log and what a set flags.
     let secret_patterns = {
         let guard = state.lock().await;
@@ -169,6 +172,7 @@ pub async fn replay_start_recording(
             name: request.name,
             session_id: request.session_id.clone(),
             project_id: project,
+            workspace_path,
             ignored_columns: request.ignored_columns,
             capture_mode: request.capture_mode,
             max_captured_rows: request
@@ -243,10 +247,9 @@ pub async fn replay_cancel_recording(state: State<'_, crate::SharedState>) -> Re
 /// Ends the recording, writes the set to `.qoredb/replays/` and keeps its
 /// captured rows as the baseline run.
 #[tauri::command]
-#[instrument(skip(state, ws_manager, write_registry))]
+#[instrument(skip(state, write_registry))]
 pub async fn replay_stop_recording(
     state: State<'_, crate::SharedState>,
-    ws_manager: State<'_, SharedWorkspaceManager>,
     write_registry: State<'_, WriteRegistry>,
     slug: Option<String>,
 ) -> Result<ReplaySetSummary, String> {
@@ -254,13 +257,16 @@ pub async fn replay_stop_recording(
     let captures = replay
         .captures_for_recording()
         .ok_or_else(|| "No recording in progress".to_string())?;
-    let (set, mut run) = replay
+
+    // Everything that can refuse the save is checked before the recording is
+    // consumed: taking the entries out of the recorder is irreversible, and a
+    // name clash must not cost the user their session.
+    let (workspace_path, name) = replay
         .recorder
-        .stop()
+        .destination()
         .ok_or_else(|| "No recording in progress".to_string())?;
 
-    if set.entries.is_empty() {
-        let _ = captures.delete_run(&run.run_id);
+    if replay.recorder.entry_count() == 0 {
         return Err("Nothing was recorded".to_string());
     }
 
@@ -269,13 +275,27 @@ pub async fn replay_stop_recording(
             crate::replay::validate_slug(&slug)?;
             slug
         }
-        None => slugify(&set.name)?,
+        None => slugify(&name)?,
     };
 
-    let store = set_store(&ws_manager).await;
+    // The set belongs to the workspace the recording started in, next to the
+    // captures it was recorded with — not to whichever one is active now.
+    let store = ReplaySetStore::new(&workspace_path);
     let path = store.path_for(&slug)?;
+    if path.exists() {
+        return Err(format!("A replay set named '{slug}' already exists"));
+    }
+
+    let (set, mut run) = replay
+        .recorder
+        .stop()
+        .ok_or_else(|| "No recording in progress".to_string())?;
+
     write_registry.register_with_auto_unregister(path);
-    store.create(&slug, &set)?;
+    if let Err(e) = store.create(&slug, &set) {
+        let _ = captures.delete_run(&run.run_id);
+        return Err(e);
+    }
 
     run.set_slug = slug.clone();
     captures.save_run_meta(&run)?;
@@ -345,17 +365,30 @@ pub async fn replay_set_ignored_columns(
     let ignored = set.ignored_columns.clone();
     for entry in &mut set.entries {
         entry.expected.result_digest = baseline.as_ref().and_then(|run| {
-            captures
-                .load_entry(&run.run_id, &entry.id)
-                .ok()
-                .map(|snapshot| {
-                    compute_digest(
-                        &snapshot.to_query_result(),
-                        &ignored,
-                        DEFAULT_MAX_CAPTURED_ROWS,
-                    )
-                    .digest
-                })
+            let snapshot = captures.load_entry(&run.run_id, &entry.id).ok()?;
+
+            // A bounded capture holds the first N rows of the engine's output,
+            // while the digest hashes the first N rows *after* sorting. The two
+            // sets differ as soon as the result was larger than the bound, so
+            // the original digest cannot be rebuilt from what was kept —
+            // pretending otherwise would report a regression on an unchanged
+            // query. Drop the digest instead and fall back to metadata.
+            let captured_all = entry
+                .expected
+                .row_count
+                .is_none_or(|total| total as usize <= snapshot.rows.len());
+            if !captured_all {
+                return None;
+            }
+
+            Some(
+                compute_digest(
+                    &snapshot.to_query_result(),
+                    &ignored,
+                    DEFAULT_MAX_CAPTURED_ROWS,
+                )
+                .digest,
+            )
         });
     }
 

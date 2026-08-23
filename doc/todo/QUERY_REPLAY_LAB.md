@@ -90,6 +90,14 @@ politique du développement.
 Les captures vivent sous `data_dir/replays/<project_id>/`. Deux workspaces peuvent porter un
 jeu de même nom ; ni l'un ni l'autre ne doit voir — ou supprimer — les rejeux de l'autre.
 
+L'enregistrement retient aussi le **chemin** de son workspace, et le jeu y est écrit à
+l'arrêt. Se fier au workspace actif à ce moment-là disperserait le résultat : le nouveau
+verrait un jeu sans sa référence, l'ancien garderait des captures sans jeu.
+
+L'arrêt valide avant de consommer. Prendre les entrées du recorder est irréversible ; un nom
+déjà pris ou un chemin invalide sont donc vérifiés d'abord, et si l'écriture échoue malgré
+tout, le rejeu de référence est supprimé plutôt que laissé orphelin.
+
 ### Les résultats sont capturés
 
 Le scénario central est temporel : on enregistre avant la migration, on rejoue après. L'état
@@ -121,9 +129,14 @@ comparaison est insensible à la casse.
 
 Modifier la liste après coup **recalcule les empreintes attendues** depuis la capture de
 référence. Sans ce recalcul, l'attente resterait celle de l'ancienne liste et une requête
-inchangée sortirait en écart de contenu — la correction serait pire que le bruit. Quand il n'y
-a pas de capture d'où recalculer, l'empreinte est retirée et la comparaison retombe sur les
-métadonnées.
+inchangée sortirait en écart de contenu — la correction serait pire que le bruit.
+
+Le recalcul n'est possible que depuis une capture **complète**. Une capture bornée retient les
+N premières lignes rendues par le moteur, alors que l'empreinte hache les N premières *après
+tri* : dès que le résultat dépassait la borne, les deux ensembles diffèrent et l'empreinte
+d'origine n'est pas reconstructible. Dans ce cas comme en l'absence de capture, l'empreinte est
+retirée et la comparaison retombe sur les métadonnées — plutôt que d'annoncer une régression
+sur une requête inchangée.
 
 ### Le rejeu est une lecture par défaut
 
@@ -143,7 +156,9 @@ base qui répond autrement.
 
 Hash SHA-256 des lignes, calculé après tri canonique — l'ordre n'est pas garanti sans
 `ORDER BY` — et après retrait des colonnes ignorées, borné au même nombre de lignes que la
-capture. Chaque champ est préfixé de sa longueur, sinon `["ab", "c"]` et `["a", "bc"]`
+capture. Le bornage passe par un tas de taille fixe plutôt que par un tri complet : un résultat
+d'un million de lignes n'a pas à matérialiser un million d'encodages pour n'en garder que mille.
+La mémoire suit la borne, pas le résultat. Chaque champ est préfixé de sa longueur, sinon `["ab", "c"]` et `["a", "bc"]`
 donneraient le même hash. Les noms de colonnes retenues entrent aussi dans le hash, donc un
 renommage se voit. Le digest donne la détection compacte, fonctionne en mode métadonnées
 seules, et sert de test rapide avant d'ouvrir le diff. Au-delà de la borne, le rapport dit

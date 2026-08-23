@@ -217,8 +217,10 @@ what differs.
   end while the certificate names the cluster, so hostname verification is
   relaxed **only then** — the CA is still verified either way.
 - Retryable writes are turned off: DocumentDB does not implement them, and
-  leaving them on makes every write fail. An explicit `retryWrites` option on
-  the connection is never overridden.
+  leaving them on makes every write fail. This one is not a preference — an
+  explicit `retryWrites=true` is overridden rather than honoured into a broken
+  connection. Hostname relaxation, by contrast, is a preference and an explicit
+  value is kept.
 - No URL scheme of its own — DocumentDB hands out `mongodb://` strings. The DSN
   detector recognises `*.docdb.amazonaws.com` hosts.
 - **DocumentDB is not a complete MongoDB.** Several aggregation operators,

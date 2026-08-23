@@ -28,6 +28,9 @@ pub struct RecordingOptions {
     pub session_id: String,
     /// Workspace the captures belong to.
     pub project_id: String,
+    /// Where the set will be written. Held from the start so a workspace
+    /// switch mid-recording cannot separate a set from its baseline.
+    pub workspace_path: std::path::PathBuf,
     pub ignored_columns: Vec<String>,
     pub capture_mode: CaptureMode,
     pub max_captured_rows: usize,
@@ -44,6 +47,7 @@ struct RecordingSession {
     name: String,
     session_id: String,
     project_id: String,
+    workspace_path: std::path::PathBuf,
     started_at: String,
     driver_id: String,
     connection_label: Option<String>,
@@ -99,6 +103,24 @@ impl Recorder {
         self.session.read().as_ref().map(|s| s.project_id.clone())
     }
 
+    /// Where the set will be written, and under what name — readable without
+    /// consuming the recording, so a caller can validate the destination
+    /// before taking the entries out of the recorder.
+    pub fn destination(&self) -> Option<(std::path::PathBuf, String)> {
+        self.session
+            .read()
+            .as_ref()
+            .map(|s| (s.workspace_path.clone(), s.name.clone()))
+    }
+
+    pub fn entry_count(&self) -> usize {
+        self.session
+            .read()
+            .as_ref()
+            .map(|s| s.entries.len())
+            .unwrap_or(0)
+    }
+
     pub fn status(&self) -> Option<RecordingStatus> {
         self.session.read().as_ref().map(|s| RecordingStatus {
             run_id: s.run_id.clone(),
@@ -147,6 +169,7 @@ impl Recorder {
             name: options.name,
             session_id: options.session_id,
             project_id: options.project_id,
+            workspace_path: options.workspace_path,
             started_at: chrono::Utc::now().to_rfc3339(),
             driver_id,
             connection_label,
@@ -422,6 +445,7 @@ mod tests {
             name: "checkout".to_string(),
             session_id: "sess".to_string(),
             project_id: "default".to_string(),
+            workspace_path: std::env::temp_dir(),
             ignored_columns: Vec::new(),
             capture_mode: mode,
             max_captured_rows: 1000,

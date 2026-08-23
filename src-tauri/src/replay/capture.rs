@@ -47,8 +47,7 @@ impl CaptureStore {
         Self { root }
     }
 
-    /// Captures are scoped to a workspace: two projects may hold a set under
-    /// the same slug, and one must never read — or delete — the other's runs.
+    /// Captures are scoped to a workspace
     pub fn scoped(data_dir: &std::path::Path, project_id: &str) -> Result<Self, String> {
         validate_project_id(project_id)?;
         Ok(Self::new(data_dir.join(project_id)))

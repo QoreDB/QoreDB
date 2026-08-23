@@ -35,8 +35,20 @@ function asNumber(value: unknown): number | undefined {
   return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
 }
 
-function isSupportedDriver(driver: unknown): driver is 'postgres' | 'mysql' | 'mongodb' {
-  return driver === 'postgres' || driver === 'mysql' || driver === 'mongodb';
+/** Wire-compatible engines import as themselves, not as their base driver. */
+const TRANSFERABLE_DRIVERS = [
+  'postgres',
+  'mysql',
+  'planetscale',
+  'mongodb',
+  'documentdb',
+  'dragonfly',
+] as const;
+
+type TransferableDriver = (typeof TRANSFERABLE_DRIVERS)[number];
+
+function isSupportedDriver(driver: unknown): driver is TransferableDriver {
+  return TRANSFERABLE_DRIVERS.includes(driver as TransferableDriver);
 }
 
 function makeImportedName(baseName: string, existingNames: Set<string>): string {

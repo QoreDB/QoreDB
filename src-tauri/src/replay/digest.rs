@@ -8,6 +8,7 @@
 //! length-prefixed so `["ab", "c"]` and `["a", "bc"]` cannot collide.
 
 use sha2::{Digest, Sha256};
+use std::collections::BinaryHeap;
 
 use crate::engine::types::{QueryResult, Value};
 
@@ -37,27 +38,33 @@ pub fn compute_digest(
         .map(|(index, _)| index)
         .collect();
 
-    let mut encoded: Vec<String> = result
-        .rows
-        .iter()
-        .map(|row| {
-            let mut buffer = String::new();
-            for &index in &kept {
-                let field = match row.values.get(index) {
-                    Some(value) => encode_value(value),
-                    None => "\u{0}missing".to_string(),
-                };
-                buffer.push_str(&field.len().to_string());
-                buffer.push(':');
-                buffer.push_str(&field);
-            }
-            buffer
-        })
-        .collect();
+    // A max-heap of the smallest `max_rows` encodings seen so far: pushing then
+    // popping the largest keeps the bound without ever holding the whole set.
+    let mut smallest: BinaryHeap<String> = BinaryHeap::new();
+    let mut total = 0usize;
+    for row in &result.rows {
+        total += 1;
+        let mut buffer = String::new();
+        for &index in &kept {
+            let field = match row.values.get(index) {
+                Some(value) => encode_value(value),
+                None => "\u{0}missing".to_string(),
+            };
+            buffer.push_str(&field.len().to_string());
+            buffer.push(':');
+            buffer.push_str(&field);
+        }
 
-    encoded.sort_unstable();
-    let partial = encoded.len() > max_rows;
-    encoded.truncate(max_rows);
+        if smallest.len() < max_rows {
+            smallest.push(buffer);
+        } else if smallest.peek().is_some_and(|largest| buffer < *largest) {
+            smallest.pop();
+            smallest.push(buffer);
+        }
+    }
+
+    let partial = total > max_rows;
+    let encoded: Vec<String> = smallest.into_sorted_vec();
 
     let mut hasher = Sha256::new();
     for &index in &kept {

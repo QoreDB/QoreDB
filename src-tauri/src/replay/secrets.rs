@@ -56,15 +56,9 @@ pub fn looks_like_secret(query: &str, custom_patterns: &[String]) -> bool {
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum SecretPolicy {
-    /// Say nothing. For sets that never leave the machine.
     Off,
-    /// Flag the entries that look like they carry a credential and let the
-    /// user drop them. The set stays replayable — this is the default because
-    /// the real risk is a secret leaving *by accident*.
     #[default]
     Warn,
-    /// Redact literals on the way out. The set becomes shareable without
-    /// reservation and stops being replayable; callers must say so.
     Redact,
 }
 
@@ -87,10 +81,6 @@ mod tests {
         }
     }
 
-    /// The sample keys are assembled at runtime on purpose. Written as source
-    /// literals they look real enough to trip secret scanners — including the
-    /// push protection on this repository, which is exactly the kind of alert
-    /// a test fixture should not be generating.
     fn sample_keys() -> Vec<String> {
         vec![
             format!("sk_{}_{}", "live", "4eC39HqLyjWDarjtT1zdp7dc"),

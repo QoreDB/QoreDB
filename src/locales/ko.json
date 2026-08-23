@@ -802,6 +802,13 @@
         "export_parquet": "Parquet 내보내기",
         "query_library_advanced": "고급 쿼리 라이브러리",
         "virtual_relations_auto_suggest": "가상 관계 자동 추천",
+        "data_time_travel": "데이터 타임 트래블",
+        "bulk_edit_unlimited": "무제한 일괄 편집",
+        "data_contracts": "데이터 계약",
+        "instant_api": "즉시 Data API",
+        "data_generator": "데이터 생성기",
+        "index_suggestions": "인덱스 제안",
+        "schema_diff": "스키마 비교",
         "query_replay": "쿼리 리플레이"
       },
       "devOverrideTitle": "개발용 라이선스 재정의",
@@ -862,8 +869,11 @@
     },
     "about": {
       "title": "정보",
-      "description": "애플리케이션 버전 및 업데이트.",
+      "description": "버전, 업데이트, 문서 및 커뮤니티 링크.",
       "version": "버전",
+      "creator": "제작자 및 메인테이너",
+      "contributors": "기여자",
+      "acknowledgements": "감사의 말",
       "checkForUpdate": "업데이트 확인",
       "checking": "확인 중...",
       "installUpdate": "v{{version}} 설치",
@@ -1392,6 +1402,13 @@
     "delete": "삭제",
     "deleting": "삭제 중...",
     "close": "닫기",
+    "documentation": "문서",
+    "viewDocumentation": "문서 보기",
+    "gettingStarted": "시작하기",
+    "driverDocumentation": "{{driver}} 문서",
+    "github": "GitHub",
+    "discord": "Discord",
+    "contributors": "기여자",
     "clear": "지우기",
     "unknownError": "알 수 없는 오류",
     "mongoCreateDbHint": "MongoDB는 첫 번째 컬렉션이 생성될 때 데이터베이스를 만듭니다.",
@@ -1811,7 +1828,8 @@
       "title": "워크스페이스로 정리",
       "description": "여러 연결이 있습니다. 워크스페이스를 만들어 프로젝트별로 그룹화하고 Git으로 팀과 공유하세요."
     },
-    "finish": "시작하기"
+    "finish": "시작하기",
+    "exploreDocs": "문서 둘러보기"
   },
   "errorBoundary": {
     "title": "문제가 발생했습니다",

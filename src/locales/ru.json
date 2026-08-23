@@ -802,6 +802,13 @@
         "export_parquet": "Экспорт в Parquet",
         "query_library_advanced": "Расширенная библиотека запросов",
         "virtual_relations_auto_suggest": "Автоподсказка виртуальных связей",
+        "data_time_travel": "Временные снимки данных",
+        "bulk_edit_unlimited": "Неограниченное массовое редактирование",
+        "data_contracts": "Контракты данных",
+        "instant_api": "Мгновенный Data API",
+        "data_generator": "Генератор данных",
+        "index_suggestions": "Рекомендации по индексам",
+        "schema_diff": "Сравнение схем",
         "query_replay": "Повтор запросов"
       },
       "devOverrideTitle": "Переопределение лицензии для разработки",
@@ -862,8 +869,11 @@
     },
     "about": {
       "title": "О программе",
-      "description": "Версия приложения и обновления.",
+      "description": "Версия, обновления, документация и ссылки сообщества.",
       "version": "Версия",
+      "creator": "Создатель и сопровождающий",
+      "contributors": "Участники проекта",
+      "acknowledgements": "Благодарности",
       "checkForUpdate": "Проверить обновления",
       "checking": "Проверка…",
       "installUpdate": "Установить v{{version}}",
@@ -1392,6 +1402,13 @@
     "delete": "Удалить",
     "deleting": "Удаление…",
     "close": "Закрыть",
+    "documentation": "Документация",
+    "viewDocumentation": "Открыть документацию",
+    "gettingStarted": "Начало работы",
+    "driverDocumentation": "Документация {{driver}}",
+    "github": "GitHub",
+    "discord": "Discord",
+    "contributors": "Участники проекта",
     "clear": "Очистить",
     "unknownError": "Неизвестная ошибка",
     "mongoCreateDbHint": "MongoDB создаёт базу данных при создании первой коллекции.",
@@ -1811,7 +1828,8 @@
       "title": "Организуйте с помощью пространств",
       "description": "У вас несколько подключений. Создайте пространство, чтобы сгруппировать их по проектам и делиться через Git."
     },
-    "finish": "Начать работу"
+    "finish": "Начать работу",
+    "exploreDocs": "Открыть документацию"
   },
   "errorBoundary": {
     "title": "Произошла ошибка",

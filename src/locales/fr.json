@@ -831,6 +831,13 @@
         "export_parquet": "Export Parquet",
         "query_library_advanced": "Bibliothèque de requêtes avancée",
         "virtual_relations_auto_suggest": "Suggestion auto de relations virtuelles",
+        "data_time_travel": "Time travel des données",
+        "bulk_edit_unlimited": "Édition en masse illimitée",
+        "data_contracts": "Contrats de données",
+        "instant_api": "Instant Data API",
+        "data_generator": "Générateur de données",
+        "index_suggestions": "Suggestions d'index",
+        "schema_diff": "Diff de schéma",
         "query_replay": "Rejeu de requêtes"
       },
       "devOverrideTitle": "Override licence (dev)",
@@ -891,8 +898,11 @@
     },
     "about": {
       "title": "À propos",
-      "description": "Version de l'application et mises à jour.",
+      "description": "Version, mises à jour, documentation et liens vers la communauté.",
       "version": "Version",
+      "creator": "Créateur et mainteneur",
+      "contributors": "Contributeurs",
+      "acknowledgements": "Remerciements",
       "checkForUpdate": "Vérifier les mises à jour",
       "checking": "Vérification...",
       "installUpdate": "Installer v{{version}}",
@@ -1427,6 +1437,13 @@
     "delete": "Supprimer",
     "deleting": "Suppression...",
     "close": "Fermer",
+    "documentation": "Documentation",
+    "viewDocumentation": "Voir la documentation",
+    "gettingStarted": "Guide de démarrage",
+    "driverDocumentation": "Documentation {{driver}}",
+    "github": "GitHub",
+    "discord": "Discord",
+    "contributors": "Contributeurs",
     "clear": "Effacer",
     "unknownError": "Erreur inconnue",
     "mongoCreateDbHint": "MongoDB crée une base lorsque la première collection est créée.",
@@ -1838,7 +1855,8 @@
       "title": "Organisez avec les espaces de travail",
       "description": "Vous avez plusieurs connexions. Créez un espace de travail pour les regrouper par projet et les partager avec votre équipe via Git."
     },
-    "finish": "C'est parti"
+    "finish": "C'est parti",
+    "exploreDocs": "Explorer la documentation"
   },
   "document": {
     "new": "Nouveau Document",

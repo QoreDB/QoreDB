@@ -802,6 +802,13 @@
         "export_parquet": "Exportación Parquet",
         "query_library_advanced": "Biblioteca de consultas avanzada",
         "virtual_relations_auto_suggest": "Auto-sugerencia de relaciones virtuales",
+        "data_time_travel": "Viaje en el tiempo de datos",
+        "bulk_edit_unlimited": "Edición masiva ilimitada",
+        "data_contracts": "Contratos de datos",
+        "instant_api": "Data API instantánea",
+        "data_generator": "Generador de datos",
+        "index_suggestions": "Sugerencias de índice",
+        "schema_diff": "Diferencias de esquema",
         "query_replay": "Reproducción de consultas"
       },
       "devOverrideTitle": "Anulación de licencia de desarrollo",
@@ -862,8 +869,11 @@
     },
     "about": {
       "title": "Acerca de",
-      "description": "Versión de la aplicación y actualizaciones.",
+      "description": "Versión, actualizaciones, documentación y enlaces de la comunidad.",
       "version": "Versión",
+      "creator": "Creador y mantenedor",
+      "contributors": "Colaboradores",
+      "acknowledgements": "Agradecimientos",
       "checkForUpdate": "Buscar actualizaciones",
       "checking": "Verificando...",
       "installUpdate": "Instalar v{{version}}",
@@ -1392,6 +1402,13 @@
     "delete": "Eliminar",
     "deleting": "Eliminando...",
     "close": "Cerrar",
+    "documentation": "Documentación",
+    "viewDocumentation": "Ver documentación",
+    "gettingStarted": "Primeros pasos",
+    "driverDocumentation": "Documentación de {{driver}}",
+    "github": "GitHub",
+    "discord": "Discord",
+    "contributors": "Colaboradores",
     "clear": "Limpiar",
     "unknownError": "Error desconocido",
     "mongoCreateDbHint": "MongoDB crea una base de datos cuando se crea la primera colección.",
@@ -1811,7 +1828,8 @@
       "title": "Organiza con espacios de trabajo",
       "description": "Tiene varias conexiones. Cree un espacio de trabajo para agruparlas por proyecto y compartirlas con su equipo a través de Git."
     },
-    "finish": "Comenzar"
+    "finish": "Comenzar",
+    "exploreDocs": "Explorar la documentación"
   },
   "errorBoundary": {
     "title": "Algo salió mal",

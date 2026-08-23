@@ -802,6 +802,13 @@
         "export_parquet": "Parquet エクスポート",
         "query_library_advanced": "高度なクエリライブラリ",
         "virtual_relations_auto_suggest": "仮想リレーション自動提案",
+        "data_time_travel": "データタイムトラベル",
+        "bulk_edit_unlimited": "無制限の一括編集",
+        "data_contracts": "データコントラクト",
+        "instant_api": "インスタントデータ API",
+        "data_generator": "データジェネレーター",
+        "index_suggestions": "インデックスの提案",
+        "schema_diff": "スキーマ差分",
         "query_replay": "クエリリプレイ"
       },
       "devOverrideTitle": "開発用ライセンスオーバーライド",
@@ -862,8 +869,11 @@
     },
     "about": {
       "title": "バージョン情報",
-      "description": "アプリケーションのバージョンとアップデート。",
+      "description": "バージョン、アップデート、ドキュメント、コミュニティへのリンク。",
       "version": "バージョン",
+      "creator": "作成者・メンテナー",
+      "contributors": "コントリビューター",
+      "acknowledgements": "謝辞",
       "checkForUpdate": "アップデートを確認",
       "checking": "確認中...",
       "installUpdate": "v{{version}} をインストール",
@@ -1392,6 +1402,13 @@
     "delete": "削除",
     "deleting": "削除中...",
     "close": "閉じる",
+    "documentation": "ドキュメント",
+    "viewDocumentation": "ドキュメントを見る",
+    "gettingStarted": "はじめに",
+    "driverDocumentation": "{{driver}} のドキュメント",
+    "github": "GitHub",
+    "discord": "Discord",
+    "contributors": "コントリビューター",
     "clear": "クリア",
     "unknownError": "不明なエラー",
     "mongoCreateDbHint": "MongoDB では最初のコレクション作成時にデータベースが作成されます。",
@@ -1811,7 +1828,8 @@
       "title": "ワークスペースで整理",
       "description": "複数の接続があります。ワークスペースを作成してプロジェクトごとにグループ化し、Gitでチームと共有しましょう。"
     },
-    "finish": "はじめる"
+    "finish": "はじめる",
+    "exploreDocs": "ドキュメントを見る"
   },
   "errorBoundary": {
     "title": "エラーが発生しました",

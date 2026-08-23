@@ -93,6 +93,7 @@ import { useTourManager } from './hooks/useTourManager';
 import { useWebviewGuards } from './hooks/useWebviewGuards';
 import { Driver, getDriverMetadata } from './lib/connection/drivers';
 import { buildQualifiedTableName } from './lib/ddl';
+import { getDocsUrl, getDriverDocsPath, getSiteUrl } from './lib/externalLinks';
 import { openNotebookFromFile, setPendingNotebook } from './lib/notebook/notebookIO';
 import { notify } from './lib/notify';
 import { splitContributionId } from './lib/plugins';
@@ -100,11 +101,13 @@ import type { HistoryEntry } from './lib/query/history';
 import type { QueryLibraryItem } from './lib/query/queryLibrary';
 import {
   handleEditConnection,
+  openSettingsSection,
   setConnectionModalOpen,
   setFulltextSearchOpen,
   setLibraryModalOpen,
   setSearchOpen,
   setSettingsOpen,
+  toggleCheatsheet,
   toggleSidebar,
   toggleZenMode,
   useModalStore,
@@ -145,6 +148,7 @@ import {
 } from './lib/tauri';
 import { getRoutineTemplate } from './lib/templates/routineTemplates';
 import { getEventTemplate, getTriggerTemplate } from './lib/templates/triggerTemplates';
+import { openExternal } from './lib/transport';
 import { usePluginOutput } from './providers/PluginOutputProvider';
 import { usePlugins } from './providers/PluginProvider';
 import { useSessionContext } from './providers/SessionProvider';
@@ -736,6 +740,20 @@ export function AppLayout() {
         label: t('palette.openSettings'),
         shortcut: getShortcut(',', { symbol: true }),
       },
+      { id: 'cmd_open_docs', label: t('common.documentation') },
+      { id: 'cmd_open_getting_started', label: t('common.gettingStarted') },
+      ...(sessionId
+        ? [
+            {
+              id: 'cmd_open_driver_docs',
+              label: t('common.driverDocumentation', {
+                driver: getDriverMetadata(driver).label,
+              }),
+            },
+          ]
+        : []),
+      { id: 'cmd_show_keyboard_shortcuts', label: t('cheatsheet.title'), shortcut: '?' },
+      { id: 'cmd_open_changelog', label: t('whatsNew.fullChangelog') },
       { id: 'cmd_toggle_theme', label: t('palette.toggleTheme') },
       ...(activeTabId
         ? [
@@ -752,7 +770,7 @@ export function AppLayout() {
         return { id: cmd.id, label: `${pluginName}: ${cmd.label}` };
       }),
     ],
-    [activeTabId, activeTab?.type, sessionId, t, contributions.commands, plugins]
+    [activeTabId, activeTab?.type, sessionId, driver, t, contributions.commands, plugins]
   );
 
   const handleRunPluginCommand = useCallback(
@@ -836,6 +854,21 @@ export function AppLayout() {
             return;
           case 'cmd_open_settings':
             setSettingsOpen(true);
+            return;
+          case 'cmd_open_docs':
+            await openExternal(getDocsUrl());
+            return;
+          case 'cmd_open_getting_started':
+            await openExternal(getDocsUrl('getting-started/installation'));
+            return;
+          case 'cmd_open_driver_docs':
+            await openExternal(getDocsUrl(getDriverDocsPath(driver)));
+            return;
+          case 'cmd_show_keyboard_shortcuts':
+            toggleCheatsheet();
+            return;
+          case 'cmd_open_changelog':
+            await openExternal(getSiteUrl('changelog'));
             return;
           case 'cmd_toggle_theme':
             toggleTheme();
@@ -924,6 +957,7 @@ export function AppLayout() {
       refreshSidebar,
       projectId,
       handleRunPluginCommand,
+      driver,
     ]
   );
 
@@ -940,6 +974,7 @@ export function AppLayout() {
             onNewConnection={() => setConnectionModalOpen(true)}
             onOpenNotebook={sessionId ? handleOpenNotebook : undefined}
             onOpenSettings={() => setSettingsOpen(!settingsOpen)}
+            onOpenAbout={() => openSettingsSection('general')}
             settingsOpen={settingsOpen}
             onOpenLogs={() => emitUiEvent(UI_EVENT_OPEN_LOGS)}
             onOpenHistory={sessionId ? handleOpenHistory : undefined}

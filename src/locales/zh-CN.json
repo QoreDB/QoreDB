@@ -802,6 +802,13 @@
         "export_parquet": "Parquet 导出",
         "query_library_advanced": "高级查询库",
         "virtual_relations_auto_suggest": "自动建议虚拟关系",
+        "data_time_travel": "数据时间旅行",
+        "bulk_edit_unlimited": "无限批量编辑",
+        "data_contracts": "数据合约",
+        "instant_api": "即时数据 API",
+        "data_generator": "数据生成器",
+        "index_suggestions": "索引建议",
+        "schema_diff": "架构差异",
         "query_replay": "查询重放"
       },
       "devOverrideTitle": "开发许可证覆盖",
@@ -862,8 +869,11 @@
     },
     "about": {
       "title": "关于",
-      "description": "应用程序版本和更新。",
+      "description": "版本、更新、文档和社区链接。",
       "version": "版本",
+      "creator": "创建者和维护者",
+      "contributors": "贡献者",
+      "acknowledgements": "致谢",
       "checkForUpdate": "检查更新",
       "checking": "正在检查…",
       "installUpdate": "安装 v{{version}}",
@@ -1392,6 +1402,13 @@
     "delete": "删除",
     "deleting": "正在删除…",
     "close": "关闭",
+    "documentation": "文档",
+    "viewDocumentation": "查看文档",
+    "gettingStarted": "快速入门",
+    "driverDocumentation": "{{driver}} 文档",
+    "github": "GitHub",
+    "discord": "Discord",
+    "contributors": "贡献者",
     "clear": "清除",
     "unknownError": "未知错误",
     "mongoCreateDbHint": "MongoDB 在创建第一个集合时会自动创建数据库。",
@@ -1811,7 +1828,8 @@
       "title": "用工作区整理",
       "description": "您有多个连接。创建工作区按项目分组，通过 Git 与团队共享。"
     },
-    "finish": "开始使用"
+    "finish": "开始使用",
+    "exploreDocs": "浏览文档"
   },
   "errorBoundary": {
     "title": "出现了问题",

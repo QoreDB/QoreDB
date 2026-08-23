@@ -4,7 +4,7 @@ import { X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
-import { getModalState } from '@/lib/stores/modalStore';
+import { getModalState, openSettingsSection, useModalStore } from '@/lib/stores/modalStore';
 import { getSafetyPolicy, type SafetyPolicy, setSafetyPolicy } from '@/lib/tauri';
 import { SettingsBreadcrumb } from './SettingsBreadcrumb';
 import { SettingsSearch } from './SettingsSearch';
@@ -33,6 +33,7 @@ interface SettingsPageProps {
 export function SettingsPage({ onClose }: SettingsPageProps) {
   const { t } = useTranslation();
   const sections = availableSettingsSections();
+  const requestedSection = useModalStore(state => state.settingsSection);
   const [activeSection, setActiveSection] = useState<SettingsSectionId>(() => {
     const requested = getModalState().settingsSection;
     return sections.some(s => s.id === requested) ? (requested as SettingsSectionId) : 'general';
@@ -40,6 +41,16 @@ export function SettingsPage({ onClose }: SettingsPageProps) {
   const [searchQuery, setSearchQuery] = useState('');
 
   const [policy, setPolicy] = useState<SafetyPolicy | null>(null);
+
+  useEffect(() => {
+    if (
+      requestedSection &&
+      availableSettingsSections().some(section => section.id === requestedSection)
+    ) {
+      setActiveSection(requestedSection as SettingsSectionId);
+      setSearchQuery('');
+    }
+  }, [requestedSection]);
 
   useEffect(() => {
     let active = true;
@@ -138,6 +149,7 @@ export function SettingsPage({ onClose }: SettingsPageProps) {
           activeSection={activeSection}
           onSectionChange={section => {
             setActiveSection(section);
+            openSettingsSection(section);
             setSearchQuery('');
           }}
         />
@@ -149,7 +161,7 @@ export function SettingsPage({ onClose }: SettingsPageProps) {
           <div className="flex-1">
             <SettingsBreadcrumb
               currentSection={activeSection}
-              onNavigateHome={() => setActiveSection('general')}
+              onNavigateHome={() => openSettingsSection('general')}
             />
           </div>
           <SettingsSearch value={searchQuery} onChange={setSearchQuery} />

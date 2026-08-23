@@ -8,6 +8,7 @@ import { InstallPluginDialog } from '@/components/Plugins/InstallPluginDialog';
 import { PluginCard } from '@/components/Plugins/PluginCard';
 import { PluginDetailDialog } from '@/components/Plugins/PluginDetailDialog';
 import { Button } from '@/components/ui/button';
+import { DocumentationLink } from '@/components/ui/documentation-link';
 import { type InstalledPlugin, removePlugin, setPluginEnabled } from '@/lib/plugins';
 import { confirmDialog } from '@/lib/stores/confirmStore';
 import { usePlugins } from '@/providers/PluginProvider';
@@ -35,6 +36,9 @@ export function PluginsSection({ searchQuery }: PluginsSectionProps) {
 
   return (
     <div className="space-y-3">
+      <div className="flex justify-end">
+        <DocumentationLink path="plugins/introduction" />
+      </div>
       <div className="flex gap-1 border-b border-border">
         <TabButton active={tab === 'installed'} onClick={() => setTab('installed')}>
           {t('plugins.tabs.installed')}

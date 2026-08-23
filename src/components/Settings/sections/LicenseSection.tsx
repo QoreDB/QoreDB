@@ -4,27 +4,14 @@ import { FlaskConical, Lock, Unlock } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { LicenseActivation } from '@/components/License/LicenseActivation';
 import { Button } from '@/components/ui/button';
-import type { LicenseTier, ProFeature } from '@/lib/license';
+import { DocumentationLink } from '@/components/ui/documentation-link';
+import { type LicenseTier, PRO_FEATURES } from '@/lib/license';
 import { useLicense } from '@/providers/LicenseProvider';
 import { SettingsCard } from '../SettingsCard';
 
 interface LicenseSectionProps {
   searchQuery?: string;
 }
-
-const PRO_FEATURES: ProFeature[] = [
-  'sandbox',
-  'visual_diff',
-  'profiling',
-  'custom_safety_rules',
-  'audit_advanced',
-  'ai',
-  'export_xlsx',
-  'export_parquet',
-  'query_library_advanced',
-  'virtual_relations_auto_suggest',
-  'query_replay',
-];
 
 const DEV_TIERS: LicenseTier[] = ['core', 'pro', 'team', 'enterprise'];
 
@@ -47,7 +34,7 @@ export function LicenseSection({ searchQuery }: LicenseSectionProps) {
         description={t('settings.license.featuresDescription')}
         searchQuery={searchQuery}
       >
-        <ul className="space-y-1.5">
+        <ul className="grid grid-cols-1 gap-x-8 gap-y-1.5 lg:grid-cols-2">
           {PRO_FEATURES.map(feature => {
             const enabled = isFeatureEnabled(feature);
             return (
@@ -65,6 +52,7 @@ export function LicenseSection({ searchQuery }: LicenseSectionProps) {
             );
           })}
         </ul>
+        <DocumentationLink path="introduction/open-core-model" className="mt-3" />
       </SettingsCard>
 
       {/* Dev-only tier override — stripped from production builds by Vite */}

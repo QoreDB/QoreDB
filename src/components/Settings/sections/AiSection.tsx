@@ -20,6 +20,7 @@ import { AiProviderSelector } from '@/components/AI/AiProviderSelector';
 import { LicenseGate } from '@/components/License/LicenseGate';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { DocumentationLink } from '@/components/ui/documentation-link';
 import { Input } from '@/components/ui/input';
 import {
   Select,
@@ -556,6 +557,7 @@ export function AiSection({ searchQuery }: AiSectionProps) {
               providerReady={providerReady}
             />
           </div>
+          <DocumentationLink path="ai-features/overview" className="mt-3" />
         </SettingsCard>
 
         <SettingsCard

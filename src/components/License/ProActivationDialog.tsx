@@ -14,7 +14,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
-import type { ProFeature } from '@/lib/license';
+import { PRO_FEATURES } from '@/lib/license';
 import { useLicense } from '@/providers/LicenseProvider';
 
 interface ProActivationItem {
@@ -39,23 +39,6 @@ const ACTIVATION_ITEMS: ProActivationItem[] = [
     titleKey: 'proActivation.benefits.exports.title',
     descriptionKey: 'proActivation.benefits.exports.description',
   },
-];
-
-const PRO_FEATURES: ProFeature[] = [
-  'sandbox',
-  'visual_diff',
-  'ai',
-  'data_time_travel',
-  'data_contracts',
-  'instant_api',
-  'audit_advanced',
-  'profiling',
-  'export_xlsx',
-  'export_parquet',
-  'custom_safety_rules',
-  'query_library_advanced',
-  'virtual_relations_auto_suggest',
-  'bulk_edit_unlimited',
 ];
 
 export function ProActivationDialog() {
@@ -154,7 +137,7 @@ export function ProActivationDialog() {
                       <div key={feature} className="flex items-center gap-2 text-xs">
                         <CheckCircle2 size={13} className="shrink-0 text-accent" aria-hidden />
                         <span className="min-w-0 truncate text-foreground">
-                          {t(`license.upgrade.features.${feature}.title`)}
+                          {t(`settings.license.featureNames.${feature}`)}
                         </span>
                       </div>
                     ))}

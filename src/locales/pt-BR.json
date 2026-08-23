@@ -802,6 +802,13 @@
         "export_parquet": "Exportação Parquet",
         "query_library_advanced": "Biblioteca de Consultas Avançada",
         "virtual_relations_auto_suggest": "Sugestão Automática de Relações Virtuais",
+        "data_time_travel": "Time travel de dados",
+        "bulk_edit_unlimited": "Edição em massa ilimitada",
+        "data_contracts": "Contratos de dados",
+        "instant_api": "Instant Data API",
+        "data_generator": "Gerador de dados",
+        "index_suggestions": "Sugestões de índice",
+        "schema_diff": "Diff de esquema",
         "query_replay": "Reexecução de consultas"
       },
       "devOverrideTitle": "Substituição de Licença Dev",
@@ -862,8 +869,11 @@
     },
     "about": {
       "title": "Sobre",
-      "description": "Versão do aplicativo e atualizações.",
+      "description": "Versão, atualizações, documentação e links da comunidade.",
       "version": "Versão",
+      "creator": "Criador e mantenedor",
+      "contributors": "Colaboradores",
+      "acknowledgements": "Agradecimentos",
       "checkForUpdate": "Verificar atualizações",
       "checking": "Verificando...",
       "installUpdate": "Instalar v{{version}}",
@@ -1392,6 +1402,13 @@
     "delete": "Excluir",
     "deleting": "Excluindo...",
     "close": "Fechar",
+    "documentation": "Documentação",
+    "viewDocumentation": "Ver documentação",
+    "gettingStarted": "Primeiros passos",
+    "driverDocumentation": "Documentação do {{driver}}",
+    "github": "GitHub",
+    "discord": "Discord",
+    "contributors": "Colaboradores",
     "clear": "Limpar",
     "unknownError": "Erro desconhecido",
     "mongoCreateDbHint": "MongoDB cria um banco de dados quando a primeira coleção é criada.",
@@ -1811,7 +1828,8 @@
       "title": "Organize com áreas de trabalho",
       "description": "Você tem várias conexões. Crie uma área de trabalho para agrupá-las por projeto e compartilhá-las com sua equipe via Git."
     },
-    "finish": "Começar"
+    "finish": "Começar",
+    "exploreDocs": "Explorar a documentação"
   },
   "errorBoundary": {
     "title": "Algo deu errado",

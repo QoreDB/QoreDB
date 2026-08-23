@@ -24,6 +24,7 @@ import { UpgradePrompt } from '@/components/License/UpgradePrompt';
 import { translateDdlWarning } from '@/components/Table/translateDdlWarning';
 import { WarningsBanner } from '@/components/Table/WarningsBanner';
 import { Button } from '@/components/ui/button';
+import { DocumentationLink } from '@/components/ui/documentation-link';
 import { Input } from '@/components/ui/input';
 import {
   Select,
@@ -466,6 +467,7 @@ export function MigrationsPanel({
         <p className="max-w-md text-sm text-muted-foreground">
           {t('migrations.requiresWorkspaceHint')}
         </p>
+        <DocumentationLink path="diff-and-migrations/migration-generation" />
       </div>
     );
   }
@@ -492,6 +494,7 @@ export function MigrationsPanel({
             </div>
 
             <div className="flex items-center gap-2">
+              <DocumentationLink path="diff-and-migrations/migration-generation" />
               {sessionId && driverSupported && databaseOptions.length > 0 && (
                 <>
                   <span className="text-xs font-medium text-muted-foreground">

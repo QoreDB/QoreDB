@@ -831,6 +831,13 @@
         "export_parquet": "Parquet Export",
         "query_library_advanced": "Advanced Query Library",
         "virtual_relations_auto_suggest": "Auto-suggest Virtual Relations",
+        "data_time_travel": "Data Time Travel",
+        "bulk_edit_unlimited": "Unlimited Bulk Edit",
+        "data_contracts": "Data Contracts",
+        "instant_api": "Instant Data API",
+        "data_generator": "Data Generator",
+        "index_suggestions": "Index Suggestions",
+        "schema_diff": "Schema Diff",
         "query_replay": "Query Replay Lab"
       },
       "devOverrideTitle": "Dev License Override",
@@ -891,8 +898,11 @@
     },
     "about": {
       "title": "About",
-      "description": "Application version and updates.",
+      "description": "Version, updates, documentation, and community links.",
       "version": "Version",
+      "creator": "Creator and maintainer",
+      "contributors": "Contributors",
+      "acknowledgements": "Acknowledgements",
       "checkForUpdate": "Check for updates",
       "checking": "Checking...",
       "installUpdate": "Install v{{version}}",
@@ -1427,6 +1437,13 @@
     "delete": "Delete",
     "deleting": "Deleting...",
     "close": "Close",
+    "documentation": "Documentation",
+    "viewDocumentation": "View documentation",
+    "gettingStarted": "Getting started",
+    "driverDocumentation": "{{driver}} documentation",
+    "github": "GitHub",
+    "discord": "Discord",
+    "contributors": "Contributors",
     "clear": "Clear",
     "unknownError": "Unknown error",
     "mongoCreateDbHint": "MongoDB creates a database when the first collection is created.",
@@ -1850,7 +1867,8 @@
       "title": "Organize with workspaces",
       "description": "You have several connections. Create a workspace to group them by project and share them with your team via Git."
     },
-    "finish": "Let's go"
+    "finish": "Let's go",
+    "exploreDocs": "Explore the docs"
   },
   "errorBoundary": {
     "title": "Something went wrong",

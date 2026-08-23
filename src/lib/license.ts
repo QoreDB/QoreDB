@@ -65,6 +65,10 @@ const FEATURE_REQUIRED_TIER: Record<ProFeature, LicenseTier> = {
   query_replay: 'pro',
 };
 
+export const PRO_FEATURES = (
+  Object.entries(FEATURE_REQUIRED_TIER) as Array<[ProFeature, LicenseTier]>
+).flatMap(([feature, tier]) => (tier === 'pro' ? [feature] : []));
+
 export function tierIncludes(current: LicenseTier, required: LicenseTier): boolean {
   return TIER_LEVELS[current] >= TIER_LEVELS[required];
 }

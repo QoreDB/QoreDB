@@ -33,6 +33,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { COMMUNITY_LINKS, getDocsUrl, getSiteUrl } from '@/lib/externalLinks';
 import { toggleCheatsheet } from '@/lib/stores/modalStore';
 import { useNotificationBadge } from '@/lib/stores/notificationStore';
 import {
@@ -41,7 +42,7 @@ import {
   setUpdateInstalling,
   useUpdateStore,
 } from '@/lib/stores/updateStore';
-import { isWeb } from '@/lib/transport';
+import { isWeb, openExternal } from '@/lib/transport';
 import { cn } from '@/lib/utils';
 import { getShortcut, isMacOS, isWindowsOS } from '@/utils/platform';
 
@@ -53,6 +54,7 @@ interface CustomTitlebarProps {
   onNewWindow?: () => void;
   onOpenNotebook?: () => void;
   onOpenSettings?: () => void;
+  onOpenAbout?: () => void;
   onOpenLogs?: () => void;
   onOpenHistory?: () => void;
   onOpenLibrary?: () => void;
@@ -83,6 +85,7 @@ export const CustomTitlebar = ({
   onNewWindow,
   onOpenNotebook,
   onOpenSettings,
+  onOpenAbout,
   onOpenLogs,
   onOpenHistory,
   onOpenLibrary,
@@ -219,6 +222,14 @@ export const CustomTitlebar = ({
             onOpenErDiagram={onOpenErDiagram}
             onToggleSandbox={onToggleSandbox}
             sandboxActive={sandboxActive}
+          />
+          <MenuHelp
+            t={t}
+            isOpen={activeMenu === 'help'}
+            onOpenChange={open => handleMenuOpenChange('help', open)}
+            onMouseEnter={() => handleMenuHover('help')}
+            onShowKeyboardShortcuts={toggleCheatsheet}
+            onOpenAbout={onOpenAbout}
           />
         </div>
       </div>
@@ -572,6 +583,65 @@ const MenuTools = ({
       >
         <span>{t('titlebar.menu.tools.sandbox')}</span>
       </DropdownMenuCheckboxItem>
+    </DropdownMenuContent>
+  </DropdownMenu>
+);
+
+interface MenuHelpProps extends TitlebarMenuProps {
+  onShowKeyboardShortcuts?: () => void;
+  onOpenAbout?: () => void;
+}
+
+const MenuHelp = ({
+  t,
+  isOpen,
+  onOpenChange,
+  onMouseEnter,
+  onShowKeyboardShortcuts,
+  onOpenAbout,
+}: MenuHelpProps) => (
+  <DropdownMenu open={isOpen} onOpenChange={onOpenChange} modal={false}>
+    <DropdownMenuTrigger asChild onMouseEnter={onMouseEnter}>
+      <Button
+        variant="ghost"
+        size="sm"
+        className="h-7 px-2 text-xs font-normal text-muted-foreground hover:text-foreground hover:bg-accent/50 data-[state=open]:bg-accent data-[state=open]:text-foreground"
+      >
+        {t('a11y.help')}
+      </Button>
+    </DropdownMenuTrigger>
+    <DropdownMenuContent
+      align="start"
+      disableExitAnimation
+      className="w-60"
+      onCloseAutoFocus={event => event.preventDefault()}
+    >
+      <DropdownMenuItem onClick={() => void openExternal(getDocsUrl())}>
+        <span>{t('common.documentation')}</span>
+      </DropdownMenuItem>
+      <DropdownMenuItem
+        onClick={() => void openExternal(getDocsUrl('getting-started/installation'))}
+      >
+        <span>{t('common.gettingStarted')}</span>
+      </DropdownMenuItem>
+      <DropdownMenuItem onClick={onShowKeyboardShortcuts}>
+        <span>{t('cheatsheet.title')}</span>
+        <DropdownMenuShortcut>?</DropdownMenuShortcut>
+      </DropdownMenuItem>
+      <DropdownMenuSeparator />
+      <DropdownMenuItem onClick={() => void openExternal(getSiteUrl('changelog'))}>
+        <span>{t('whatsNew.fullChangelog')}</span>
+      </DropdownMenuItem>
+      <DropdownMenuItem onClick={() => void openExternal(COMMUNITY_LINKS.issues)}>
+        <span>{t('crashReport.report')}</span>
+      </DropdownMenuItem>
+      <DropdownMenuItem onClick={() => void openExternal(COMMUNITY_LINKS.discord)}>
+        <span>{t('common.discord')}</span>
+      </DropdownMenuItem>
+      <DropdownMenuSeparator />
+      <DropdownMenuItem onClick={onOpenAbout} disabled={!onOpenAbout}>
+        <span>{t('settings.about.title')}</span>
+      </DropdownMenuItem>
     </DropdownMenuContent>
   </DropdownMenu>
 );

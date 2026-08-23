@@ -802,6 +802,13 @@
         "export_parquet": "Parquet-Export",
         "query_library_advanced": "Erweiterte Abfragebibliothek",
         "virtual_relations_auto_suggest": "Automatische Vorschläge für virtuelle Relationen",
+        "data_time_travel": "Daten-Zeitreise",
+        "bulk_edit_unlimited": "Unbegrenzte Massenbearbeitung",
+        "data_contracts": "Datenverträge",
+        "instant_api": "Instant Data API",
+        "data_generator": "Datengenerator",
+        "index_suggestions": "Indexvorschläge",
+        "schema_diff": "Schema-Diff",
         "query_replay": "Query-Replay"
       },
       "devOverrideTitle": "Entwickler-Lizenz-Override",
@@ -862,8 +869,11 @@
     },
     "about": {
       "title": "Über",
-      "description": "Anwendungsversion und Updates.",
+      "description": "Version, Updates, Dokumentation und Community-Links.",
       "version": "Version",
+      "creator": "Ersteller und Maintainer",
+      "contributors": "Mitwirkende",
+      "acknowledgements": "Danksagungen",
       "checkForUpdate": "Nach Updates suchen",
       "checking": "Wird überprüft…",
       "installUpdate": "v{{version}} installieren",
@@ -1392,6 +1402,13 @@
     "delete": "Löschen",
     "deleting": "Wird gelöscht…",
     "close": "Schließen",
+    "documentation": "Dokumentation",
+    "viewDocumentation": "Dokumentation ansehen",
+    "gettingStarted": "Erste Schritte",
+    "driverDocumentation": "{{driver}}-Dokumentation",
+    "github": "GitHub",
+    "discord": "Discord",
+    "contributors": "Mitwirkende",
     "clear": "Leeren",
     "unknownError": "Unbekannter Fehler",
     "mongoCreateDbHint": "MongoDB erstellt eine Datenbank, wenn die erste Sammlung erstellt wird.",
@@ -1811,7 +1828,8 @@
       "title": "Mit Arbeitsbereichen organisieren",
       "description": "Sie haben mehrere Verbindungen. Erstellen Sie einen Arbeitsbereich, um sie nach Projekt zu gruppieren und über Git zu teilen."
     },
-    "finish": "Loslegen"
+    "finish": "Loslegen",
+    "exploreDocs": "Dokumentation erkunden"
   },
   "errorBoundary": {
     "title": "Etwas ist schiefgelaufen",

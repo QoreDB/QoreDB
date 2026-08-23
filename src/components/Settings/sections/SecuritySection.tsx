@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { InterceptorSettingsPanel } from '@/components/Interceptor';
 import { Checkbox } from '@/components/ui/checkbox';
+import { DocumentationLink } from '@/components/ui/documentation-link';
 import { Label } from '@/components/ui/label';
 import {
   Select,
@@ -165,6 +166,7 @@ export function SecuritySection({ searchQuery }: SecuritySectionProps) {
 
           <p className="text-xs text-muted-foreground pt-1">{t('settings.safetyPolicyNote')}</p>
           {policyError ? <p className="text-xs text-destructive">{policyError}</p> : null}
+          <DocumentationLink path="security/best-practices" />
         </div>
       </SettingsCard>
 

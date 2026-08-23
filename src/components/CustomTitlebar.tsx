@@ -25,6 +25,7 @@ import { PluginLauncher } from '@/components/Plugins/PluginLauncher';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
+  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
@@ -54,14 +55,21 @@ interface CustomTitlebarProps {
   onOpenSettings?: () => void;
   onOpenLogs?: () => void;
   onOpenHistory?: () => void;
+  onOpenLibrary?: () => void;
+  onOpenFulltextSearch?: () => void;
+  onOpenDiff?: () => void;
+  onOpenSnapshots?: () => void;
+  onOpenReplay?: () => void;
+  onOpenFederation?: () => void;
   onOpenMigrations?: () => void;
   onToggleSidebar?: () => void;
   onRefreshData?: () => void;
   onImportData?: () => void;
   onExportData?: () => void;
   onToggleSandbox?: () => void;
-  onOpenSchemaGenerator?: () => void;
+  onOpenErDiagram?: () => void;
   onToggleZenMode?: () => void;
+  sandboxActive?: boolean;
 
   onToggleReadOnly?: (next: boolean) => void;
   readOnly?: boolean;
@@ -77,14 +85,21 @@ export const CustomTitlebar = ({
   onOpenSettings,
   onOpenLogs,
   onOpenHistory,
+  onOpenLibrary,
+  onOpenFulltextSearch,
+  onOpenDiff,
+  onOpenSnapshots,
+  onOpenReplay,
+  onOpenFederation,
   onOpenMigrations,
   onToggleSidebar,
   onRefreshData,
   onImportData,
   onExportData,
   onToggleSandbox,
-  onOpenSchemaGenerator,
+  onOpenErDiagram,
   onToggleZenMode,
+  sandboxActive = false,
   settingsOpen = false,
   onRunPluginCommand,
 }: CustomTitlebarProps) => {
@@ -194,9 +209,16 @@ export const CustomTitlebar = ({
             onOpenChange={open => handleMenuOpenChange('tools', open)}
             onMouseEnter={() => handleMenuHover('tools')}
             onOpenHistory={onOpenHistory}
+            onOpenLibrary={onOpenLibrary}
+            onOpenFulltextSearch={onOpenFulltextSearch}
+            onOpenDiff={onOpenDiff}
+            onOpenSnapshots={onOpenSnapshots}
+            onOpenReplay={onOpenReplay}
+            onOpenFederation={onOpenFederation}
             onOpenMigrations={onOpenMigrations}
-            onOpenSchemaGenerator={onOpenSchemaGenerator}
+            onOpenErDiagram={onOpenErDiagram}
             onToggleSandbox={onToggleSandbox}
+            sandboxActive={sandboxActive}
           />
         </div>
       </div>
@@ -467,9 +489,16 @@ const MenuData = ({
 
 interface MenuToolsProps extends TitlebarMenuProps {
   onOpenHistory?: () => void;
+  onOpenLibrary?: () => void;
+  onOpenFulltextSearch?: () => void;
+  onOpenDiff?: () => void;
+  onOpenSnapshots?: () => void;
+  onOpenReplay?: () => void;
+  onOpenFederation?: () => void;
   onOpenMigrations?: () => void;
-  onOpenSchemaGenerator?: () => void;
+  onOpenErDiagram?: () => void;
   onToggleSandbox?: () => void;
+  sandboxActive?: boolean;
 }
 
 const MenuTools = ({
@@ -478,9 +507,16 @@ const MenuTools = ({
   onOpenChange,
   onMouseEnter,
   onOpenHistory,
+  onOpenLibrary,
+  onOpenFulltextSearch,
+  onOpenDiff,
+  onOpenSnapshots,
+  onOpenReplay,
+  onOpenFederation,
   onOpenMigrations,
-  onOpenSchemaGenerator,
+  onOpenErDiagram,
   onToggleSandbox,
+  sandboxActive = false,
 }: MenuToolsProps) => (
   <DropdownMenu open={isOpen} onOpenChange={onOpenChange} modal={false}>
     <DropdownMenuTrigger asChild onMouseEnter={onMouseEnter}>
@@ -495,22 +531,47 @@ const MenuTools = ({
     <DropdownMenuContent
       align="start"
       disableExitAnimation
-      className="w-56"
+      className="w-max min-w-72 whitespace-nowrap"
       onCloseAutoFocus={event => event.preventDefault()}
     >
       <DropdownMenuItem onClick={onOpenHistory} disabled={!onOpenHistory}>
         <span>{t('titlebar.menu.tools.history')}</span>
       </DropdownMenuItem>
+      <DropdownMenuItem onClick={onOpenLibrary} disabled={!onOpenLibrary}>
+        <span>{t('palette.openLibrary')}</span>
+      </DropdownMenuItem>
+      <DropdownMenuItem onClick={onOpenFulltextSearch} disabled={!onOpenFulltextSearch}>
+        <span>{t('palette.fulltextSearch')}</span>
+      </DropdownMenuItem>
+      <DropdownMenuSeparator />
+      <DropdownMenuItem onClick={onOpenDiff} disabled={!onOpenDiff}>
+        <span>{t('diff.openDiff')}</span>
+      </DropdownMenuItem>
+      <DropdownMenuItem onClick={onOpenSnapshots} disabled={!onOpenSnapshots}>
+        <span>{t('snapshots.openManager')}</span>
+      </DropdownMenuItem>
+      <DropdownMenuItem onClick={onOpenReplay} disabled={!onOpenReplay}>
+        <span>{t('replay.openLab')}</span>
+      </DropdownMenuItem>
+      <DropdownMenuItem onClick={onOpenFederation} disabled={!onOpenFederation}>
+        <span>{t('federation.openFederation')}</span>
+      </DropdownMenuItem>
+      <DropdownMenuSeparator />
       <DropdownMenuItem onClick={onOpenMigrations} disabled={!onOpenMigrations}>
         <span>{t('migrations.openManager')}</span>
       </DropdownMenuItem>
-      <DropdownMenuItem onClick={onOpenSchemaGenerator} disabled={!onOpenSchemaGenerator}>
-        <span>{t('titlebar.menu.tools.schemaGenerator')}</span>
+      <DropdownMenuItem onClick={onOpenErDiagram} disabled={!onOpenErDiagram}>
+        <span>{t('features.erDiagram.name')}</span>
       </DropdownMenuItem>
       <DropdownMenuSeparator />
-      <DropdownMenuItem onClick={onToggleSandbox} disabled={!onToggleSandbox}>
+      <DropdownMenuCheckboxItem
+        className="pl-2 pr-8 [&>span:first-child]:right-2 [&>span:first-child]:left-auto"
+        checked={sandboxActive}
+        onCheckedChange={onToggleSandbox}
+        disabled={!onToggleSandbox}
+      >
         <span>{t('titlebar.menu.tools.sandbox')}</span>
-      </DropdownMenuItem>
+      </DropdownMenuCheckboxItem>
     </DropdownMenuContent>
   </DropdownMenu>
 );

@@ -17,6 +17,7 @@ import {
   getSandboxPreferences,
   hasPendingChanges,
   isSandboxActive,
+  subscribeSandbox,
 } from '@/lib/sandbox/sandboxStore';
 import { getShortcut } from '@/utils/platform';
 import { SchemaExplainDialog } from './components/AI/SchemaExplainDialog';
@@ -90,7 +91,7 @@ import { useResizableSidebar } from './hooks/useResizableSidebar';
 import { useTheme } from './hooks/useTheme';
 import { useTourManager } from './hooks/useTourManager';
 import { useWebviewGuards } from './hooks/useWebviewGuards';
-import { Driver } from './lib/connection/drivers';
+import { Driver, getDriverMetadata } from './lib/connection/drivers';
 import { buildQualifiedTableName } from './lib/ddl';
 import { openNotebookFromFile, setPendingNotebook } from './lib/notebook/notebookIO';
 import { notify } from './lib/notify';
@@ -115,9 +116,9 @@ import {
   createFederationTab,
   createMigrationsTab,
   createNotebookTab,
-  createReplayTab,
   createPluginOutputTab,
   createQueryTab,
+  createReplayTab,
   createSchemaDiffTab,
   createSnapshotsTab,
   createTableTab,
@@ -203,6 +204,21 @@ export function AppLayout() {
   } = useSessionContext();
 
   const { projectId } = useWorkspace();
+  const [sandboxActive, setSandboxActive] = useState(false);
+
+  useEffect(() => {
+    if (!sessionId) {
+      setSandboxActive(false);
+      return;
+    }
+
+    setSandboxActive(isSandboxActive(sessionId));
+    return subscribeSandbox(changedSessionId => {
+      if (changedSessionId === sessionId) {
+        setSandboxActive(isSandboxActive(sessionId));
+      }
+    });
+  }, [sessionId]);
   const { plugins, contributions } = usePlugins();
   const { runCommand: runPluginCommandHistoryAware } = usePluginOutput();
   const settingsOpen = useModalStore(s => s.settingsOpen);
@@ -299,6 +315,28 @@ export function AppLayout() {
   const handleOpenMigrations = useCallback(() => {
     openTab(createMigrationsTab(activeTab?.namespace));
   }, [activeTab?.namespace, openTab]);
+
+  const handleOpenErDiagram = useCallback(() => {
+    if (!sessionId || !activeTab?.namespace) return;
+
+    const nextTab = createDatabaseTab(activeTab.namespace);
+    const existing = tabs.find(
+      tab =>
+        tab.type === 'database' &&
+        tab.namespace?.database === activeTab.namespace?.database &&
+        tab.namespace?.schema === activeTab.namespace?.schema &&
+        tab.connectionId === activeConnection?.id
+    );
+    updateDatabaseBrowserTab(existing?.id ?? nextTab.id, 'schema');
+    openTab(nextTab);
+  }, [
+    activeConnection?.id,
+    activeTab?.namespace,
+    openTab,
+    sessionId,
+    tabs,
+    updateDatabaseBrowserTab,
+  ]);
 
   const handleTabSelect = useCallback(
     (tabId: string) => {
@@ -905,13 +943,25 @@ export function AppLayout() {
             settingsOpen={settingsOpen}
             onOpenLogs={() => emitUiEvent(UI_EVENT_OPEN_LOGS)}
             onOpenHistory={sessionId ? handleOpenHistory : undefined}
+            onOpenLibrary={() => setLibraryModalOpen(true)}
+            onOpenFulltextSearch={sessionId ? () => setFulltextSearchOpen(true) : undefined}
+            onOpenDiff={sessionId ? handleOpenDiff : undefined}
+            onOpenSnapshots={() => openTab(createSnapshotsTab())}
+            onOpenReplay={sessionId ? () => openTab(createReplayTab()) : undefined}
+            onOpenFederation={sessionId ? () => openTab(createFederationTab()) : undefined}
             onOpenMigrations={handleOpenMigrations}
+            onOpenErDiagram={
+              sessionId && activeTab?.namespace && getDriverMetadata(driver).supportsSQL
+                ? handleOpenErDiagram
+                : undefined
+            }
             onToggleSidebar={toggleSidebar}
             onRefreshData={canRefreshData ? () => emitUiEvent(UI_EVENT_REFRESH_TABLE) : undefined}
             onExportData={
               canExportData ? () => emitUiEvent(UI_EVENT_EXPORT_DATA, { format: 'csv' }) : undefined
             }
             onToggleSandbox={sessionId ? handleToggleSandbox : undefined}
+            sandboxActive={sandboxActive}
             onToggleZenMode={toggleZenMode}
             readOnly={activeConnection?.read_only || false}
             onRunPluginCommand={handleRunPluginCommand}

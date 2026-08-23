@@ -254,7 +254,7 @@ fn backup_tool_for_driver(driver: &str, format: BackupFormat) -> Result<BackupTo
         }
         ("mysql", _) => Ok(BackupTool::MysqlDump),
         ("mariadb", _) => Ok(BackupTool::MariaDbDump),
-        ("mongodb", _) => Ok(BackupTool::MongoDump),
+        ("mongodb" | "documentdb", _) => Ok(BackupTool::MongoDump),
         ("sqlite", _) => Ok(BackupTool::Sqlite3),
         (other, _) => Err(format!("Backup not supported for driver '{}'", other)),
     }
@@ -270,8 +270,8 @@ fn restore_tool_for_driver(driver: &str, format: BackupFormat) -> Result<BackupT
         ("postgres" | "postgresql" | "supabase" | "neon" | "timescaledb" | "cockroachdb", _) => {
             Ok(BackupTool::Psql)
         }
-        ("mysql" | "mariadb", _) => Ok(BackupTool::Mysql),
-        ("mongodb", _) => Ok(BackupTool::MongoRestore),
+        ("mysql" | "mariadb" | "planetscale", _) => Ok(BackupTool::Mysql),
+        ("mongodb" | "documentdb", _) => Ok(BackupTool::MongoRestore),
         ("sqlite", _) => Ok(BackupTool::Sqlite3),
         (other, _) => Err(format!("Restore not supported for driver '{}'", other)),
     }

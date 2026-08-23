@@ -13,11 +13,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { DocumentationLink } from '@/components/ui/documentation-link';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Switch } from '@/components/ui/switch';
 import { supportsConnectionUrl } from '@/lib/connection/connectionUrls';
 import { DRIVER_ICONS, DRIVER_LABELS } from '@/lib/connection/drivers';
 import { emitUiEvent, UI_EVENT_CONNECTIONS_CHANGED } from '@/lib/events/uiEvents';
+import { getDriverDocsPath } from '@/lib/externalLinks';
 import {
   connectSavedConnection,
   type SavedConnection,
@@ -284,6 +286,7 @@ export function ConnectionModal({
                   </div>
 
                   <div className="flex items-center gap-3">
+                    <DocumentationLink path={getDriverDocsPath(formData.driver)} />
                     {/* URL Mode Toggle */}
                     {!isEditMode && supportsConnectionUrl(formData.driver) && (
                       <div className="flex items-center gap-2">

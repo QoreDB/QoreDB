@@ -20,6 +20,46 @@ export interface ChangelogEntry {
  */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.1.38',
+    date: '2026-08-21',
+    items: [
+      {
+        title: 'Query Replay Lab',
+        description:
+          'Record the queries you run while you work, then replay the set after a migration or against another connection. The report says what broke, what returns a different row count, what changed in content and what got slower.',
+        type: 'feature',
+        proOnly: true,
+      },
+      {
+        title: 'See the difference, not just the verdict',
+        description:
+          'Captured rows stay on your machine and never reach the repository, so any report row opens the baseline ↔ run diff. Ignored columns keep timestamps from reporting a change on every run.',
+        type: 'feature',
+        proOnly: true,
+      },
+      {
+        title: 'Replay sets are shared through Git',
+        description:
+          'A set lives in .qoredb/replays/ and holds queries and expectations — never a result row, though the query text is versioned as-is. Mutations are excluded from replay by default and refused outright against production, classified from the preflight rather than from the file.',
+        type: 'feature',
+        proOnly: true,
+      },
+      {
+        title: 'Compare two connections side by side',
+        description:
+          'Replay the same set on two live connections — production against a migrated staging, for instance — and compare the two results against each other rather than against a recording.',
+        type: 'feature',
+        proOnly: true,
+      },
+      {
+        title: 'PlanetScale, Amazon DocumentDB and Dragonfly',
+        description:
+          'Three wire-compatible engines now have their own identity, icon and DSN detection: PlanetScale over the MySQL driver and DocumentDB over the MongoDB driver, both with TLS forced on connect, and Dragonfly over the Redis driver.',
+        type: 'feature',
+      },
+    ],
+  },
+  {
     version: '0.1.35',
     date: '2026-07-27',
     items: [

@@ -28,15 +28,18 @@
 
 - [x] **Neon** — PostgreSQL serverless
 - [x] **Supabase** — PostgreSQL (API REST)
+- [x] **PlanetScale** — MySQL serverless, TLS forcé (driver MySQL mutualisé) _(v0.1.38)_
 
 ### NoSQL Document
 
 - [x] **MongoDB** — Driver complet (connexion, collections, find, aggregate)
+- [x] **Amazon DocumentDB** — Compatible MongoDB, TLS forcé (driver MongoDB mutualisé) _(v0.1.38)_
 
 ### NoSQL Key-Value
 
 - [x] **Redis** — Cache / store in-memory
 - [x] **Valkey** — Fork open-source de Redis (driver Redis mutualisé, schémas `valkey://`)
+- [x] **Dragonfly** — Compatible fil-à-fil Redis (driver Redis mutualisé, URL `redis://`) _(v0.1.38)_
 
 ### Search
 
@@ -58,7 +61,6 @@
 ### NoSQL Document
 
 - [ ] **CouchDB** — HTTP/REST API
-- [ ] **Amazon DocumentDB** — MongoDB-compatible (AWS)
 
 ### NoSQL Key-Value
 
@@ -85,7 +87,6 @@
 
 ### Cloud-Native / Serverless
 
-- [ ] **PlanetScale** — MySQL serverless
 - [ ] **Turso** — SQLite edge (libSQL)
 - [ ] **Cloudflare D1** — SQLite edge
 
@@ -112,13 +113,16 @@
 | -------------- | :----------: | :---------: | :-: | :-----: | :---: | :------: | ----- |
 | PostgreSQL     | ✅           | ✅          | ✅  | ✅      | ✅    | ✅       | Support complet |
 | MySQL / MariaDB| ✅           | ✅          | ✅  | ✅      | ✅¹   | ✅       | ¹ CHECK respecté à partir de MySQL 8.0.16 / MariaDB 10.2 |
+| PlanetScale    | ✅           | ✅          | ⚠️  | ✅      | ✅    | ✅       | Wire-compatible MySQL. Les FK ne sont pas appliquées sur les branches sans foreign key constraints activées. |
 | SQLite         | ✅           | ⚠️          | ✅  | ✅      | ✅    | ❌       | ALTER limité avant SQLite 3.35 (warning explicite, pas de DROP/ALTER COLUMN auto) |
 | DuckDB         | ✅           | ✅          | ⚠️  | ✅      | ✅    | ✅       | FK syntaxiques uniquement (non vérifiées au runtime) |
 | SQL Server     | ✅           | ✅          | ✅  | ✅      | ✅    | ⚠️       | Comments via `sp_addextendedproperty` |
 | CockroachDB    | ✅           | ✅          | ✅  | ✅      | ✅    | ✅       | Wire-compatible PostgreSQL |
 | ClickHouse     | ✅           | ⚠️          | ❌  | ✅      | ✅    | ✅       | MergeTree-family subset. Pas de FK enforcement (laissée syntaxique uniquement). INDEX … TYPE bloom_filter\|minmax\|set. (v0.1.28) |
 | MongoDB        | ❌           | ❌          | —  | —       | —     | —        | Pas de schéma rigide. Voir `CreateCollectionModal` (v0.3.x). |
+| DocumentDB     | ❌           | ❌          | —  | —       | —     | —        | Idem MongoDB (driver mutualisé). |
 | Redis          | ❌           | ❌          | —  | —       | —     | —        | Pas applicable (KV store). |
+| Dragonfly      | ❌           | ❌          | —  | —       | —     | —        | Idem Redis (driver mutualisé). |
 | Elasticsearch  | ❌           | ❌          | —  | —       | —     | —        | DDL visuel non applicable. Création d'index via la console (`PUT /index`). |
 | OpenSearch     | ❌           | ❌          | —  | —       | —     | —        | Idem Elasticsearch (driver mutualisé). |
 

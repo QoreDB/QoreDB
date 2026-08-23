@@ -14,7 +14,8 @@ export type TabType =
   | 'time-travel'
   | 'migrations'
   | 'plugin-output'
-  | 'chat';
+  | 'chat'
+  | 'replay';
 
 export interface DiffSource {
   type: 'query' | 'table' | 'snapshot';
@@ -183,6 +184,14 @@ export function createChatTab(): OpenTab {
     id: generateTabId(),
     type: 'chat',
     title: 'Qore AI',
+  };
+}
+
+export function createReplayTab(): OpenTab {
+  return {
+    id: generateTabId(),
+    type: 'replay',
+    title: 'Query Replay',
   };
 }
 

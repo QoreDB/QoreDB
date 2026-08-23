@@ -311,7 +311,7 @@ pub enum CancelSupport {
 }
 
 /// Reported capabilities for a driver.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DriverCapabilities {
     pub transactions: bool,
     pub mutations: bool,

@@ -17,6 +17,7 @@ import {
   getSandboxPreferences,
   hasPendingChanges,
   isSandboxActive,
+  subscribeSandbox,
 } from '@/lib/sandbox/sandboxStore';
 import { getShortcut } from '@/utils/platform';
 import { SchemaExplainDialog } from './components/AI/SchemaExplainDialog';
@@ -55,6 +56,7 @@ const FederationViewer = lazy(() =>
 const NotebookTab = lazy(() =>
   import('./components/Notebook').then(m => ({ default: m.NotebookTab }))
 );
+const ReplayTab = lazy(() => import('./components/Replay').then(m => ({ default: m.ReplayTab })));
 const SettingsPage = lazy(() =>
   import('./components/Settings/SettingsPage').then(m => ({
     default: m.SettingsPage,
@@ -89,8 +91,9 @@ import { useResizableSidebar } from './hooks/useResizableSidebar';
 import { useTheme } from './hooks/useTheme';
 import { useTourManager } from './hooks/useTourManager';
 import { useWebviewGuards } from './hooks/useWebviewGuards';
-import { Driver } from './lib/connection/drivers';
+import { Driver, getDriverMetadata } from './lib/connection/drivers';
 import { buildQualifiedTableName } from './lib/ddl';
+import { getDocsUrl, getDriverDocsPath, getSiteUrl } from './lib/externalLinks';
 import { openNotebookFromFile, setPendingNotebook } from './lib/notebook/notebookIO';
 import { notify } from './lib/notify';
 import { splitContributionId } from './lib/plugins';
@@ -98,11 +101,13 @@ import type { HistoryEntry } from './lib/query/history';
 import type { QueryLibraryItem } from './lib/query/queryLibrary';
 import {
   handleEditConnection,
+  openSettingsSection,
   setConnectionModalOpen,
   setFulltextSearchOpen,
   setLibraryModalOpen,
   setSearchOpen,
   setSettingsOpen,
+  toggleCheatsheet,
   toggleSidebar,
   toggleZenMode,
   useModalStore,
@@ -116,6 +121,7 @@ import {
   createNotebookTab,
   createPluginOutputTab,
   createQueryTab,
+  createReplayTab,
   createSchemaDiffTab,
   createSnapshotsTab,
   createTableTab,
@@ -142,6 +148,7 @@ import {
 } from './lib/tauri';
 import { getRoutineTemplate } from './lib/templates/routineTemplates';
 import { getEventTemplate, getTriggerTemplate } from './lib/templates/triggerTemplates';
+import { openExternal } from './lib/transport';
 import { usePluginOutput } from './providers/PluginOutputProvider';
 import { usePlugins } from './providers/PluginProvider';
 import { useSessionContext } from './providers/SessionProvider';
@@ -201,6 +208,21 @@ export function AppLayout() {
   } = useSessionContext();
 
   const { projectId } = useWorkspace();
+  const [sandboxActive, setSandboxActive] = useState(false);
+
+  useEffect(() => {
+    if (!sessionId) {
+      setSandboxActive(false);
+      return;
+    }
+
+    setSandboxActive(isSandboxActive(sessionId));
+    return subscribeSandbox(changedSessionId => {
+      if (changedSessionId === sessionId) {
+        setSandboxActive(isSandboxActive(sessionId));
+      }
+    });
+  }, [sessionId]);
   const { plugins, contributions } = usePlugins();
   const { runCommand: runPluginCommandHistoryAware } = usePluginOutput();
   const settingsOpen = useModalStore(s => s.settingsOpen);
@@ -297,6 +319,28 @@ export function AppLayout() {
   const handleOpenMigrations = useCallback(() => {
     openTab(createMigrationsTab(activeTab?.namespace));
   }, [activeTab?.namespace, openTab]);
+
+  const handleOpenErDiagram = useCallback(() => {
+    if (!sessionId || !activeTab?.namespace) return;
+
+    const nextTab = createDatabaseTab(activeTab.namespace);
+    const existing = tabs.find(
+      tab =>
+        tab.type === 'database' &&
+        tab.namespace?.database === activeTab.namespace?.database &&
+        tab.namespace?.schema === activeTab.namespace?.schema &&
+        tab.connectionId === activeConnection?.id
+    );
+    updateDatabaseBrowserTab(existing?.id ?? nextTab.id, 'schema');
+    openTab(nextTab);
+  }, [
+    activeConnection?.id,
+    activeTab?.namespace,
+    openTab,
+    sessionId,
+    tabs,
+    updateDatabaseBrowserTab,
+  ]);
 
   const handleTabSelect = useCallback(
     (tabId: string) => {
@@ -626,6 +670,11 @@ export function AppLayout() {
               label: t('features.virtualRelations.name'),
               sublabel: t('features.virtualRelations.description'),
             },
+            {
+              id: 'feat_replay',
+              label: t('features.queryReplay.name'),
+              sublabel: t('features.queryReplay.description'),
+            },
           ]
         : [],
     [sessionId, t]
@@ -685,11 +734,26 @@ export function AppLayout() {
         : []),
       { id: 'cmd_open_snapshots', label: t('snapshots.openManager') },
       { id: 'cmd_open_migrations', label: t('migrations.openManager') },
+      ...(sessionId ? [{ id: 'cmd_open_replay', label: t('replay.openLab') }] : []),
       {
         id: 'cmd_open_settings',
         label: t('palette.openSettings'),
         shortcut: getShortcut(',', { symbol: true }),
       },
+      { id: 'cmd_open_docs', label: t('common.documentation') },
+      { id: 'cmd_open_getting_started', label: t('common.gettingStarted') },
+      ...(sessionId
+        ? [
+            {
+              id: 'cmd_open_driver_docs',
+              label: t('common.driverDocumentation', {
+                driver: getDriverMetadata(driver).label,
+              }),
+            },
+          ]
+        : []),
+      { id: 'cmd_show_keyboard_shortcuts', label: t('cheatsheet.title'), shortcut: '?' },
+      { id: 'cmd_open_changelog', label: t('whatsNew.fullChangelog') },
       { id: 'cmd_toggle_theme', label: t('palette.toggleTheme') },
       ...(activeTabId
         ? [
@@ -706,7 +770,7 @@ export function AppLayout() {
         return { id: cmd.id, label: `${pluginName}: ${cmd.label}` };
       }),
     ],
-    [activeTabId, activeTab?.type, sessionId, t, contributions.commands, plugins]
+    [activeTabId, activeTab?.type, sessionId, driver, t, contributions.commands, plugins]
   );
 
   const handleRunPluginCommand = useCallback(
@@ -758,6 +822,9 @@ export function AppLayout() {
           case 'cmd_open_migrations':
             openTab(createMigrationsTab(activeTab?.namespace));
             return;
+          case 'cmd_open_replay':
+            if (sessionId) openTab(createReplayTab());
+            return;
           case 'cmd_open_federation':
             if (sessionId) openTab(createFederationTab());
             return;
@@ -787,6 +854,21 @@ export function AppLayout() {
             return;
           case 'cmd_open_settings':
             setSettingsOpen(true);
+            return;
+          case 'cmd_open_docs':
+            await openExternal(getDocsUrl());
+            return;
+          case 'cmd_open_getting_started':
+            await openExternal(getDocsUrl('getting-started/installation'));
+            return;
+          case 'cmd_open_driver_docs':
+            await openExternal(getDocsUrl(getDriverDocsPath(driver)));
+            return;
+          case 'cmd_show_keyboard_shortcuts':
+            toggleCheatsheet();
+            return;
+          case 'cmd_open_changelog':
+            await openExternal(getSiteUrl('changelog'));
             return;
           case 'cmd_toggle_theme':
             toggleTheme();
@@ -843,6 +925,9 @@ export function AppLayout() {
           case 'feat_snapshots':
             openTab(createSnapshotsTab());
             return;
+          case 'feat_replay':
+            if (sessionId) openTab(createReplayTab());
+            return;
           case 'feat_fulltext':
             if (sessionId) setFulltextSearchOpen(true);
             return;
@@ -872,6 +957,7 @@ export function AppLayout() {
       refreshSidebar,
       projectId,
       handleRunPluginCommand,
+      driver,
     ]
   );
 
@@ -888,16 +974,29 @@ export function AppLayout() {
             onNewConnection={() => setConnectionModalOpen(true)}
             onOpenNotebook={sessionId ? handleOpenNotebook : undefined}
             onOpenSettings={() => setSettingsOpen(!settingsOpen)}
+            onOpenAbout={() => openSettingsSection('general')}
             settingsOpen={settingsOpen}
             onOpenLogs={() => emitUiEvent(UI_EVENT_OPEN_LOGS)}
             onOpenHistory={sessionId ? handleOpenHistory : undefined}
+            onOpenLibrary={() => setLibraryModalOpen(true)}
+            onOpenFulltextSearch={sessionId ? () => setFulltextSearchOpen(true) : undefined}
+            onOpenDiff={sessionId ? handleOpenDiff : undefined}
+            onOpenSnapshots={() => openTab(createSnapshotsTab())}
+            onOpenReplay={sessionId ? () => openTab(createReplayTab()) : undefined}
+            onOpenFederation={sessionId ? () => openTab(createFederationTab()) : undefined}
             onOpenMigrations={handleOpenMigrations}
+            onOpenErDiagram={
+              sessionId && activeTab?.namespace && getDriverMetadata(driver).supportsSQL
+                ? handleOpenErDiagram
+                : undefined
+            }
             onToggleSidebar={toggleSidebar}
             onRefreshData={canRefreshData ? () => emitUiEvent(UI_EVENT_REFRESH_TABLE) : undefined}
             onExportData={
               canExportData ? () => emitUiEvent(UI_EVENT_EXPORT_DATA, { format: 'csv' }) : undefined
             }
             onToggleSandbox={sessionId ? handleToggleSandbox : undefined}
+            sandboxActive={sandboxActive}
             onToggleZenMode={toggleZenMode}
             readOnly={activeConnection?.read_only || false}
             onRunPluginCommand={handleRunPluginCommand}
@@ -984,6 +1083,7 @@ export function AppLayout() {
                       onClose={handleCloseTab}
                       onNew={handleNewQuery}
                       onNewChat={() => openTab(createChatTab())}
+                      onNewReplay={() => openTab(createReplayTab())}
                       onReorder={reordered =>
                         reorderTabs(
                           reordered.flatMap(t => {
@@ -1340,6 +1440,21 @@ function AppContent({
           onSchemaChange={onSchemaChange}
           onDirtyChange={dirty => onUpdateTab(activeTab.id, { notebookDirty: dirty })}
         />
+      </div>
+    );
+  }
+
+  if (activeTab?.type === 'replay') {
+    return (
+      <div className="flex-1 min-h-0 flex flex-col">
+        <LicenseGate feature="query_replay">
+          <ReplayTab
+            key={activeTab.id}
+            sessionId={sessionId}
+            environment={activeConnection?.environment}
+            onOpenDiff={(left, right, title) => onOpenTab(createDiffTab(left, right, title))}
+          />
+        </LicenseGate>
       </div>
     );
   }

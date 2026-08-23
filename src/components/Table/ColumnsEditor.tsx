@@ -14,7 +14,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { Driver } from '@/lib/connection/drivers';
+import { isMySqlFamily } from '@/lib/connection/driverCapabilities';
+import type { Driver } from '@/lib/connection/drivers';
 import type { ColumnDef, ColumnType, DdlCapabilities } from '@/lib/ddl';
 import type { EditableColumn } from './createTableTypes';
 
@@ -51,7 +52,7 @@ export function ColumnsEditor({
     });
   };
 
-  const supportsAutoIncrement = driver === Driver.Mysql || driver === Driver.Mariadb;
+  const supportsAutoIncrement = isMySqlFamily(driver);
   const showCommentField = capabilities.inlineColumnComments || capabilities.separateColumnComments;
 
   return (

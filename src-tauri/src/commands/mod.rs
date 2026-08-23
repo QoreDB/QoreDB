@@ -30,6 +30,8 @@ pub mod mutation;
 pub mod plugins;
 pub mod policy;
 pub mod query;
+#[cfg(feature = "pro")]
+pub mod replay;
 pub mod routines;
 pub mod sandbox;
 pub mod schema_export;

@@ -14,6 +14,8 @@ export function getRoutineTemplate(
         ? postgresCreateFunction(namespace)
         : postgresCreateProcedure(namespace);
     case Driver.Mysql:
+    case Driver.Mariadb:
+    case Driver.PlanetScale:
       return routineType === 'Function'
         ? mysqlCreateFunction(namespace)
         : mysqlCreateProcedure(namespace);

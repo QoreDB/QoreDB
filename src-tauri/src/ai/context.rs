@@ -80,8 +80,8 @@ pub fn clamp_history(history: &[AiMessage]) -> Vec<AiMessage> {
 /// Determine the query dialect from a driver ID
 pub fn dialect_for_driver(driver_id: &str) -> QueryDialect {
     match driver_id {
-        "mongodb" => QueryDialect::MongoMql,
-        "redis" | "valkey" => QueryDialect::Redis,
+        "mongodb" | "documentdb" => QueryDialect::MongoMql,
+        "redis" | "valkey" | "dragonfly" => QueryDialect::Redis,
         _ => QueryDialect::Sql,
     }
 }

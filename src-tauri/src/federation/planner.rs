@@ -103,7 +103,7 @@ fn build_rewrite_mappings(refs: &[FederatedTableRef]) -> HashMap<String, String>
 ///
 /// Generates: `SELECT {columns} FROM {table} WHERE {predicates} LIMIT {limit}`
 pub fn build_source_query(source: &SourceFetchPlan) -> String {
-    if source.driver_id == "mongodb" {
+    if matches!(source.driver_id.as_str(), "mongodb" | "documentdb") {
         return build_mongo_source_query(source);
     }
 

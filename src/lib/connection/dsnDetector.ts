@@ -40,6 +40,16 @@ export function detectDriverFromDsn(dsn: string): DsnDetection | null {
     return { driver: Driver.Elasticsearch, hint: '*.cloud.es.io' };
   }
 
+  // PlanetScale speaks MySQL over its own gateway hosts.
+  if (/\.psdb\.cloud/i.test(trimmed)) {
+    return { driver: Driver.PlanetScale, hint: '*.psdb.cloud' };
+  }
+
+  // DocumentDB speaks MongoDB; the host carries the AWS service name.
+  if (/\.docdb(-elastic)?\.amazonaws\.com/i.test(trimmed)) {
+    return { driver: Driver.DocumentDb, hint: '*.docdb.amazonaws.com' };
+  }
+
   return null;
 }
 

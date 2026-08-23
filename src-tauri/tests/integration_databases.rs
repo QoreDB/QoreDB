@@ -10,8 +10,9 @@
 
 use qoredb_lib::engine::{
     drivers::{
-        clickhouse::ClickHouseDriver, duckdb::DuckDbDriver, elasticsearch::ElasticsearchDriver,
-        mongodb::MongoDriver, mysql::MySqlDriver, postgres::PostgresDriver, redis::RedisDriver,
+        clickhouse::ClickHouseDriver, documentdb::DocumentDbDriver, duckdb::DuckDbDriver,
+        elasticsearch::ElasticsearchDriver, mongodb::MongoDriver, mysql::MySqlDriver,
+        planetscale::PlanetScaleDriver, postgres::PostgresDriver, redis::RedisDriver,
         sqlite::SqliteDriver,
     },
     error::{EngineError, EngineResult},
@@ -56,7 +57,10 @@ enum Service {
     Postgres,
     MySql,
     Mongo,
+    DocumentDb,
     Redis,
+    Dragonfly,
+    PlanetScale,
     ClickHouse,
     Search,
 }
@@ -67,7 +71,10 @@ impl Service {
             Service::Postgres => "PostgreSQL",
             Service::MySql => "MySQL",
             Service::Mongo => "MongoDB",
+            Service::DocumentDb => "MongoDB (TLS, DocumentDB stand-in)",
             Service::Redis => "Redis",
+            Service::Dragonfly => "Dragonfly",
+            Service::PlanetScale => "MySQL (PlanetScale stand-in)",
             Service::ClickHouse => "ClickHouse",
             Service::Search => "Elasticsearch",
         }
@@ -78,7 +85,10 @@ impl Service {
             Service::Postgres => "QOREDB_TEST_POSTGRES_REQUIRED",
             Service::MySql => "QOREDB_TEST_MYSQL_REQUIRED",
             Service::Mongo => "QOREDB_TEST_MONGO_REQUIRED",
+            Service::DocumentDb => "QOREDB_TEST_DOCUMENTDB_REQUIRED",
             Service::Redis => "QOREDB_TEST_REDIS_REQUIRED",
+            Service::Dragonfly => "QOREDB_TEST_DRAGONFLY_REQUIRED",
+            Service::PlanetScale => "QOREDB_TEST_PLANETSCALE_REQUIRED",
             Service::ClickHouse => "QOREDB_TEST_CLICKHOUSE_REQUIRED",
             Service::Search => "QOREDB_TEST_SEARCH_REQUIRED",
         }
@@ -426,6 +436,71 @@ async fn connect_mongo() -> EngineResult<(Arc<MongoDriver>, SessionId, Connectio
 async fn connect_redis() -> EngineResult<(Arc<RedisDriver>, SessionId, ConnectionConfig)> {
     let config = redis_config();
     let driver = Arc::new(RedisDriver::new());
+    wait_for_connection(driver.as_ref(), &config).await?;
+    let session = driver.connect(&config).await?;
+    Ok((driver, session, config))
+}
+
+/// Dragonfly speaks the Redis protocol, so it reuses `RedisDriver` with the
+/// Dragonfly flavor; only the port differs from the Redis service.
+fn dragonfly_config() -> ConnectionConfig {
+    ConnectionConfig {
+        driver: "dragonfly".to_string(),
+        host: env_or_default("QOREDB_TEST_DRAGONFLY_HOST", "127.0.0.1"),
+        port: env_u16_or_default("QOREDB_TEST_DRAGONFLY_PORT", 6380),
+        username: env_or_default("QOREDB_TEST_DRAGONFLY_USER", "default"),
+        password: env_or_default("QOREDB_TEST_DRAGONFLY_PASSWORD", "qoredb_test"),
+        database: Some(env_or_default("QOREDB_TEST_DRAGONFLY_DB", "0")),
+        ..redis_config()
+    }
+}
+
+async fn connect_dragonfly() -> EngineResult<(Arc<RedisDriver>, SessionId, ConnectionConfig)> {
+    let config = dragonfly_config();
+    let driver = Arc::new(RedisDriver::dragonfly());
+    wait_for_connection(driver.as_ref(), &config).await?;
+    let session = driver.connect(&config).await?;
+    Ok((driver, session, config))
+}
+
+/// PlanetScale speaks MySQL, so it reuses the MySQL service. `ssl` is left
+/// false on purpose: the driver must force TLS on its own.
+fn planetscale_config() -> ConnectionConfig {
+    ConnectionConfig {
+        driver: "planetscale".to_string(),
+        ssl: false,
+        ..mysql_config()
+    }
+}
+
+async fn connect_planetscale() -> EngineResult<(Arc<PlanetScaleDriver>, SessionId, ConnectionConfig)>
+{
+    let config = planetscale_config();
+    let driver = Arc::new(PlanetScaleDriver::new());
+    wait_for_connection(driver.as_ref(), &config).await?;
+    let session = driver.connect(&config).await?;
+    Ok((driver, session, config))
+}
+
+/// DocumentDB is TLS-only behind an Amazon CA; the `mongodb-tls` service is the
+/// local stand-in, with a CA that signs a distinct server certificate.
+fn documentdb_config() -> ConnectionConfig {
+    ConnectionConfig {
+        driver: "documentdb".to_string(),
+        port: env_u16_or_default("QOREDB_TEST_DOCUMENTDB_PORT", 27018),
+        ssl: false,
+        ssl_ca_cert: Some(env_or_default(
+            "QOREDB_TEST_DOCUMENTDB_CA",
+            "../docker/mongodb-tls/ca.crt",
+        )),
+        ..mongo_config()
+    }
+}
+
+async fn connect_documentdb() -> EngineResult<(Arc<DocumentDbDriver>, SessionId, ConnectionConfig)>
+{
+    let config = documentdb_config();
+    let driver = Arc::new(DocumentDbDriver::new());
     wait_for_connection(driver.as_ref(), &config).await?;
     let session = driver.connect(&config).await?;
     Ok((driver, session, config))
@@ -1995,5 +2070,228 @@ async fn postgres_large_bigint_key_targets_its_own_row() -> EngineResult<()> {
         .execute(session, &format!("DROP TABLE {}", table), QueryId::new())
         .await;
     driver.disconnect(session).await?;
+    Ok(())
+}
+
+/// Dragonfly is wire-compatible with Redis, so the point of this test is that
+/// the same driver behaves identically against it: keys, per-database
+/// isolation, streams and keyset pagination all go through the shared code.
+#[tokio::test]
+async fn dragonfly_e2e() -> EngineResult<()> {
+    let Some((driver, session, _config)) = connect_or_skip(
+        connect_dragonfly().await,
+        Service::Dragonfly,
+        "dragonfly_e2e",
+    )?
+    else {
+        return Ok(());
+    };
+
+    assert_eq!(driver.driver_id(), "dragonfly");
+
+    let ns0 = Namespace::new("db0");
+    let ns1 = Namespace::new("db1");
+    let key = unique_name("qoredb_dragonfly_key");
+
+    driver
+        .execute_in_namespace(
+            session,
+            Some(ns0.clone()),
+            &format!("SET {} zero", key),
+            QueryId::new(),
+        )
+        .await?;
+    driver
+        .execute_in_namespace(
+            session,
+            Some(ns1.clone()),
+            &format!("SET {} one", key),
+            QueryId::new(),
+        )
+        .await?;
+
+    for (namespace, expected) in [(&ns0, "zero"), (&ns1, "one")] {
+        let result = driver
+            .execute_in_namespace(
+                session,
+                Some(namespace.clone()),
+                &format!("GET {}", key),
+                QueryId::new(),
+            )
+            .await?;
+        match result.rows.first().and_then(|row| row.values.first()) {
+            Some(Value::Text(value)) => assert_eq!(value, expected),
+            other => panic!("Unexpected GET result: {:?}", other),
+        }
+    }
+
+    let collections = driver
+        .list_collections(session, &ns0, CollectionListOptions::default())
+        .await?;
+    assert!(collections.collections.iter().any(|c| c.name == key));
+
+    driver
+        .execute_in_namespace(
+            session,
+            Some(ns0.clone()),
+            &format!("DEL {}", key),
+            QueryId::new(),
+        )
+        .await?;
+    driver
+        .execute_in_namespace(
+            session,
+            Some(ns1.clone()),
+            &format!("DEL {}", key),
+            QueryId::new(),
+        )
+        .await?;
+
+    driver.disconnect(session).await?;
+    Ok(())
+}
+
+/// PlanetScale is wire-compatible with MySQL. Against the MySQL service, this
+/// proves two things the unit tests cannot: the forced TLS actually negotiates,
+/// and the delegated schema/query path behaves like MySQL's.
+#[tokio::test]
+async fn planetscale_e2e() -> EngineResult<()> {
+    let Some((driver, session, config)) = connect_or_skip(
+        connect_planetscale().await,
+        Service::PlanetScale,
+        "planetscale_e2e",
+    )?
+    else {
+        return Ok(());
+    };
+
+    assert_eq!(driver.driver_id(), "planetscale");
+    assert!(!config.ssl, "the caller left TLS off; the driver forces it");
+
+    let namespace = Namespace::new(DEFAULT_DB);
+    let table = unique_name("qoredb_ps");
+
+    driver
+        .execute(
+            session,
+            &format!(
+                "CREATE TABLE {} (id INT PRIMARY KEY, label VARCHAR(64))",
+                table
+            ),
+            QueryId::new(),
+        )
+        .await?;
+    driver
+        .execute(
+            session,
+            &format!(
+                "INSERT INTO {} (id, label) VALUES (1, 'a'), (2, 'b')",
+                table
+            ),
+            QueryId::new(),
+        )
+        .await?;
+
+    let schema = driver.describe_table(session, &namespace, &table).await?;
+    assert_eq!(schema.columns.len(), 2);
+
+    let page = driver
+        .query_table(
+            session,
+            &namespace,
+            &table,
+            TableQueryOptions {
+                page_size: Some(10),
+                ..Default::default()
+            },
+        )
+        .await?;
+    assert_eq!(page.result.rows.len(), 2);
+
+    driver
+        .execute(session, &format!("DROP TABLE {}", table), QueryId::new())
+        .await?;
+    driver.disconnect(session).await?;
+    Ok(())
+}
+
+/// DocumentDB against the TLS MongoDB stand-in. The point is the TLS path:
+/// the driver forces TLS and verifies the server against the CA bundle the
+/// connection carries, exactly as it must against an Amazon-signed cluster.
+#[tokio::test]
+async fn documentdb_e2e() -> EngineResult<()> {
+    let Some((driver, session, _config)) = connect_or_skip(
+        connect_documentdb().await,
+        Service::DocumentDb,
+        "documentdb_e2e",
+    )?
+    else {
+        return Ok(());
+    };
+
+    assert_eq!(driver.driver_id(), "documentdb");
+
+    let db_name = unique_name("qoredb_docdb");
+    let collection = unique_name("items");
+    let namespace = Namespace::new(&db_name);
+
+    let insert = json!({
+        "database": db_name,
+        "collection": collection,
+        "operation": "insertMany",
+        "documents": [{"value": 1}, {"value": 2}]
+    })
+    .to_string();
+    driver.execute(session, &insert, QueryId::new()).await?;
+
+    let collections = driver
+        .list_collections(session, &namespace, CollectionListOptions::default())
+        .await?;
+    assert!(collections.collections.iter().any(|c| c.name == collection));
+
+    let find = json!({ "database": db_name, "collection": collection, "query": {} }).to_string();
+    let result = driver.execute(session, &find, QueryId::new()).await?;
+    assert_eq!(result.rows.len(), 2);
+
+    driver.drop_database(session, &db_name).await?;
+    driver.disconnect(session).await?;
+    Ok(())
+}
+
+/// The CA bundle is not decoration: without it the same cluster is refused,
+/// because the certificate chain is unknown to the system trust store.
+#[tokio::test]
+async fn documentdb_refuses_an_unverifiable_certificate() -> EngineResult<()> {
+    let with_ca = documentdb_config();
+    let driver = DocumentDbDriver::new();
+
+    if connect_or_skip(
+        driver.test_connection(&with_ca).await,
+        Service::DocumentDb,
+        "documentdb_refuses_an_unverifiable_certificate",
+    )?
+    .is_none()
+    {
+        return Ok(());
+    }
+
+    let without_ca = ConnectionConfig {
+        ssl_ca_cert: None,
+        ..with_ca
+    };
+    assert!(
+        driver.test_connection(&without_ca).await.is_err(),
+        "a self-signed chain must not be trusted without its CA"
+    );
+
+    let missing_ca = ConnectionConfig {
+        ssl_ca_cert: Some("/nonexistent/global-bundle.pem".to_string()),
+        ..documentdb_config()
+    };
+    let err = driver.test_connection(&missing_ca).await.unwrap_err();
+    assert!(
+        err.to_string().contains("CA certificate"),
+        "a missing bundle is reported, not silently ignored: {err}"
+    );
     Ok(())
 }

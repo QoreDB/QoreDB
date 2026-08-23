@@ -24,6 +24,7 @@ import { UpgradePrompt } from '@/components/License/UpgradePrompt';
 import { translateDdlWarning } from '@/components/Table/translateDdlWarning';
 import { WarningsBanner } from '@/components/Table/WarningsBanner';
 import { Button } from '@/components/ui/button';
+import { DocumentationLink } from '@/components/ui/documentation-link';
 import { Input } from '@/components/ui/input';
 import {
   Select,
@@ -32,6 +33,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { isMySqlFamily } from '@/lib/connection/driverCapabilities';
 import type { Driver } from '@/lib/connection/drivers';
 import type { DdlWarning } from '@/lib/ddl';
 import { loadBaselineFile, saveBaseline, useBaseline } from '@/lib/migrations/baselineStore';
@@ -114,7 +116,7 @@ export function MigrationsPanel({
 
   const isDefault = activeWorkspace == null || activeWorkspace.source === 'default';
   const driverSupported = driver != null && SCHEMA_MIGRATION_DRIVERS.has(driver);
-  const requiresTargetDatabase = driver === 'mysql' || driver === 'mariadb';
+  const requiresTargetDatabase = !!driver && isMySqlFamily(driver);
   const databaseReady = !requiresTargetDatabase || targetDatabase.length > 0;
   const canApply = !!sessionId && driverSupported && !readOnly && databaseReady;
 
@@ -465,6 +467,7 @@ export function MigrationsPanel({
         <p className="max-w-md text-sm text-muted-foreground">
           {t('migrations.requiresWorkspaceHint')}
         </p>
+        <DocumentationLink path="diff-and-migrations/migration-generation" />
       </div>
     );
   }
@@ -491,6 +494,7 @@ export function MigrationsPanel({
             </div>
 
             <div className="flex items-center gap-2">
+              <DocumentationLink path="diff-and-migrations/migration-generation" />
               {sessionId && driverSupported && databaseOptions.length > 0 && (
                 <>
                   <span className="text-xs font-medium text-muted-foreground">

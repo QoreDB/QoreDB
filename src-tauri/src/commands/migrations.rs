@@ -34,6 +34,7 @@ const SCHEMA_MIGRATION_DRIVERS: &[&str] = &[
     "cockroachdb",
     "mysql",
     "mariadb",
+    "planetscale",
     "sqlite",
     "duckdb",
     "motherduck",
@@ -170,7 +171,7 @@ fn is_sqlserver(driver_id: &str) -> bool {
 }
 
 fn is_mysql_family(driver_id: &str) -> bool {
-    matches!(driver_id, "mysql" | "mariadb")
+    matches!(driver_id, "mysql" | "mariadb" | "planetscale")
 }
 
 fn migration_namespace(database: &str) -> Option<Namespace> {
@@ -1373,6 +1374,7 @@ mod tests {
                 "cockroachdb",
                 "mysql",
                 "mariadb",
+                "planetscale",
                 "sqlite",
                 "duckdb",
                 "motherduck",
@@ -1385,8 +1387,10 @@ mod tests {
         for unsupported in [
             "clickhouse",
             "mongodb",
+            "documentdb",
             "redis",
             "valkey",
+            "dragonfly",
             "elasticsearch",
             "opensearch",
         ] {

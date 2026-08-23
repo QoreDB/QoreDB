@@ -13,6 +13,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { DocumentationLink } from '@/components/ui/documentation-link';
 import {
   type ContractMeta,
   type ContractRun,
@@ -124,6 +125,7 @@ export function ContractsPanel({ open, onClose, sessionId, connectionId }: Props
           <DialogHeader>
             <DialogTitle>{t('contracts.title')}</DialogTitle>
             <DialogDescription>{t('contracts.description')}</DialogDescription>
+            <DocumentationLink path="data-contracts/overview" />
           </DialogHeader>
 
           {mode.kind === 'list' && (

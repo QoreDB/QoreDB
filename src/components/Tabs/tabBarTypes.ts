@@ -15,7 +15,8 @@ export type TabKind =
   | 'time-travel'
   | 'migrations'
   | 'plugin-output'
-  | 'chat';
+  | 'chat'
+  | 'replay';
 
 export interface TabItem {
   id: string;

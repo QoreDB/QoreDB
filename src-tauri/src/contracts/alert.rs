@@ -5,17 +5,6 @@
 //! When a mutation succeeds on a table that has at least one enabled contract,
 //! we asynchronously re-evaluate the matching contracts and fire a
 //! `contract.alert` event if a previously-passing rule starts failing.
-//!
-//! Design notes:
-//! - **Best-effort** : never blocks the mutation. Failures are logged and
-//!   swallowed.
-//! - **Exact connection** : candidates must match the saved connection id (or
-//!   its display name for compatibility with early contract files), plus
-//!   `target.table` and the optional `target.schema`.
-//! - **Samples off** : `collect_samples: false` to avoid extra round-trips.
-//!   The Contracts panel can still gather samples on explicit runs.
-//! - **No event flood** : the per-rule progress events are suppressed by
-//!   using a `NoopSink`; we only emit the high-level `contract.alert` event.
 
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -40,15 +29,10 @@ pub struct ContractAlertPayload {
     pub contract_name: String,
     pub table: String,
     pub schema: Option<String>,
-    /// IDs of rules whose status was `pass` in the previous run and is no
-    /// longer `pass` in this one. Empty means "no new regression".
     pub regressed_rules: Vec<String>,
     pub run: ContractRun,
 }
 
-/// Schedules a non-blocking check. Returns immediately. Safe to call even if
-/// no contracts exist or the workspace cannot be resolved — failures are
-/// logged at `warn` level only.
 pub fn schedule_post_mutation_check(
     app: AppHandle,
     session_id: SessionId,

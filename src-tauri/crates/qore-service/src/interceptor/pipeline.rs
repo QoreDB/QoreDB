@@ -210,7 +210,10 @@ impl InterceptorPipeline {
 
     /// Classify operation for non-SQL (MongoDB) queries
     fn classify_operation(&self, query: &str, driver_id: &str) -> QueryOperationType {
-        if driver_id.eq_ignore_ascii_case("mongodb") {
+        if matches!(
+            driver_id.to_ascii_lowercase().as_str(),
+            "mongodb" | "documentdb"
+        ) {
             let query_lower = query.to_lowercase();
             if query_lower.contains("find") || query_lower.contains("aggregate") {
                 QueryOperationType::Select

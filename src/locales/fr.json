@@ -412,6 +412,9 @@
       "tlsWarning": "Les identifiants sont envoyés en clair sans TLS. Activez SSL/TLS.",
       "caCert": "Certificat CA",
       "caCertHint": "Chemin vers un certificat CA (PEM) pour vérifier le serveur en TLS. Laissez vide pour utiliser le magasin de confiance système."
+    },
+    "documentdb": {
+      "caCertHint": "Les clusters DocumentDB sont signés par une CA Amazon. Indiquez ici le fichier global-bundle.pem publié par Amazon ; laissez vide pour utiliser le magasin de certificats du système."
     }
   },
   "sidebar": {
@@ -612,6 +615,10 @@
     "aiAssistant": {
       "name": "Assistant IA",
       "description": "Générez et corrigez des requêtes SQL en langage naturel"
+    },
+    "queryReplay": {
+      "name": "Rejeu de requêtes",
+      "description": "Enregistrer un jeu de requêtes et le rejouer après une migration pour voir ce qui a changé"
     }
   },
   "notebook": {
@@ -688,6 +695,97 @@
     "aiGenerate": "Générer le SQL",
     "aiCellInserted": "Cellule SQL insérée en dessous"
   },
+  "replay": {
+    "title": "Rejeu de requêtes",
+    "openLab": "Ouvrir le rejeu de requêtes",
+    "setName": "Nom du jeu",
+    "setNamePlaceholder": "parcours-commande",
+    "ignoredColumns": "Colonnes ignorées",
+    "ignoredColumnsHint": "Séparées par des virgules. Exclues de la comparaison pour qu'un horodatage ne signale pas un écart à chaque rejeu.",
+    "queryTextWarning": "Le jeu est versionné dans votre dépôt avec le texte des requêtes tel quel. Un littéral présent dans une requête — clé, mot de passe, contenu — est versionné avec elle. Les lignes de résultat ne le sont jamais.",
+    "secretsDetected": "{{count}} requêtes contiennent ce qui ressemble à un identifiant. Retirez-les avant de partager le jeu, ou passez en expurgation dans les réglages.",
+    "secretsRedacted": "{{count}} requêtes contenaient ce qui ressemble à un identifiant et ont été expurgées.",
+    "looksLikeSecret": "Ressemble à un identifiant",
+    "redactedCannotReplay": "Ce jeu a été enregistré avec expurgation : ses requêtes ne correspondent plus à rien, il ne peut donc pas être rejoué. Il reste lisible comme inventaire.",
+    "captureValues": "Capturer les valeurs",
+    "captureValuesOn": "Les lignes sont stockées localement, les écarts peuvent être montrés.",
+    "captureValuesOff": "Métadonnées et empreintes seulement : les écarts sont signalés, pas montrés.",
+    "productionCapture": "Capturer les valeurs en production",
+    "productionCaptureHint": "Désactivé par défaut. Les lignes de production ne quittent pas cette machine.",
+    "startRecording": "Démarrer l'enregistrement",
+    "recording": "enregistrement",
+    "stopRecording": "Arrêter et enregistrer",
+    "recordedCount": "{{count}} enregistrées",
+    "ignoredOtherSession": "{{count}} requêtes d'une autre connexion ont été écartées.",
+    "recordingSaved": "Jeu de rejeu « {{name}} » enregistré",
+    "discardEntry": "Retirer cette requête",
+    "mutation": "mutation",
+    "captureStopped": {
+      "budget_exceeded": "Capture interrompue : le rejeu a atteint son budget de stockage. Les entrées suivantes ont une empreinte, pas de lignes.",
+      "metadata_only": "Rejeu en métadonnées seules : les écarts sont signalés, pas montrés.",
+      "production_policy": "Rejeu en production : aucune ligne n'a été stockée."
+    },
+    "noSets": "Aucun jeu de rejeu",
+    "emptyState": "Enregistrez un jeu de requêtes, puis rejouez-le après une migration ou sur une autre connexion pour voir ce qui a changé.",
+    "notRunYet": "Pas encore rejoué.",
+    "entriesTotal": "{{count}} requêtes",
+    "deleteSet": "Supprimer le jeu",
+    "recordedOn": "Enregistré sur {{driver}} · {{environment}}",
+    "ignoring": "ignore {{columns}}",
+    "ignoringNone": "aucune colonne ignorée",
+    "editIgnoredColumns": "Modifier les colonnes ignorées",
+    "compareToBaseline": "vs. l'enregistrement",
+    "compareToRun": "vs. {{date}}",
+    "compareToConnection": "vs. {{name}}",
+    "sideA": "cette connexion",
+    "sideB": "l'autre connexion",
+    "allowMutations": "Rejouer les mutations",
+    "run": "Rejouer",
+    "progress": "{{completed}} / {{total}}",
+    "partialComparison": "Comparaison limitée aux lignes capturées.",
+    "openDiff": "Ouvrir le diff",
+    "baseline": "Référence",
+    "currentRun": "Ce rejeu",
+    "verdict": {
+      "match": "identique",
+      "broken": "cassée",
+      "row_count_diff": "nombre de lignes",
+      "digest_diff": "contenu",
+      "slower": "plus lente",
+      "skipped": "ignorée"
+    },
+    "column": {
+      "query": "Requête",
+      "verdict": "Verdict",
+      "rows": "Lignes",
+      "duration": "Durée",
+      "runVsExpected": "rejeu / enregistré"
+    },
+    "errors": {
+      "listSets": "Impossible de lister les jeux de rejeu",
+      "loadSet": "Impossible de charger le jeu de rejeu",
+      "noConnection": "Connectez-vous d'abord à une base",
+      "startRecording": "Impossible de démarrer l'enregistrement",
+      "stopRecording": "Impossible d'enregistrer le jeu de rejeu",
+      "discard": "Impossible de retirer l'entrée",
+      "run": "Le rejeu a échoué",
+      "deleteSet": "Impossible de supprimer le jeu de rejeu",
+      "ignoredColumns": "Impossible de mettre à jour les colonnes ignorées",
+      "noBaseline": "Ce jeu n'a pas de capture de référence à comparer",
+      "loadCapture": "Impossible de charger les lignes capturées"
+    },
+    "settings": {
+      "title": "Jeux de rejeu et identifiants",
+      "description": "Un jeu de rejeu est versionné avec le texte de ses requêtes : un identifiant écrit dans l'une d'elles part dans le dépôt avec elle. Les lignes de résultat, jamais.",
+      "policyLabel": "Quand une requête enregistrée semble porter un identifiant",
+      "off": "Ne rien faire",
+      "warn": "Le signaler (recommandé)",
+      "redact": "Expurger le texte de la requête",
+      "offHint": "Aucune vérification. Pour les jeux qui ne quittent pas votre machine.",
+      "warnHint": "L'entrée est signalée pendant l'enregistrement pour que vous puissiez la retirer. Le jeu reste rejouable.",
+      "redactHint": "Les littéraux sont retirés à la sortie. Le jeu devient partageable sans réserve et ne peut plus être rejoué."
+    }
+  },
   "settings": {
     "title": "Paramètres",
     "language": "Langue",
@@ -732,7 +830,15 @@
         "export_xlsx": "Export XLSX",
         "export_parquet": "Export Parquet",
         "query_library_advanced": "Bibliothèque de requêtes avancée",
-        "virtual_relations_auto_suggest": "Suggestion auto de relations virtuelles"
+        "virtual_relations_auto_suggest": "Suggestion auto de relations virtuelles",
+        "data_time_travel": "Time travel des données",
+        "bulk_edit_unlimited": "Édition en masse illimitée",
+        "data_contracts": "Contrats de données",
+        "instant_api": "Instant Data API",
+        "data_generator": "Générateur de données",
+        "index_suggestions": "Suggestions d'index",
+        "schema_diff": "Diff de schéma",
+        "query_replay": "Rejeu de requêtes"
       },
       "devOverrideTitle": "Override licence (dev)",
       "devOverrideDescription": "Changer le tier de licence pour le développement. Réinitialisé au redémarrage.",
@@ -792,8 +898,11 @@
     },
     "about": {
       "title": "À propos",
-      "description": "Version de l'application et mises à jour.",
+      "description": "Version, mises à jour, documentation et liens vers la communauté.",
       "version": "Version",
+      "creator": "Créateur et mainteneur",
+      "contributors": "Contributeurs",
+      "acknowledgements": "Remerciements",
       "checkForUpdate": "Vérifier les mises à jour",
       "checking": "Vérification...",
       "installUpdate": "Installer v{{version}}",
@@ -1328,6 +1437,13 @@
     "delete": "Supprimer",
     "deleting": "Suppression...",
     "close": "Fermer",
+    "documentation": "Documentation",
+    "viewDocumentation": "Voir la documentation",
+    "gettingStarted": "Guide de démarrage",
+    "driverDocumentation": "Documentation {{driver}}",
+    "github": "GitHub",
+    "discord": "Discord",
+    "contributors": "Contributeurs",
     "clear": "Effacer",
     "unknownError": "Erreur inconnue",
     "mongoCreateDbHint": "MongoDB crée une base lorsque la première collection est créée.",
@@ -1739,7 +1855,8 @@
       "title": "Organisez avec les espaces de travail",
       "description": "Vous avez plusieurs connexions. Créez un espace de travail pour les regrouper par projet et les partager avec votre équipe via Git."
     },
-    "finish": "C'est parti"
+    "finish": "C'est parti",
+    "exploreDocs": "Explorer la documentation"
   },
   "document": {
     "new": "Nouveau Document",
@@ -2408,6 +2525,13 @@
           "bullet1": "Zéro configuration",
           "bullet2": "Read-only par défaut",
           "bullet3": "Idéal pour prototypes et démos"
+        },
+        "query_replay": {
+          "title": "Savoir ce que votre migration a cassé",
+          "description": "Enregistrez les requêtes que vous exécutez vraiment, rejouez-les après une migration ou sur une autre connexion, et lisez ce qui a changé au lieu de le deviner.",
+          "bullet1": "Requêtes cassées, écarts de lignes et de contenu, ralentissements : un seul rapport",
+          "bullet2": "Les jeux vivent dans .qoredb/ et se partagent par Git — des attentes, jamais de lignes de résultat",
+          "bullet3": "Ouvrez le diff référence ↔ rejeu sur n'importe quelle ligne, depuis le rapport"
         }
       }
     },
@@ -2423,7 +2547,8 @@
       "custom_safety_rules": "Les règles de sécurité personnalisées nécessitent une licence Pro.",
       "query_library_advanced": "La bibliothèque de requêtes avancée nécessite une licence Pro.",
       "virtual_relations_auto_suggest": "La suggestion automatique de relations virtuelles nécessite une licence Pro.",
-      "federation": "La fédération inter-bases nécessite une licence Pro."
+      "federation": "La fédération inter-bases nécessite une licence Pro.",
+      "query_replay": "Le rejeu de requêtes nécessite une licence Pro."
     }
   },
   "proDiscovery": {

@@ -58,7 +58,7 @@ import { recordTableVisit } from '@/lib/tableInsights';
 import { cn } from '@/lib/utils';
 import { useInfiniteTableData } from '../../hooks/useInfiniteTableData';
 import { useSchemaCache } from '../../hooks/useSchemaCache';
-import { isDocumentDatabase } from '../../lib/connection/driverCapabilities';
+import { isDocumentDatabase, isMySqlFamily } from '../../lib/connection/driverCapabilities';
 import { Driver, getDriverMetadata } from '../../lib/connection/drivers';
 import {
   applySandboxChanges,
@@ -1283,7 +1283,7 @@ function TableInfoPanel({
           }
         }
         // MySQL/MariaDB
-        else if (driver === Driver.Mysql) {
+        else if (isMySqlFamily(driver)) {
           const statsQuery = `
             SELECT data_length + index_length as total_bytes
             FROM information_schema.tables 
@@ -1314,7 +1314,7 @@ function TableInfoPanel({
             newStats.indexCount = newStats.indexes.length;
           }
         }
-      } else if (driver === Driver.Mongodb && schema) {
+      } else if (isDocumentDatabase(driver) && schema) {
         newStats.indexes = schema.indexes.map(idx => ({
           name: idx.name,
           columns: idx.columns.join(', '),
@@ -1388,13 +1388,13 @@ function TableInfoPanel({
       </div>
 
       {/* Indexes */}
-      {(stats.indexes && stats.indexes.length > 0) || driver === Driver.Mongodb ? (
+      {(stats.indexes && stats.indexes.length > 0) || isDocumentDatabase(driver) ? (
         <div className="border border-border rounded-md overflow-hidden">
           <div className="px-3 py-2 bg-muted/50 border-b border-border flex items-center justify-between">
             <span className="text-xs font-semibold text-muted-foreground uppercase">
               {t('tableInfo.indexes')}
             </span>
-            {driver === Driver.Mongodb && !readOnly && (
+            {isDocumentDatabase(driver) && !readOnly && (
               <Button
                 variant="ghost"
                 size="sm"
@@ -1412,7 +1412,7 @@ function TableInfoPanel({
                 <span className="font-mono font-medium">{idx.name}</span>
                 <div className="flex items-center gap-3">
                   <span className="text-muted-foreground font-mono text-xs">{idx.columns}</span>
-                  {driver === Driver.Mongodb && !readOnly && idx.name !== '_id_' && (
+                  {isDocumentDatabase(driver) && !readOnly && idx.name !== '_id_' && (
                     <Button
                       variant="ghost"
                       size="sm"
@@ -1426,7 +1426,7 @@ function TableInfoPanel({
                 </div>
               </div>
             ))}
-            {driver === Driver.Mongodb && (!stats.indexes || stats.indexes.length === 0) && (
+            {isDocumentDatabase(driver) && (!stats.indexes || stats.indexes.length === 0) && (
               <div className="px-3 py-3 text-sm text-muted-foreground italic">
                 {t('mongoIndex.emptyState')}
               </div>
@@ -1460,7 +1460,7 @@ function TableInfoPanel({
         </div>
       )}
 
-      {driver === Driver.Mongodb && (
+      {isDocumentDatabase(driver) && (
         <>
           <IndexDialog
             isOpen={indexDialogOpen}

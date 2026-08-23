@@ -52,7 +52,7 @@ const PG_DRIVERS = new Set([
 ]);
 
 function defaultExtension(driver: string, format: BackupFormat): string {
-  if (driver === 'mongodb') return 'archive';
+  if (driver === 'mongodb' || driver === 'documentdb') return 'archive';
   if (format === 'postgres_custom') return 'dump';
   return 'sql';
 }

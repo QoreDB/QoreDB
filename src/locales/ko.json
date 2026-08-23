@@ -383,6 +383,9 @@
       "tlsWarning": "TLS 없이 자격 증명이 평문으로 전송됩니다. SSL/TLS를 활성화하세요.",
       "caCert": "CA 인증서",
       "caCertHint": "TLS로 서버를 확인하기 위한 PEM CA 인증서 경로입니다. 비워두면 시스템 신뢰 저장소를 사용합니다."
+    },
+    "documentdb": {
+      "caCertHint": "DocumentDB 클러스터는 Amazon CA가 서명합니다. Amazon이 배포하는 global-bundle.pem 파일을 지정하세요. 비워 두면 시스템 인증서 저장소를 사용합니다."
     }
   },
   "sidebar": {
@@ -583,6 +586,10 @@
     "aiAssistant": {
       "name": "AI 어시스턴트",
       "description": "자연어를 사용하여 SQL 쿼리를 생성하고 수정"
+    },
+    "queryReplay": {
+      "name": "쿼리 리플레이",
+      "description": "쿼리 세트를 기록하고 마이그레이션 후 다시 실행해 무엇이 바뀌었는지 확인합니다"
     }
   },
   "notebook": {
@@ -659,6 +666,97 @@
     "aiGenerate": "SQL 생성",
     "aiCellInserted": "아래에 SQL 셀을 삽입했습니다"
   },
+  "replay": {
+    "title": "쿼리 리플레이",
+    "openLab": "쿼리 리플레이 열기",
+    "setName": "세트 이름",
+    "setNamePlaceholder": "checkout-flow",
+    "ignoredColumns": "무시할 열",
+    "ignoredColumnsHint": "쉼표로 구분. 비교에서 제외되어 타임스탬프가 실행할 때마다 차이로 보고되지 않습니다.",
+    "queryTextWarning": "세트는 쿼리 본문을 그대로 담아 저장소에 커밋됩니다. 쿼리 안의 리터럴(키, 비밀번호, 페이로드)도 함께 버전 관리됩니다. 결과 행은 절대 포함되지 않습니다.",
+    "secretsDetected": "자격 증명으로 보이는 값이 담긴 쿼리가 {{count}}개 있습니다. 세트를 공유하기 전에 제거하거나 설정에서 가림으로 전환하세요.",
+    "secretsRedacted": "자격 증명으로 보이는 값이 담긴 쿼리 {{count}}개를 가렸습니다.",
+    "looksLikeSecret": "자격 증명으로 보임",
+    "redactedCannotReplay": "이 세트는 가림을 적용해 기록되었습니다. 쿼리가 더 이상 아무것도 찾지 못하므로 재실행할 수 없습니다. 목록으로는 계속 읽을 수 있습니다.",
+    "captureValues": "결과 값 저장",
+    "captureValuesOn": "행이 로컬에 저장되어 차이를 보여줄 수 있습니다.",
+    "captureValuesOff": "메타데이터와 다이제스트만: 차이는 보고되지만 표시되지 않습니다.",
+    "productionCapture": "운영 환경의 값 저장",
+    "productionCaptureHint": "기본적으로 꺼져 있습니다. 운영 데이터는 이 컴퓨터를 벗어나지 않습니다.",
+    "startRecording": "기록 시작",
+    "recording": "기록 중",
+    "stopRecording": "중지하고 저장",
+    "recordedCount": "{{count}}개 기록됨",
+    "ignoredOtherSession": "다른 연결의 쿼리 {{count}}개를 제외했습니다.",
+    "recordingSaved": "리플레이 세트 \"{{name}}\"을(를) 저장했습니다",
+    "discardEntry": "이 쿼리 제거",
+    "mutation": "변경",
+    "captureStopped": {
+      "budget_exceeded": "저장 중단: 저장 용량 한도에 도달했습니다. 이후 항목에는 다이제스트만 남습니다.",
+      "metadata_only": "메타데이터 전용 실행: 차이는 보고되지만 표시되지 않습니다.",
+      "production_policy": "운영 환경 실행: 행이 저장되지 않았습니다."
+    },
+    "noSets": "아직 리플레이 세트가 없습니다",
+    "emptyState": "쿼리 세트를 기록한 뒤, 마이그레이션 후나 다른 연결에서 다시 실행하여 무엇이 바뀌었는지 확인하세요.",
+    "notRunYet": "아직 실행하지 않았습니다.",
+    "entriesTotal": "쿼리 {{count}}개",
+    "deleteSet": "세트 삭제",
+    "recordedOn": "{{driver}} · {{environment}}에서 기록됨",
+    "ignoring": "{{columns}} 무시",
+    "ignoringNone": "무시할 열 없음",
+    "editIgnoredColumns": "무시할 열 편집",
+    "compareToBaseline": "기록과 비교",
+    "compareToRun": "{{date}}와 비교",
+    "compareToConnection": "{{name}}와 비교",
+    "sideA": "이 연결",
+    "sideB": "다른 연결",
+    "allowMutations": "변경 쿼리도 실행",
+    "run": "리플레이",
+    "progress": "{{completed}} / {{total}}",
+    "partialComparison": "비교는 저장된 행으로 제한됩니다.",
+    "openDiff": "차이 열기",
+    "baseline": "기준",
+    "currentRun": "이번 실행",
+    "verdict": {
+      "match": "동일",
+      "broken": "실패",
+      "row_count_diff": "행 수",
+      "digest_diff": "내용",
+      "slower": "느려짐",
+      "skipped": "건너뜀"
+    },
+    "column": {
+      "query": "쿼리",
+      "verdict": "판정",
+      "rows": "행",
+      "duration": "소요 시간",
+      "runVsExpected": "실행 / 기록"
+    },
+    "errors": {
+      "listSets": "리플레이 세트를 불러오지 못했습니다",
+      "loadSet": "리플레이 세트를 열지 못했습니다",
+      "noConnection": "먼저 데이터베이스에 연결하세요",
+      "startRecording": "기록을 시작하지 못했습니다",
+      "stopRecording": "리플레이 세트를 저장하지 못했습니다",
+      "discard": "항목을 제거하지 못했습니다",
+      "run": "리플레이에 실패했습니다",
+      "deleteSet": "리플레이 세트를 삭제하지 못했습니다",
+      "ignoredColumns": "무시할 열을 업데이트하지 못했습니다",
+      "noBaseline": "이 세트에는 비교할 기준 캡처가 없습니다",
+      "loadCapture": "저장된 행을 불러오지 못했습니다"
+    },
+    "settings": {
+      "title": "리플레이 세트와 자격 증명",
+      "description": "리플레이 세트는 쿼리 본문과 함께 버전 관리되므로, 그 안에 적힌 자격 증명도 함께 커밋됩니다. 결과 행은 절대 포함되지 않습니다.",
+      "policyLabel": "기록된 쿼리가 자격 증명을 담은 것으로 보일 때",
+      "off": "아무것도 하지 않음",
+      "warn": "표시하기 (권장)",
+      "redact": "쿼리 본문 가리기",
+      "offHint": "아무것도 검사하지 않습니다. 이 컴퓨터를 벗어나지 않는 세트에 적합합니다.",
+      "warnHint": "기록 중에 표시되어 바로 제거할 수 있습니다. 세트는 계속 재실행할 수 있습니다.",
+      "redactHint": "내보낼 때 리터럴을 제거합니다. 마음 놓고 공유할 수 있지만 더 이상 재실행할 수 없습니다."
+    }
+  },
   "settings": {
     "title": "설정",
     "language": "언어",
@@ -703,7 +801,15 @@
         "export_xlsx": "XLSX 내보내기",
         "export_parquet": "Parquet 내보내기",
         "query_library_advanced": "고급 쿼리 라이브러리",
-        "virtual_relations_auto_suggest": "가상 관계 자동 추천"
+        "virtual_relations_auto_suggest": "가상 관계 자동 추천",
+        "data_time_travel": "데이터 타임 트래블",
+        "bulk_edit_unlimited": "무제한 일괄 편집",
+        "data_contracts": "데이터 계약",
+        "instant_api": "즉시 Data API",
+        "data_generator": "데이터 생성기",
+        "index_suggestions": "인덱스 제안",
+        "schema_diff": "스키마 비교",
+        "query_replay": "쿼리 리플레이"
       },
       "devOverrideTitle": "개발용 라이선스 재정의",
       "devOverrideDescription": "개발 테스트를 위한 라이선스 티어 재정의입니다. 앱을 다시 시작하면 초기화됩니다.",
@@ -763,8 +869,11 @@
     },
     "about": {
       "title": "정보",
-      "description": "애플리케이션 버전 및 업데이트.",
+      "description": "버전, 업데이트, 문서 및 커뮤니티 링크.",
       "version": "버전",
+      "creator": "제작자 및 메인테이너",
+      "contributors": "기여자",
+      "acknowledgements": "감사의 말",
       "checkForUpdate": "업데이트 확인",
       "checking": "확인 중...",
       "installUpdate": "v{{version}} 설치",
@@ -1293,6 +1402,13 @@
     "delete": "삭제",
     "deleting": "삭제 중...",
     "close": "닫기",
+    "documentation": "문서",
+    "viewDocumentation": "문서 보기",
+    "gettingStarted": "시작하기",
+    "driverDocumentation": "{{driver}} 문서",
+    "github": "GitHub",
+    "discord": "Discord",
+    "contributors": "기여자",
     "clear": "지우기",
     "unknownError": "알 수 없는 오류",
     "mongoCreateDbHint": "MongoDB는 첫 번째 컬렉션이 생성될 때 데이터베이스를 만듭니다.",
@@ -1712,7 +1828,8 @@
       "title": "워크스페이스로 정리",
       "description": "여러 연결이 있습니다. 워크스페이스를 만들어 프로젝트별로 그룹화하고 Git으로 팀과 공유하세요."
     },
-    "finish": "시작하기"
+    "finish": "시작하기",
+    "exploreDocs": "문서 둘러보기"
   },
   "errorBoundary": {
     "title": "문제가 발생했습니다",
@@ -2369,6 +2486,13 @@
           "bullet1": "설정 불필요",
           "bullet2": "기본 읽기 전용",
           "bullet3": "프로토타입 및 데모에 적합"
+        },
+        "query_replay": {
+          "title": "마이그레이션이 무엇을 망가뜨렸는지 알기",
+          "description": "실제로 실행하는 쿼리를 기록하고, 마이그레이션 후나 다른 연결에서 다시 실행해 추측 대신 변화를 읽으세요.",
+          "bullet1": "실패한 쿼리, 행 수와 내용 차이, 느려짐을 하나의 보고서로",
+          "bullet2": "리플레이 세트는 .qoredb/에 있고 Git으로 공유됩니다 — 기대값만, 결과 행은 없습니다",
+          "bullet3": "보고서의 어느 행에서든 기준 ↔ 실행 차이를 바로 열 수 있습니다"
         }
       }
     },
@@ -2384,7 +2508,8 @@
       "custom_safety_rules": "사용자 정의 안전 규칙은 Pro 라이선스가 필요합니다.",
       "query_library_advanced": "고급 쿼리 라이브러리는 Pro 라이선스가 필요합니다.",
       "virtual_relations_auto_suggest": "가상 관계 자동 추천은 Pro 라이선스가 필요합니다.",
-      "federation": "크로스 데이터베이스 페더레이션은 Pro 라이선스가 필요합니다."
+      "federation": "크로스 데이터베이스 페더레이션은 Pro 라이선스가 필요합니다.",
+      "query_replay": "쿼리 리플레이에는 Pro 라이선스가 필요합니다."
     }
   },
   "proDiscovery": {

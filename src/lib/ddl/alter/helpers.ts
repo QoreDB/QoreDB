@@ -83,7 +83,12 @@ export function buildIndexStmt(idx: IndexDef, ctx: BuilderContext): string | nul
 }
 
 /** Index names are scoped to their table on these dialects, so the drop needs it. */
-const DROP_INDEX_NEEDS_TABLE = new Set<Driver>([Driver.Mysql, Driver.Mariadb, Driver.SqlServer]);
+const DROP_INDEX_NEEDS_TABLE = new Set<Driver>([
+  Driver.Mysql,
+  Driver.Mariadb,
+  Driver.PlanetScale,
+  Driver.SqlServer,
+]);
 
 export function dropIndexStmt(name: string, ctx: BuilderContext): string {
   const ident = quoteIdentifier(name, ctx.driver);

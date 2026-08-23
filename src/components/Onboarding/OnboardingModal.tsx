@@ -6,6 +6,7 @@ import {
   Box,
   CheckCircle2,
   Database,
+  ExternalLink,
   GitBranch,
   KeyRound,
   Layers,
@@ -18,7 +19,9 @@ import {
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
+import { getDocsUrl } from '@/lib/externalLinks';
 import { completeOnboarding } from '@/lib/onboardingState';
+import { openExternal } from '@/lib/transport';
 
 const ACCENT = 'var(--color-accent)';
 const ACCENT_BG_SUBTLE = 'color-mix(in srgb, var(--color-accent) 8%, transparent)';
@@ -362,13 +365,26 @@ export function OnboardingModal({ onComplete }: OnboardingModalProps) {
             ))}
           </div>
 
-          <Button onClick={handleNext} size="sm" style={{ background: ACCENT, color: 'white' }}>
-            {step === 0
-              ? t('onboarding.welcome.next')
-              : step === TOTAL_STEPS - 1
-                ? t('onboarding.finish')
-                : t('common.next', 'Next')}
-          </Button>
+          <div className="flex items-center gap-2">
+            {step === TOTAL_STEPS - 1 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="gap-1.5"
+                onClick={() => void openExternal(getDocsUrl())}
+              >
+                {t('onboarding.exploreDocs')}
+                <ExternalLink size={12} aria-hidden />
+              </Button>
+            )}
+            <Button onClick={handleNext} size="sm" style={{ background: ACCENT, color: 'white' }}>
+              {step === 0
+                ? t('onboarding.welcome.next')
+                : step === TOTAL_STEPS - 1
+                  ? t('onboarding.finish')
+                  : t('common.next', 'Next')}
+            </Button>
+          </div>
         </div>
       </div>
     </div>

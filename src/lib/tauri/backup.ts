@@ -45,7 +45,13 @@ export const CONNECTION_BACKUP_DRIVERS = new Set([
  * Drivers whose tree lists real sibling databases. Backup/restore lives on the
  * database node so each action targets exactly the database it sits under.
  */
-export const DATABASE_NODE_BACKUP_DRIVERS = new Set(['mysql', 'mariadb', 'mongodb']);
+export const DATABASE_NODE_BACKUP_DRIVERS = new Set([
+  'mysql',
+  'mariadb',
+  'planetscale',
+  'mongodb',
+  'documentdb',
+]);
 
 export interface BackupToolInfo {
   tool: BackupTool;

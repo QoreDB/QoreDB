@@ -34,6 +34,7 @@ const FEATURE_ANCHORS: Record<ProFeature, string> = {
   data_generator: 'data-generator',
   index_suggestions: 'index-suggestions',
   schema_diff: 'migrations',
+  query_replay: 'query-replay',
 };
 
 function getSiteLocale(): string {

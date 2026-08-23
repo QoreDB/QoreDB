@@ -13,7 +13,7 @@ use futures::future::{AbortHandle, Abortable};
 use mongodb::bson::{Bson, Document, doc};
 use mongodb::options::{
     ClientOptions, DeleteManyModel, DeleteOneModel, IndexOptions, InsertOneModel, ReplaceOneModel,
-    ReturnDocument, UpdateManyModel, UpdateOneModel, WriteModel,
+    ReturnDocument, Tls, TlsOptions, UpdateManyModel, UpdateOneModel, WriteModel,
 };
 use mongodb::{Client, ClientSession, IndexModel};
 use qore_core::cursor::{Cursor, KeysetPlan};
@@ -87,6 +87,8 @@ impl MongoDriver {
         options.connect_timeout = Some(Self::DEFAULT_TIMEOUT);
         options.server_selection_timeout = Some(Self::DEFAULT_TIMEOUT);
 
+        Self::apply_custom_ca(&mut options, config)?;
+
         let client = Client::with_options(options)
             .map_err(|e| EngineError::connection_failed(e.to_string()))?;
 
@@ -104,6 +106,38 @@ impl MongoDriver {
             })?;
 
         Ok(client)
+    }
+
+    /// Points TLS verification at a PEM bundle instead of the system trust
+    /// store. Amazon DocumentDB is signed by an Amazon CA that most machines do
+    /// not trust, so without this the connection fails verification rather than
+    /// falling back to an unverified one.
+    fn apply_custom_ca(options: &mut ClientOptions, config: &ConnectionConfig) -> EngineResult<()> {
+        let Some(path) = config
+            .ssl_ca_cert
+            .as_deref()
+            .map(str::trim)
+            .filter(|p| !p.is_empty())
+        else {
+            return Ok(());
+        };
+
+        if !std::path::Path::new(path).is_file() {
+            return Err(EngineError::connection_failed(format!(
+                "Cannot read CA certificate '{path}'"
+            )));
+        }
+
+        // Keep whatever the URI already negotiated — `tlsAllowInvalidHostnames`
+        // in particular, which a tunnelled DocumentDB needs. Replacing the
+        // whole `Tls` value would silently drop it.
+        let mut tls = match options.tls.take() {
+            Some(Tls::Enabled(existing)) => existing,
+            _ => TlsOptions::builder().build(),
+        };
+        tls.ca_file_path = Some(std::path::PathBuf::from(path));
+        options.tls = Some(Tls::Enabled(tls));
+        Ok(())
     }
 
     async fn get_session(&self, session: SessionId) -> EngineResult<Arc<MongoSession>> {
@@ -171,9 +205,7 @@ impl MongoDriver {
 
         let query = params
             .iter()
-            .map(|(k, v)| {
-                format!("{}={}", k, utf8_percent_encode(v, NON_ALPHANUMERIC))
-            })
+            .map(|(k, v)| format!("{}={}", k, utf8_percent_encode(v, NON_ALPHANUMERIC)))
             .collect::<Vec<_>>()
             .join("&");
 
@@ -3113,4 +3145,52 @@ fn infer_mongo_index_type(keys: &Document) -> Option<String> {
         }
     }
     None
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn custom_ca_is_rejected_when_the_file_is_missing() {
+        let mut options = ClientOptions::default();
+        let config = ConnectionConfig {
+            ssl: true,
+            ssl_ca_cert: Some("/nonexistent/rds-combined-ca-bundle.pem".to_string()),
+            ..Default::default()
+        };
+        let err = MongoDriver::apply_custom_ca(&mut options, &config).unwrap_err();
+        assert!(err.to_string().contains("CA certificate"));
+    }
+
+    #[test]
+    fn custom_ca_switches_tls_to_the_given_bundle() {
+        let path = std::env::temp_dir().join(format!("qoredb_ca_{}.pem", uuid::Uuid::new_v4()));
+        std::fs::write(&path, b"-- only the path is read at this stage --").unwrap();
+
+        let mut options = ClientOptions::default();
+        let config = ConnectionConfig {
+            ssl: true,
+            ssl_ca_cert: Some(path.to_string_lossy().to_string()),
+            ..Default::default()
+        };
+        MongoDriver::apply_custom_ca(&mut options, &config).unwrap();
+        assert!(matches!(options.tls, Some(Tls::Enabled(_))));
+
+        let _ = std::fs::remove_file(&path);
+    }
+
+    /// No bundle configured must leave the system trust store in place rather
+    /// than silently weakening verification.
+    #[test]
+    fn no_ca_configured_leaves_tls_untouched() {
+        let mut options = ClientOptions::default();
+        let config = ConnectionConfig {
+            ssl: true,
+            ssl_ca_cert: None,
+            ..Default::default()
+        };
+        MongoDriver::apply_custom_ca(&mut options, &config).unwrap();
+        assert!(options.tls.is_none());
+    }
 }

@@ -20,6 +20,7 @@ import {
   placeholder,
 } from '@codemirror/view';
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef } from 'react';
+import { isMySqlFamily } from '@/lib/connection/driverCapabilities';
 import { usePlugins } from '@/providers/PluginProvider';
 import { useSchemaCache } from '../../hooks/useSchemaCache';
 import { useTheme } from '../../hooks/useTheme';
@@ -129,6 +130,8 @@ export const SQLEditor = forwardRef<SQLEditorHandle, SQLEditorProps>(function SQ
   const sqlDialect = useMemo(() => {
     switch (dialect) {
       case Driver.Mysql:
+      case Driver.Mariadb:
+      case Driver.PlanetScale:
         return MySQL;
       case Driver.SqlServer:
         return MSSQL;
@@ -312,7 +315,7 @@ export const SQLEditor = forwardRef<SQLEditorHandle, SQLEditorProps>(function SQ
         if (!cachedTableCompletions) {
           const tables = await loadTablesForNamespace(defaultNs);
           const shouldQualify =
-            dialect === Driver.Mysql &&
+            isMySqlFamily(dialect) &&
             ((!!connectionDatabase && connectionDatabase !== defaultNs.database) ||
               (!connectionDatabase && !!defaultNs.database));
           const qualifyTable = (tableName: string) => {

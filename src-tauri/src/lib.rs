@@ -19,6 +19,8 @@ pub mod federation;
 pub mod observability;
 pub mod plugins;
 pub mod redaction;
+#[cfg(feature = "pro")]
+pub mod replay;
 pub mod share;
 pub mod snapshots;
 pub mod time_travel;
@@ -51,6 +53,8 @@ pub struct AppState {
     pub ai_manager: Arc<ai::manager::AiManager>,
     #[cfg(feature = "pro")]
     pub agent_runtime: Arc<ai::agent::orchestrator::AgentRuntime>,
+    #[cfg(feature = "pro")]
+    pub replay: Arc<commands::replay::ReplayState>,
     pub changelog_store: Arc<time_travel::ChangelogStore>,
     pub backup_tool_paths: Arc<backup::BackupToolPaths>,
     pub active_backups: Arc<backup::runner::ActiveBackups>,
@@ -91,6 +95,8 @@ impl AppState {
             ai_manager,
             #[cfg(feature = "pro")]
             agent_runtime: Arc::new(ai::agent::orchestrator::AgentRuntime::default()),
+            #[cfg(feature = "pro")]
+            replay: Arc::new(commands::replay::ReplayState::new(data_dir.join("replays"))),
             changelog_store,
             backup_tool_paths: Arc::new(backup::BackupToolPaths::new()),
             active_backups: Arc::new(backup::runner::ActiveBackups::new()),
@@ -430,6 +436,39 @@ pub fn run() {
             commands::instant_api::regenerate_endpoint_token,
             #[cfg(feature = "pro")]
             commands::instant_api::delete_endpoint,
+            // Query Replay Lab commands (Pro)
+            #[cfg(feature = "pro")]
+            commands::replay::replay_start_recording,
+            #[cfg(feature = "pro")]
+            commands::replay::replay_stop_recording,
+            #[cfg(feature = "pro")]
+            commands::replay::replay_cancel_recording,
+            #[cfg(feature = "pro")]
+            commands::replay::replay_recording_status,
+            #[cfg(feature = "pro")]
+            commands::replay::replay_recorded_previews,
+            #[cfg(feature = "pro")]
+            commands::replay::replay_discard_recorded,
+            #[cfg(feature = "pro")]
+            commands::replay::replay_list_sets,
+            #[cfg(feature = "pro")]
+            commands::replay::replay_load_set,
+            #[cfg(feature = "pro")]
+            commands::replay::replay_delete_set,
+            #[cfg(feature = "pro")]
+            commands::replay::replay_set_ignored_columns,
+            #[cfg(feature = "pro")]
+            commands::replay::replay_run,
+            #[cfg(feature = "pro")]
+            commands::replay::replay_run_ab,
+            #[cfg(feature = "pro")]
+            commands::replay::replay_cancel_run,
+            #[cfg(feature = "pro")]
+            commands::replay::replay_list_runs,
+            #[cfg(feature = "pro")]
+            commands::replay::replay_load_capture,
+            #[cfg(feature = "pro")]
+            commands::replay::replay_last_report,
             // Workspace commands
             commands::workspace::detect_workspace,
             commands::workspace::get_active_workspace,

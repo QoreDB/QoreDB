@@ -63,6 +63,8 @@ default = ["all-drivers"]
 all-drivers = [
     "driver-clickhouse",
     "driver-cockroachdb",
+    "driver-documentdb",
+    "driver-dragonfly",
     "driver-duckdb",
     "driver-elasticsearch",
     "driver-mariadb",
@@ -71,6 +73,7 @@ all-drivers = [
     "driver-mysql",
     "driver-neon",
     "driver-opensearch",
+    "driver-planetscale",
     "driver-postgres",
     "driver-redis",
     "driver-sqlite",
@@ -84,11 +87,14 @@ driver-cockroachdb = ["sqlx-postgres"]
 driver-duckdb = ["dep:duckdb"]
 driver-elasticsearch = ["dep:reqwest"]
 driver-mariadb = ["sqlx-mysql"]
+driver-documentdb = ["driver-mongodb"]
+driver-dragonfly = ["dep:futures", "dep:redis"]
 driver-mongodb = ["dep:futures", "dep:mongodb"]
 driver-motherduck = ["sqlx-postgres"]
 driver-mysql = ["sqlx-mysql"]
 driver-neon = ["sqlx-postgres"]
 driver-opensearch = ["dep:reqwest"]
+driver-planetscale = ["sqlx-mysql"]
 driver-postgres = ["sqlx-postgres"]
 driver-redis = ["dep:futures", "dep:redis"]
 driver-sqlite = ["dep:futures", "dep:sqlx", "sqlx/sqlite"]

@@ -22,7 +22,7 @@ impl Dialect {
             "postgres" | "postgresql" | "cockroachdb" | "neon" | "supabase" | "timescaledb" => {
                 Some(Dialect::Postgres)
             }
-            "mysql" | "mariadb" => Some(Dialect::MySql),
+            "mysql" | "mariadb" | "planetscale" => Some(Dialect::MySql),
             "sqlite" => Some(Dialect::Sqlite),
             "duckdb" => Some(Dialect::DuckDb),
             "sqlserver" | "mssql" => Some(Dialect::SqlServer),

@@ -46,6 +46,7 @@ pub struct RedisSession {
 pub enum RedisFlavor {
     Redis,
     Valkey,
+    Dragonfly,
 }
 
 impl RedisFlavor {
@@ -53,6 +54,7 @@ impl RedisFlavor {
         match self {
             RedisFlavor::Redis => "redis",
             RedisFlavor::Valkey => "valkey",
+            RedisFlavor::Dragonfly => "dragonfly",
         }
     }
 
@@ -60,6 +62,7 @@ impl RedisFlavor {
         match self {
             RedisFlavor::Redis => "Redis",
             RedisFlavor::Valkey => "Valkey",
+            RedisFlavor::Dragonfly => "Dragonfly",
         }
     }
 }
@@ -77,6 +80,10 @@ impl RedisDriver {
 
     pub fn valkey() -> Self {
         Self::with_flavor(RedisFlavor::Valkey)
+    }
+
+    pub fn dragonfly() -> Self {
+        Self::with_flavor(RedisFlavor::Dragonfly)
     }
 
     fn with_flavor(flavor: RedisFlavor) -> Self {
@@ -1558,8 +1565,9 @@ impl DataEngine for RedisDriver {
                 } else {
                     None
                 };
-                let rows = Self::read_set_page(&mut conn, key, offset as usize, fetch_size as usize)
-                    .await?;
+                let rows =
+                    Self::read_set_page(&mut conn, key, offset as usize, fetch_size as usize)
+                        .await?;
                 let result = QueryResult {
                     columns: vec![ColumnInfo {
                         name: "member".into(),
@@ -2005,15 +2013,20 @@ mod tests {
     use super::*;
 
     #[test]
-    fn valkey_flavor_only_changes_identity() {
+    fn flavors_only_change_identity() {
         let redis = RedisDriver::new();
         let valkey = RedisDriver::valkey();
+        let dragonfly = RedisDriver::dragonfly();
         assert_eq!(redis.driver_id(), "redis");
         assert_eq!(redis.driver_name(), "Redis");
         assert_eq!(valkey.driver_id(), "valkey");
         assert_eq!(valkey.driver_name(), "Valkey");
-        assert_eq!(redis.cancel_support(), valkey.cancel_support());
-        assert_eq!(redis.supports_mutations(), valkey.supports_mutations());
+        assert_eq!(dragonfly.driver_id(), "dragonfly");
+        assert_eq!(dragonfly.driver_name(), "Dragonfly");
+        for flavor in [&valkey, &dragonfly] {
+            assert_eq!(redis.cancel_support(), flavor.cancel_support());
+            assert_eq!(redis.supports_mutations(), flavor.supports_mutations());
+        }
     }
 
     #[test]

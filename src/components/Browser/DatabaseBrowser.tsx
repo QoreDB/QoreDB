@@ -59,6 +59,7 @@ import {
   getSchemaObjectCapabilities,
   getTerminology,
   isDocumentDatabase,
+  isMySqlFamily,
 } from '@/lib/connection/driverCapabilities';
 import { buildDropTableSQL, buildTruncateTableSQL } from '@/lib/ddl';
 import { emitTableChange, onTableChange } from '@/lib/events/tableEvents';
@@ -1978,7 +1979,7 @@ function TriggerRow({
       sessionId={sessionId}
       environment={environment}
       readOnly={readOnly}
-      supportsToggle={driver !== 'mysql'}
+      supportsToggle={!isMySqlFamily(driver)}
       onViewSource={targetTrigger => onOpenTriggerSource?.(targetTrigger, namespace)}
       onDrop={onRefresh}
       onToggle={onRefresh}

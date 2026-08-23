@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { Reorder } from 'framer-motion';
-import { FileCode, Plus } from 'lucide-react';
+import { FileCode, Plus, Repeat2 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { QoreAiMonoMark } from '@/components/Brand/QoreAiMark';
@@ -29,6 +29,7 @@ interface TabBarProps {
   onClose?: (id: string) => void;
   onNew?: () => void;
   onNewChat?: () => void;
+  onNewReplay?: () => void;
   onReorder?: (tabs: TabItem[]) => void;
   onTogglePin?: (tabId: string) => void;
 }
@@ -43,6 +44,7 @@ export function TabBar({
   onClose,
   onNew,
   onNewChat,
+  onNewReplay,
   onReorder,
   onTogglePin,
 }: TabBarProps) {
@@ -224,6 +226,12 @@ export function TabBar({
                 <DropdownMenuItem onClick={onNewChat}>
                   <QoreAiMonoMark className="text-muted-foreground" />
                   {t('agentChat.newConversation')}
+                </DropdownMenuItem>
+              )}
+              {onNewReplay && (
+                <DropdownMenuItem onClick={onNewReplay}>
+                  <Repeat2 size={14} />
+                  {t('replay.title')}
                 </DropdownMenuItem>
               )}
             </DropdownMenuContent>

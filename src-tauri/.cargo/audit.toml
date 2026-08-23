@@ -53,4 +53,9 @@ ignore = [
     # Transitive via tiberius (MSSQL driver) -> libgssapi -> bindgen -> clap 2.x, build-dependency only.
     # No runtime impact; awaiting tiberius dependency modernization.
     "RUSTSEC-2021-0139",
+
+    # rkyv 0.7.46 - insufficient archive validation (out-of-bounds reads with Rc/Arc).
+    # Fix requires rkyv 0.8.x, but rust_decimal 1.42 pins rkyv ^0.7. Optional feature only:
+    # QoreDB never enables rust_decimal/rkyv, so the crate is resolved in Cargo.lock but never compiled.
+    "RUSTSEC-2026-0235",
 ]

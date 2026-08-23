@@ -52,7 +52,7 @@ impl SqlDialect {
             // differ in connection handling, not in generated SQL.
             "postgres" | "postgresql" | "cockroachdb" | "cockroach" | "neon" | "supabase"
             | "timescaledb" => Some(SqlDialect::Postgres),
-            "mysql" | "mariadb" => Some(SqlDialect::MySql),
+            "mysql" | "mariadb" | "planetscale" => Some(SqlDialect::MySql),
             "sqlite" => Some(SqlDialect::Sqlite),
             "sqlserver" | "mssql" => Some(SqlDialect::SqlServer),
             _ => None,
@@ -391,7 +391,7 @@ pub fn generate_migration_script(driver_id: &str, changes: &[SandboxChangeDto]) 
     let mut statements: Vec<String> = Vec::new();
     let mut warnings: Vec<String> = Vec::new();
 
-    if driver_id.to_lowercase() == "mongodb" {
+    if matches!(driver_id.to_lowercase().as_str(), "mongodb" | "documentdb") {
         for change in changes {
             statements.push(generate_mongo_operation(change));
         }

@@ -33,7 +33,8 @@ export type ProFeature =
   | 'instant_api'
   | 'data_generator'
   | 'index_suggestions'
-  | 'schema_diff';
+  | 'schema_diff'
+  | 'query_replay';
 
 const TIER_LEVELS: Record<LicenseTier, number> = {
   core: 0,
@@ -61,7 +62,12 @@ const FEATURE_REQUIRED_TIER: Record<ProFeature, LicenseTier> = {
   data_generator: 'pro',
   index_suggestions: 'pro',
   schema_diff: 'pro',
+  query_replay: 'pro',
 };
+
+export const PRO_FEATURES = (
+  Object.entries(FEATURE_REQUIRED_TIER) as Array<[ProFeature, LicenseTier]>
+).flatMap(([feature, tier]) => (tier === 'pro' ? [feature] : []));
 
 export function tierIncludes(current: LicenseTier, required: LicenseTier): boolean {
   return TIER_LEVELS[current] >= TIER_LEVELS[required];

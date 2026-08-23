@@ -14,6 +14,7 @@ import {
   Library,
   Link2,
   Network,
+  Repeat2,
   ShieldCheck,
   Sparkles,
   Table2,
@@ -51,6 +52,7 @@ const PRO_FEATURES: FeatureEntry[] = [
   { id: 'virtual_relations_auto_suggest', icon: Link2 },
   { id: 'bulk_edit_unlimited', icon: Table2 },
   { id: 'er_diagram', icon: Network },
+  { id: 'query_replay', icon: Repeat2 },
 ];
 
 interface ProDiscoveryPanelProps {

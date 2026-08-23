@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Checkbox } from '@/components/ui/checkbox';
+import { DocumentationLink } from '@/components/ui/documentation-link';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -131,6 +132,7 @@ export function EditorSection({ searchQuery }: EditorSectionProps) {
             {t('settings.sandbox.panelPageSizeDescription')}
           </span>
         </div>
+        <DocumentationLink path="security/sandbox-mode" />
       </div>
     </SettingsCard>
   );

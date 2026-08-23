@@ -50,6 +50,49 @@ services:
     volumes:
       - mongo_data:/data/db
 
+  # DocumentDB is TLS-only and signed by an Amazon CA. This is a local stand-in:
+  # a MongoDB requiring TLS, with a self-signed certificate generated at boot so
+  # nothing sensitive is committed. `docker/mongodb-tls/ca.crt` is what the
+  # connection form's CA field expects.
+  mongodb-tls:
+    image: mongo:7
+    container_name: qoredb-mongodb-tls
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: qoredb
+      MONGO_INITDB_ROOT_PASSWORD: qoredb_test
+    entrypoint:
+      - bash
+      - -c
+      - |
+        set -e
+        if [ ! -f /tls/server.pem ]; then
+          # A real chain, like DocumentDB's: a CA that signs a distinct server
+          # certificate. A single self-signed certificate acting as both is
+          # rejected by the TLS layer (CaUsedAsEndEntity).
+          openssl req -x509 -newkey rsa:2048 -days 3650 -nodes \
+            -keyout /tls/ca.key -out /tls/ca.crt \
+            -subj '/CN=QoreDB Test CA' \
+            -addext 'basicConstraints=critical,CA:TRUE'
+          openssl req -newkey rsa:2048 -nodes \
+            -keyout /tls/server.key -out /tls/server.csr \
+            -subj '/CN=localhost'
+          openssl x509 -req -in /tls/server.csr -days 3650 \
+            -CA /tls/ca.crt -CAkey /tls/ca.key -CAcreateserial \
+            -out /tls/server.crt \
+            -extfile <(printf 'subjectAltName=DNS:localhost,IP:127.0.0.1\nbasicConstraints=CA:FALSE')
+          cat /tls/server.key /tls/server.crt > /tls/server.pem
+          chmod 644 /tls/server.pem /tls/ca.crt
+        fi
+        exec docker-entrypoint.sh mongod \
+          --tlsMode requireTLS \
+          --tlsCertificateKeyFile /tls/server.pem \
+          --tlsCAFile /tls/ca.crt \
+          --tlsAllowConnectionsWithoutCertificates
+    volumes:
+      - ./docker/mongodb-tls:/tls
+    ports:
+      - '27018:27017'
+
   redis:
     image: redis:7-alpine
     container_name: qoredb-redis
@@ -58,6 +101,15 @@ services:
       - '6379:6379'
     volumes:
       - redis_data:/data
+
+  dragonfly:
+    image: docker.dragonflydb.io/dragonflydb/dragonfly:latest
+    container_name: qoredb-dragonfly
+    command: dragonfly --requirepass=qoredb_test --dbfilename=
+    ulimits:
+      memlock: -1
+    ports:
+      - '6380:6379'
 
   sqlserver:
     image: mcr.microsoft.com/mssql/server:2022-latest

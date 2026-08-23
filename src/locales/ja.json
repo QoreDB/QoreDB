@@ -383,6 +383,9 @@
       "tlsWarning": "TLSなしで認証情報が平文で送信されます。SSL/TLSを有効にしてください。",
       "caCert": "CA証明書",
       "caCertHint": "TLSでサーバーを検証するためのPEM CA証明書のパス。空欄の場合はシステムのトラストストアを使用します。"
+    },
+    "documentdb": {
+      "caCertHint": "DocumentDB クラスターは Amazon の CA によって署名されています。Amazon が公開する global-bundle.pem を指定してください。空欄のままにするとシステムの証明書ストアを使います。"
     }
   },
   "sidebar": {
@@ -583,6 +586,10 @@
     "aiAssistant": {
       "name": "AI アシスタント",
       "description": "自然言語で SQL クエリを生成・修正します"
+    },
+    "queryReplay": {
+      "name": "クエリリプレイ",
+      "description": "クエリのセットを記録し、マイグレーション後に再実行して変化を確認します"
     }
   },
   "notebook": {
@@ -659,6 +666,97 @@
     "aiGenerate": "SQLを生成",
     "aiCellInserted": "下にSQLセルを挿入しました"
   },
+  "replay": {
+    "title": "クエリリプレイ",
+    "openLab": "クエリリプレイを開く",
+    "setName": "セット名",
+    "setNamePlaceholder": "checkout-flow",
+    "ignoredColumns": "無視する列",
+    "ignoredColumnsHint": "カンマ区切り。比較から除外され、タイムスタンプが毎回差分として報告されるのを防ぎます。",
+    "queryTextWarning": "セットはクエリ本文をそのまま含めてリポジトリに記録されます。クエリ内のリテラル（鍵、パスワード、ペイロード）も一緒に記録されます。結果の行は記録されません。",
+    "secretsDetected": "{{count}} 件のクエリに認証情報らしき値が含まれています。共有前に削除するか、設定で秘匿に切り替えてください。",
+    "secretsRedacted": "認証情報らしき値を含む {{count}} 件のクエリを秘匿しました。",
+    "looksLikeSecret": "認証情報の可能性",
+    "redactedCannotReplay": "このセットは秘匿ありで記録されました。クエリが何にも一致しなくなるため再実行できません。一覧としては読めます。",
+    "captureValues": "結果の値を保存",
+    "captureValuesOn": "行はローカルに保存され、差分を表示できます。",
+    "captureValuesOff": "メタデータとダイジェストのみ: 差分は報告されますが表示されません。",
+    "productionCapture": "本番環境の値を保存",
+    "productionCaptureHint": "既定ではオフ。本番の行はこのマシンから出ません。",
+    "startRecording": "記録を開始",
+    "recording": "記録中",
+    "stopRecording": "停止して保存",
+    "recordedCount": "{{count}} 件記録",
+    "ignoredOtherSession": "他の接続のクエリ {{count}} 件を除外しました。",
+    "recordingSaved": "リプレイセット「{{name}}」を保存しました",
+    "discardEntry": "このクエリを削除",
+    "mutation": "変更",
+    "captureStopped": {
+      "budget_exceeded": "保存を停止しました: 保存容量の上限に達しました。以降のエントリにはダイジェストのみが残ります。",
+      "metadata_only": "メタデータのみの実行: 差分は報告されますが表示されません。",
+      "production_policy": "本番環境での実行: 行は保存されていません。"
+    },
+    "noSets": "リプレイセットはまだありません",
+    "emptyState": "クエリのセットを記録し、マイグレーション後や別の接続で再実行して、何が変わったかを確認します。",
+    "notRunYet": "まだ再実行していません。",
+    "entriesTotal": "{{count}} 件のクエリ",
+    "deleteSet": "セットを削除",
+    "recordedOn": "{{driver}} · {{environment}} で記録",
+    "ignoring": "{{columns}} を無視",
+    "ignoringNone": "無視する列なし",
+    "editIgnoredColumns": "無視する列を編集",
+    "compareToBaseline": "記録と比較",
+    "compareToRun": "{{date}} と比較",
+    "compareToConnection": "{{name}} と比較",
+    "sideA": "この接続",
+    "sideB": "もう一方の接続",
+    "allowMutations": "変更系も再実行",
+    "run": "再実行",
+    "progress": "{{completed}} / {{total}}",
+    "partialComparison": "比較は保存された行に限定されています。",
+    "openDiff": "差分を開く",
+    "baseline": "基準",
+    "currentRun": "この実行",
+    "verdict": {
+      "match": "一致",
+      "broken": "失敗",
+      "row_count_diff": "行数",
+      "digest_diff": "内容",
+      "slower": "低速化",
+      "skipped": "スキップ"
+    },
+    "column": {
+      "query": "クエリ",
+      "verdict": "判定",
+      "rows": "行数",
+      "duration": "実行時間",
+      "runVsExpected": "実行 / 記録"
+    },
+    "errors": {
+      "listSets": "リプレイセットを一覧できませんでした",
+      "loadSet": "リプレイセットを読み込めませんでした",
+      "noConnection": "先にデータベースに接続してください",
+      "startRecording": "記録を開始できませんでした",
+      "stopRecording": "リプレイセットを保存できませんでした",
+      "discard": "エントリを削除できませんでした",
+      "run": "再実行に失敗しました",
+      "deleteSet": "リプレイセットを削除できませんでした",
+      "ignoredColumns": "無視する列を更新できませんでした",
+      "noBaseline": "このセットには比較対象の基準キャプチャがありません",
+      "loadCapture": "保存された行を読み込めませんでした"
+    },
+    "settings": {
+      "title": "リプレイセットと認証情報",
+      "description": "リプレイセットはクエリ本文ごとバージョン管理されるため、その中に書かれた認証情報も一緒に記録されます。結果の行は含まれません。",
+      "policyLabel": "記録したクエリに認証情報が含まれていそうなとき",
+      "off": "何もしない",
+      "warn": "印を付ける（推奨）",
+      "redact": "クエリ本文を秘匿する",
+      "offHint": "何も検査しません。この端末から出さないセット向けです。",
+      "warnHint": "記録中に印が付き、その場で削除できます。セットは再実行できるままです。",
+      "redactHint": "書き出し時にリテラルを取り除きます。安心して共有できる代わりに再実行はできなくなります。"
+    }
+  },
   "settings": {
     "title": "設定",
     "language": "言語",
@@ -703,7 +801,15 @@
         "export_xlsx": "XLSX エクスポート",
         "export_parquet": "Parquet エクスポート",
         "query_library_advanced": "高度なクエリライブラリ",
-        "virtual_relations_auto_suggest": "仮想リレーション自動提案"
+        "virtual_relations_auto_suggest": "仮想リレーション自動提案",
+        "data_time_travel": "データタイムトラベル",
+        "bulk_edit_unlimited": "無制限の一括編集",
+        "data_contracts": "データコントラクト",
+        "instant_api": "インスタントデータ API",
+        "data_generator": "データジェネレーター",
+        "index_suggestions": "インデックスの提案",
+        "schema_diff": "スキーマ差分",
+        "query_replay": "クエリリプレイ"
       },
       "devOverrideTitle": "開発用ライセンスオーバーライド",
       "devOverrideDescription": "開発テスト用にライセンスティアをオーバーライドします。アプリ再起動時にリセットされます。",
@@ -763,8 +869,11 @@
     },
     "about": {
       "title": "バージョン情報",
-      "description": "アプリケーションのバージョンとアップデート。",
+      "description": "バージョン、アップデート、ドキュメント、コミュニティへのリンク。",
       "version": "バージョン",
+      "creator": "作成者・メンテナー",
+      "contributors": "コントリビューター",
+      "acknowledgements": "謝辞",
       "checkForUpdate": "アップデートを確認",
       "checking": "確認中...",
       "installUpdate": "v{{version}} をインストール",
@@ -1293,6 +1402,13 @@
     "delete": "削除",
     "deleting": "削除中...",
     "close": "閉じる",
+    "documentation": "ドキュメント",
+    "viewDocumentation": "ドキュメントを見る",
+    "gettingStarted": "はじめに",
+    "driverDocumentation": "{{driver}} のドキュメント",
+    "github": "GitHub",
+    "discord": "Discord",
+    "contributors": "コントリビューター",
     "clear": "クリア",
     "unknownError": "不明なエラー",
     "mongoCreateDbHint": "MongoDB では最初のコレクション作成時にデータベースが作成されます。",
@@ -1712,7 +1828,8 @@
       "title": "ワークスペースで整理",
       "description": "複数の接続があります。ワークスペースを作成してプロジェクトごとにグループ化し、Gitでチームと共有しましょう。"
     },
-    "finish": "はじめる"
+    "finish": "はじめる",
+    "exploreDocs": "ドキュメントを見る"
   },
   "errorBoundary": {
     "title": "エラーが発生しました",
@@ -2369,6 +2486,13 @@
           "bullet1": "設定ゼロ",
           "bullet2": "デフォルトは読み取り専用",
           "bullet3": "プロトタイプとデモに最適"
+        },
+        "query_replay": {
+          "title": "マイグレーションが壊したものを知る",
+          "description": "実際に実行しているクエリを記録し、マイグレーション後や別の接続で再実行して、推測ではなく変化を読み取ります。",
+          "bullet1": "失敗したクエリ、行数と内容の差分、低速化を 1 つのレポートに",
+          "bullet2": "リプレイセットは .qoredb/ に置かれ Git で共有 — 期待値のみで、結果の行は含みません",
+          "bullet3": "レポートの任意の行から、基準 ↔ 実行の差分をそのまま開けます"
         }
       }
     },
@@ -2384,7 +2508,8 @@
       "custom_safety_rules": "カスタム安全ルールには Pro ライセンスが必要です。",
       "query_library_advanced": "高度なクエリライブラリには Pro ライセンスが必要です。",
       "virtual_relations_auto_suggest": "仮想リレーションの自動提案には Pro ライセンスが必要です。",
-      "federation": "クロスデータベースフェデレーションには Pro ライセンスが必要です。"
+      "federation": "クロスデータベースフェデレーションには Pro ライセンスが必要です。",
+      "query_replay": "クエリリプレイには Pro ライセンスが必要です。"
     }
   },
   "proDiscovery": {

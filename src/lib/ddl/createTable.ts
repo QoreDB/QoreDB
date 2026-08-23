@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Driver } from '../connection/drivers';
+import { isMySqlFamily } from '../connection/driverCapabilities';
+import type { Driver } from '../connection/drivers';
 import { getDdlCapabilities, quoteSqlString } from './driverCapabilities';
 import { buildQualifiedTableName, quoteIdentifier } from './identifiers';
 import type {
@@ -49,7 +50,7 @@ export function buildColumnSQL(
   if (col.isUnique && !col.isPrimaryKey) {
     sql += ' UNIQUE';
   }
-  if (col.isAutoIncrement && (driver === Driver.Mysql || driver === Driver.Mariadb)) {
+  if (col.isAutoIncrement && isMySqlFamily(driver)) {
     sql += ' AUTO_INCREMENT';
   }
   if (opts.inlineComment && col.comment) {

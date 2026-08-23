@@ -69,6 +69,13 @@ export async function executeQuery(
     namespace?: Namespace;
     streamHandlers?: QueryStreamHandlers;
     bypassLimits?: boolean;
+    /**
+     * Whether this execution belongs in a Query Replay Lab recording.
+     * Off by default: `execute_query` also serves DDL modals, browser stats,
+     * the data generator and diff sources, none of which belong in a set.
+     * Only the editor, notebooks and the query library opt in.
+     */
+    recordable?: boolean;
   }
 ): Promise<{
   success: boolean;
@@ -95,6 +102,7 @@ export async function executeQuery(
     timeoutMs: options?.timeoutMs,
     stream: options?.stream,
     bypassLimits: options?.bypassLimits,
+    recordable: options?.recordable,
     onStream: channel,
   });
 }

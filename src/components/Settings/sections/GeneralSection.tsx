@@ -3,15 +3,21 @@
 import { relaunch } from '@tauri-apps/plugin-process';
 import { check } from '@tauri-apps/plugin-updater';
 import {
+  BookOpen,
+  Bug,
   ChevronDown,
   Download,
+  GitBranch,
   GraduationCap,
+  History,
   Loader2,
+  MessageCircle,
   Monitor,
   Moon,
   RefreshCw,
   RotateCcw,
   Sun,
+  Users,
 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -25,6 +31,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Label } from '@/components/ui/label';
 import { useTheme } from '@/hooks/useTheme';
+import { COMMUNITY_LINKS, getDocsUrl, getSiteUrl } from '@/lib/externalLinks';
 import { resetOnboarding } from '@/lib/onboardingState';
 import { setSettingsOpen, setShowOnboarding } from '@/lib/stores/modalStore';
 import {
@@ -34,6 +41,7 @@ import {
   setUpdateInstalling,
   useUpdateStore,
 } from '@/lib/stores/updateStore';
+import { openExternal } from '@/lib/transport';
 import { APP_VERSION } from '@/lib/version';
 import {
   getGroupByConnection,
@@ -81,6 +89,20 @@ const LANGUAGE_OPTIONS: LanguageOption[] = [
   { code: 'ko', label: '한국어', matchPrefix: 'ko' },
   { code: 'ru', label: 'Русский', matchPrefix: 'ru' },
 ];
+
+const PROJECT_CREDITS = {
+  creator: ['Raphaël P.'],
+  contributors: ['BloomyInDev', 'Eren'],
+  acknowledgements: [
+    'VelocityLogic',
+    'slayyyy',
+    'donovan',
+    'ekikeki',
+    'Hasan',
+    'MarcelTEXTA',
+    'Rémy',
+  ],
+} as const;
 
 function getLanguageOption(language: string): LanguageOption {
   const normalized = language.toLowerCase();
@@ -154,72 +176,22 @@ export function GeneralSection({ searchQuery }: GeneralSectionProps) {
     startupPrefs.restoreSession !== DEFAULT_STARTUP_PREFS.restoreSession ||
     startupPrefs.checkUpdates !== DEFAULT_STARTUP_PREFS.checkUpdates;
   const selectedLanguage = getLanguageOption(i18n.language);
+  const aboutLinks = [
+    { icon: BookOpen, label: t('common.documentation'), url: getDocsUrl() },
+    {
+      icon: GraduationCap,
+      label: t('common.gettingStarted'),
+      url: getDocsUrl('getting-started/installation'),
+    },
+    { icon: History, label: t('whatsNew.fullChangelog'), url: getSiteUrl('changelog') },
+    { icon: GitBranch, label: t('common.github'), url: COMMUNITY_LINKS.github },
+    { icon: MessageCircle, label: t('common.discord'), url: COMMUNITY_LINKS.discord },
+    { icon: Bug, label: t('crashReport.report'), url: COMMUNITY_LINKS.issues },
+    { icon: Users, label: t('common.contributors'), url: COMMUNITY_LINKS.contributors },
+  ];
 
   return (
     <>
-      <SettingsCard
-        id="about"
-        title={t('settings.about.title')}
-        description={t('settings.about.description')}
-        searchQuery={searchQuery}
-      >
-        <div className="space-y-3">
-          <div className="flex items-center gap-3">
-            <span className="text-sm text-muted-foreground">{t('settings.about.version')}</span>
-            <span className="text-sm font-mono font-semibold">{APP_VERSION}</span>
-          </div>
-
-          <div className="flex items-center gap-2">
-            {updateState.status === 'available' ? (
-              <Button
-                variant="default"
-                size="sm"
-                className="gap-1.5"
-                onClick={handleInstallUpdate}
-                disabled={updateState.status !== 'available'}
-              >
-                <Download size={14} />
-                {t('settings.about.installUpdate', { version: updateState.version })}
-              </Button>
-            ) : updateState.status === 'installing' ? (
-              <Button variant="outline" size="sm" className="gap-1.5" disabled>
-                <Loader2 size={14} className="animate-spin" />
-                {t('settings.about.installing')}
-              </Button>
-            ) : updateState.status === 'installed' ? (
-              <div className="flex items-center gap-2">
-                <Button variant="default" size="sm" className="gap-1.5" onClick={() => relaunch()}>
-                  <RotateCcw size={14} />
-                  {t('settings.about.restart')}
-                </Button>
-                <span className="text-xs text-success">{t('settings.about.installed')}</span>
-              </div>
-            ) : (
-              <Button
-                variant="outline"
-                size="sm"
-                className="gap-1.5"
-                onClick={handleCheckForUpdate}
-                disabled={checking}
-              >
-                {checking ? (
-                  <Loader2 size={14} className="animate-spin" />
-                ) : (
-                  <RefreshCw size={14} />
-                )}
-                {checking ? t('settings.about.checking') : t('settings.about.checkForUpdate')}
-              </Button>
-            )}
-            {upToDate && updateState.status === 'idle' && (
-              <span className="text-xs text-success">{t('settings.about.upToDate')}</span>
-            )}
-            {updateState.status === 'error' && updateState.error && (
-              <span className="text-xs text-error">{updateState.error}</span>
-            )}
-          </div>
-        </div>
-      </SettingsCard>
-
       <SettingsCard
         id="language"
         title={t('settings.language')}
@@ -380,6 +352,99 @@ export function GeneralSection({ searchQuery }: GeneralSectionProps) {
           <GraduationCap size={14} />
           {t('settings.onboarding.replay')}
         </Button>
+      </SettingsCard>
+
+      <SettingsCard
+        id="about"
+        title={t('settings.about.title')}
+        description={t('settings.about.description')}
+        searchQuery={searchQuery}
+      >
+        <div className="space-y-3">
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-muted-foreground">{t('settings.about.version')}</span>
+            <span className="text-sm font-mono font-semibold">{APP_VERSION}</span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {updateState.status === 'available' ? (
+              <Button
+                variant="default"
+                size="sm"
+                className="gap-1.5"
+                onClick={handleInstallUpdate}
+                disabled={updateState.status !== 'available'}
+              >
+                <Download size={14} />
+                {t('settings.about.installUpdate', { version: updateState.version })}
+              </Button>
+            ) : updateState.status === 'installing' ? (
+              <Button variant="outline" size="sm" className="gap-1.5" disabled>
+                <Loader2 size={14} className="animate-spin" />
+                {t('settings.about.installing')}
+              </Button>
+            ) : updateState.status === 'installed' ? (
+              <div className="flex items-center gap-2">
+                <Button variant="default" size="sm" className="gap-1.5" onClick={() => relaunch()}>
+                  <RotateCcw size={14} />
+                  {t('settings.about.restart')}
+                </Button>
+                <span className="text-xs text-success">{t('settings.about.installed')}</span>
+              </div>
+            ) : (
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5"
+                onClick={handleCheckForUpdate}
+                disabled={checking}
+              >
+                {checking ? (
+                  <Loader2 size={14} className="animate-spin" />
+                ) : (
+                  <RefreshCw size={14} />
+                )}
+                {checking ? t('settings.about.checking') : t('settings.about.checkForUpdate')}
+              </Button>
+            )}
+            {upToDate && updateState.status === 'idle' && (
+              <span className="text-xs text-success">{t('settings.about.upToDate')}</span>
+            )}
+            {updateState.status === 'error' && updateState.error && (
+              <span className="text-xs text-error">{updateState.error}</span>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 gap-2 pt-1 sm:grid-cols-2">
+            {aboutLinks.map(({ icon: Icon, label, url }) => (
+              <Button
+                key={url}
+                variant="outline"
+                size="sm"
+                className="justify-start gap-1.5"
+                onClick={() => void openExternal(url)}
+              >
+                <Icon size={14} />
+                {label}
+              </Button>
+            ))}
+          </div>
+
+          <div className="grid gap-2 rounded-md border bg-muted/20 p-3 text-xs">
+            {(
+              [
+                ['creator', PROJECT_CREDITS.creator],
+                ['contributors', PROJECT_CREDITS.contributors],
+                ['acknowledgements', PROJECT_CREDITS.acknowledgements],
+              ] as const
+            ).map(([group, names]) => (
+              <div key={group} className="grid gap-1 sm:grid-cols-[9rem_1fr] sm:gap-3">
+                <span className="text-muted-foreground">{t(`settings.about.${group}`)}</span>
+                <span className="text-foreground">{names.join(' · ')}</span>
+              </div>
+            ))}
+          </div>
+        </div>
       </SettingsCard>
     </>
   );

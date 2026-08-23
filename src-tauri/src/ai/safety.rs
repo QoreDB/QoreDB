@@ -14,8 +14,8 @@ use crate::engine::sql_safety;
 /// For MongoDB, does basic pattern matching on dangerous operations.
 pub fn validate_generated_query(driver_id: &str, query: &str) -> SafetyInfo {
     match driver_id {
-        "mongodb" => validate_mongo_query(query),
-        "redis" | "valkey" => validate_redis_query(query),
+        "mongodb" | "documentdb" => validate_mongo_query(query),
+        "redis" | "valkey" | "dragonfly" => validate_redis_query(query),
         _ => validate_sql_query(driver_id, query),
     }
 }

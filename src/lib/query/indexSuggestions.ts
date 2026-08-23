@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: BUSL-1.1
 
+import { isMySqlFamily } from '@/lib/connection/driverCapabilities';
 import { Driver } from '@/lib/connection/drivers';
 import { quoteIdentifier } from '@/lib/ddl';
 import type { PlanNode } from './explainPlanParser';
@@ -162,8 +163,7 @@ export function suggestIndexesFromPlan(root: PlanNode, driver: Driver): IndexSug
 export function supportsIndexSuggestions(driver: Driver): boolean {
   return (
     driver === Driver.Postgres ||
-    driver === Driver.Mysql ||
-    driver === Driver.Mariadb ||
+    isMySqlFamily(driver) ||
     driver === Driver.Cockroachdb ||
     driver === Driver.Supabase ||
     driver === Driver.Neon ||

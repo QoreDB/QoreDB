@@ -16,6 +16,7 @@ import {
   Lightbulb,
   Link2,
   Network,
+  Repeat2,
   ShieldCheck,
   Sparkles,
   Table2,
@@ -58,6 +59,7 @@ const FEATURE_ICONS: Record<ProFeature, LucideIcon> = {
   data_generator: Wand2,
   index_suggestions: Lightbulb,
   schema_diff: GitCompare,
+  query_replay: Repeat2,
 };
 
 const FEATURE_FALLBACK_ICON: LucideIcon = Bug;

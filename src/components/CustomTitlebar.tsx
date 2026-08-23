@@ -25,6 +25,7 @@ import { PluginLauncher } from '@/components/Plugins/PluginLauncher';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
+  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
@@ -32,6 +33,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { COMMUNITY_LINKS, getDocsUrl, getSiteUrl } from '@/lib/externalLinks';
 import { toggleCheatsheet } from '@/lib/stores/modalStore';
 import { useNotificationBadge } from '@/lib/stores/notificationStore';
 import {
@@ -40,7 +42,7 @@ import {
   setUpdateInstalling,
   useUpdateStore,
 } from '@/lib/stores/updateStore';
-import { isWeb } from '@/lib/transport';
+import { isWeb, openExternal } from '@/lib/transport';
 import { cn } from '@/lib/utils';
 import { getShortcut, isMacOS, isWindowsOS } from '@/utils/platform';
 
@@ -52,16 +54,24 @@ interface CustomTitlebarProps {
   onNewWindow?: () => void;
   onOpenNotebook?: () => void;
   onOpenSettings?: () => void;
+  onOpenAbout?: () => void;
   onOpenLogs?: () => void;
   onOpenHistory?: () => void;
+  onOpenLibrary?: () => void;
+  onOpenFulltextSearch?: () => void;
+  onOpenDiff?: () => void;
+  onOpenSnapshots?: () => void;
+  onOpenReplay?: () => void;
+  onOpenFederation?: () => void;
   onOpenMigrations?: () => void;
   onToggleSidebar?: () => void;
   onRefreshData?: () => void;
   onImportData?: () => void;
   onExportData?: () => void;
   onToggleSandbox?: () => void;
-  onOpenSchemaGenerator?: () => void;
+  onOpenErDiagram?: () => void;
   onToggleZenMode?: () => void;
+  sandboxActive?: boolean;
 
   onToggleReadOnly?: (next: boolean) => void;
   readOnly?: boolean;
@@ -75,16 +85,24 @@ export const CustomTitlebar = ({
   onNewWindow,
   onOpenNotebook,
   onOpenSettings,
+  onOpenAbout,
   onOpenLogs,
   onOpenHistory,
+  onOpenLibrary,
+  onOpenFulltextSearch,
+  onOpenDiff,
+  onOpenSnapshots,
+  onOpenReplay,
+  onOpenFederation,
   onOpenMigrations,
   onToggleSidebar,
   onRefreshData,
   onImportData,
   onExportData,
   onToggleSandbox,
-  onOpenSchemaGenerator,
+  onOpenErDiagram,
   onToggleZenMode,
+  sandboxActive = false,
   settingsOpen = false,
   onRunPluginCommand,
 }: CustomTitlebarProps) => {
@@ -194,9 +212,24 @@ export const CustomTitlebar = ({
             onOpenChange={open => handleMenuOpenChange('tools', open)}
             onMouseEnter={() => handleMenuHover('tools')}
             onOpenHistory={onOpenHistory}
+            onOpenLibrary={onOpenLibrary}
+            onOpenFulltextSearch={onOpenFulltextSearch}
+            onOpenDiff={onOpenDiff}
+            onOpenSnapshots={onOpenSnapshots}
+            onOpenReplay={onOpenReplay}
+            onOpenFederation={onOpenFederation}
             onOpenMigrations={onOpenMigrations}
-            onOpenSchemaGenerator={onOpenSchemaGenerator}
+            onOpenErDiagram={onOpenErDiagram}
             onToggleSandbox={onToggleSandbox}
+            sandboxActive={sandboxActive}
+          />
+          <MenuHelp
+            t={t}
+            isOpen={activeMenu === 'help'}
+            onOpenChange={open => handleMenuOpenChange('help', open)}
+            onMouseEnter={() => handleMenuHover('help')}
+            onShowKeyboardShortcuts={toggleCheatsheet}
+            onOpenAbout={onOpenAbout}
           />
         </div>
       </div>
@@ -467,9 +500,16 @@ const MenuData = ({
 
 interface MenuToolsProps extends TitlebarMenuProps {
   onOpenHistory?: () => void;
+  onOpenLibrary?: () => void;
+  onOpenFulltextSearch?: () => void;
+  onOpenDiff?: () => void;
+  onOpenSnapshots?: () => void;
+  onOpenReplay?: () => void;
+  onOpenFederation?: () => void;
   onOpenMigrations?: () => void;
-  onOpenSchemaGenerator?: () => void;
+  onOpenErDiagram?: () => void;
   onToggleSandbox?: () => void;
+  sandboxActive?: boolean;
 }
 
 const MenuTools = ({
@@ -478,9 +518,16 @@ const MenuTools = ({
   onOpenChange,
   onMouseEnter,
   onOpenHistory,
+  onOpenLibrary,
+  onOpenFulltextSearch,
+  onOpenDiff,
+  onOpenSnapshots,
+  onOpenReplay,
+  onOpenFederation,
   onOpenMigrations,
-  onOpenSchemaGenerator,
+  onOpenErDiagram,
   onToggleSandbox,
+  sandboxActive = false,
 }: MenuToolsProps) => (
   <DropdownMenu open={isOpen} onOpenChange={onOpenChange} modal={false}>
     <DropdownMenuTrigger asChild onMouseEnter={onMouseEnter}>
@@ -495,21 +542,105 @@ const MenuTools = ({
     <DropdownMenuContent
       align="start"
       disableExitAnimation
-      className="w-56"
+      className="w-max min-w-72 whitespace-nowrap"
       onCloseAutoFocus={event => event.preventDefault()}
     >
       <DropdownMenuItem onClick={onOpenHistory} disabled={!onOpenHistory}>
         <span>{t('titlebar.menu.tools.history')}</span>
       </DropdownMenuItem>
+      <DropdownMenuItem onClick={onOpenLibrary} disabled={!onOpenLibrary}>
+        <span>{t('palette.openLibrary')}</span>
+      </DropdownMenuItem>
+      <DropdownMenuItem onClick={onOpenFulltextSearch} disabled={!onOpenFulltextSearch}>
+        <span>{t('palette.fulltextSearch')}</span>
+      </DropdownMenuItem>
+      <DropdownMenuSeparator />
+      <DropdownMenuItem onClick={onOpenDiff} disabled={!onOpenDiff}>
+        <span>{t('diff.openDiff')}</span>
+      </DropdownMenuItem>
+      <DropdownMenuItem onClick={onOpenSnapshots} disabled={!onOpenSnapshots}>
+        <span>{t('snapshots.openManager')}</span>
+      </DropdownMenuItem>
+      <DropdownMenuItem onClick={onOpenReplay} disabled={!onOpenReplay}>
+        <span>{t('replay.openLab')}</span>
+      </DropdownMenuItem>
+      <DropdownMenuItem onClick={onOpenFederation} disabled={!onOpenFederation}>
+        <span>{t('federation.openFederation')}</span>
+      </DropdownMenuItem>
+      <DropdownMenuSeparator />
       <DropdownMenuItem onClick={onOpenMigrations} disabled={!onOpenMigrations}>
         <span>{t('migrations.openManager')}</span>
       </DropdownMenuItem>
-      <DropdownMenuItem onClick={onOpenSchemaGenerator} disabled={!onOpenSchemaGenerator}>
-        <span>{t('titlebar.menu.tools.schemaGenerator')}</span>
+      <DropdownMenuItem onClick={onOpenErDiagram} disabled={!onOpenErDiagram}>
+        <span>{t('features.erDiagram.name')}</span>
       </DropdownMenuItem>
       <DropdownMenuSeparator />
-      <DropdownMenuItem onClick={onToggleSandbox} disabled={!onToggleSandbox}>
+      <DropdownMenuCheckboxItem
+        className="pl-2 pr-8 [&>span:first-child]:right-2 [&>span:first-child]:left-auto"
+        checked={sandboxActive}
+        onCheckedChange={onToggleSandbox}
+        disabled={!onToggleSandbox}
+      >
         <span>{t('titlebar.menu.tools.sandbox')}</span>
+      </DropdownMenuCheckboxItem>
+    </DropdownMenuContent>
+  </DropdownMenu>
+);
+
+interface MenuHelpProps extends TitlebarMenuProps {
+  onShowKeyboardShortcuts?: () => void;
+  onOpenAbout?: () => void;
+}
+
+const MenuHelp = ({
+  t,
+  isOpen,
+  onOpenChange,
+  onMouseEnter,
+  onShowKeyboardShortcuts,
+  onOpenAbout,
+}: MenuHelpProps) => (
+  <DropdownMenu open={isOpen} onOpenChange={onOpenChange} modal={false}>
+    <DropdownMenuTrigger asChild onMouseEnter={onMouseEnter}>
+      <Button
+        variant="ghost"
+        size="sm"
+        className="h-7 px-2 text-xs font-normal text-muted-foreground hover:text-foreground hover:bg-accent/50 data-[state=open]:bg-accent data-[state=open]:text-foreground"
+      >
+        {t('a11y.help')}
+      </Button>
+    </DropdownMenuTrigger>
+    <DropdownMenuContent
+      align="start"
+      disableExitAnimation
+      className="w-60"
+      onCloseAutoFocus={event => event.preventDefault()}
+    >
+      <DropdownMenuItem onClick={() => void openExternal(getDocsUrl())}>
+        <span>{t('common.documentation')}</span>
+      </DropdownMenuItem>
+      <DropdownMenuItem
+        onClick={() => void openExternal(getDocsUrl('getting-started/installation'))}
+      >
+        <span>{t('common.gettingStarted')}</span>
+      </DropdownMenuItem>
+      <DropdownMenuItem onClick={onShowKeyboardShortcuts}>
+        <span>{t('cheatsheet.title')}</span>
+        <DropdownMenuShortcut>?</DropdownMenuShortcut>
+      </DropdownMenuItem>
+      <DropdownMenuSeparator />
+      <DropdownMenuItem onClick={() => void openExternal(getSiteUrl('changelog'))}>
+        <span>{t('whatsNew.fullChangelog')}</span>
+      </DropdownMenuItem>
+      <DropdownMenuItem onClick={() => void openExternal(COMMUNITY_LINKS.issues)}>
+        <span>{t('crashReport.report')}</span>
+      </DropdownMenuItem>
+      <DropdownMenuItem onClick={() => void openExternal(COMMUNITY_LINKS.discord)}>
+        <span>{t('common.discord')}</span>
+      </DropdownMenuItem>
+      <DropdownMenuSeparator />
+      <DropdownMenuItem onClick={onOpenAbout} disabled={!onOpenAbout}>
+        <span>{t('settings.about.title')}</span>
       </DropdownMenuItem>
     </DropdownMenuContent>
   </DropdownMenu>

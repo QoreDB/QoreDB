@@ -412,6 +412,9 @@
       "tlsWarning": "Credentials are sent in clear text without TLS. Enable SSL/TLS.",
       "caCert": "CA certificate",
       "caCertHint": "Path to a PEM CA certificate to verify the server over TLS. Leave empty to use the system trust store."
+    },
+    "documentdb": {
+      "caCertHint": "DocumentDB clusters are signed by an Amazon CA. Point this at the global-bundle.pem file Amazon publishes; leave it empty to use the system trust store."
     }
   },
   "sidebar": {
@@ -612,6 +615,10 @@
     "aiAssistant": {
       "name": "AI Assistant",
       "description": "Generate and fix SQL queries using natural language"
+    },
+    "queryReplay": {
+      "name": "Query Replay Lab",
+      "description": "Record a set of queries and replay it after a migration to see what changed"
     }
   },
   "notebook": {
@@ -688,6 +695,97 @@
     "aiGenerate": "Generate SQL",
     "aiCellInserted": "SQL cell inserted below"
   },
+  "replay": {
+    "title": "Query Replay",
+    "openLab": "Open Query Replay",
+    "setName": "Set name",
+    "setNamePlaceholder": "checkout-flow",
+    "ignoredColumns": "Ignored columns",
+    "ignoredColumnsHint": "Comma-separated. Excluded from the comparison so a timestamp does not report a difference on every run.",
+    "queryTextWarning": "The set is committed to your repository with the query text as-is. A literal inside a query — a key, a password, a payload — is versioned with it. Result rows never are.",
+    "secretsDetected": "{{count}} queries contain what looks like a credential. Remove them before sharing the set, or switch to redaction in Settings.",
+    "secretsRedacted": "{{count}} queries contained what looks like a credential and were redacted.",
+    "looksLikeSecret": "Looks like a credential",
+    "redactedCannotReplay": "This set was recorded with redaction: its queries no longer match anything, so it cannot be replayed. It stays readable as an inventory.",
+    "captureValues": "Capture result values",
+    "captureValuesOn": "Rows are stored locally, so differences can be shown.",
+    "captureValuesOff": "Metadata and digests only: differences are reported, not shown.",
+    "productionCapture": "Capture values from production",
+    "productionCaptureHint": "Off by default. Production rows stay on this machine.",
+    "startRecording": "Start recording",
+    "recording": "recording",
+    "stopRecording": "Stop and save",
+    "recordedCount": "{{count}} recorded",
+    "ignoredOtherSession": "{{count}} queries from another connection were left out.",
+    "recordingSaved": "Replay set \"{{name}}\" saved",
+    "discardEntry": "Remove this query",
+    "mutation": "mutation",
+    "captureStopped": {
+      "budget_exceeded": "Capture stopped: the run reached its storage budget. Later entries have a digest but no rows.",
+      "metadata_only": "Metadata-only run: differences are reported, not shown.",
+      "production_policy": "Production run: no rows were stored."
+    },
+    "noSets": "No replay sets yet",
+    "emptyState": "Record a set of queries, then replay it after a migration or against another connection to see what changed.",
+    "notRunYet": "Not replayed yet.",
+    "entriesTotal": "{{count}} queries",
+    "deleteSet": "Delete set",
+    "recordedOn": "Recorded on {{driver}} · {{environment}}",
+    "ignoring": "ignoring {{columns}}",
+    "ignoringNone": "no ignored columns",
+    "editIgnoredColumns": "Edit ignored columns",
+    "compareToBaseline": "vs. the recording",
+    "compareToRun": "vs. {{date}}",
+    "compareToConnection": "vs. {{name}}",
+    "sideA": "this connection",
+    "sideB": "the other connection",
+    "allowMutations": "Replay mutations",
+    "run": "Replay",
+    "progress": "{{completed}} / {{total}}",
+    "partialComparison": "Comparison limited to the captured rows.",
+    "openDiff": "Open the diff",
+    "baseline": "Baseline",
+    "currentRun": "This run",
+    "verdict": {
+      "match": "identical",
+      "broken": "broken",
+      "row_count_diff": "row count",
+      "digest_diff": "content",
+      "slower": "slower",
+      "skipped": "skipped"
+    },
+    "column": {
+      "query": "Query",
+      "verdict": "Verdict",
+      "rows": "Rows",
+      "duration": "Duration",
+      "runVsExpected": "run / recorded"
+    },
+    "errors": {
+      "listSets": "Failed to list replay sets",
+      "loadSet": "Failed to load the replay set",
+      "noConnection": "Connect to a database first",
+      "startRecording": "Failed to start recording",
+      "stopRecording": "Failed to save the replay set",
+      "discard": "Failed to remove the entry",
+      "run": "Replay failed",
+      "deleteSet": "Failed to delete the replay set",
+      "ignoredColumns": "Failed to update the ignored columns",
+      "noBaseline": "This set has no baseline capture to compare against",
+      "loadCapture": "Failed to load the captured rows"
+    },
+    "settings": {
+      "title": "Replay sets and credentials",
+      "description": "A replay set is versioned with the text of its queries, so a credential written inside one is committed with it. Result rows never are.",
+      "policyLabel": "When a recorded query looks like it carries a credential",
+      "off": "Do nothing",
+      "warn": "Flag it (recommended)",
+      "redact": "Redact the query text",
+      "offHint": "Nothing is checked. For sets that never leave your machine.",
+      "warnHint": "The entry is flagged while you record so you can drop it. The set stays replayable.",
+      "redactHint": "Literals are stripped on the way out. The set becomes safe to share and can no longer be replayed."
+    }
+  },
   "settings": {
     "title": "Settings",
     "language": "Language",
@@ -732,7 +830,15 @@
         "export_xlsx": "XLSX Export",
         "export_parquet": "Parquet Export",
         "query_library_advanced": "Advanced Query Library",
-        "virtual_relations_auto_suggest": "Auto-suggest Virtual Relations"
+        "virtual_relations_auto_suggest": "Auto-suggest Virtual Relations",
+        "data_time_travel": "Data Time Travel",
+        "bulk_edit_unlimited": "Unlimited Bulk Edit",
+        "data_contracts": "Data Contracts",
+        "instant_api": "Instant Data API",
+        "data_generator": "Data Generator",
+        "index_suggestions": "Index Suggestions",
+        "schema_diff": "Schema Diff",
+        "query_replay": "Query Replay Lab"
       },
       "devOverrideTitle": "Dev License Override",
       "devOverrideDescription": "Override license tier for development testing. Resets on app restart.",
@@ -792,8 +898,11 @@
     },
     "about": {
       "title": "About",
-      "description": "Application version and updates.",
+      "description": "Version, updates, documentation, and community links.",
       "version": "Version",
+      "creator": "Creator and maintainer",
+      "contributors": "Contributors",
+      "acknowledgements": "Acknowledgements",
       "checkForUpdate": "Check for updates",
       "checking": "Checking...",
       "installUpdate": "Install v{{version}}",
@@ -1328,6 +1437,13 @@
     "delete": "Delete",
     "deleting": "Deleting...",
     "close": "Close",
+    "documentation": "Documentation",
+    "viewDocumentation": "View documentation",
+    "gettingStarted": "Getting started",
+    "driverDocumentation": "{{driver}} documentation",
+    "github": "GitHub",
+    "discord": "Discord",
+    "contributors": "Contributors",
     "clear": "Clear",
     "unknownError": "Unknown error",
     "mongoCreateDbHint": "MongoDB creates a database when the first collection is created.",
@@ -1751,7 +1867,8 @@
       "title": "Organize with workspaces",
       "description": "You have several connections. Create a workspace to group them by project and share them with your team via Git."
     },
-    "finish": "Let's go"
+    "finish": "Let's go",
+    "exploreDocs": "Explore the docs"
   },
   "errorBoundary": {
     "title": "Something went wrong",
@@ -2408,6 +2525,13 @@
           "bullet1": "Zero config",
           "bullet2": "Read-only by default",
           "bullet3": "Great for prototypes and demos"
+        },
+        "query_replay": {
+          "title": "Know what your migration broke",
+          "description": "Record the queries you actually run, replay them after a migration or against another connection, and read what changed instead of guessing.",
+          "bullet1": "Broken queries, row-count and content differences, and slowdowns in one report",
+          "bullet2": "Replay sets live in .qoredb/ and are shared through Git — expectations only, never result rows",
+          "bullet3": "Open the baseline ↔ run diff on any row, right from the report"
         }
       }
     },
@@ -2423,7 +2547,8 @@
       "custom_safety_rules": "Custom safety rules require a Pro license.",
       "query_library_advanced": "Advanced query library requires a Pro license.",
       "virtual_relations_auto_suggest": "Auto-suggest virtual relations requires a Pro license.",
-      "federation": "Cross-database federation requires a Pro license."
+      "federation": "Cross-database federation requires a Pro license.",
+      "query_replay": "Query Replay Lab requires a Pro license."
     }
   },
   "proDiscovery": {

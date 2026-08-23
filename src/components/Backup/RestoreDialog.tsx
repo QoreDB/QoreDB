@@ -51,7 +51,7 @@ const PG_DRIVERS = new Set([
 
 function defaultExtensionsForDriver(driver: string): string[] {
   if (PG_DRIVERS.has(driver)) return ['sql', 'dump', 'tar'];
-  if (driver === 'mongodb') return ['archive', 'gz'];
+  if (driver === 'mongodb' || driver === 'documentdb') return ['archive', 'gz'];
   if (driver === 'sqlite') return ['sql', 'sqlite'];
   return ['sql'];
 }

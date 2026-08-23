@@ -10,6 +10,7 @@ import {
   ListRestart,
   Network,
   Puzzle,
+  Repeat2,
   Settings,
   Table,
 } from 'lucide-react';
@@ -42,6 +43,8 @@ export function getTabIcon(type: TabKind) {
       return <Puzzle size={14} />;
     case 'chat':
       return <QoreAiMonoMark size={14} />;
+    case 'replay':
+      return <Repeat2 size={14} />;
   }
 }
 

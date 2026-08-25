@@ -672,14 +672,14 @@
     "setName": "세트 이름",
     "setNamePlaceholder": "checkout-flow",
     "ignoredColumns": "무시할 열",
-    "ignoredColumnsHint": "쉼표로 구분. 비교에서 제외되어 타임스탬프가 실행할 때마다 차이로 보고되지 않습니다.",
-    "queryTextWarning": "세트는 쿼리 본문을 그대로 담아 저장소에 커밋됩니다. 쿼리 안의 리터럴(키, 비밀번호, 페이로드)도 함께 버전 관리됩니다. 결과 행은 절대 포함되지 않습니다.",
+    "ignoredColumnsHint": "비교에서 제외합니다. 예: updated_at.",
+    "queryTextWarning": "쿼리는 그대로 버전 관리됩니다. 비밀 정보가 없는지 확인하세요.",
     "secretsDetected": "자격 증명으로 보이는 값이 담긴 쿼리가 {{count}}개 있습니다. 세트를 공유하기 전에 제거하거나 설정에서 가림으로 전환하세요.",
     "secretsRedacted": "자격 증명으로 보이는 값이 담긴 쿼리 {{count}}개를 가렸습니다.",
     "looksLikeSecret": "자격 증명으로 보임",
     "redactedCannotReplay": "이 세트는 가림을 적용해 기록되었습니다. 쿼리가 더 이상 아무것도 찾지 못하므로 재실행할 수 없습니다. 목록으로는 계속 읽을 수 있습니다.",
-    "captureValues": "결과 값 저장",
-    "captureValuesOn": "행이 로컬에 저장되어 차이를 보여줄 수 있습니다.",
+    "captureValues": "결과를 로컬에 보관",
+    "captureValuesOn": "차이를 행 단위로 열어볼 수 있습니다.",
     "captureValuesOff": "메타데이터와 다이제스트만: 차이는 보고되지만 표시되지 않습니다.",
     "productionCapture": "운영 환경의 값 저장",
     "productionCaptureHint": "기본적으로 꺼져 있습니다. 운영 데이터는 이 컴퓨터를 벗어나지 않습니다.",
@@ -705,12 +705,11 @@
     "ignoring": "{{columns}} 무시",
     "ignoringNone": "무시할 열 없음",
     "editIgnoredColumns": "무시할 열 편집",
-    "compareToBaseline": "기록과 비교",
+    "compareToBaseline": "최초 기록",
     "compareToRun": "{{date}}와 비교",
     "compareToConnection": "{{name}}와 비교",
     "sideA": "이 연결",
     "sideB": "다른 연결",
-    "allowMutations": "변경 쿼리도 실행",
     "run": "리플레이",
     "progress": "{{completed}} / {{total}}",
     "partialComparison": "비교는 저장된 행으로 제한됩니다.",
@@ -719,18 +718,19 @@
     "currentRun": "이번 실행",
     "verdict": {
       "match": "동일",
-      "broken": "실패",
+      "broken": "오류",
       "row_count_diff": "행 수",
-      "digest_diff": "내용",
+      "digest_diff": "결과 변경됨",
       "slower": "느려짐",
-      "skipped": "건너뜀"
+      "skipped": "미실행",
+      "not_compared": "결과 미비교"
     },
     "column": {
       "query": "쿼리",
       "verdict": "판정",
       "rows": "행",
       "duration": "소요 시간",
-      "runVsExpected": "실행 / 기록"
+      "referenceToRun": "기록 → 실행"
     },
     "errors": {
       "listSets": "리플레이 세트를 불러오지 못했습니다",
@@ -743,7 +743,8 @@
       "deleteSet": "리플레이 세트를 삭제하지 못했습니다",
       "ignoredColumns": "무시할 열을 업데이트하지 못했습니다",
       "noBaseline": "이 세트에는 비교할 기준 캡처가 없습니다",
-      "loadCapture": "저장된 행을 불러오지 못했습니다"
+      "loadCapture": "저장된 행을 불러오지 못했습니다",
+      "acceptRun": "이 실행을 기준으로 채택하지 못했습니다"
     },
     "settings": {
       "title": "리플레이 세트와 자격 증명",
@@ -755,6 +756,50 @@
       "offHint": "아무것도 검사하지 않습니다. 이 컴퓨터를 벗어나지 않는 세트에 적합합니다.",
       "warnHint": "기록 중에 표시되어 바로 제거할 수 있습니다. 세트는 계속 재실행할 수 있습니다.",
       "redactHint": "내보낼 때 리터럴을 제거합니다. 마음 놓고 공유할 수 있지만 더 이상 재실행할 수 없습니다."
+    },
+    "newRecording": "새 기록",
+    "selectSet": "세트 선택",
+    "selectSetHint": "재생할 세트를 선택하세요.",
+    "searchSets": "세트 검색",
+    "noMatchingSet": "일치하는 세트가 없습니다",
+    "replayTarget": "대상: {{target}}",
+    "options": "옵션",
+    "includeMutations_other": "변경 쿼리 {{count}}개 포함",
+    "recordMutations": "변경 쿼리 기록",
+    "recordMutationsHint": "꺼짐: 기록 중 실행한 마이그레이션은 세트에 포함되지 않습니다.",
+    "removeMutations": "변경 쿼리 제거",
+    "cancelRecording": "기록 취소",
+    "clearFilter": "모두 표시",
+    "expandQuery": "전체 쿼리 보기",
+    "collapseQuery": "쿼리 접기",
+    "acceptEntry": "이 결과를 기준으로 채택",
+    "acceptAll": "이 실행을 기준으로 채택",
+    "acceptAllHint": "의도한 마이그레이션 후, 이 실행의 결과가 세트의 기준이 됩니다.",
+    "referenceAcceptedAll": "이 실행이 기준이 되었습니다",
+    "referenceAcceptedEntries_other": "{{count}}개 항목이 갱신되었습니다",
+    "queryTextWarningDetail": "리터럴은 버전 관리되는 SQL의 일부입니다. 결과 행은 로컬에 남으며 저장소에 추가되지 않습니다.",
+    "composition": {
+      "total_other": "쿼리 {{count}}개",
+      "reads_other": "읽기 {{count}}개",
+      "mutations_other": "변경 {{count}}개",
+      "excludedMutations_other": "변경 {{count}}개 제외됨"
+    },
+    "coverage": {
+      "compared": "결과 {{compared}}/{{total}}개 비교됨",
+      "notCompared_other": "{{count}}개 미비교",
+      "skipped_other": "{{count}}개 미실행",
+      "broken_other": "{{count}}개 오류"
+    },
+    "confirm": {
+      "deleteTitle": "“{{name}}”을(를) 삭제할까요?",
+      "deleteBody": "세트와 로컬에 저장된 모든 실행 결과가 삭제됩니다. 되돌릴 수 없습니다.",
+      "acceptEntryTitle": "이 결과를 기준으로 채택할까요?",
+      "acceptAllTitle": "이 실행을 쿼리 {{count}}개의 기준으로 채택할까요?",
+      "acceptBody": "세트의 기대값이 이 실행에서 관측된 값으로 대체됩니다. 이후 재생은 이것과 비교됩니다."
+    },
+    "skipReason": {
+      "mutation_excluded": "변경 쿼리는 재생에서 제외됨",
+      "mutation_production_blocked": "변경 쿼리는 프로덕션에서 재생되지 않습니다"
     }
   },
   "settings": {

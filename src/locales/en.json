@@ -701,14 +701,14 @@
     "setName": "Set name",
     "setNamePlaceholder": "checkout-flow",
     "ignoredColumns": "Ignored columns",
-    "ignoredColumnsHint": "Comma-separated. Excluded from the comparison so a timestamp does not report a difference on every run.",
-    "queryTextWarning": "The set is committed to your repository with the query text as-is. A literal inside a query — a key, a password, a payload — is versioned with it. Result rows never are.",
+    "ignoredColumnsHint": "Excluded from the comparison, e.g. updated_at.",
+    "queryTextWarning": "Queries are versioned as they are — check that none carries a secret.",
     "secretsDetected": "{{count}} queries contain what looks like a credential. Remove them before sharing the set, or switch to redaction in Settings.",
     "secretsRedacted": "{{count}} queries contained what looks like a credential and were redacted.",
     "looksLikeSecret": "Looks like a credential",
     "redactedCannotReplay": "This set was recorded with redaction: its queries no longer match anything, so it cannot be replayed. It stays readable as an inventory.",
-    "captureValues": "Capture result values",
-    "captureValuesOn": "Rows are stored locally, so differences can be shown.",
+    "captureValues": "Keep results locally",
+    "captureValuesOn": "Lets you open differences row by row.",
     "captureValuesOff": "Metadata and digests only: differences are reported, not shown.",
     "productionCapture": "Capture values from production",
     "productionCaptureHint": "Off by default. Production rows stay on this machine.",
@@ -734,12 +734,11 @@
     "ignoring": "ignoring {{columns}}",
     "ignoringNone": "no ignored columns",
     "editIgnoredColumns": "Edit ignored columns",
-    "compareToBaseline": "vs. the recording",
+    "compareToBaseline": "Initial recording",
     "compareToRun": "vs. {{date}}",
     "compareToConnection": "vs. {{name}}",
     "sideA": "this connection",
     "sideB": "the other connection",
-    "allowMutations": "Replay mutations",
     "run": "Replay",
     "progress": "{{completed}} / {{total}}",
     "partialComparison": "Comparison limited to the captured rows.",
@@ -748,18 +747,19 @@
     "currentRun": "This run",
     "verdict": {
       "match": "identical",
-      "broken": "broken",
+      "broken": "failed",
       "row_count_diff": "row count",
-      "digest_diff": "content",
+      "digest_diff": "result changed",
       "slower": "slower",
-      "skipped": "skipped"
+      "skipped": "not run",
+      "not_compared": "result not compared"
     },
     "column": {
       "query": "Query",
       "verdict": "Verdict",
       "rows": "Rows",
       "duration": "Duration",
-      "runVsExpected": "run / recorded"
+      "referenceToRun": "reference → run"
     },
     "errors": {
       "listSets": "Failed to list replay sets",
@@ -772,7 +772,8 @@
       "deleteSet": "Failed to delete the replay set",
       "ignoredColumns": "Failed to update the ignored columns",
       "noBaseline": "This set has no baseline capture to compare against",
-      "loadCapture": "Failed to load the captured rows"
+      "loadCapture": "Failed to load the captured rows",
+      "acceptRun": "Failed to accept the run as the reference"
     },
     "settings": {
       "title": "Replay sets and credentials",
@@ -784,6 +785,59 @@
       "offHint": "Nothing is checked. For sets that never leave your machine.",
       "warnHint": "The entry is flagged while you record so you can drop it. The set stays replayable.",
       "redactHint": "Literals are stripped on the way out. The set becomes safe to share and can no longer be replayed."
+    },
+    "newRecording": "New recording",
+    "selectSet": "Select a set",
+    "selectSetHint": "Pick a replay set to run.",
+    "searchSets": "Search sets",
+    "noMatchingSet": "No matching set",
+    "replayTarget": "Target: {{target}}",
+    "options": "Options",
+    "includeMutations_one": "Include {{count}} mutation",
+    "includeMutations_other": "Include {{count}} mutations",
+    "recordMutations": "Record mutations",
+    "recordMutationsHint": "Off: a migration run while recording stays out of the set.",
+    "removeMutations": "Remove the mutations",
+    "cancelRecording": "Discard the recording",
+    "clearFilter": "Show all",
+    "expandQuery": "Show the full query",
+    "collapseQuery": "Collapse the query",
+    "acceptEntry": "Accept this result as the reference",
+    "acceptAll": "Accept this run as the reference",
+    "acceptAllHint": "After a deliberate migration: this run's results become the set's reference.",
+    "referenceAcceptedAll": "The run is now the reference",
+    "referenceAcceptedEntries_one": "{{count}} query updated",
+    "referenceAcceptedEntries_other": "{{count}} queries updated",
+    "queryTextWarningDetail": "Literals are part of the versioned SQL. Result rows stay local and are never added to the repository.",
+    "composition": {
+      "total_one": "{{count}} query",
+      "total_other": "{{count}} queries",
+      "reads_one": "{{count}} read",
+      "reads_other": "{{count}} reads",
+      "mutations_one": "{{count}} mutation",
+      "mutations_other": "{{count}} mutations",
+      "excludedMutations_one": "{{count}} mutation left out",
+      "excludedMutations_other": "{{count}} mutations left out"
+    },
+    "coverage": {
+      "compared": "{{compared}}/{{total}} results compared",
+      "notCompared_one": "{{count}} not compared",
+      "notCompared_other": "{{count}} not compared",
+      "skipped_one": "{{count}} not run",
+      "skipped_other": "{{count}} not run",
+      "broken_one": "{{count}} failed",
+      "broken_other": "{{count}} failed"
+    },
+    "confirm": {
+      "deleteTitle": "Delete “{{name}}”?",
+      "deleteBody": "The set and every run captured locally for it are deleted. This cannot be undone.",
+      "acceptEntryTitle": "Accept this result as the reference?",
+      "acceptAllTitle": "Accept this run as the reference for {{count}} queries?",
+      "acceptBody": "The set's expectations are replaced by what this run observed. Later replays compare against it."
+    },
+    "skipReason": {
+      "mutation_excluded": "Mutation excluded from the replay",
+      "mutation_production_blocked": "Mutations are never replayed against production"
     }
   },
   "settings": {

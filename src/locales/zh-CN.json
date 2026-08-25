@@ -672,15 +672,15 @@
     "setName": "集合名称",
     "setNamePlaceholder": "checkout-flow",
     "ignoredColumns": "忽略的列",
-    "ignoredColumnsHint": "以逗号分隔。这些列不参与比较，避免时间戳在每次重放时都报告差异。",
-    "queryTextWarning": "集合会连同查询原文一起提交到仓库。查询中的字面量（密钥、密码、载荷）也会一并进入版本库。结果数据行永远不会。",
+    "ignoredColumnsHint": "从比较中排除，例如 updated_at。",
+    "queryTextWarning": "查询会原样进入版本库——请确认其中不含任何机密。",
     "secretsDetected": "有 {{count}} 条查询包含疑似凭据的内容。分享集合前请移除，或在设置中改为脱敏。",
     "secretsRedacted": "已对 {{count}} 条包含疑似凭据的查询做脱敏处理。",
     "looksLikeSecret": "疑似凭据",
     "redactedCannotReplay": "该集合在录制时启用了脱敏：其查询已无法匹配任何内容，因此不能重放。作为清单仍可阅读。",
-    "captureValues": "保存结果值",
-    "captureValuesOn": "数据行保存在本地，可以展示差异。",
-    "captureValuesOff": "仅元数据与摘要：只报告差异，不展示内容。",
+    "captureValues": "在本地保留结果",
+    "captureValuesOn": "可以逐行查看差异。",
+    "captureValuesOff": "仅元数据和摘要：报告差异但不展示。",
     "productionCapture": "保存生产环境的值",
     "productionCaptureHint": "默认关闭。生产数据不会离开本机。",
     "startRecording": "开始录制",
@@ -705,12 +705,11 @@
     "ignoring": "忽略 {{columns}}",
     "ignoringNone": "没有忽略的列",
     "editIgnoredColumns": "编辑忽略的列",
-    "compareToBaseline": "与录制对比",
+    "compareToBaseline": "最初的录制",
     "compareToRun": "与 {{date}} 对比",
     "compareToConnection": "与 {{name}} 对比",
     "sideA": "当前连接",
     "sideB": "另一个连接",
-    "allowMutations": "重放写操作",
     "run": "重放",
     "progress": "{{completed}} / {{total}}",
     "partialComparison": "比较仅限于已保存的数据行。",
@@ -719,18 +718,19 @@
     "currentRun": "本次重放",
     "verdict": {
       "match": "一致",
-      "broken": "失败",
+      "broken": "出错",
       "row_count_diff": "行数",
-      "digest_diff": "内容",
+      "digest_diff": "结果已变化",
       "slower": "变慢",
-      "skipped": "已跳过"
+      "skipped": "未执行",
+      "not_compared": "结果未比较"
     },
     "column": {
       "query": "查询",
       "verdict": "结果",
       "rows": "行数",
       "duration": "耗时",
-      "runVsExpected": "本次 / 录制"
+      "referenceToRun": "录制 → 重放"
     },
     "errors": {
       "listSets": "无法列出重放集合",
@@ -743,7 +743,8 @@
       "deleteSet": "无法删除重放集合",
       "ignoredColumns": "无法更新忽略的列",
       "noBaseline": "该集合没有可用于比较的基准快照",
-      "loadCapture": "无法加载已保存的数据行"
+      "loadCapture": "无法加载已保存的数据行",
+      "acceptRun": "无法将本次重放设为基准"
     },
     "settings": {
       "title": "重放集合与凭据",
@@ -755,6 +756,50 @@
       "offHint": "不做任何检查。适用于不离开本机的集合。",
       "warnHint": "录制过程中会标记出来，方便你随时移除。集合仍可重放。",
       "redactHint": "写出时去掉字面量。集合可以放心分享，但不再能重放。"
+    },
+    "newRecording": "新建录制",
+    "selectSet": "选择集合",
+    "selectSetHint": "选择一个要重放的集合。",
+    "searchSets": "搜索集合",
+    "noMatchingSet": "没有匹配的集合",
+    "replayTarget": "目标：{{target}}",
+    "options": "选项",
+    "includeMutations_other": "包含 {{count}} 条写操作",
+    "recordMutations": "录制写操作",
+    "recordMutationsHint": "关闭：录制期间执行的迁移不会进入集合。",
+    "removeMutations": "移除写操作",
+    "cancelRecording": "放弃录制",
+    "clearFilter": "显示全部",
+    "expandQuery": "显示完整查询",
+    "collapseQuery": "折叠查询",
+    "acceptEntry": "将此结果设为基准",
+    "acceptAll": "将本次重放设为基准",
+    "acceptAllHint": "在有意迁移之后：本次重放的结果成为集合的基准。",
+    "referenceAcceptedAll": "本次重放已成为基准",
+    "referenceAcceptedEntries_other": "已更新 {{count}} 条",
+    "queryTextWarningDetail": "字面量是被版本化的 SQL 的一部分。结果行始终保留在本地，绝不会加入仓库。",
+    "composition": {
+      "total_other": "{{count}} 条查询",
+      "reads_other": "{{count}} 条读取",
+      "mutations_other": "{{count}} 条写操作",
+      "excludedMutations_other": "已排除 {{count}} 条写操作"
+    },
+    "coverage": {
+      "compared": "已比较 {{compared}}/{{total}} 个结果",
+      "notCompared_other": "{{count}} 个未比较",
+      "skipped_other": "{{count}} 个未执行",
+      "broken_other": "{{count}} 个出错"
+    },
+    "confirm": {
+      "deleteTitle": "删除“{{name}}”？",
+      "deleteBody": "集合及其所有本地保存的重放记录都会被删除，且无法撤销。",
+      "acceptEntryTitle": "将此结果设为基准？",
+      "acceptAllTitle": "将本次重放设为 {{count}} 条查询的基准？",
+      "acceptBody": "集合的预期值将被本次重放观察到的值取代，之后的重放将与其比较。"
+    },
+    "skipReason": {
+      "mutation_excluded": "写操作已排除在重放之外",
+      "mutation_production_blocked": "写操作永不在生产环境重放"
     }
   },
   "settings": {

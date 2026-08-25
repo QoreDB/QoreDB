@@ -1452,6 +1452,8 @@ function AppContent({
             key={activeTab.id}
             sessionId={sessionId}
             environment={activeConnection?.environment}
+            connectionName={activeConnection?.name}
+            database={activeConnection?.database}
             onOpenDiff={(left, right, title) => onOpenTab(createDiffTab(left, right, title))}
           />
         </LicenseGate>

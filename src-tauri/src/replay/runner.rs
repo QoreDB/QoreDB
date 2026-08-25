@@ -30,6 +30,10 @@ use super::types::{
 
 pub const MUTATION_EXCLUDED: &str = "Mutation excluded from replay";
 pub const MUTATION_PRODUCTION_BLOCKED: &str = "Mutations are never replayed against production";
+/// Stable identifiers for the reasons above. The message travels with them so a
+/// report stays readable outside the app; the UI translates from the code.
+pub const CODE_MUTATION_EXCLUDED: &str = "mutation_excluded";
+pub const CODE_MUTATION_PRODUCTION_BLOCKED: &str = "mutation_production_blocked";
 pub const CANCELLED: &str = "Replay cancelled";
 pub const SET_IS_REDACTED: &str =
     "This replay set was recorded with redaction: its queries cannot be replayed";
@@ -44,7 +48,11 @@ pub struct ReplayServices<'a> {
     pub policy: &'a SafetyPolicy,
 }
 
-fn skipped(entry: &super::types::ReplayEntry, reason: &str) -> ReplayEntryResult {
+fn skipped(
+    entry: &super::types::ReplayEntry,
+    reason: &str,
+    code: Option<&str>,
+) -> ReplayEntryResult {
     ReplayEntryResult {
         entry_id: entry.id.clone(),
         order: entry.order,
@@ -53,6 +61,7 @@ fn skipped(entry: &super::types::ReplayEntry, reason: &str) -> ReplayEntryResult
         success: false,
         error: None,
         skip_reason: Some(reason.to_string()),
+        skip_code: code.map(|c| c.to_string()),
         execution_time_ms: 0.0,
         expected_execution_time_ms: entry.expected.execution_time_ms,
         row_count: None,
@@ -75,9 +84,10 @@ pub async fn run_set(
     options: &ReplayRunOptions,
     capture_store: &CaptureStore,
     baseline_run_id: Option<String>,
-    // Entries decided out of the run before it starts, by entry id and reason.
-    // A/B uses it so one side's exclusion is not executed by the other.
-    excluded: &HashMap<String, String>,
+    // Entries decided out of the run before it starts, by entry id and
+    // `(code, message)`. A/B uses it so one side's exclusion is not executed by
+    // the other.
+    excluded: &HashMap<String, (&'static str, &'static str)>,
     cancel: &AtomicBool,
     mut on_progress: impl FnMut(ReplayProgress),
 ) -> Result<ReplayReport, String> {
@@ -151,8 +161,8 @@ pub async fn run_set(
             current_query_preview: query_preview(&entry.query),
         });
 
-        if let Some(reason) = excluded.get(&entry.id) {
-            results.push(skipped(entry, reason));
+        if let Some((code, reason)) = excluded.get(&entry.id) {
+            results.push(skipped(entry, reason, Some(code)));
             continue;
         }
 
@@ -175,7 +185,7 @@ pub async fn run_set(
             // safety rule, read-only mode, the rate limiter. That is not the
             // database answering differently, so it is not a regression.
             Err(message) => {
-                results.push(skipped(entry, &message));
+                results.push(skipped(entry, &message, None));
                 continue;
             }
         };
@@ -184,15 +194,15 @@ pub async fn run_set(
         // `.qreplay.json` is a versioned, hand-editable file, and a mutation
         // declared as a read would otherwise run — in production included.
         if preflight.is_mutation {
-            let reason = if is_production {
-                MUTATION_PRODUCTION_BLOCKED
+            let refusal = if is_production {
+                Some((CODE_MUTATION_PRODUCTION_BLOCKED, MUTATION_PRODUCTION_BLOCKED))
             } else if !options.allow_mutations {
-                MUTATION_EXCLUDED
+                Some((CODE_MUTATION_EXCLUDED, MUTATION_EXCLUDED))
             } else {
-                ""
+                None
             };
-            if !reason.is_empty() {
-                results.push(skipped(entry, reason));
+            if let Some((code, reason)) = refusal {
+                results.push(skipped(entry, reason, Some(code)));
                 continue;
             }
         }
@@ -290,6 +300,7 @@ pub async fn run_set(
             success: outcome.success,
             error: outcome.error,
             skip_reason: None,
+            skip_code: None,
             execution_time_ms,
             expected_execution_time_ms: entry.expected.execution_time_ms,
             row_count,
@@ -333,7 +344,7 @@ async fn plan_exclusions(
     session: SessionId,
     set: &ReplaySet,
     options: &ReplayRunOptions,
-) -> Result<HashMap<String, String>, String> {
+) -> Result<HashMap<String, (&'static str, &'static str)>, String> {
     let environment = session_manager
         .get_environment(session)
         .await
@@ -348,14 +359,14 @@ async fn plan_exclusions(
         if !is_mutation {
             continue;
         }
-        let reason = if is_production {
-            MUTATION_PRODUCTION_BLOCKED
+        let refusal = if is_production {
+            (CODE_MUTATION_PRODUCTION_BLOCKED, MUTATION_PRODUCTION_BLOCKED)
         } else if !options.allow_mutations {
-            MUTATION_EXCLUDED
+            (CODE_MUTATION_EXCLUDED, MUTATION_EXCLUDED)
         } else {
             continue;
         };
-        excluded.insert(entry.id.clone(), reason.to_string());
+        excluded.insert(entry.id.clone(), refusal);
     }
     Ok(excluded)
 }

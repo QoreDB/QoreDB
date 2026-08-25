@@ -701,14 +701,14 @@
     "setName": "Nom du jeu",
     "setNamePlaceholder": "parcours-commande",
     "ignoredColumns": "Colonnes ignorées",
-    "ignoredColumnsHint": "Séparées par des virgules. Exclues de la comparaison pour qu'un horodatage ne signale pas un écart à chaque rejeu.",
-    "queryTextWarning": "Le jeu est versionné dans votre dépôt avec le texte des requêtes tel quel. Un littéral présent dans une requête — clé, mot de passe, contenu — est versionné avec elle. Les lignes de résultat ne le sont jamais.",
+    "ignoredColumnsHint": "Exclues de la comparaison, par ex. updated_at.",
+    "queryTextWarning": "Requêtes versionnées telles quelles — vérifiez qu'elles ne contiennent aucun secret.",
     "secretsDetected": "{{count}} requêtes contiennent ce qui ressemble à un identifiant. Retirez-les avant de partager le jeu, ou passez en expurgation dans les réglages.",
     "secretsRedacted": "{{count}} requêtes contenaient ce qui ressemble à un identifiant et ont été expurgées.",
     "looksLikeSecret": "Ressemble à un identifiant",
     "redactedCannotReplay": "Ce jeu a été enregistré avec expurgation : ses requêtes ne correspondent plus à rien, il ne peut donc pas être rejoué. Il reste lisible comme inventaire.",
-    "captureValues": "Capturer les valeurs",
-    "captureValuesOn": "Les lignes sont stockées localement, les écarts peuvent être montrés.",
+    "captureValues": "Conserver les résultats localement",
+    "captureValuesOn": "Permet d'ouvrir les écarts ligne par ligne.",
     "captureValuesOff": "Métadonnées et empreintes seulement : les écarts sont signalés, pas montrés.",
     "productionCapture": "Capturer les valeurs en production",
     "productionCaptureHint": "Désactivé par défaut. Les lignes de production ne quittent pas cette machine.",
@@ -734,12 +734,11 @@
     "ignoring": "ignore {{columns}}",
     "ignoringNone": "aucune colonne ignorée",
     "editIgnoredColumns": "Modifier les colonnes ignorées",
-    "compareToBaseline": "vs. l'enregistrement",
+    "compareToBaseline": "Enregistrement initial",
     "compareToRun": "vs. {{date}}",
     "compareToConnection": "vs. {{name}}",
     "sideA": "cette connexion",
     "sideB": "l'autre connexion",
-    "allowMutations": "Rejouer les mutations",
     "run": "Rejouer",
     "progress": "{{completed}} / {{total}}",
     "partialComparison": "Comparaison limitée aux lignes capturées.",
@@ -748,18 +747,19 @@
     "currentRun": "Ce rejeu",
     "verdict": {
       "match": "identique",
-      "broken": "cassée",
+      "broken": "en erreur",
       "row_count_diff": "nombre de lignes",
-      "digest_diff": "contenu",
+      "digest_diff": "résultat modifié",
       "slower": "plus lente",
-      "skipped": "ignorée"
+      "skipped": "non exécutée",
+      "not_compared": "résultat non comparé"
     },
     "column": {
       "query": "Requête",
       "verdict": "Verdict",
       "rows": "Lignes",
       "duration": "Durée",
-      "runVsExpected": "rejeu / enregistré"
+      "referenceToRun": "enregistrement → rejeu"
     },
     "errors": {
       "listSets": "Impossible de lister les jeux de rejeu",
@@ -772,7 +772,8 @@
       "deleteSet": "Impossible de supprimer le jeu de rejeu",
       "ignoredColumns": "Impossible de mettre à jour les colonnes ignorées",
       "noBaseline": "Ce jeu n'a pas de capture de référence à comparer",
-      "loadCapture": "Impossible de charger les lignes capturées"
+      "loadCapture": "Impossible de charger les lignes capturées",
+      "acceptRun": "Impossible d'accepter ce rejeu comme référence"
     },
     "settings": {
       "title": "Jeux de rejeu et identifiants",
@@ -784,6 +785,59 @@
       "offHint": "Aucune vérification. Pour les jeux qui ne quittent pas votre machine.",
       "warnHint": "L'entrée est signalée pendant l'enregistrement pour que vous puissiez la retirer. Le jeu reste rejouable.",
       "redactHint": "Les littéraux sont retirés à la sortie. Le jeu devient partageable sans réserve et ne peut plus être rejoué."
+    },
+    "newRecording": "Nouvel enregistrement",
+    "selectSet": "Choisir un jeu",
+    "selectSetHint": "Choisissez un jeu à rejouer.",
+    "searchSets": "Rechercher un jeu",
+    "noMatchingSet": "Aucun jeu ne correspond",
+    "replayTarget": "Cible : {{target}}",
+    "options": "Options",
+    "includeMutations_one": "Inclure {{count}} mutation",
+    "includeMutations_other": "Inclure {{count}} mutations",
+    "recordMutations": "Enregistrer les mutations",
+    "recordMutationsHint": "Désactivé : une migration lancée pendant l'enregistrement reste hors du jeu.",
+    "removeMutations": "Retirer les mutations",
+    "cancelRecording": "Abandonner l'enregistrement",
+    "clearFilter": "Tout afficher",
+    "expandQuery": "Afficher la requête entière",
+    "collapseQuery": "Replier la requête",
+    "acceptEntry": "Accepter ce résultat comme référence",
+    "acceptAll": "Accepter ce rejeu comme référence",
+    "acceptAllHint": "Après une migration volontaire : les résultats de ce rejeu deviennent la référence du jeu.",
+    "referenceAcceptedAll": "Le rejeu devient la référence",
+    "referenceAcceptedEntries_one": "{{count}} requête mise à jour",
+    "referenceAcceptedEntries_other": "{{count}} requêtes mises à jour",
+    "queryTextWarningDetail": "Les littéraux font partie du SQL versionné. Les lignes de résultat restent locales et ne sont jamais ajoutées au dépôt.",
+    "composition": {
+      "total_one": "{{count}} requête",
+      "total_other": "{{count}} requêtes",
+      "reads_one": "{{count}} lecture",
+      "reads_other": "{{count}} lectures",
+      "mutations_one": "{{count}} mutation",
+      "mutations_other": "{{count}} mutations",
+      "excludedMutations_one": "{{count}} mutation écartée",
+      "excludedMutations_other": "{{count}} mutations écartées"
+    },
+    "coverage": {
+      "compared": "{{compared}}/{{total}} résultats comparés",
+      "notCompared_one": "{{count}} non comparé",
+      "notCompared_other": "{{count}} non comparés",
+      "skipped_one": "{{count}} non exécutée",
+      "skipped_other": "{{count}} non exécutées",
+      "broken_one": "{{count}} en erreur",
+      "broken_other": "{{count}} en erreur"
+    },
+    "confirm": {
+      "deleteTitle": "Supprimer « {{name}} » ?",
+      "deleteBody": "Le jeu et toutes les captures locales de ses rejeux sont supprimés. L'action est irréversible.",
+      "acceptEntryTitle": "Accepter ce résultat comme référence ?",
+      "acceptAllTitle": "Accepter ce rejeu comme référence pour {{count}} requêtes ?",
+      "acceptBody": "Les attentes du jeu sont remplacées par ce que ce rejeu a observé. Les rejeux suivants s'y compareront."
+    },
+    "skipReason": {
+      "mutation_excluded": "Mutation exclue du rejeu",
+      "mutation_production_blocked": "Les mutations ne sont jamais rejouées en production"
     }
   },
   "settings": {

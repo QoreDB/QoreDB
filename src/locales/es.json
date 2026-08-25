@@ -672,14 +672,14 @@
     "setName": "Nombre del conjunto",
     "setNamePlaceholder": "flujo-de-compra",
     "ignoredColumns": "Columnas ignoradas",
-    "ignoredColumnsHint": "Separadas por comas. Se excluyen de la comparación para que una marca de tiempo no señale una diferencia en cada ejecución.",
-    "queryTextWarning": "El conjunto se versiona en tu repositorio con el texto de las consultas tal cual. Un literal dentro de una consulta — clave, contraseña, contenido — se versiona con ella. Las filas de resultados nunca.",
+    "ignoredColumnsHint": "Excluidas de la comparación, p. ej. updated_at.",
+    "queryTextWarning": "Las consultas se versionan tal cual: compruebe que ninguna contenga un secreto.",
     "secretsDetected": "{{count}} consultas contienen algo que parece una credencial. Quítalas antes de compartir el conjunto, o cambia a expurgación en los ajustes.",
     "secretsRedacted": "{{count}} consultas contenían algo que parece una credencial y se han expurgado.",
     "looksLikeSecret": "Parece una credencial",
     "redactedCannotReplay": "Este conjunto se grabó con expurgación: sus consultas ya no coinciden con nada, así que no puede reproducirse. Sigue siendo legible como inventario.",
-    "captureValues": "Capturar los valores",
-    "captureValuesOn": "Las filas se guardan localmente, las diferencias se pueden mostrar.",
+    "captureValues": "Conservar los resultados localmente",
+    "captureValuesOn": "Permite abrir las diferencias fila por fila.",
     "captureValuesOff": "Solo metadatos y huellas: las diferencias se señalan, no se muestran.",
     "productionCapture": "Capturar valores de producción",
     "productionCaptureHint": "Desactivado por defecto. Las filas de producción no salen de esta máquina.",
@@ -705,12 +705,11 @@
     "ignoring": "ignora {{columns}}",
     "ignoringNone": "ninguna columna ignorada",
     "editIgnoredColumns": "Editar las columnas ignoradas",
-    "compareToBaseline": "vs. la grabación",
+    "compareToBaseline": "Grabación inicial",
     "compareToRun": "vs. {{date}}",
     "compareToConnection": "vs. {{name}}",
     "sideA": "esta conexión",
     "sideB": "la otra conexión",
-    "allowMutations": "Reproducir mutaciones",
     "run": "Reproducir",
     "progress": "{{completed}} / {{total}}",
     "partialComparison": "Comparación limitada a las filas capturadas.",
@@ -719,18 +718,19 @@
     "currentRun": "Esta ejecución",
     "verdict": {
       "match": "idéntica",
-      "broken": "rota",
+      "broken": "con error",
       "row_count_diff": "número de filas",
-      "digest_diff": "contenido",
+      "digest_diff": "resultado modificado",
       "slower": "más lenta",
-      "skipped": "omitida"
+      "skipped": "sin ejecutar",
+      "not_compared": "resultado sin comparar"
     },
     "column": {
       "query": "Consulta",
       "verdict": "Veredicto",
       "rows": "Filas",
       "duration": "Duración",
-      "runVsExpected": "ejecución / grabado"
+      "referenceToRun": "grabación → ejecución"
     },
     "errors": {
       "listSets": "No se pudieron listar los conjuntos",
@@ -743,7 +743,8 @@
       "deleteSet": "No se pudo eliminar el conjunto",
       "ignoredColumns": "No se pudieron actualizar las columnas ignoradas",
       "noBaseline": "Este conjunto no tiene captura de referencia para comparar",
-      "loadCapture": "No se pudieron cargar las filas capturadas"
+      "loadCapture": "No se pudieron cargar las filas capturadas",
+      "acceptRun": "No se pudo aceptar la ejecución como referencia"
     },
     "settings": {
       "title": "Conjuntos de reproducción y credenciales",
@@ -755,6 +756,59 @@
       "offHint": "No se comprueba nada. Para conjuntos que nunca salen de tu máquina.",
       "warnHint": "La entrada se señala durante la grabación para que puedas quitarla. El conjunto sigue siendo reproducible.",
       "redactHint": "Los literales se retiran a la salida. El conjunto se vuelve compartible sin reservas y ya no puede reproducirse."
+    },
+    "newRecording": "Nueva grabación",
+    "selectSet": "Elegir un conjunto",
+    "selectSetHint": "Elija un conjunto para reproducir.",
+    "searchSets": "Buscar conjuntos",
+    "noMatchingSet": "Ningún conjunto coincide",
+    "replayTarget": "Destino: {{target}}",
+    "options": "Opciones",
+    "includeMutations_one": "Incluir {{count}} mutación",
+    "includeMutations_other": "Incluir {{count}} mutaciones",
+    "recordMutations": "Grabar las mutaciones",
+    "recordMutationsHint": "Desactivado: una migración ejecutada durante la grabación queda fuera del conjunto.",
+    "removeMutations": "Quitar las mutaciones",
+    "cancelRecording": "Descartar la grabación",
+    "clearFilter": "Mostrar todo",
+    "expandQuery": "Mostrar la consulta completa",
+    "collapseQuery": "Plegar la consulta",
+    "acceptEntry": "Aceptar este resultado como referencia",
+    "acceptAll": "Aceptar esta ejecución como referencia",
+    "acceptAllHint": "Tras una migración deliberada: los resultados de esta ejecución pasan a ser la referencia del conjunto.",
+    "referenceAcceptedAll": "La ejecución es ahora la referencia",
+    "referenceAcceptedEntries_one": "{{count}} consulta actualizada",
+    "referenceAcceptedEntries_other": "{{count}} consultas actualizadas",
+    "queryTextWarningDetail": "Los literales forman parte del SQL versionado. Las filas de resultado permanecen locales y nunca llegan al repositorio.",
+    "composition": {
+      "total_one": "{{count}} consulta",
+      "total_other": "{{count}} consultas",
+      "reads_one": "{{count}} lectura",
+      "reads_other": "{{count}} lecturas",
+      "mutations_one": "{{count}} mutación",
+      "mutations_other": "{{count}} mutaciones",
+      "excludedMutations_one": "{{count}} mutación descartada",
+      "excludedMutations_other": "{{count}} mutaciones descartadas"
+    },
+    "coverage": {
+      "compared": "{{compared}}/{{total}} resultados comparados",
+      "notCompared_one": "{{count}} sin comparar",
+      "notCompared_other": "{{count}} sin comparar",
+      "skipped_one": "{{count}} sin ejecutar",
+      "skipped_other": "{{count}} sin ejecutar",
+      "broken_one": "{{count}} con error",
+      "broken_other": "{{count}} con error"
+    },
+    "confirm": {
+      "deleteTitle": "¿Eliminar «{{name}}»?",
+      "deleteBody": "Se eliminan el conjunto y todas las capturas locales de sus ejecuciones. No se puede deshacer.",
+      "acceptEntryTitle": "¿Aceptar este resultado como referencia?",
+      "acceptAllTitle": "¿Aceptar esta ejecución como referencia de {{count}} consultas?",
+      "acceptBody": "Las expectativas del conjunto se sustituyen por lo observado en esta ejecución. Las siguientes se compararán con ella."
+    },
+    "skipReason": {
+      "mutation_excluded": "Mutación excluida de la reproducción",
+      "mutation_production_blocked": "Las mutaciones nunca se reproducen contra producción"
     }
   },
   "settings": {

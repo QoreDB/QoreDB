@@ -231,6 +231,27 @@ impl CaptureStore {
         fs::remove_file(&path).map_err(|e| format!("Failed to delete capture: {}", e))
     }
 
+    /// Moves one entry's rows from one run to another, replacing whatever the
+    /// destination held. Accepting a run as the new reference has to update the
+    /// baseline's rows too, or the report would say "identical" while the diff
+    /// still opened the old ones.
+    pub fn adopt_entry(
+        &self,
+        from_run: &str,
+        to_run: &str,
+        entry_id: &str,
+    ) -> Result<bool, String> {
+        let source = self.entry_path(from_run, entry_id)?;
+        if !source.exists() {
+            return Ok(false);
+        }
+        let target = self.entry_path(to_run, entry_id)?;
+        fs::create_dir_all(self.run_dir(to_run)?)
+            .map_err(|e| format!("Failed to create run directory: {}", e))?;
+        fs::copy(&source, &target).map_err(|e| format!("Failed to copy capture: {}", e))?;
+        Ok(true)
+    }
+
     pub fn has_entry(&self, run_id: &str, entry_id: &str) -> bool {
         self.entry_path(run_id, entry_id)
             .map(|p| p.exists())

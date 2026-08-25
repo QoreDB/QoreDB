@@ -32,6 +32,10 @@ pub struct RecordingOptions {
     /// switch mid-recording cannot separate a set from its baseline.
     pub workspace_path: std::path::PathBuf,
     pub ignored_columns: Vec<String>,
+    /// Off by default. A migration run while a recording is live would land in
+    /// the set, and a set that carries mutations is one nobody can replay
+    /// without thinking twice.
+    pub record_mutations: bool,
     pub capture_mode: CaptureMode,
     pub max_captured_rows: usize,
     pub capture_budget_bytes: u64,
@@ -53,6 +57,7 @@ struct RecordingSession {
     connection_label: Option<String>,
     environment: String,
     ignored_columns: Vec<String>,
+    record_mutations: bool,
     capture_mode: CaptureMode,
     max_captured_rows: usize,
     capture_budget_bytes: u64,
@@ -60,6 +65,7 @@ struct RecordingSession {
     captured_bytes: u64,
     stop_reason: Option<CaptureStopReason>,
     ignored_other_session: usize,
+    excluded_mutations: usize,
     secret_policy: SecretPolicy,
     secret_patterns: Vec<String>,
     /// Entry ids whose query looks like it carries a credential.
@@ -78,6 +84,11 @@ pub struct RecordingStatus {
     pub capture_stopped_reason: Option<CaptureStopReason>,
     /// Executions seen from another connection and left out.
     pub ignored_other_session: usize,
+    pub record_mutations: bool,
+    /// Mutations left out because `record_mutations` is off.
+    pub excluded_mutations: usize,
+    /// Recorded entries that write. Zero unless `record_mutations` is on.
+    pub mutation_count: usize,
     /// Recorded queries that look like they carry a credential.
     pub secrets_detected: usize,
     pub secret_policy: SecretPolicy,
@@ -95,6 +106,16 @@ impl Recorder {
 
     pub fn is_recording(&self) -> bool {
         self.session.read().is_some()
+    }
+
+    /// Whether the live recording is the one watching this connection. The
+    /// query path asks before deciding to stream: a streamed result reaches the
+    /// recorder without rows, and the entry it produces can never be compared.
+    pub fn records_session(&self, session_id: &str) -> bool {
+        self.session
+            .read()
+            .as_ref()
+            .is_some_and(|s| s.session_id == session_id)
     }
 
     /// Workspace the live recording belongs to — not necessarily the active
@@ -131,6 +152,9 @@ impl Recorder {
             capture_mode: s.capture_mode,
             capture_stopped_reason: s.stop_reason,
             ignored_other_session: s.ignored_other_session,
+            record_mutations: s.record_mutations,
+            excluded_mutations: s.excluded_mutations,
+            mutation_count: s.entries.iter().filter(|e| e.is_mutation).count(),
             secrets_detected: s.flagged.len(),
             secret_policy: s.secret_policy,
         })
@@ -175,6 +199,7 @@ impl Recorder {
             connection_label,
             environment,
             ignored_columns: options.ignored_columns,
+            record_mutations: options.record_mutations,
             capture_mode,
             max_captured_rows: options.max_captured_rows,
             capture_budget_bytes: options.capture_budget_bytes,
@@ -182,6 +207,7 @@ impl Recorder {
             captured_bytes: 0,
             stop_reason,
             ignored_other_session: 0,
+            excluded_mutations: 0,
             secret_policy: options.secret_policy,
             secret_patterns: options.secret_patterns,
             flagged: Vec::new(),
@@ -211,6 +237,11 @@ impl Recorder {
         // under this recording's policy and connection label.
         if context.session_id != session.session_id {
             session.ignored_other_session += 1;
+            return;
+        }
+
+        if context.is_mutation && !session.record_mutations {
+            session.excluded_mutations += 1;
             return;
         }
 
@@ -360,6 +391,30 @@ impl Recorder {
         Ok(())
     }
 
+    /// Drops every recorded mutation and its captured rows, and returns how
+    /// many were removed.
+    pub fn discard_mutations(&self, capture_store: &CaptureStore) -> Result<usize, String> {
+        let mut guard = self.session.write();
+        let session = guard
+            .as_mut()
+            .ok_or_else(|| "No recording in progress".to_string())?;
+
+        let before = session.entries.len();
+        session.entries.retain(|entry| {
+            if !entry.is_mutation {
+                return true;
+            }
+            let _ = capture_store.delete_entry(&session.run_id, &entry.id);
+            false
+        });
+        let kept: Vec<String> = session.entries.iter().map(|e| e.id.clone()).collect();
+        session.flagged.retain(|id| kept.contains(id));
+        for (position, entry) in session.entries.iter_mut().enumerate() {
+            entry.order = position as u32 + 1;
+        }
+        Ok(before - session.entries.len())
+    }
+
     /// `(order, preview, is_mutation, looks_like_secret)` per recorded entry.
     pub fn recorded_previews(&self) -> Vec<(u32, String, bool, bool)> {
         self.session
@@ -447,6 +502,7 @@ mod tests {
             project_id: "default".to_string(),
             workspace_path: std::env::temp_dir(),
             ignored_columns: Vec::new(),
+            record_mutations: false,
             capture_mode: mode,
             max_captured_rows: 1000,
             capture_budget_bytes: 64 * 1024,
@@ -865,6 +921,91 @@ mod tests {
         assert_eq!(recorder.status().unwrap().secrets_detected, 0);
         let (set, _) = recorder.stop().unwrap();
         assert!(set.entries[0].query.contains("hunter2"));
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    fn mutation_context(query: &str) -> QueryContext {
+        QueryContext {
+            operation_type: QueryOperationType::Insert,
+            is_mutation: true,
+            ..context(query)
+        }
+    }
+
+    /// A migration run while a recording is live must not end up in the set.
+    #[test]
+    fn mutations_stay_out_unless_asked_for() {
+        let (capture, dir) = store();
+        let recorder = Recorder::new();
+        recorder
+            .start(
+                options(CaptureMode::Full),
+                "postgres".into(),
+                None,
+                "staging".into(),
+                false,
+            )
+            .unwrap();
+
+        recorder.record(
+            &context("SELECT 1"),
+            None,
+            &exec(true, 1.0),
+            Some(&sample_result(1)),
+            &capture,
+        );
+        recorder.record(
+            &mutation_context("ALTER TABLE users ADD COLUMN plan text"),
+            None,
+            &exec(true, 1.0),
+            None,
+            &capture,
+        );
+
+        let status = recorder.status().unwrap();
+        assert_eq!(status.entry_count, 1);
+        assert_eq!(status.excluded_mutations, 1);
+
+        let (set, _) = recorder.stop().unwrap();
+        assert_eq!(set.entries.len(), 1);
+        assert!(!set.entries[0].is_mutation);
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn recorded_mutations_can_be_dropped_before_saving() {
+        let (capture, dir) = store();
+        let recorder = Recorder::new();
+        let mut opts = options(CaptureMode::Full);
+        opts.record_mutations = true;
+        recorder
+            .start(opts, "postgres".into(), None, "staging".into(), false)
+            .unwrap();
+
+        recorder.record(
+            &context("SELECT 1"),
+            None,
+            &exec(true, 1.0),
+            Some(&sample_result(1)),
+            &capture,
+        );
+        recorder.record(
+            &mutation_context("UPDATE users SET plan = 'pro'"),
+            None,
+            &exec(true, 1.0),
+            Some(&sample_result(2)),
+            &capture,
+        );
+        assert_eq!(recorder.status().unwrap().mutation_count, 1);
+
+        assert_eq!(recorder.discard_mutations(&capture).unwrap(), 1);
+
+        let (set, run) = recorder.stop().unwrap();
+        assert_eq!(set.entries.len(), 1);
+        assert_eq!(set.entries[0].order, 1);
+        assert!(capture.has_entry(&run.run_id, &set.entries[0].id));
 
         let _ = std::fs::remove_dir_all(&dir);
     }

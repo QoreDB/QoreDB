@@ -450,6 +450,8 @@ pub fn run() {
             #[cfg(feature = "pro")]
             commands::replay::replay_discard_recorded,
             #[cfg(feature = "pro")]
+            commands::replay::replay_discard_mutations,
+            #[cfg(feature = "pro")]
             commands::replay::replay_list_sets,
             #[cfg(feature = "pro")]
             commands::replay::replay_load_set,
@@ -469,6 +471,8 @@ pub fn run() {
             commands::replay::replay_load_capture,
             #[cfg(feature = "pro")]
             commands::replay::replay_last_report,
+            #[cfg(feature = "pro")]
+            commands::replay::replay_accept_run,
             // Workspace commands
             commands::workspace::detect_workspace,
             commands::workspace::get_active_workspace,

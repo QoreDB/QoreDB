@@ -21,7 +21,7 @@ const localeLoaders: Record<string, () => Promise<TranslationModule>> = {
   ru: () => import('./locales/ru.json'),
 };
 
-const localeBackend: BackendModule = {
+export const localeBackend: BackendModule = {
   type: 'backend',
   init() {},
   read(language, namespace, callback) {

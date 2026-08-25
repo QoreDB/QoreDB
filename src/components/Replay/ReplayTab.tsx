@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: BUSL-1.1
 
-import { Check, ListRestart, Loader2, Pencil, Play, Trash2, X } from 'lucide-react';
-import { useCallback, useState } from 'react';
+import { BookmarkCheck, Check, Circle, Loader2, Pencil, Play, Settings2, X } from 'lucide-react';
+import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
   Select,
   SelectContent,
@@ -21,24 +22,36 @@ import {
   type ReplayEntryResult,
   type ReplayReport,
 } from '@/lib/replay';
+import { confirmDialog } from '@/lib/stores/confirmStore';
 import type { DiffSource } from '@/lib/tabs';
 import { cn } from '@/lib/utils';
-import { RecordingPanel } from './RecordingPanel';
+import { RecordingBanner } from './RecordingBanner';
+import { RecordingDialog } from './RecordingDialog';
 import { ReplayReportView } from './ReplayReportView';
+import { ReplaySetPicker } from './ReplaySetPicker';
 
 interface ReplayTabProps {
   sessionId: string | null;
   environment?: string;
+  connectionName?: string;
+  database?: string;
   onOpenDiff?: (left: DiffSource, right: DiffSource, title: string) => void;
 }
 
-export function ReplayTab({ sessionId, environment, onOpenDiff }: ReplayTabProps) {
+export function ReplayTab({
+  sessionId,
+  environment,
+  connectionName,
+  database,
+  onOpenDiff,
+}: ReplayTabProps) {
   const { t } = useTranslation();
   const isProduction = environment === 'production';
   const [allowMutations, setAllowMutations] = useState(false);
   const [editingIgnored, setEditingIgnored] = useState<string | null>(null);
   const [baselineRunId, setBaselineRunId] = useState<string | undefined>();
   const [abSessionId, setAbSessionId] = useState<string | undefined>();
+  const [setupOpen, setSetupOpen] = useState(false);
 
   const {
     sets,
@@ -55,6 +68,8 @@ export function ReplayTab({ sessionId, environment, onOpenDiff }: ReplayTabProps
     endRecording,
     abortRecording,
     dropRecorded,
+    dropMutations,
+    acceptRun,
     runs,
     abReport,
     sessions,
@@ -65,7 +80,6 @@ export function ReplayTab({ sessionId, environment, onOpenDiff }: ReplayTabProps
     updateIgnoredColumns,
   } = useReplay(sessionId);
 
-  // Other live connections this set can be replayed against, side by side.
   const otherSessions = sessions.filter(session => session.id !== sessionId);
 
   const activeReport: ReplayReport | null = abReport
@@ -76,6 +90,11 @@ export function ReplayTab({ sessionId, environment, onOpenDiff }: ReplayTabProps
         summary: abReport.summary,
       }
     : report;
+
+  const mutationCount = useMemo(
+    () => activeSet?.entries.filter(entry => entry.is_mutation).length ?? 0,
+    [activeSet]
+  );
 
   const handleOpenDiff = useCallback(
     async (entry: ReplayEntryResult) => {
@@ -110,271 +129,307 @@ export function ReplayTab({ sessionId, environment, onOpenDiff }: ReplayTabProps
     [abReport, activeReport, onOpenDiff, t]
   );
 
+  const handleDeleteSet = useCallback(
+    async (slug: string) => {
+      const set = sets.find(candidate => candidate.slug === slug);
+      const ok = await confirmDialog({
+        title: t('replay.confirm.deleteTitle', { name: set?.name ?? slug }),
+        description: t('replay.confirm.deleteBody'),
+      });
+      if (ok) await removeSet(slug);
+    },
+    [removeSet, sets, t]
+  );
+
+  const handleAccept = useCallback(
+    async (entryIds?: string[]) => {
+      // A/B compares two live runs; neither is the set's reference.
+      if (!report) return;
+      const ok = await confirmDialog({
+        title: entryIds
+          ? t('replay.confirm.acceptEntryTitle')
+          : t('replay.confirm.acceptAllTitle', { count: report.summary.total }),
+        description: t('replay.confirm.acceptBody'),
+      });
+      if (ok) await acceptRun(report.run.run_id, entryIds);
+    },
+    [acceptRun, report, t]
+  );
+
+  const target = [connectionName, database, environment].filter(Boolean).join(' · ');
+
   return (
-    <div className="flex-1 flex min-h-0">
-      <aside className="w-72 shrink-0 border-r border-border flex flex-col min-h-0">
-        <div className="shrink-0 flex items-center gap-2 px-3 py-3 border-b border-border bg-muted/10">
-          <ListRestart size={16} className="text-accent" />
-          <h2 className="text-sm font-semibold">{t('replay.title')}</h2>
-        </div>
+    <div className="flex-1 flex flex-col min-h-0">
+      {recording && (
+        <RecordingBanner
+          recording={recording}
+          previews={previews}
+          onStop={() => void endRecording()}
+          onCancel={() => void abortRecording()}
+          onDiscard={index => void dropRecorded(index)}
+          onDiscardMutations={() => void dropMutations()}
+        />
+      )}
 
-        <div className="p-3 border-b border-border">
-          <RecordingPanel
-            recording={recording}
-            previews={previews}
-            isProduction={isProduction}
-            onStart={beginRecording}
-            onStop={endRecording}
-            onCancel={abortRecording}
-            onDiscard={dropRecorded}
+      <div className="shrink-0 flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-2 border-b border-border bg-muted/10">
+        <div className="min-w-0 flex-1">
+          <ReplaySetPicker
+            sets={sets}
+            activeSlug={activeSlug}
+            activeName={activeSet?.name}
+            loading={setsLoading}
+            onSelect={slug => {
+              setBaselineRunId(undefined);
+              setAbSessionId(undefined);
+              setEditingIgnored(null);
+              void selectSet(slug);
+            }}
+            onDelete={slug => void handleDeleteSet(slug)}
           />
+          {activeSet &&
+            (editingIgnored === null ? (
+              <p className="flex items-center gap-1.5 pl-2 text-[11px] text-muted-foreground">
+                <span className="truncate">
+                  {t('replay.recordedOn', {
+                    driver: activeSet.source.driver_id,
+                    environment: activeSet.source.environment,
+                  })}
+                  {' · '}
+                  {activeSet.ignored_columns.length > 0
+                    ? t('replay.ignoring', { columns: activeSet.ignored_columns.join(', ') })
+                    : t('replay.ignoringNone')}
+                </span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-4 w-4 shrink-0 p-0"
+                  onClick={() => setEditingIgnored(activeSet.ignored_columns.join(', '))}
+                  aria-label={t('replay.editIgnoredColumns')}
+                  title={t('replay.editIgnoredColumns')}
+                >
+                  <Pencil size={11} />
+                </Button>
+              </p>
+            ) : (
+              <form
+                className="flex items-center gap-1.5 pl-2"
+                onSubmit={event => {
+                  event.preventDefault();
+                  void updateIgnoredColumns(
+                    editingIgnored
+                      .split(',')
+                      .map(column => column.trim())
+                      .filter(Boolean)
+                  );
+                  setEditingIgnored(null);
+                }}
+              >
+                <Input
+                  autoFocus
+                  value={editingIgnored}
+                  onChange={event => setEditingIgnored(event.target.value)}
+                  onKeyDown={event => {
+                    if (event.key === 'Escape') setEditingIgnored(null);
+                  }}
+                  placeholder="updated_at, last_seen_at"
+                  aria-label={t('replay.ignoredColumns')}
+                  className="h-6 w-64 text-xs font-mono"
+                />
+                <Button type="submit" variant="ghost" size="sm" className="h-6 w-6 p-0">
+                  <Check size={12} />
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 w-6 p-0"
+                  onClick={() => setEditingIgnored(null)}
+                >
+                  <X size={12} />
+                </Button>
+              </form>
+            ))}
         </div>
 
-        <div className="flex-1 min-h-0 overflow-y-auto p-2">
-          {setsLoading ? (
-            <div className="flex items-center justify-center py-8">
-              <Loader2 size={16} className="animate-spin text-muted-foreground" />
-            </div>
-          ) : sets.length === 0 ? (
-            <p className="px-2 py-8 text-center text-xs text-muted-foreground">
-              {t('replay.noSets')}
-            </p>
-          ) : (
-            <ul className="space-y-0.5">
-              {sets.map(set => (
-                <li
-                  key={set.slug}
-                  className={cn(
-                    'group flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-[var(--color-bg-2)]',
-                    activeSlug === set.slug && 'bg-[var(--color-bg-2)]'
-                  )}
+        <div className="flex items-center gap-2 shrink-0">
+          {target && (
+            <span
+              className={cn(
+                'truncate rounded-md border border-border px-2 py-1 text-[11px] text-muted-foreground',
+                isProduction &&
+                  'border-[var(--color-error)]/40 bg-[var(--color-error)]/5 text-[var(--color-error)]'
+              )}
+              title={t('replay.replayTarget', { target })}
+            >
+              {t('replay.replayTarget', { target })}
+            </span>
+          )}
+
+          {activeSet && (runs.length > 1 || otherSessions.length > 0) && (
+            <Select
+              value={abSessionId ? `conn:${abSessionId}` : (baselineRunId ?? 'auto')}
+              onValueChange={value => {
+                if (value.startsWith('conn:')) {
+                  setAbSessionId(value.slice('conn:'.length));
+                  setBaselineRunId(undefined);
+                  return;
+                }
+                setAbSessionId(undefined);
+                setBaselineRunId(value === 'auto' ? undefined : value);
+              }}
+              disabled={running}
+            >
+              <SelectTrigger className="h-7 w-52 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="auto">{t('replay.compareToBaseline')}</SelectItem>
+                {runs
+                  .filter(run => !run.is_baseline)
+                  .map(run => (
+                    <SelectItem key={run.run_id} value={run.run_id}>
+                      {t('replay.compareToRun', {
+                        date: new Date(run.started_at).toLocaleString(),
+                      })}
+                    </SelectItem>
+                  ))}
+                {otherSessions.map(session => (
+                  <SelectItem key={session.id} value={`conn:${session.id}`}>
+                    {t('replay.compareToConnection', { name: session.display_name })}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+
+          {activeSet && (
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 w-7 p-0"
+                  aria-label={t('replay.options')}
+                  title={t('replay.options')}
                 >
-                  <button
-                    type="button"
-                    className="min-w-0 flex-1 text-left"
-                    onClick={() => {
-                      setBaselineRunId(undefined);
-                      setAbSessionId(undefined);
-                      setEditingIgnored(null);
-                      void selectSet(set.slug);
-                    }}
+                  <Settings2 size={14} />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent align="end" className="w-72 space-y-3 p-3">
+                {mutationCount > 0 && (
+                  <label
+                    htmlFor="replay-allow-mutations"
+                    className="flex items-center justify-between gap-3 text-xs"
                   >
-                    <p className="text-xs font-medium truncate">{set.name}</p>
-                    <p className="text-[11px] text-muted-foreground truncate">
-                      {t('replay.entriesTotal', { count: set.entry_count })} · {set.environment}
-                    </p>
-                  </button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-5 w-5 p-0 opacity-0 group-hover:opacity-100"
-                    onClick={() => void removeSet(set.slug)}
-                    aria-label={t('replay.deleteSet')}
-                  >
-                    <Trash2 size={12} />
-                  </Button>
-                </li>
-              ))}
-            </ul>
+                    {t('replay.includeMutations', { count: mutationCount })}
+                    <Switch
+                      id="replay-allow-mutations"
+                      checked={allowMutations}
+                      onCheckedChange={setAllowMutations}
+                      disabled={isProduction}
+                    />
+                  </label>
+                )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 w-full gap-1.5 text-xs"
+                  disabled={!report}
+                  onClick={() => void handleAccept()}
+                >
+                  <BookmarkCheck size={12} />
+                  {t('replay.acceptAll')}
+                </Button>
+                <p className="text-[11px] text-muted-foreground">{t('replay.acceptAllHint')}</p>
+              </PopoverContent>
+            </Popover>
+          )}
+
+          {activeSet &&
+            (running ? (
+              <Button variant="outline" size="sm" className="h-7 gap-1.5" onClick={abortReplay}>
+                <X size={14} />
+                {t('common.cancel')}
+              </Button>
+            ) : (
+              <Button
+                size="sm"
+                className="h-7 gap-1.5"
+                disabled={!sessionId || activeSet.redacted}
+                title={activeSet.redacted ? t('replay.redactedCannotReplay') : undefined}
+                onClick={() => {
+                  const options = { ...DEFAULT_RUN_OPTIONS, allow_mutations: allowMutations };
+                  if (abSessionId) {
+                    void replayAb(abSessionId, options);
+                    return;
+                  }
+                  void replay(options, baselineRunId);
+                }}
+              >
+                <Play size={14} />
+                {t('replay.run')}
+              </Button>
+            ))}
+
+          {!recording && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 gap-1.5"
+              disabled={!sessionId}
+              onClick={() => setSetupOpen(true)}
+            >
+              <Circle size={9} className="fill-current" />
+              {t('replay.newRecording')}
+            </Button>
           )}
         </div>
-      </aside>
+      </div>
 
-      <section className="flex-1 min-w-0 flex flex-col min-h-0">
+      <div className="flex-1 min-h-0 p-4">
         {!activeSet ? (
-          <div className="flex-1 flex items-center justify-center px-6">
+          <div className="flex h-full items-center justify-center px-6">
             <p className="max-w-md text-center text-sm text-muted-foreground">
-              {t('replay.emptyState')}
+              {sets.length === 0 ? t('replay.emptyState') : t('replay.selectSetHint')}
             </p>
           </div>
+        ) : activeSet.redacted ? (
+          <p className="py-8 text-center text-xs text-muted-foreground">
+            {t('replay.redactedCannotReplay')}
+          </p>
+        ) : running ? (
+          <div className="flex h-full flex-col items-center justify-center gap-2">
+            <Loader2 size={20} className="animate-spin text-muted-foreground" />
+            {progress && (
+              <>
+                <p className="text-xs text-muted-foreground">
+                  {t('replay.progress', { completed: progress.completed, total: progress.total })}
+                </p>
+                <p className="max-w-md truncate font-mono text-[11px] text-muted-foreground">
+                  {progress.current_query_preview}
+                </p>
+              </>
+            )}
+          </div>
+        ) : activeReport ? (
+          <ReplayReportView
+            report={activeReport}
+            onOpenDiff={handleOpenDiff}
+            onAcceptEntry={report ? entry => void handleAccept([entry.entry_id]) : undefined}
+            leftLabel={abReport ? t('replay.sideA') : undefined}
+            rightLabel={abReport ? t('replay.sideB') : undefined}
+          />
         ) : (
-          <>
-            <div className="shrink-0 flex items-center justify-between gap-3 px-4 py-3 border-b border-border bg-muted/10">
-              <div className="min-w-0">
-                <h3 className="text-sm font-medium truncate">{activeSet.name}</h3>
-                {editingIgnored === null ? (
-                  <p className="flex items-center gap-1.5 text-xs text-muted-foreground truncate">
-                    <span className="truncate">
-                      {t('replay.recordedOn', {
-                        driver: activeSet.source.driver_id,
-                        environment: activeSet.source.environment,
-                      })}
-                      {' · '}
-                      {activeSet.ignored_columns.length > 0
-                        ? t('replay.ignoring', {
-                            columns: activeSet.ignored_columns.join(', '),
-                          })
-                        : t('replay.ignoringNone')}
-                    </span>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-4 w-4 shrink-0 p-0"
-                      onClick={() => setEditingIgnored(activeSet.ignored_columns.join(', '))}
-                      aria-label={t('replay.editIgnoredColumns')}
-                      title={t('replay.editIgnoredColumns')}
-                    >
-                      <Pencil size={11} />
-                    </Button>
-                  </p>
-                ) : (
-                  <form
-                    className="flex items-center gap-1.5"
-                    onSubmit={event => {
-                      event.preventDefault();
-                      void updateIgnoredColumns(
-                        editingIgnored
-                          .split(',')
-                          .map(column => column.trim())
-                          .filter(Boolean)
-                      );
-                      setEditingIgnored(null);
-                    }}
-                  >
-                    <Input
-                      autoFocus
-                      value={editingIgnored}
-                      onChange={event => setEditingIgnored(event.target.value)}
-                      onKeyDown={event => {
-                        if (event.key === 'Escape') setEditingIgnored(null);
-                      }}
-                      placeholder="updated_at, last_seen_at"
-                      aria-label={t('replay.ignoredColumns')}
-                      className="h-6 w-64 text-xs font-mono"
-                    />
-                    <Button type="submit" variant="ghost" size="sm" className="h-6 w-6 p-0">
-                      <Check size={12} />
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 w-6 p-0"
-                      onClick={() => setEditingIgnored(null)}
-                    >
-                      <X size={12} />
-                    </Button>
-                  </form>
-                )}
-              </div>
-
-              <div className="flex items-center gap-3 shrink-0">
-                {(runs.length > 1 || otherSessions.length > 0) && (
-                  <Select
-                    value={abSessionId ? `conn:${abSessionId}` : (baselineRunId ?? 'auto')}
-                    onValueChange={value => {
-                      if (value.startsWith('conn:')) {
-                        setAbSessionId(value.slice('conn:'.length));
-                        setBaselineRunId(undefined);
-                        return;
-                      }
-                      setAbSessionId(undefined);
-                      setBaselineRunId(value === 'auto' ? undefined : value);
-                    }}
-                    disabled={running}
-                  >
-                    <SelectTrigger className="h-7 w-56 text-xs">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="auto">{t('replay.compareToBaseline')}</SelectItem>
-                      {runs
-                        .filter(run => !run.is_baseline)
-                        .map(run => (
-                          <SelectItem key={run.run_id} value={run.run_id}>
-                            {t('replay.compareToRun', {
-                              date: new Date(run.started_at).toLocaleString(),
-                            })}
-                          </SelectItem>
-                        ))}
-                      {otherSessions.map(session => (
-                        <SelectItem key={session.id} value={`conn:${session.id}`}>
-                          {t('replay.compareToConnection', { name: session.display_name })}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-                <label
-                  htmlFor="replay-allow-mutations"
-                  className="flex items-center gap-1.5 text-xs"
-                >
-                  <Switch
-                    id="replay-allow-mutations"
-                    checked={allowMutations}
-                    onCheckedChange={setAllowMutations}
-                    disabled={isProduction}
-                  />
-                  {t('replay.allowMutations')}
-                </label>
-                {running ? (
-                  <Button variant="outline" size="sm" className="h-7 gap-1.5" onClick={abortReplay}>
-                    <X size={14} />
-                    {t('common.cancel')}
-                  </Button>
-                ) : (
-                  <Button
-                    size="sm"
-                    className="h-7 gap-1.5"
-                    disabled={!sessionId || activeSet.redacted}
-                    title={activeSet.redacted ? t('replay.redactedCannotReplay') : undefined}
-                    onClick={() => {
-                      const options = {
-                        ...DEFAULT_RUN_OPTIONS,
-                        allow_mutations: allowMutations,
-                      };
-                      if (abSessionId) {
-                        void replayAb(abSessionId, options);
-                        return;
-                      }
-                      void replay(options, baselineRunId);
-                    }}
-                  >
-                    <Play size={14} />
-                    {t('replay.run')}
-                  </Button>
-                )}
-              </div>
-            </div>
-
-            <div className="flex-1 min-h-0 p-4">
-              {activeSet.redacted ? (
-                <p className="py-8 text-center text-xs text-muted-foreground">
-                  {t('replay.redactedCannotReplay')}
-                </p>
-              ) : running ? (
-                <div className="flex h-full flex-col items-center justify-center gap-2">
-                  <Loader2 size={20} className="animate-spin text-muted-foreground" />
-                  {progress && (
-                    <>
-                      <p className="text-xs text-muted-foreground">
-                        {t('replay.progress', {
-                          completed: progress.completed,
-                          total: progress.total,
-                        })}
-                      </p>
-                      <p className="max-w-md truncate font-mono text-[11px] text-muted-foreground">
-                        {progress.current_query_preview}
-                      </p>
-                    </>
-                  )}
-                </div>
-              ) : activeReport ? (
-                <ReplayReportView
-                  report={activeReport}
-                  onOpenDiff={handleOpenDiff}
-                  leftLabel={abReport ? t('replay.sideA') : undefined}
-                  rightLabel={abReport ? t('replay.sideB') : undefined}
-                />
-              ) : (
-                <p className="text-center text-xs text-muted-foreground py-8">
-                  {t('replay.notRunYet')}
-                </p>
-              )}
-            </div>
-          </>
+          <p className="text-center text-xs text-muted-foreground py-8">{t('replay.notRunYet')}</p>
         )}
-      </section>
+      </div>
+
+      <RecordingDialog
+        open={setupOpen}
+        onOpenChange={setSetupOpen}
+        isProduction={isProduction}
+        onStart={setup => void beginRecording(setup)}
+      />
     </div>
   );
 }

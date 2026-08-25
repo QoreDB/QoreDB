@@ -145,6 +145,9 @@ pub enum ReplayVerdict {
     RowCountDiff,
     DigestDiff,
     Slower,
+    /// Ran, but there was nothing to compare it against: the recording kept
+    /// neither a row count nor a digest. Never reported as identical.
+    NotCompared,
     /// Not run: mutation excluded, or blocked by the production policy.
     Skipped,
 }
@@ -160,6 +163,10 @@ pub struct ReplayEntryResult {
     pub error: Option<String>,
     #[serde(default)]
     pub skip_reason: Option<String>,
+    /// Stable identifier for `skip_reason`, so the UI can translate it.
+    /// `None` when the reason is a free-form message from the preflight.
+    #[serde(default)]
+    pub skip_code: Option<String>,
     pub execution_time_ms: f64,
     pub expected_execution_time_ms: f64,
     #[serde(default)]
@@ -186,6 +193,8 @@ pub struct ReplaySummary {
     pub row_count_diff: usize,
     pub digest_diff: usize,
     pub slower: usize,
+    #[serde(default)]
+    pub not_compared: usize,
     pub skipped: usize,
 }
 

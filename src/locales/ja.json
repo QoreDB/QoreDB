@@ -672,14 +672,14 @@
     "setName": "セット名",
     "setNamePlaceholder": "checkout-flow",
     "ignoredColumns": "無視する列",
-    "ignoredColumnsHint": "カンマ区切り。比較から除外され、タイムスタンプが毎回差分として報告されるのを防ぎます。",
-    "queryTextWarning": "セットはクエリ本文をそのまま含めてリポジトリに記録されます。クエリ内のリテラル（鍵、パスワード、ペイロード）も一緒に記録されます。結果の行は記録されません。",
+    "ignoredColumnsHint": "比較から除外します。例: updated_at。",
+    "queryTextWarning": "クエリはそのままバージョン管理されます。秘密情報が含まれていないか確認してください。",
     "secretsDetected": "{{count}} 件のクエリに認証情報らしき値が含まれています。共有前に削除するか、設定で秘匿に切り替えてください。",
     "secretsRedacted": "認証情報らしき値を含む {{count}} 件のクエリを秘匿しました。",
     "looksLikeSecret": "認証情報の可能性",
     "redactedCannotReplay": "このセットは秘匿ありで記録されました。クエリが何にも一致しなくなるため再実行できません。一覧としては読めます。",
-    "captureValues": "結果の値を保存",
-    "captureValuesOn": "行はローカルに保存され、差分を表示できます。",
+    "captureValues": "結果をローカルに保持",
+    "captureValuesOn": "差分を行単位で開けるようになります。",
     "captureValuesOff": "メタデータとダイジェストのみ: 差分は報告されますが表示されません。",
     "productionCapture": "本番環境の値を保存",
     "productionCaptureHint": "既定ではオフ。本番の行はこのマシンから出ません。",
@@ -705,12 +705,11 @@
     "ignoring": "{{columns}} を無視",
     "ignoringNone": "無視する列なし",
     "editIgnoredColumns": "無視する列を編集",
-    "compareToBaseline": "記録と比較",
+    "compareToBaseline": "最初の記録",
     "compareToRun": "{{date}} と比較",
     "compareToConnection": "{{name}} と比較",
     "sideA": "この接続",
     "sideB": "もう一方の接続",
-    "allowMutations": "変更系も再実行",
     "run": "再実行",
     "progress": "{{completed}} / {{total}}",
     "partialComparison": "比較は保存された行に限定されています。",
@@ -719,18 +718,19 @@
     "currentRun": "この実行",
     "verdict": {
       "match": "一致",
-      "broken": "失敗",
+      "broken": "エラー",
       "row_count_diff": "行数",
-      "digest_diff": "内容",
+      "digest_diff": "結果が変化",
       "slower": "低速化",
-      "skipped": "スキップ"
+      "skipped": "未実行",
+      "not_compared": "結果は未比較"
     },
     "column": {
       "query": "クエリ",
       "verdict": "判定",
       "rows": "行数",
       "duration": "実行時間",
-      "runVsExpected": "実行 / 記録"
+      "referenceToRun": "記録 → 実行"
     },
     "errors": {
       "listSets": "リプレイセットを一覧できませんでした",
@@ -743,7 +743,8 @@
       "deleteSet": "リプレイセットを削除できませんでした",
       "ignoredColumns": "無視する列を更新できませんでした",
       "noBaseline": "このセットには比較対象の基準キャプチャがありません",
-      "loadCapture": "保存された行を読み込めませんでした"
+      "loadCapture": "保存された行を読み込めませんでした",
+      "acceptRun": "この実行を基準として採用できませんでした"
     },
     "settings": {
       "title": "リプレイセットと認証情報",
@@ -755,6 +756,50 @@
       "offHint": "何も検査しません。この端末から出さないセット向けです。",
       "warnHint": "記録中に印が付き、その場で削除できます。セットは再実行できるままです。",
       "redactHint": "書き出し時にリテラルを取り除きます。安心して共有できる代わりに再実行はできなくなります。"
+    },
+    "newRecording": "新しい記録",
+    "selectSet": "セットを選択",
+    "selectSetHint": "再生するセットを選んでください。",
+    "searchSets": "セットを検索",
+    "noMatchingSet": "一致するセットがありません",
+    "replayTarget": "対象: {{target}}",
+    "options": "オプション",
+    "includeMutations_other": "{{count}} 件の変更クエリを含める",
+    "recordMutations": "変更クエリを記録する",
+    "recordMutationsHint": "オフ: 記録中に実行したマイグレーションはセットに入りません。",
+    "removeMutations": "変更クエリを削除",
+    "cancelRecording": "記録を破棄",
+    "clearFilter": "すべて表示",
+    "expandQuery": "クエリ全体を表示",
+    "collapseQuery": "クエリを折りたたむ",
+    "acceptEntry": "この結果を基準として採用",
+    "acceptAll": "この実行を基準として採用",
+    "acceptAllHint": "意図的な移行のあと、この実行の結果がセットの基準になります。",
+    "referenceAcceptedAll": "この実行が基準になりました",
+    "referenceAcceptedEntries_other": "{{count}} 件を更新しました",
+    "queryTextWarningDetail": "リテラルはバージョン管理される SQL の一部です。結果の行はローカルに留まり、リポジトリには入りません。",
+    "composition": {
+      "total_other": "{{count}} 件のクエリ",
+      "reads_other": "{{count}} 件の読み取り",
+      "mutations_other": "{{count}} 件の変更",
+      "excludedMutations_other": "{{count}} 件の変更を除外"
+    },
+    "coverage": {
+      "compared": "{{compared}}/{{total}} 件の結果を比較",
+      "notCompared_other": "{{count}} 件は未比較",
+      "skipped_other": "{{count}} 件は未実行",
+      "broken_other": "{{count}} 件はエラー"
+    },
+    "confirm": {
+      "deleteTitle": "「{{name}}」を削除しますか？",
+      "deleteBody": "セットと、ローカルに保存されたすべての実行結果が削除されます。元に戻せません。",
+      "acceptEntryTitle": "この結果を基準として採用しますか？",
+      "acceptAllTitle": "この実行を {{count}} 件のクエリの基準として採用しますか？",
+      "acceptBody": "セットの期待値はこの実行で観測された値に置き換わります。以降の再生はこれと比較されます。"
+    },
+    "skipReason": {
+      "mutation_excluded": "変更クエリは再生から除外されました",
+      "mutation_production_blocked": "変更クエリは本番環境では再生されません"
     }
   },
   "settings": {

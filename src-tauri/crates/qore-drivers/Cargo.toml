@@ -46,6 +46,11 @@ duckdb = { workspace = true, optional = true }
 # HTTP-backed ClickHouse and search drivers
 reqwest = { version = "0.12", optional = true, default-features = false, features = ["rustls-tls", "json", "gzip"] }
 
+# TLS on a raw socket, for the hand-written CQL client
+tokio-rustls = { version = "0.26", optional = true, default-features = false, features = ["ring", "tls12"] }
+rustls-native-certs = { version = "0.8", optional = true }
+rustls-pemfile = { version = "2", optional = true }
+
 # SOCKS5 proxy support
 tokio-socks = "0.5"
 
@@ -62,6 +67,7 @@ tempfile = "3.24.0"
 default = ["all-drivers"]
 all-drivers = [
     "driver-azuresql",
+    "driver-cassandra",
     "driver-clickhouse",
     "driver-cockroachdb",
     "driver-doris",
@@ -80,6 +86,7 @@ all-drivers = [
     "driver-planetscale",
     "driver-postgres",
     "driver-redis",
+    "driver-scylladb",
     "driver-sqlite",
     "driver-sqlserver",
     "driver-starrocks",
@@ -92,6 +99,7 @@ all-drivers = [
     "driver-yugabytedb",
 ]
 driver-azuresql = ["driver-sqlserver"]
+driver-cassandra = ["dep:tokio-rustls", "dep:rustls-native-certs", "dep:rustls-pemfile"]
 driver-clickhouse = ["dep:reqwest"]
 driver-cockroachdb = ["sqlx-postgres"]
 driver-doris = ["sqlx-mysql"]
@@ -111,6 +119,7 @@ driver-planetscale = ["sqlx-mysql"]
 driver-postgres = ["sqlx-postgres"]
 driver-redis = ["dep:futures", "dep:redis"]
 driver-sqlite = ["dep:futures", "dep:sqlx", "sqlx/sqlite"]
+driver-scylladb = ["driver-cassandra"]
 driver-sqlserver = ["dep:bb8", "dep:bb8-tiberius", "dep:tiberius", "dep:tokio-util"]
 driver-starrocks = ["sqlx-mysql"]
 driver-singlestore = ["sqlx-mysql"]

@@ -50,6 +50,11 @@
 - [x] **KeyDB** — Compatible fil-à-fil Redis (driver Redis mutualisé) _(v0.1.39)_
 - [x] **Garnet** — Compatible fil-à-fil Redis (driver Redis mutualisé) _(v0.1.39)_
 
+### NoSQL Colonnes
+
+- [x] **Cassandra** — Wide-column, client CQL v4 écrit à la main _(v0.1.39)_
+- [x] **ScyllaDB** — Compatible Cassandra (client CQL mutualisé) _(v0.1.39)_
+
 ### Search
 
 - [x] **Elasticsearch** — Recherche full-text (REST/HTTP, console Dev Tools, Query DSL)
@@ -78,9 +83,8 @@
 
 ### NoSQL Colonnes
 
-- [ ] **Cassandra** — Wide-column store
-- [ ] **ScyllaDB** — Cassandra-compatible, performance
 - [ ] **HBase** — Hadoop ecosystem
+- [ ] **Amazon Keyspaces** — Cassandra géré (dérivé du client CQL, TLS forcé, port 9142)
 
 ### NoSQL Graphe
 

@@ -4,6 +4,8 @@ import type { SqlLanguage } from 'sql-formatter';
 import { Driver } from '../connection/drivers';
 
 const DIALECT_MAP: Record<Driver, SqlLanguage> = {
+  [Driver.Cassandra]: 'sql',
+  [Driver.ScyllaDb]: 'sql',
   [Driver.Postgres]: 'postgresql',
   [Driver.Mysql]: 'mysql',
   [Driver.Mongodb]: 'sql',

@@ -392,7 +392,8 @@
       "keyValue": "Clé-valeur",
       "timeSeries": "Séries temporelles",
       "search": "Recherche",
-      "graph": "Graphe"
+      "graph": "Graphe",
+      "wideColumn": "Colonnes larges"
     },
     "driverSearch": "Rechercher un moteur…",
     "driverSearchEmpty": "Aucun moteur ne correspond à « {{query}} »",
@@ -415,7 +416,8 @@
     },
     "documentdb": {
       "caCertHint": "Les clusters DocumentDB sont signés par une CA Amazon. Indiquez ici le fichier global-bundle.pem publié par Amazon ; laissez vide pour utiliser le magasin de certificats du système."
-    }
+    },
+    "keyspace": "Keyspace"
   },
   "sidebar": {
     "connections": "Connexions",
@@ -1724,7 +1726,10 @@
     "clusters": "Clusters",
     "index": "Index",
     "indexes": "Index",
-    "indexesHeader": "Index"
+    "indexesHeader": "Index",
+    "keyspace": "Keyspace",
+    "keyspaces": "Keyspaces",
+    "keyspacesHeader": "KEYSPACES"
   },
   "createTable": {
     "title": "Créer une table",

@@ -12,6 +12,22 @@ export interface DriverSchemaObjectCapabilities {
 }
 
 const DRIVER_SCHEMA_OBJECT_CAPABILITIES: Record<Driver, DriverSchemaObjectCapabilities> = {
+  cassandra: {
+    routines: false,
+    functions: false,
+    procedures: false,
+    triggers: false,
+    events: false,
+    sequences: false,
+  },
+  scylladb: {
+    routines: false,
+    functions: false,
+    procedures: false,
+    triggers: false,
+    events: false,
+    sequences: false,
+  },
   postgres: {
     routines: true,
     functions: true,

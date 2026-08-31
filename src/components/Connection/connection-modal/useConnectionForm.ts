@@ -58,6 +58,11 @@ function mapDriverString(driver: string | undefined): Driver | undefined {
       return Driver.AzureSql;
     case 'synapse':
       return Driver.Synapse;
+    case 'cassandra':
+      return Driver.Cassandra;
+    case 'scylladb':
+    case 'scylla':
+      return Driver.ScyllaDb;
     case 'cockroachdb':
     case 'cockroach':
       return Driver.Cockroachdb;

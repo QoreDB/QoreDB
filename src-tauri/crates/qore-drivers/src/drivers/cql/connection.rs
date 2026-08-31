@@ -124,6 +124,20 @@ impl CqlConnection {
         self.keyspace.as_deref()
     }
 
+    /// A connection whose peer half is already dropped. Lets the driver's
+    /// policy tests construct a session without a server; any I/O on it fails,
+    /// which is correct for code paths that must not reach the wire.
+    #[cfg(test)]
+    pub fn for_tests() -> Self {
+        let (client, _server) = tokio::io::duplex(64);
+        Self {
+            stream: Box::new(client),
+            io_timeout: Duration::from_secs(1),
+            prepared: HashMap::new(),
+            keyspace: None,
+        }
+    }
+
     async fn startup(&mut self, username: &str, password: &str) -> EngineResult<()> {
         let mut w = Writer::new();
         w.string_map(&[("CQL_VERSION", "3.0.0")]);

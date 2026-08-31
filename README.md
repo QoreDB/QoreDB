@@ -5,7 +5,7 @@
 
 **One app for all your databases.**
 
-The fast, open-source database client built with Rust. Connect to **29 supported databases** from a single, beautiful interface. Local-first: your data stays yours.
+The fast, open-source database client built with Rust. Connect to **31 supported databases** from a single, beautiful interface. Local-first: your data stays yours.
 
 [![License](https://img.shields.io/badge/license-Apache--2.0%20%2F%20BUSL--1.1-blue?style=flat-square)](LICENSE)
 [![Release](https://img.shields.io/github/v/release/QoreDB/QoreDB?include_prereleases&style=flat-square&color=8b5cf6&cacheSeconds=86400)](https://github.com/QoreDB/QoreDB/releases)
@@ -17,7 +17,7 @@ The fast, open-source database client built with Rust. Connect to **29 supported
 
 [**Website**](https://qoredb.com) · [**Download**](https://qoredb.com/download) · [**Docs**](https://qoredb.com/docs) · [**Roadmap**](https://qoredb.com/roadmap) · [**Discord**](https://discord.gg/Yr6P3wuZDt)
 
-<sub>10,000+ downloads · 29 supported databases · Two releases a month · Used in production by indie devs and startups.</sub>
+<sub>10,000+ downloads · 31 supported databases · Two releases a month · Used in production by indie devs and startups.</sub>
 
   <img src="doc/screenshots/query-screen.png" alt="QoreDB SQL editor and result grid" width="100%" />
 
@@ -34,7 +34,7 @@ DBeaver, pgAdmin, phpMyAdmin do the job — but they feel slow, dated, and full 
 | ⚡ **Native performance** | Rust + Tauri. No Electron tax — small binary, instant startup, low memory. ~25% faster on real workloads than the previous baseline (Apple Silicon). |
 | 🔒 **Local-first & secure** | Credentials in your OS keychain (Argon2). Dev/Staging/Prod guards, dangerous query detection, read-only mode. |
 | 🕵️ **Zero telemetry** | No analytics SDK ships in the binary — nothing to opt out of. Your data, queries and credentials never leave your machine. Crash reports stay on disk until *you* choose to share one, and log exports are scrubbed of credentials. The only outbound call is the GitHub update check: it never fires before you've been through onboarding, and you can switch it off. |
-| 🧩 **SQL + NoSQL, unified** | One UI for PostgreSQL, MySQL, MariaDB, TiDB, SingleStore, YugabyteDB, SQL Server, Azure SQL, SQLite, DuckDB, StarRocks, Doris, Synapse, CockroachDB, ClickHouse, MongoDB, Redis, Valkey, Dragonfly, KeyDB, Garnet, Elasticsearch and OpenSearch — plus first-class support for Supabase, Neon, PlanetScale, Amazon DocumentDB, MotherDuck and TimescaleDB. |
+| 🧩 **SQL + NoSQL, unified** | One UI for PostgreSQL, MySQL, MariaDB, TiDB, SingleStore, YugabyteDB, SQL Server, Azure SQL, SQLite, DuckDB, StarRocks, Doris, Synapse, CockroachDB, ClickHouse, MongoDB, Redis, Valkey, Dragonfly, KeyDB, Garnet, Cassandra, ScyllaDB, Elasticsearch and OpenSearch — plus first-class support for Supabase, Neon, PlanetScale, Amazon DocumentDB, MotherDuck and TimescaleDB. |
 | 📓 **Notebooks built-in** | Executable SQL/Mongo + Markdown documents with parameters, charts and Git-diffable `.qnb` files. |
 | 🛡️ **Safety-first** | Universal Query Interceptor, audit logging, sandbox mode with migration generation. Production damage is harder to do by accident. |
 | 🤝 **Open core** | Apache 2.0 core, readable and auditable. Premium add-ons under BUSL-1.1 — never at the expense of the open-source experience. |
@@ -67,6 +67,8 @@ DBeaver, pgAdmin, phpMyAdmin do the job — but they feel slow, dated, and full 
   <img src="public/databases/dragonfly.png" alt="Dragonfly" height="40" />&nbsp;&nbsp;
   <img src="public/databases/keydb.png" alt="KeyDB" height="40" />&nbsp;&nbsp;
   <img src="public/databases/garnet.png" alt="Garnet" height="40" />&nbsp;&nbsp;
+  <img src="public/databases/cassandra.png" alt="Cassandra" height="40" />&nbsp;&nbsp;
+  <img src="public/databases/scylladb.png" alt="ScyllaDB" height="40" />&nbsp;&nbsp;
   <img src="public/databases/supabase.png" alt="Supabase" height="40" />&nbsp;&nbsp;
   <img src="public/databases/neon.png" alt="Neon" height="40" />&nbsp;&nbsp;
   <img src="public/databases/timescaledb.png" alt="TimescaleDB" height="40" />&nbsp;&nbsp;
@@ -168,6 +170,7 @@ DBeaver, pgAdmin, phpMyAdmin do the job — but they feel slow, dated, and full 
 - **TiDB, StarRocks, Apache Doris and SingleStore** — MySQL protocol connections with engine-specific ports, identities and conservative capabilities
 - **YugabyteDB** — PostgreSQL protocol support with YugabyteDB's default database and port
 - **Azure SQL and Azure Synapse** — SQL Server protocol support with TLS forced on connect; Synapse keeps mutation and visual DDL actions disabled across dedicated and serverless endpoints
+- **Cassandra and ScyllaDB** — Wide-column browsing over a CQL client written against the protocol, with native cursor pagination, row editing that requires the full primary key, and guards against ring-wide scans
 </details>
 
 <details>
@@ -224,7 +227,7 @@ DBeaver, pgAdmin, phpMyAdmin do the job — but they feel slow, dated, and full 
 | | **QoreDB** | DBeaver | TablePlus | pgAdmin |
 |---|---|---|---|---|
 | Open source core | ✅ Apache 2.0 | ⚪ Community | ❌ No | ✅ Yes |
-| Multi-database (SQL + NoSQL) | ✅ 29 databases | ✅ Yes | ⚪ Limited | ❌ PG only |
+| Multi-database (SQL + NoSQL) | ✅ 31 databases | ✅ Yes | ⚪ Limited | ❌ PG only |
 | Native performance | ✅ Rust/Tauri | ❌ Java/Swing | ✅ Native | ❌ Web-based |
 | Local-first / no cloud | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes |
 | Encrypted credential vault | ✅ Argon2 | ⚪ Basic | ✅ Keychain | ❌ No |

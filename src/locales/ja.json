@@ -363,7 +363,8 @@
       "keyValue": "キーバリュー",
       "timeSeries": "時系列",
       "search": "検索",
-      "graph": "グラフ"
+      "graph": "グラフ",
+      "wideColumn": "ワイドカラム"
     },
     "driverSearch": "エンジンを検索…",
     "driverSearchEmpty": "「{{query}}」に一致するエンジンはありません",
@@ -386,7 +387,8 @@
     },
     "documentdb": {
       "caCertHint": "DocumentDB クラスターは Amazon の CA によって署名されています。Amazon が公開する global-bundle.pem を指定してください。空欄のままにするとシステムの証明書ストアを使います。"
-    }
+    },
+    "keyspace": "キースペース"
   },
   "sidebar": {
     "connections": "接続",
@@ -1676,7 +1678,10 @@
     "clusters": "クラスター",
     "index": "インデックス",
     "indexes": "インデックス",
-    "indexesHeader": "インデックス"
+    "indexesHeader": "インデックス",
+    "keyspace": "キースペース",
+    "keyspaces": "キースペース",
+    "keyspacesHeader": "キースペース"
   },
   "createTable": {
     "title": "テーブルを作成",

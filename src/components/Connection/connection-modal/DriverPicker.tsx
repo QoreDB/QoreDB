@@ -14,6 +14,7 @@ const MODEL_LABELS: { model: DataModel; labelKey: string }[] = [
   { model: 'key-value', labelKey: 'connection.driverGroups.keyValue' },
   { model: 'time-series', labelKey: 'connection.driverGroups.timeSeries' },
   { model: 'search', labelKey: 'connection.driverGroups.search' },
+  { model: 'wide-column', labelKey: 'connection.driverGroups.wideColumn' },
   { model: 'graph', labelKey: 'connection.driverGroups.graph' },
 ];
 

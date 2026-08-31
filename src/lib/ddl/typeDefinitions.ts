@@ -168,6 +168,8 @@ const SQLSERVER_TYPES: ColumnType[] = [
 ];
 
 export const COLUMN_TYPES: Record<Driver, ColumnType[]> = {
+  [Driver.Cassandra]: [],
+  [Driver.ScyllaDb]: [],
   [Driver.Postgres]: POSTGRES_TYPES,
   [Driver.Mysql]: MYSQL_TYPES,
   [Driver.Mongodb]: [],
@@ -201,4 +203,13 @@ export const COLUMN_TYPES: Record<Driver, ColumnType[]> = {
 
 export function getColumnTypes(driver: Driver): ColumnType[] {
   return COLUMN_TYPES[driver] || [];
+}
+
+/**
+ * Whether the visual table builder has a type palette for this driver. An empty
+ * palette means the engine's DDL is not modelled here, so offering "create
+ * table" would open a dialog with nothing to choose from.
+ */
+export function supportsVisualDdl(driver: Driver | string): boolean {
+  return (COLUMN_TYPES[driver as Driver]?.length ?? 0) > 0;
 }

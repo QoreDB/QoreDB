@@ -36,6 +36,12 @@ export const CHANGELOG: ChangelogEntry[] = [
         type: 'improvement',
       },
       {
+        title: 'Cassandra and ScyllaDB',
+        description:
+          'Wide-column browsing on a CQL client written against the protocol: native cursor pagination, row editing that requires the full primary key, and refusals for the statements that would scan the whole ring.',
+        type: 'feature',
+      },
+      {
         title: 'Azure SQL and Synapse now verify the server certificate',
         description:
           'Forcing TLS on these endpoints no longer means trusting any certificate: connections default to full verification against the system trust store. An explicit SSL mode still wins.',

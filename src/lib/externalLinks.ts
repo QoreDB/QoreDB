@@ -38,6 +38,8 @@ const DRIVER_DOC_SLUGS: Record<string, string> = {
   azuresql: 'sqlserver',
   synapse: 'sqlserver',
   cockroachdb: 'cockroachdb',
+  cassandra: 'cassandra',
+  scylladb: 'cassandra',
   clickhouse: 'clickhouse',
   elasticsearch: 'elasticsearch',
   opensearch: 'opensearch',

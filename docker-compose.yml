@@ -122,6 +122,40 @@ services:
     volumes:
       - sqlserver_data:/var/opt/mssql
 
+  cassandra:
+    image: cassandra:5
+    container_name: qoredb-cassandra
+    environment:
+      # One node. The driver never reads topology, so a second node would cost
+      # gigabytes of RAM and exercise nothing.
+      CASSANDRA_CLUSTER_NAME: qoredb-test
+      CASSANDRA_DC: datacenter1
+      CASSANDRA_ENDPOINT_SNITCH: GossipingPropertyFileSnitch
+      HEAP_NEWSIZE: 128M
+      MAX_HEAP_SIZE: 1G
+    ports:
+      - '9042:9042'
+    volumes:
+      - cassandra_data:/var/lib/cassandra
+
+  scylladb:
+    image: scylladb/scylla:6.2
+    container_name: qoredb-scylladb
+    # Authentication is on here and off on Cassandra above, so the SASL PLAIN
+    # exchange and the bare STARTUP path are both covered locally. Default
+    # superuser is cassandra/cassandra.
+    command: >
+      --smp 1
+      --memory 1G
+      --overprovisioned 1
+      --developer-mode 1
+      --authenticator PasswordAuthenticator
+      --authorizer CassandraAuthorizer
+    ports:
+      - '9043:9042'
+    volumes:
+      - scylla_data:/var/lib/scylla
+
   clickhouse:
     image: clickhouse/clickhouse-server:24-alpine
     container_name: qoredb-clickhouse
@@ -182,6 +216,8 @@ volumes:
   mongo_data:
   redis_data:
   sqlserver_data:
+  cassandra_data:
+  scylla_data:
   clickhouse_data:
   elasticsearch_data:
   opensearch_data:

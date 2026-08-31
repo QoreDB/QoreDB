@@ -34,6 +34,7 @@ import {
   isMySqlFamily,
 } from '../../lib/connection/driverCapabilities';
 import { type Driver, getDriverMetadata } from '../../lib/connection/drivers';
+import { supportsVisualDdl } from '../../lib/ddl/typeDefinitions';
 import {
   type Collection,
   type DatabaseEvent,
@@ -529,9 +530,11 @@ export function DBTree({
                 setTruncateTargetNamespace(ns);
                 setTruncateModalOpen(true);
               }}
-              canCreateTable={driverMeta.supportsSQL && !connection?.read_only}
+              canCreateTable={
+                driverMeta.supportsSQL && supportsVisualDdl(driver) && !connection?.read_only
+              }
               canDelete={!connection?.read_only}
-              canExportSchema={driverMeta.supportsSQL}
+              canExportSchema={driverMeta.supportsSQL && supportsVisualDdl(driver)}
               canBackup={canBackupDatabase}
               canImportSql={canBackupDatabase && driverMeta.supportsSQL && !connection?.read_only}
               canTruncateAll={

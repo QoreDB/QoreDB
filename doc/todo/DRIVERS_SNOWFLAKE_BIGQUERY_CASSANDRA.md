@@ -234,6 +234,24 @@ réelle via docker-compose, avant d'être considérée comme finie.
 TLS via `tokio-rustls`. Un seul client couvre Cassandra, ScyllaDB et — en dérivé
 quasi gratuit ensuite — Amazon Keyspaces (TLS forcé, port 9142).
 
+État au 31 août 2026 : le lot C est implémenté. Le client CQL vit dans
+`qore-drivers/src/drivers/cql/` (trames, poignée de main, codec de types dans
+les deux sens) et `drivers/cassandra.rs` porte les deux identités par `flavor`,
+comme le lot A1. `cassandra_safety.rs` applique les refus en production.
+
+Deux écarts par rapport au plan, tranchés en écrivant :
+
+- La pagination se branche sans friction : `TableQueryOptions::keyset_applies`
+  et le curseur porté par `useInfiniteTableData` suffisent, le paging state
+  natif passe en `next_cursor`. En revanche un saut vers un numéro de page
+  arbitraire est refusé plutôt que servi en relisant les pages précédentes.
+- `supportsSQL` reste `true` — c'est lui qui donne l'éditeur, les mutations de
+  grille et l'onglet structure. Le DDL visuel est coupé par une palette de
+  types vide, via `supportsVisualDdl`, plutôt qu'en désactivant tout le reste.
+
+Reste à faire : les icônes `cassandra.png` et `scylladb.png`, et l'exécution des
+tests contre les conteneurs, que le plan exige avant de considérer le codec fini.
+
 ### Reste du driver
 
 - Auth `PasswordAuthenticator` + TLS optionnel : rentre dans `ConnectionConfig`

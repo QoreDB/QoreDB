@@ -363,7 +363,8 @@
       "keyValue": "키-값",
       "timeSeries": "시계열",
       "search": "검색",
-      "graph": "그래프"
+      "graph": "그래프",
+      "wideColumn": "와이드 컬럼"
     },
     "driverSearch": "엔진 검색…",
     "driverSearchEmpty": "“{{query}}”와 일치하는 엔진이 없습니다",
@@ -386,7 +387,8 @@
     },
     "documentdb": {
       "caCertHint": "DocumentDB 클러스터는 Amazon CA가 서명합니다. Amazon이 배포하는 global-bundle.pem 파일을 지정하세요. 비워 두면 시스템 인증서 저장소를 사용합니다."
-    }
+    },
+    "keyspace": "키스페이스"
   },
   "sidebar": {
     "connections": "연결",
@@ -1676,7 +1678,10 @@
     "clusters": "클러스터",
     "index": "인덱스",
     "indexes": "인덱스",
-    "indexesHeader": "인덱스"
+    "indexesHeader": "인덱스",
+    "keyspace": "키스페이스",
+    "keyspaces": "키스페이스",
+    "keyspacesHeader": "키스페이스"
   },
   "createTable": {
     "title": "테이블 만들기",

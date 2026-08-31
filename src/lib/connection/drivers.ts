@@ -27,6 +27,8 @@ export enum Driver {
   Garnet = 'garnet',
   AzureSql = 'azuresql',
   Synapse = 'synapse',
+  Cassandra = 'cassandra',
+  ScyllaDb = 'scylladb',
   Clickhouse = 'clickhouse',
   Elasticsearch = 'elasticsearch',
   OpenSearch = 'opensearch',
@@ -74,7 +76,8 @@ export type DataModel =
   | 'key-value'
   | 'graph'
   | 'time-series'
-  | 'search';
+  | 'search'
+  | 'wide-column';
 
 export interface DriverMetadata {
   id: Driver;
@@ -207,7 +210,42 @@ const SQLSERVER_COMPAT_METADATA = {
   },
 } as const satisfies Omit<DriverMetadata, 'id' | 'label' | 'icon'>;
 
+const CASSANDRA_COMPAT_METADATA = {
+  defaultPort: 9042,
+  namespaceLabel: 'dbtree.keyspace',
+  namespacePluralLabel: 'dbtree.keyspaces',
+  collectionLabel: 'dbtree.table',
+  collectionPluralLabel: 'dbtree.tables',
+  treeRootLabel: 'dbtree.keyspacesHeader',
+  createAction: 'database',
+  databaseFieldLabel: 'connection.keyspace',
+  supportsSchemas: false,
+  supportsSQL: true,
+  dataModel: 'wide-column',
+  isDocumentBased: false,
+  identifier: {
+    quoteStart: '"',
+    quoteEnd: '"',
+    namespaceStrategy: 'database',
+  },
+  // No size or index queries: CQL exposes neither cheaply, and the estimates
+  // that exist are per-node rather than per-table.
+  queries: {},
+} as const satisfies Omit<DriverMetadata, 'id' | 'label' | 'icon'>;
+
 export const DRIVERS: Record<Driver, DriverMetadata> = {
+  [Driver.Cassandra]: {
+    id: Driver.Cassandra,
+    label: 'Cassandra',
+    icon: 'cassandra.png',
+    ...CASSANDRA_COMPAT_METADATA,
+  },
+  [Driver.ScyllaDb]: {
+    id: Driver.ScyllaDb,
+    label: 'ScyllaDB',
+    icon: 'scylladb.png',
+    ...CASSANDRA_COMPAT_METADATA,
+  },
   [Driver.Postgres]: {
     id: Driver.Postgres,
     label: 'PostgreSQL',

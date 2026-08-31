@@ -147,6 +147,8 @@ const SINGLESTORE_CAPS: DdlCapabilities = {
 };
 
 const CAPABILITIES: Record<Driver, DdlCapabilities> = {
+  [Driver.Cassandra]: NO_DDL,
+  [Driver.ScyllaDb]: NO_DDL,
   [Driver.Postgres]: POSTGRES_CAPS,
   [Driver.Cockroachdb]: POSTGRES_CAPS,
   [Driver.Mysql]: MYSQL_CAPS,

@@ -392,7 +392,8 @@
       "keyValue": "Key-value",
       "timeSeries": "Time-series",
       "search": "Search",
-      "graph": "Graph"
+      "graph": "Graph",
+      "wideColumn": "Wide-column"
     },
     "driverSearch": "Search an engine…",
     "driverSearchEmpty": "No engine matches “{{query}}”",
@@ -415,7 +416,8 @@
     },
     "documentdb": {
       "caCertHint": "DocumentDB clusters are signed by an Amazon CA. Point this at the global-bundle.pem file Amazon publishes; leave it empty to use the system trust store."
-    }
+    },
+    "keyspace": "Keyspace"
   },
   "sidebar": {
     "connections": "Connections",
@@ -1724,7 +1726,10 @@
     "clusters": "Clusters",
     "index": "Index",
     "indexes": "Indexes",
-    "indexesHeader": "Indexes"
+    "indexesHeader": "Indexes",
+    "keyspace": "Keyspace",
+    "keyspaces": "Keyspaces",
+    "keyspacesHeader": "KEYSPACES"
   },
   "createTable": {
     "title": "Create Table",

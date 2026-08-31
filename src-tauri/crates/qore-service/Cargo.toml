@@ -45,6 +45,7 @@ tempfile = "3.24.0"
 default = ["all-drivers"]
 all-drivers = [
     "driver-azuresql",
+    "driver-cassandra",
     "driver-clickhouse",
     "driver-cockroachdb",
     "driver-doris",
@@ -63,6 +64,7 @@ all-drivers = [
     "driver-planetscale",
     "driver-postgres",
     "driver-redis",
+    "driver-scylladb",
     "driver-sqlite",
     "driver-sqlserver",
     "driver-singlestore",
@@ -75,6 +77,7 @@ all-drivers = [
     "driver-yugabytedb",
 ]
 driver-azuresql = ["qore-drivers/driver-azuresql"]
+driver-cassandra = ["qore-drivers/driver-cassandra"]
 driver-clickhouse = ["qore-drivers/driver-clickhouse"]
 driver-cockroachdb = ["qore-drivers/driver-cockroachdb"]
 driver-doris = ["qore-drivers/driver-doris"]
@@ -94,6 +97,7 @@ driver-planetscale = ["qore-drivers/driver-planetscale"]
 driver-postgres = ["qore-drivers/driver-postgres"]
 driver-redis = ["qore-drivers/driver-redis"]
 driver-sqlite = ["qore-drivers/driver-sqlite"]
+driver-scylladb = ["qore-drivers/driver-scylladb"]
 driver-sqlserver = ["qore-drivers/driver-sqlserver"]
 driver-singlestore = ["qore-drivers/driver-singlestore"]
 driver-starrocks = ["qore-drivers/driver-starrocks"]

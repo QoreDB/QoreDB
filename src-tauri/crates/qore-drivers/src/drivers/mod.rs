@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
+#[cfg(any(feature = "driver-cassandra", feature = "driver-scylladb"))]
+pub mod cassandra;
 #[cfg(feature = "driver-clickhouse")]
 pub mod clickhouse;
 #[cfg(feature = "driver-cockroachdb")]

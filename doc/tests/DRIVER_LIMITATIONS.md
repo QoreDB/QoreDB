@@ -143,6 +143,62 @@ user must select the matching identity. DSN detection only selects TiDB Cloud
   against the local SQL Server service. Azure firewall, Entra authentication
   and Synapse-specific semantics require live cloud testing.
 
+## Cassandra and ScyllaDB
+
+Both identities run on the CQL v4 client in `qore-drivers/src/drivers/cql/`,
+written against the protocol rather than built on the `scylla` crate. ScyllaDB
+is a flavor of `CassandraDriver`: the wire protocol is identical, only the id
+and the display name differ, so a self-hosted URL carries no marker and the
+user picks the identity.
+
+- One connection, one statement at a time, on protocol stream id 0. There is no
+  request multiplexing, no token-aware routing and no topology discovery; a
+  desktop client exercises none of them, and the node it is pointed at serves
+  every request as coordinator.
+- No transactions. Lightweight transactions are a compare-and-set on a single
+  partition, not a multi-statement transaction, and nothing here opens one.
+- No cancel. The protocol has no cancel frame, so `cancel_support` is `None`
+  and a statement runs to completion or hits the 60-second I/O timeout.
+- No routines, triggers, events or sequences: CQL has none.
+- No visual DDL. The type palette is empty on purpose, which is what hides
+  "create table" and schema export. Table structure stays viewable, and CQL DDL
+  runs from the editor.
+- Pagination uses the native paging state — the first driver here to declare
+  `keyset` without needing a unique key of ours, since the cursor is the
+  server's. It walks forward only: a jump to an arbitrary page number is
+  refused rather than served by silently re-reading every page before it.
+- No row count. `SELECT COUNT(*)` on a table is a ring-wide scan, so the table
+  browser is served `total_rows: None` and relies on `has_more`.
+- No sort and no cross-column search from the grid. CQL orders only by a
+  clustering column inside a single partition; both come back as an explicit
+  error pointing at the editor.
+- Grid filters are bound, never interpolated — there is no CQL literal escaping
+  in this driver. A predicate the ring cannot serve from the primary key is
+  rewritten from Cassandra's `ALLOW FILTERING` message into one that says the
+  query has no partition to start from.
+- Row editing requires the full primary key on insert, update and delete, and
+  refuses to change a key column in place. Binding a `tuple`, a UDT or a
+  `duration` returns `NotSupported` rather than guessing an encoding.
+- `ALLOW FILTERING`, `TRUNCATE`, `DROP KEYSPACE`, `DROP TABLE` and any `SELECT`
+  with neither `WHERE` nor `LIMIT` are refused on a production connection.
+- TLS has no permissive mode. A cluster with an internal CA points
+  `ssl_ca_cert` at its PEM bundle; there is no "trust anything" fallback.
+- Authentication covers `PasswordAuthenticator` (SASL PLAIN). A multi-step SASL
+  exchange, and therefore Kerberos or LDAP through GSSAPI, is not implemented.
+- SSH tunnelling works: unlike the HTTPS warehouses, CQL is a plain socket on
+  9042.
+- `docker-compose.yml` ships `cassandra:5` on 9042 without authentication and
+  `scylladb/scylla` on 9043 with `PasswordAuthenticator`, so the bare STARTUP
+  path and the SASL PLAIN exchange are both covered locally.
+
+The type codec is the one place where a mistake is silent: a misread value
+renders in the grid without raising anything. Its unit tests are built from the
+wire encoding rather than from a round-trip through our own writer, and cover
+NULL against an empty blob, signed widths, `decimal` without `f64`, `varint`
+beyond `i64`, the 2^31 bias on `date`, the zigzag vints of `duration`,
+truncated UDTs and non-string map keys. They have not yet been run against a
+live cluster.
+
 ## MongoDB
 
 - Query execution supports `find` with simple JSON payloads and a dedicated

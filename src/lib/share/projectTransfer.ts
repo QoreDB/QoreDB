@@ -52,6 +52,8 @@ const TRANSFERABLE_DRIVERS = [
   'garnet',
   'azuresql',
   'synapse',
+  'cassandra',
+  'scylladb',
 ] as const;
 
 type TransferableDriver = (typeof TRANSFERABLE_DRIVERS)[number];

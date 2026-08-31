@@ -363,7 +363,8 @@
       "keyValue": "Ключ-значение",
       "timeSeries": "Временные ряды",
       "search": "Поисковые",
-      "graph": "Графовые"
+      "graph": "Графовые",
+      "wideColumn": "Широкие столбцы"
     },
     "driverSearch": "Поиск движка…",
     "driverSearchEmpty": "Нет движков по запросу «{{query}}»",
@@ -386,7 +387,8 @@
     },
     "documentdb": {
       "caCertHint": "Кластеры DocumentDB подписаны центром сертификации Amazon. Укажите файл global-bundle.pem, публикуемый Amazon; оставьте пустым, чтобы использовать системное хранилище сертификатов."
-    }
+    },
+    "keyspace": "Keyspace"
   },
   "sidebar": {
     "connections": "Подключения",
@@ -1703,7 +1705,10 @@
     "clusters": "Кластеры",
     "index": "Индекс",
     "indexes": "Индексы",
-    "indexesHeader": "Индексы"
+    "indexesHeader": "Индексы",
+    "keyspace": "Keyspace",
+    "keyspaces": "Keyspaces",
+    "keyspacesHeader": "KEYSPACES"
   },
   "createTable": {
     "title": "Создать таблицу",

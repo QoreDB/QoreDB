@@ -310,20 +310,20 @@ fn split_ch_statements(input: &str) -> Vec<String> {
     out
 }
 
+/// Wire-compatible drivers must resolve to their family's parser, not to
+/// `GenericDialect`: this dialect decides how the statement is tokenized before
+/// `analyze_sql` classifies it as a mutation, so a driver that falls through to
+/// the generic parser is classified on a best-effort tokenization.
 fn dialect_for_driver(driver_id: &str) -> Box<dyn Dialect> {
-    if driver_id.eq_ignore_ascii_case("postgres") || driver_id.eq_ignore_ascii_case("cockroachdb") {
-        Box::new(PostgreSqlDialect {})
-    } else if driver_id.eq_ignore_ascii_case("mysql") {
-        Box::new(MySqlDialect {})
-    } else if driver_id.eq_ignore_ascii_case("duckdb")
-        || driver_id.eq_ignore_ascii_case("motherduck")
-    {
-        Box::new(DuckDbDialect {})
-    } else if driver_id.eq_ignore_ascii_case("sqlserver") || driver_id.eq_ignore_ascii_case("mssql")
-    {
-        Box::new(MsSqlDialect {})
-    } else {
-        Box::new(GenericDialect {})
+    match driver_id.to_ascii_lowercase().as_str() {
+        "postgres" | "postgresql" | "cockroachdb" | "cockroach" | "supabase" | "neon"
+        | "timescaledb" | "yugabytedb" => Box::new(PostgreSqlDialect {}),
+        "mysql" | "mariadb" | "planetscale" | "tidb" | "starrocks" | "doris" | "singlestore" => {
+            Box::new(MySqlDialect {})
+        }
+        "duckdb" | "motherduck" => Box::new(DuckDbDialect {}),
+        "sqlserver" | "mssql" | "azuresql" | "synapse" => Box::new(MsSqlDialect {}),
+        _ => Box::new(GenericDialect {}),
     }
 }
 
@@ -701,6 +701,45 @@ fn has_copy_to_clause(upper: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn wire_compatible_drivers_parse_with_their_family_dialect() {
+        // Backtick identifiers are MySQL's; the classifier must still see the
+        // UPDATE behind them rather than choke on the quoting.
+        for driver in ["mysql", "mariadb", "planetscale", "tidb", "singlestore"] {
+            let analysis = analyze_sql(driver, "UPDATE `users` SET `name` = 'x'")
+                .unwrap_or_else(|e| panic!("{driver} should parse: {e}"));
+            assert!(analysis.is_mutation, "{driver}");
+            assert!(analysis.is_dangerous, "{driver}: UPDATE without WHERE");
+        }
+
+        // Bracketed identifiers are T-SQL; the Azure identities must resolve to
+        // the same parser as SQL Server, not to the generic fallback.
+        for driver in ["sqlserver", "mssql", "azuresql", "synapse"] {
+            let analysis = analyze_sql(driver, "UPDATE [dbo].[users] SET [name] = 'x'")
+                .unwrap_or_else(|e| panic!("{driver} should parse: {e}"));
+            assert!(analysis.is_mutation, "{driver}");
+            assert!(analysis.is_dangerous, "{driver}: UPDATE without WHERE");
+        }
+
+        // A data-modifying CTE keeps a SELECT on the surface: every managed
+        // Postgres identity must still classify it as a mutation.
+        for driver in [
+            "postgres",
+            "cockroachdb",
+            "supabase",
+            "neon",
+            "timescaledb",
+            "yugabytedb",
+        ] {
+            let analysis = analyze_sql(
+                driver,
+                "WITH d AS (DELETE FROM users WHERE id = 1 RETURNING *) SELECT * FROM d",
+            )
+            .unwrap_or_else(|e| panic!("{driver} should parse: {e}"));
+            assert!(analysis.is_mutation, "{driver}: write CTE is a mutation");
+        }
+    }
 
     #[test]
     fn postgres_cte_select_is_read_only() {

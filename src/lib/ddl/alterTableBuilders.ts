@@ -28,10 +28,14 @@ export function buildAlterTableStatements(
   switch (driver) {
     case Driver.Postgres:
     case Driver.Cockroachdb:
+    case Driver.YugabyteDb:
       statements = buildPostgresAlter(ctx, ops);
       break;
     case Driver.Mysql:
     case Driver.Mariadb:
+    case Driver.PlanetScale:
+    case Driver.TiDb:
+    case Driver.SingleStore:
       statements = buildMysqlAlter(ctx, ops);
       break;
     case Driver.Sqlite:
@@ -41,6 +45,7 @@ export function buildAlterTableStatements(
       statements = buildDuckdbAlter(ctx, ops);
       break;
     case Driver.SqlServer:
+    case Driver.AzureSql:
       statements = buildSqlServerAlter(ctx, ops);
       break;
     default:

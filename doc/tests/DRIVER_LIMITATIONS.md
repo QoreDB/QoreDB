@@ -84,6 +84,65 @@ differs, and what QoreDB does not model.
   introspection and paging all go through the real path — but PlanetScale's own
   gateway, branches and deploy requests are out of reach without an account.
 
+## TiDB, StarRocks, Apache Doris and SingleStore
+
+These identities use `MySqlDriver` and the MySQL wire protocol. They are not
+server fingerprints: a self-hosted URL has no reliable flavor marker, so the
+user must select the matching identity. DSN detection only selects TiDB Cloud
+(`*.tidbcloud.com`) and SingleStore Helios (`*.svc.singlestore.com`).
+
+- TiDB uses port 4000. Stored procedures/functions, triggers, events and the
+  MySQL maintenance actions are hidden because TiDB does not implement them.
+  The visual DDL editor remains available for its MySQL-compatible subset.
+- StarRocks and Apache Doris use port 9030. QoreDB exposes queries, catalog
+  browsing and manual migrations, but disables structured grid mutations,
+  transactions, maintenance and visual DDL. Their OLAP key, distribution and
+  index syntax cannot be generated safely by the MySQL table builder.
+- SingleStore uses port 3306. Its session `time_zone` variable is read-only, so
+  the shared pool initialization deliberately skips the UTC assignment for
+  this flavor. The visual DDL editor hides foreign keys, CHECK constraints and
+  uniqueness; stored-object editing is also hidden because SingleStore PSQL is
+  not MySQL's routine grammar.
+- `EXPLAIN` uses the common text form for these four identities rather than
+  assuming MySQL's JSON format.
+- `mysql_wire_compatible_a1_e2e` exercises all four identities against the
+  local MySQL service. It validates the shared connection/query path, not each
+  vendor's SQL extensions. `mysqldump` backup and live vendor endpoints remain
+  unverified.
+
+## YugabyteDB
+
+- Uses `PostgresDriver`, port 5433 and database `yugabyte` by default. The full
+  PostgreSQL catalog path, SQL dialect, migrations and schema tooling are
+  reused.
+- Hosted endpoints under `*.yugabyte.cloud` are detected from a pasted DSN.
+  Self-hosted PostgreSQL URLs require explicit driver selection.
+- `yugabytedb_wire_compatible_a1_e2e` runs against the local PostgreSQL
+  stand-in. Distributed transactions, topology and Yugabyte-specific catalog
+  extensions have not been verified against a live cluster.
+
+## Azure SQL and Azure Synapse
+
+- Both identities use `SqlServerDriver`, port 1433 and force TLS even when the
+  connection form leaves it disabled. Forcing TLS also pins the SSL mode to
+  `verify-full` when the user set none: unlike a LAN SQL Server, an Azure
+  endpoint is reached over the public internet and presents a publicly-signed
+  certificate, so accepting an unverified one would leave the connection open to
+  interception. An SSL mode chosen explicitly by the user is left untouched.
+  Azure SQL reuses the complete SQL Server capability set.
+- Azure SQL hosts under `*.database.windows.net` and Synapse hosts under
+  `*.sql.azuresynapse.net` are detected from DSNs. Synapse detection runs first
+  so its more specific suffix cannot be mistaken for Azure SQL.
+- The current authentication surface is SQL Server authentication; Microsoft
+  Entra access tokens are not implemented.
+- Synapse covers both dedicated and serverless SQL endpoints. Their DDL, DML
+  and transaction surfaces differ, so structured mutations, transactions,
+  maintenance, triggers and visual DDL are disabled conservatively. Manual
+  queries remain available.
+- `azure_sql_wire_compatible_a1_e2e` validates both identities and forced TLS
+  against the local SQL Server service. Azure firewall, Entra authentication
+  and Synapse-specific semantics require live cloud testing.
+
 ## MongoDB
 
 - Query execution supports `find` with simple JSON payloads and a dedicated
@@ -259,6 +318,11 @@ what differs.
   probed for its flavor either. Every limitation above applies unchanged, and
   `dragonfly_e2e` in `tests/integration_databases.rs` runs the shared code
   against a real Dragonfly from `docker-compose.yml`.
+- KeyDB and Garnet are served by the same driver under the `keydb` and `garnet`
+  ids. Both use Redis URL schemes and require explicit selection because their
+  DSNs carry no stable flavor marker. `redis_wire_compatible_a1_e2e` exercises
+  both identities against the local Redis stand-in; vendor-specific commands
+  are passed through but not modeled.
 - Authentication is optional — many development setups run without a password.
 
 ### Lua scripting

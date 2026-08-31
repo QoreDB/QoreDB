@@ -37,8 +37,20 @@ export const CONNECTION_BACKUP_DRIVERS = new Set([
   'neon',
   'timescaledb',
   'cockroachdb',
+  'yugabytedb',
   'sqlite',
   'duckdb',
+]);
+
+/** Drivers driven by `pg_dump` / `pg_restore`, which alone offer the custom format. */
+export const PG_BACKUP_DRIVERS = new Set([
+  'postgres',
+  'postgresql',
+  'supabase',
+  'neon',
+  'timescaledb',
+  'cockroachdb',
+  'yugabytedb',
 ]);
 
 /**
@@ -49,6 +61,10 @@ export const DATABASE_NODE_BACKUP_DRIVERS = new Set([
   'mysql',
   'mariadb',
   'planetscale',
+  'tidb',
+  'starrocks',
+  'doris',
+  'singlestore',
   'mongodb',
   'documentdb',
 ]);

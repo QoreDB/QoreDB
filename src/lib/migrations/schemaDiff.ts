@@ -103,7 +103,15 @@ function ddlDriver(driver: Driver): Driver {
     case Driver.Supabase:
     case Driver.Neon:
     case Driver.Timescaledb:
+    case Driver.YugabyteDb:
       return Driver.Postgres;
+    case Driver.Mariadb:
+    case Driver.PlanetScale:
+    case Driver.TiDb:
+    case Driver.SingleStore:
+      return Driver.Mysql;
+    case Driver.AzureSql:
+      return Driver.SqlServer;
     case Driver.Motherduck:
       return Driver.Duckdb;
     default:

@@ -57,11 +57,15 @@ pub fn normalize_config(mut config: ConnectionConfig) -> Result<ConnectionConfig
     let is_mongodb = matches!(config.driver.as_str(), "mongodb" | "documentdb");
     let is_sqlite = config.driver == "sqlite";
     let is_duckdb = config.driver == "duckdb";
-    let is_redis = matches!(config.driver.as_str(), "redis" | "valkey" | "dragonfly");
+    let is_redis = matches!(
+        config.driver.as_str(),
+        "redis" | "valkey" | "dragonfly" | "keydb" | "garnet"
+    );
     let is_file_based = is_sqlite || is_duckdb;
     // SQL Server "Windows (Integrated)" uses the current OS/AD session — no username.
     let is_mssql_integrated =
-        config.driver == "sqlserver" && config.mssql_auth == Some(MssqlAuthMode::WindowsIntegrated);
+        matches!(config.driver.as_str(), "sqlserver" | "azuresql" | "synapse")
+            && config.mssql_auth == Some(MssqlAuthMode::WindowsIntegrated);
 
     // Search engines (Elasticsearch / OpenSearch) only need a username in
     // basic-auth mode. None / api_key / bearer carry no username.

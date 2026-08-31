@@ -1315,11 +1315,13 @@ impl FulltextSearchStrategy for SqlServerSearchStrategy {
 /// Returns the search strategy matching the driver id, defaulting to Postgres.
 pub fn get_search_strategy(driver_id: &str) -> Box<dyn FulltextSearchStrategy> {
     match driver_id.to_lowercase().as_str() {
-        "postgres" | "postgresql" => Box::new(PostgresSearchStrategy::new()),
-        "mysql" | "mariadb" | "planetscale" => Box::new(MySqlSearchStrategy::new()),
+        "postgres" | "postgresql" | "yugabytedb" => Box::new(PostgresSearchStrategy::new()),
+        "mysql" | "mariadb" | "planetscale" | "tidb" | "starrocks" | "doris" | "singlestore" => {
+            Box::new(MySqlSearchStrategy::new())
+        }
         "sqlite" | "sqlite3" => Box::new(SqliteSearchStrategy::new()),
         "mongodb" | "mongo" | "documentdb" => Box::new(MongoSearchStrategy::new()),
-        "sqlserver" | "mssql" => Box::new(SqlServerSearchStrategy::new()),
+        "sqlserver" | "mssql" | "azuresql" | "synapse" => Box::new(SqlServerSearchStrategy::new()),
         _ => Box::new(PostgresSearchStrategy::new()),
     }
 }

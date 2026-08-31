@@ -32,6 +32,18 @@ function mapDriverString(driver: string | undefined): Driver | undefined {
       return Driver.DocumentDb;
     case 'planetscale':
       return Driver.PlanetScale;
+    case 'tidb':
+      return Driver.TiDb;
+    case 'starrocks':
+      return Driver.StarRocks;
+    case 'doris':
+      return Driver.Doris;
+    case 'singlestore':
+      return Driver.SingleStore;
+    case 'keydb':
+      return Driver.KeyDb;
+    case 'garnet':
+      return Driver.Garnet;
     case 'sqlite':
     case 'sqlite3':
       return Driver.Sqlite;
@@ -42,9 +54,15 @@ function mapDriverString(driver: string | undefined): Driver | undefined {
     case 'sqlserver':
     case 'mssql':
       return Driver.SqlServer;
+    case 'azuresql':
+      return Driver.AzureSql;
+    case 'synapse':
+      return Driver.Synapse;
     case 'cockroachdb':
     case 'cockroach':
       return Driver.Cockroachdb;
+    case 'yugabytedb':
+      return Driver.YugabyteDb;
     case 'timescaledb':
     case 'timescale':
       return Driver.Timescaledb;
@@ -89,12 +107,39 @@ function normalizeSslMode(options: Record<string, string> | undefined): string |
 function preserveCompatibleSelectedDriver(selected: Driver, parsed: Driver): Driver {
   if (
     parsed === Driver.Postgres &&
-    [Driver.Supabase, Driver.Neon, Driver.Timescaledb, Driver.Motherduck].includes(selected)
+    [
+      Driver.Supabase,
+      Driver.Neon,
+      Driver.Timescaledb,
+      Driver.Motherduck,
+      Driver.YugabyteDb,
+    ].includes(selected)
   ) {
     return selected;
   }
 
-  if (parsed === Driver.Mysql && selected === Driver.Mariadb) {
+  if (
+    parsed === Driver.Mysql &&
+    [
+      Driver.Mariadb,
+      Driver.PlanetScale,
+      Driver.TiDb,
+      Driver.StarRocks,
+      Driver.Doris,
+      Driver.SingleStore,
+    ].includes(selected)
+  ) {
+    return selected;
+  }
+
+  if (
+    parsed === Driver.Redis &&
+    [Driver.Dragonfly, Driver.KeyDb, Driver.Garnet].includes(selected)
+  ) {
+    return selected;
+  }
+
+  if (parsed === Driver.SqlServer && [Driver.AzureSql, Driver.Synapse].includes(selected)) {
     return selected;
   }
 
@@ -177,7 +222,7 @@ export function useConnectionForm(options: {
           : prev.host,
       username: driver === Driver.Motherduck && !prev.username ? 'postgres' : prev.username,
       database: driver === Driver.Motherduck && !prev.database ? 'md:' : prev.database,
-      ssl: driver === Driver.Motherduck ? true : prev.ssl,
+      ssl: [Driver.Motherduck, Driver.AzureSql, Driver.Synapse].includes(driver) ? true : prev.ssl,
       sslMode: driver === Driver.Motherduck && !prev.sslMode ? 'verify-full' : prev.sslMode,
       // Cloud-managed Postgres providers are almost always configured via DSN —
       // pre-enable the URL toggle so the user can paste right away.
@@ -187,7 +232,15 @@ export function useConnectionForm(options: {
   }
 
   function driverPrefersUrl(driver: Driver): boolean {
-    return driver === Driver.Supabase || driver === Driver.Neon || driver === Driver.Motherduck;
+    return [
+      Driver.Supabase,
+      Driver.Neon,
+      Driver.Motherduck,
+      Driver.AzureSql,
+      Driver.Synapse,
+      Driver.SingleStore,
+      Driver.YugabyteDb,
+    ].includes(driver);
   }
 
   function handleChange(field: keyof ConnectionFormData, value: string | number | boolean) {

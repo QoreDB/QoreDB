@@ -61,15 +61,80 @@ pub struct SqlServerSession {
     config: ConnectionConfig,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum SqlServerFlavor {
+    SqlServer,
+    AzureSql,
+    Synapse,
+}
+
+impl SqlServerFlavor {
+    fn driver_id(self) -> &'static str {
+        match self {
+            Self::SqlServer => "sqlserver",
+            Self::AzureSql => "azuresql",
+            Self::Synapse => "synapse",
+        }
+    }
+
+    fn driver_name(self) -> &'static str {
+        match self {
+            Self::SqlServer => "SQL Server",
+            Self::AzureSql => "Azure SQL",
+            Self::Synapse => "Azure Synapse",
+        }
+    }
+
+    fn requires_tls(self) -> bool {
+        !matches!(self, Self::SqlServer)
+    }
+}
+
 pub struct SqlServerDriver {
+    flavor: SqlServerFlavor,
     sessions: Arc<RwLock<HashMap<SessionId, Arc<SqlServerSession>>>>,
 }
 
 impl SqlServerDriver {
     pub fn new() -> Self {
+        Self::with_flavor(SqlServerFlavor::SqlServer)
+    }
+
+    pub fn azure_sql() -> Self {
+        Self::with_flavor(SqlServerFlavor::AzureSql)
+    }
+
+    pub fn synapse() -> Self {
+        Self::with_flavor(SqlServerFlavor::Synapse)
+    }
+
+    fn with_flavor(flavor: SqlServerFlavor) -> Self {
         Self {
+            flavor,
             sessions: Arc::new(RwLock::new(HashMap::new())),
         }
+    }
+
+    /// Azure endpoints are reached over the public internet, so forcing
+    /// `ssl` alone is not enough: `build_config` only verifies the server
+    /// certificate when `ssl_mode` asks for it, and otherwise calls
+    /// `trust_cert()`. Leaving the mode unset would give encryption without
+    /// authentication — a MITM would still be accepted. Azure always presents
+    /// a publicly-signed certificate, so `verify-full` against the system
+    /// trust store is the right default. An explicit mode set by the user wins.
+    fn connection_config(&self, config: &ConnectionConfig) -> ConnectionConfig {
+        if !self.flavor.requires_tls() {
+            return config.clone();
+        }
+        if config.ssl && config.ssl_mode.is_some() {
+            return config.clone();
+        }
+        let mut secured = config.clone();
+        secured.ssl = true;
+        if secured.ssl_mode.is_none() {
+            secured.ssl_mode = Some("verify-full".to_string());
+        }
+        secured
     }
 
     async fn get_session(&self, session: SessionId) -> EngineResult<Arc<SqlServerSession>> {
@@ -287,15 +352,16 @@ fn classify_error(msg: String) -> EngineError {
 #[async_trait]
 impl DataEngine for SqlServerDriver {
     fn driver_id(&self) -> &'static str {
-        "sqlserver"
+        self.flavor.driver_id()
     }
 
     fn driver_name(&self) -> &'static str {
-        "SQL Server"
+        self.flavor.driver_name()
     }
 
     async fn test_connection(&self, config: &ConnectionConfig) -> EngineResult<()> {
-        let mut client = Self::connect_raw(config).await?;
+        let config = self.connection_config(config);
+        let mut client = Self::connect_raw(&config).await?;
 
         let stream = client
             .simple_query("SELECT 1")
@@ -311,7 +377,8 @@ impl DataEngine for SqlServerDriver {
     }
 
     async fn connect(&self, config: &ConnectionConfig) -> EngineResult<SessionId> {
-        let pool = Self::create_pool(config).await?;
+        let config = self.connection_config(config);
+        let pool = Self::create_pool(&config).await?;
         let database = config.database.clone().unwrap_or_default();
 
         let session_id = SessionId::new();
@@ -320,7 +387,7 @@ impl DataEngine for SqlServerDriver {
             transaction_conn: Mutex::new(None),
             active_queries: Mutex::new(HashMap::new()),
             database,
-            config: config.clone(),
+            config,
         });
 
         let mut sessions = self.sessions.write().await;
@@ -1026,7 +1093,7 @@ impl DataEngine for SqlServerDriver {
     }
 
     fn supports_triggers(&self) -> bool {
-        true
+        !matches!(self.flavor, SqlServerFlavor::Synapse)
     }
 
     async fn get_trigger_definition(
@@ -1735,7 +1802,7 @@ impl DataEngine for SqlServerDriver {
     }
 
     fn supports_transactions(&self) -> bool {
-        true
+        !matches!(self.flavor, SqlServerFlavor::Synapse)
     }
 
     async fn insert_row(
@@ -1847,7 +1914,7 @@ impl DataEngine for SqlServerDriver {
     }
 
     fn supports_mutations(&self) -> bool {
-        true
+        !matches!(self.flavor, SqlServerFlavor::Synapse)
     }
 
     fn supports_streaming(&self) -> bool {
@@ -1912,7 +1979,7 @@ impl DataEngine for SqlServerDriver {
     }
 
     fn supports_maintenance(&self) -> bool {
-        true
+        !matches!(self.flavor, SqlServerFlavor::Synapse)
     }
 
     async fn list_maintenance_operations(
@@ -2189,6 +2256,48 @@ mod tests {
         assert_eq!(SqlServerDriver::quote_ident("table"), "[table]");
         assert_eq!(SqlServerDriver::quote_ident("my]table"), "[my]]table]");
         assert_eq!(SqlServerDriver::quote_ident("dbo"), "[dbo]");
+    }
+
+    #[test]
+    fn azure_flavors_force_tls_and_use_safe_capabilities() {
+        let sql_server = SqlServerDriver::new();
+        let azure = SqlServerDriver::azure_sql();
+        let synapse = SqlServerDriver::synapse();
+        let config = base_config();
+
+        assert_eq!(azure.driver_id(), "azuresql");
+        assert_eq!(azure.driver_name(), "Azure SQL");
+        assert_eq!(synapse.driver_id(), "synapse");
+        assert_eq!(synapse.driver_name(), "Azure Synapse");
+        assert!(azure.connection_config(&config).ssl);
+        assert!(synapse.connection_config(&config).ssl);
+        assert!(!sql_server.connection_config(&config).ssl);
+        assert_eq!(
+            azure.connection_config(&config).ssl_mode.as_deref(),
+            Some("verify-full"),
+            "forcing TLS without verification would accept any certificate"
+        );
+        assert_eq!(
+            synapse.connection_config(&config).ssl_mode.as_deref(),
+            Some("verify-full")
+        );
+        assert!(sql_server.connection_config(&config).ssl_mode.is_none());
+
+        let explicit = ConnectionConfig {
+            ssl: true,
+            ssl_mode: Some("accept_new".to_string()),
+            ..config.clone()
+        };
+        assert_eq!(
+            azure.connection_config(&explicit).ssl_mode.as_deref(),
+            Some("accept_new"),
+            "an explicit mode is the user's call and must survive"
+        );
+        assert_eq!(azure.capabilities(), sql_server.capabilities());
+        assert!(!synapse.supports_transactions());
+        assert!(!synapse.supports_mutations());
+        assert!(!synapse.supports_triggers());
+        assert!(!synapse.supports_maintenance());
     }
 
     #[test]

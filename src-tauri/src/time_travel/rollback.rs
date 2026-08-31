@@ -210,11 +210,13 @@ impl Quoter {
 
 fn get_quoter(driver_id: &str) -> Quoter {
     match driver_id {
-        "mysql" | "mariadb" | "planetscale" => Quoter {
-            left: "`",
-            right: "`",
-        },
-        "sqlserver" => Quoter {
+        "mysql" | "mariadb" | "planetscale" | "tidb" | "starrocks" | "doris" | "singlestore" => {
+            Quoter {
+                left: "`",
+                right: "`",
+            }
+        }
+        "sqlserver" | "azuresql" | "synapse" => Quoter {
             left: "[",
             right: "]",
         },

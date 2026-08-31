@@ -15,9 +15,18 @@ export enum Driver {
   Cockroachdb = 'cockroachdb',
   Mariadb = 'mariadb',
   PlanetScale = 'planetscale',
+  TiDb = 'tidb',
+  StarRocks = 'starrocks',
+  Doris = 'doris',
+  SingleStore = 'singlestore',
   Supabase = 'supabase',
   Neon = 'neon',
   Timescaledb = 'timescaledb',
+  YugabyteDb = 'yugabytedb',
+  KeyDb = 'keydb',
+  Garnet = 'garnet',
+  AzureSql = 'azuresql',
+  Synapse = 'synapse',
   Clickhouse = 'clickhouse',
   Elasticsearch = 'elasticsearch',
   OpenSearch = 'opensearch',
@@ -86,6 +95,117 @@ export interface DriverMetadata {
   identifier: IdentifierRules;
   queries: DriverQueryBuilders;
 }
+
+const MYSQL_COMPAT_METADATA = {
+  namespaceLabel: 'dbtree.database',
+  namespacePluralLabel: 'dbtree.databases',
+  collectionLabel: 'dbtree.table',
+  collectionPluralLabel: 'dbtree.tables',
+  treeRootLabel: 'dbtree.databasesHeader',
+  createAction: 'database',
+  databaseFieldLabel: 'connection.database',
+  supportsSchemas: false,
+  supportsSQL: true,
+  dataModel: 'relational',
+  isDocumentBased: false,
+  identifier: {
+    quoteStart: '`',
+    quoteEnd: '`',
+    namespaceStrategy: 'database',
+  },
+  queries: {
+    databaseSizeQuery: (db: string) => {
+      const d = assertSafeSqlIdent(db, 'database');
+      return `SELECT COALESCE(SUM(IFNULL(data_length, 0) + IFNULL(index_length, 0)), 0) as size
+       FROM information_schema.tables WHERE table_schema = '${d}'`;
+    },
+    tableSizeQuery: (db: string, table: string) => {
+      const d = assertSafeSqlIdent(db, 'database');
+      const t = assertSafeSqlIdent(table, 'table');
+      return `SELECT data_length + index_length as total_bytes, table_rows
+       FROM information_schema.tables
+       WHERE table_schema = '${d}' AND table_name = '${t}'`;
+    },
+    indexCountQuery: (db: string) => {
+      const d = assertSafeSqlIdent(db, 'database');
+      return `SELECT COUNT(DISTINCT index_name) as cnt
+       FROM information_schema.statistics WHERE table_schema = '${d}'`;
+    },
+    tableIndexesQuery: (table: string) => {
+      const t = assertSafeSqlIdent(table, 'table');
+      return `SHOW INDEX FROM \`${t}\``;
+    },
+  },
+} as const satisfies Omit<DriverMetadata, 'id' | 'label' | 'icon' | 'defaultPort'>;
+
+const REDIS_COMPAT_METADATA = {
+  defaultPort: 6379,
+  namespaceLabel: 'dbtree.database',
+  namespacePluralLabel: 'dbtree.databases',
+  collectionLabel: 'dbtree.key',
+  collectionPluralLabel: 'dbtree.keys',
+  treeRootLabel: 'dbtree.databasesHeader',
+  createAction: 'none',
+  databaseFieldLabel: 'connection.databaseIndex',
+  supportsSchemas: false,
+  supportsSQL: false,
+  dataModel: 'key-value',
+  isDocumentBased: false,
+  identifier: {
+    quoteStart: '',
+    quoteEnd: '',
+    namespaceStrategy: 'database',
+  },
+  queries: {},
+} as const satisfies Omit<DriverMetadata, 'id' | 'label' | 'icon'>;
+
+const SQLSERVER_COMPAT_METADATA = {
+  defaultPort: 1433,
+  namespaceLabel: 'dbtree.schema',
+  namespacePluralLabel: 'dbtree.schemas',
+  collectionLabel: 'dbtree.table',
+  collectionPluralLabel: 'dbtree.tables',
+  treeRootLabel: 'dbtree.schemasHeader',
+  createAction: 'schema',
+  databaseFieldLabel: 'connection.databaseInitial',
+  supportsSchemas: true,
+  supportsSQL: true,
+  dataModel: 'relational',
+  isDocumentBased: false,
+  identifier: {
+    quoteStart: '[',
+    quoteEnd: ']',
+    namespaceStrategy: 'schema',
+  },
+  queries: {
+    databaseSizeQuery: () =>
+      `SELECT CAST(SUM(size) * 8.0 / 1024 AS DECIMAL(18,2)) AS size_mb
+       FROM sys.database_files`,
+    tableSizeQuery: (schema: string, table: string) => {
+      const s = assertSafeSqlIdent(schema, 'schema');
+      const t = assertSafeSqlIdent(table, 'table');
+      return `SELECT SUM(ps.reserved_page_count) * 8192 AS total_bytes
+       FROM sys.dm_db_partition_stats ps
+       JOIN sys.tables t ON ps.object_id = t.object_id
+       JOIN sys.schemas s ON t.schema_id = s.schema_id
+       WHERE s.name = '${s}' AND t.name = '${t}'`;
+    },
+    indexCountQuery: (schema: string) => {
+      const s = assertSafeSqlIdent(schema, 'schema');
+      return `SELECT COUNT(*) AS cnt FROM sys.indexes i
+       JOIN sys.tables t ON i.object_id = t.object_id
+       JOIN sys.schemas s ON t.schema_id = s.schema_id
+       WHERE s.name = '${s}' AND i.type > 0`;
+    },
+    tableIndexesQuery: (table: string) => {
+      const t = assertSafeSqlIdent(table, 'table');
+      return `SELECT i.name AS index_name, i.type_desc
+       FROM sys.indexes i
+       JOIN sys.tables t ON i.object_id = t.object_id
+       WHERE t.name = '${t}' AND i.type > 0`;
+    },
+  },
+} as const satisfies Omit<DriverMetadata, 'id' | 'label' | 'icon'>;
 
 export const DRIVERS: Record<Driver, DriverMetadata> = {
   [Driver.Postgres]: {
@@ -269,6 +389,34 @@ export const DRIVERS: Record<Driver, DriverMetadata> = {
       },
     },
   },
+  [Driver.TiDb]: {
+    id: Driver.TiDb,
+    label: 'TiDB',
+    icon: 'tidb.png',
+    defaultPort: 4000,
+    ...MYSQL_COMPAT_METADATA,
+  },
+  [Driver.StarRocks]: {
+    id: Driver.StarRocks,
+    label: 'StarRocks',
+    icon: 'starrocks.png',
+    defaultPort: 9030,
+    ...MYSQL_COMPAT_METADATA,
+  },
+  [Driver.Doris]: {
+    id: Driver.Doris,
+    label: 'Apache Doris',
+    icon: 'doris.png',
+    defaultPort: 9030,
+    ...MYSQL_COMPAT_METADATA,
+  },
+  [Driver.SingleStore]: {
+    id: Driver.SingleStore,
+    label: 'SingleStore',
+    icon: 'singlestore.png',
+    defaultPort: 3306,
+    ...MYSQL_COMPAT_METADATA,
+  },
   [Driver.Mongodb]: {
     id: Driver.Mongodb,
     label: 'MongoDB',
@@ -383,6 +531,18 @@ export const DRIVERS: Record<Driver, DriverMetadata> = {
       namespaceStrategy: 'database',
     },
     queries: {},
+  },
+  [Driver.KeyDb]: {
+    id: Driver.KeyDb,
+    label: 'KeyDB',
+    icon: 'keydb.png',
+    ...REDIS_COMPAT_METADATA,
+  },
+  [Driver.Garnet]: {
+    id: Driver.Garnet,
+    label: 'Garnet',
+    icon: 'garnet.png',
+    ...REDIS_COMPAT_METADATA,
   },
   [Driver.Sqlite]: {
     id: Driver.Sqlite,
@@ -532,6 +692,20 @@ export const DRIVERS: Record<Driver, DriverMetadata> = {
       },
     },
   },
+  [Driver.AzureSql]: {
+    id: Driver.AzureSql,
+    label: 'Azure SQL',
+    icon: 'azuresql.png',
+    ...SQLSERVER_COMPAT_METADATA,
+  },
+  [Driver.Synapse]: {
+    id: Driver.Synapse,
+    label: 'Azure Synapse',
+    icon: 'synapse.png',
+    ...SQLSERVER_COMPAT_METADATA,
+    createAction: 'none',
+    queries: {},
+  },
   [Driver.Cockroachdb]: {
     id: Driver.Cockroachdb,
     label: 'CockroachDB',
@@ -569,6 +743,52 @@ export const DRIVERS: Record<Driver, DriverMetadata> = {
       tableIndexesQuery: table => {
         const t = assertSafeSqlIdent(table, 'table');
         return `SELECT indexname, indexdef FROM pg_indexes WHERE tablename = '${t}'`;
+      },
+    },
+  },
+  [Driver.YugabyteDb]: {
+    id: Driver.YugabyteDb,
+    label: 'YugabyteDB',
+    icon: 'yugabytedb.png',
+    defaultPort: 5433,
+    namespaceLabel: 'dbtree.schema',
+    namespacePluralLabel: 'dbtree.schemas',
+    collectionLabel: 'dbtree.table',
+    collectionPluralLabel: 'dbtree.tables',
+    treeRootLabel: 'dbtree.schemasHeader',
+    createAction: 'schema',
+    databaseFieldLabel: 'connection.databaseInitial',
+    supportsSchemas: true,
+    supportsSQL: true,
+    dataModel: 'relational',
+    isDocumentBased: false,
+    identifier: {
+      quoteStart: '"',
+      quoteEnd: '"',
+      namespaceStrategy: 'schema',
+    },
+    queries: {
+      databaseSizeQuery: () =>
+        'SELECT pg_size_pretty(pg_database_size(current_database())) as size',
+      tableSizeQuery: (schema, table) => {
+        const s = assertSafeSqlIdent(schema, 'schema');
+        const t = assertSafeSqlIdent(table, 'table');
+        return `SELECT pg_total_relation_size('"${s}"."${t}"') as total_bytes,
+                pg_size_pretty(pg_total_relation_size('"${s}"."${t}"')) as size_pretty`;
+      },
+      indexCountQuery: schema => {
+        const s = assertSafeSqlIdent(schema, 'schema');
+        return `SELECT COUNT(*) as cnt FROM pg_indexes WHERE schemaname = '${s}'`;
+      },
+      tableIndexesQuery: table => {
+        const t = assertSafeSqlIdent(table, 'table');
+        return `SELECT indexname, indexdef FROM pg_indexes WHERE tablename = '${t}'`;
+      },
+      maintenanceQuery: (schema, table) => {
+        const s = assertSafeSqlIdent(schema, 'schema');
+        const t = assertSafeSqlIdent(table, 'table');
+        return `SELECT last_vacuum, last_analyze FROM pg_stat_user_tables
+         WHERE schemaname = '${s}' AND relname = '${t}'`;
       },
     },
   },

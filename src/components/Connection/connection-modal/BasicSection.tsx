@@ -39,7 +39,7 @@ export function BasicSection({
   const isFileBased = formData.driver === Driver.Sqlite || formData.driver === Driver.Duckdb;
   const usernameRequired =
     !isDocumentDatabase(formData.driver) && !isKeyValueDriver(formData.driver);
-  const isSqlServer = formData.driver === Driver.SqlServer;
+  const isSqlServer = [Driver.SqlServer, Driver.AzureSql, Driver.Synapse].includes(formData.driver);
   const isClickhouse = formData.driver === Driver.Clickhouse;
   const isRedis = isKeyValueDriver(formData.driver);
   const isSearch =

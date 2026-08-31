@@ -20,6 +20,42 @@ export interface ChangelogEntry {
  */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.1.39',
+    date: '2026-08-30',
+    items: [
+      {
+        title: 'Nine wire-compatible databases',
+        description:
+          'TiDB, StarRocks, Apache Doris and SingleStore join the MySQL family; YugabyteDB joins PostgreSQL; KeyDB and Garnet join Redis; and Azure SQL plus Azure Synapse join SQL Server with TLS enforced.',
+        type: 'feature',
+      },
+      {
+        title: 'Capabilities that match each engine',
+        description:
+          'The connection picker, DSN detection, query tools, migrations and documentation now recognise every identity while hiding schema actions that the compatible protocol does not actually guarantee.',
+        type: 'improvement',
+      },
+      {
+        title: 'Azure SQL and Synapse now verify the server certificate',
+        description:
+          'Forcing TLS on these endpoints no longer means trusting any certificate: connections default to full verification against the system trust store. An explicit SSL mode still wins.',
+        type: 'fix',
+      },
+      {
+        title: 'Schema diff fixes for MariaDB and PlanetScale',
+        description:
+          'Both now generate migrations through the MySQL builders instead of falling through to a driver with no builder, which left PlanetScale unable to produce ALTER TABLE statements.',
+        type: 'fix',
+      },
+      {
+        title: 'Connection templates reach the compatible drivers',
+        description:
+          'A template declared for postgresql, mysql, sqlserver or redis now applies to every driver that speaks that protocol — CockroachDB, Supabase, Neon and TimescaleDB included.',
+        type: 'improvement',
+      },
+    ],
+  },
+  {
     version: '0.1.38',
     date: '2026-08-21',
     items: [

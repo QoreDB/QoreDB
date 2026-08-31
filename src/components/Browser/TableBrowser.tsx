@@ -1240,7 +1240,7 @@ function TableInfoPanel({
 
       if (driverMeta.supportsSQL) {
         // PostgreSQL stats query
-        if (driver === Driver.Postgres) {
+        if (driver === Driver.Postgres || driver === Driver.YugabyteDb) {
           //TODO : à passer en backend ?
           const sizeQuery = `
             SELECT pg_total_relation_size('"${schemaName}"."${tableName}"') as total_bytes,

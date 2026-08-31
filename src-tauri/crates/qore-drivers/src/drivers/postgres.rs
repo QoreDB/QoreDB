@@ -21,19 +21,58 @@ use qore_core::types::{
     TriggerListOptions, TriggerOperationResult, TruncateAllResult, Value,
 };
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum PostgresFlavor {
+    Postgres,
+    YugabyteDb,
+}
+
+impl PostgresFlavor {
+    fn driver_id(self) -> &'static str {
+        match self {
+            Self::Postgres => "postgres",
+            Self::YugabyteDb => "yugabytedb",
+        }
+    }
+
+    fn driver_name(self) -> &'static str {
+        match self {
+            Self::Postgres => "PostgreSQL",
+            Self::YugabyteDb => "YugabyteDB",
+        }
+    }
+
+    fn default_database(self) -> &'static str {
+        match self {
+            Self::Postgres => "postgres",
+            Self::YugabyteDb => "yugabyte",
+        }
+    }
+}
+
 pub struct PostgresDriver {
+    flavor: PostgresFlavor,
     sessions: SessionMap,
 }
 
 impl PostgresDriver {
     pub fn new() -> Self {
+        Self::with_flavor(PostgresFlavor::Postgres)
+    }
+
+    pub fn yugabytedb() -> Self {
+        Self::with_flavor(PostgresFlavor::YugabyteDb)
+    }
+
+    fn with_flavor(flavor: PostgresFlavor) -> Self {
         Self {
+            flavor,
             sessions: pg_compat::new_session_map(),
         }
     }
 
-    fn conn_str(config: &ConnectionConfig) -> String {
-        pg_compat::build_pg_connection_string(config, "postgres")
+    fn conn_str(&self, config: &ConnectionConfig) -> String {
+        pg_compat::build_pg_connection_string(config, self.flavor.default_database())
     }
 }
 
@@ -46,19 +85,19 @@ impl Default for PostgresDriver {
 #[async_trait]
 impl DataEngine for PostgresDriver {
     fn driver_id(&self) -> &'static str {
-        "postgres"
+        self.flavor.driver_id()
     }
 
     fn driver_name(&self) -> &'static str {
-        "PostgreSQL"
+        self.flavor.driver_name()
     }
 
     async fn test_connection(&self, config: &ConnectionConfig) -> EngineResult<()> {
-        pg_compat::test_connection(&Self::conn_str(config)).await
+        pg_compat::test_connection(&self.conn_str(config)).await
     }
 
     async fn connect(&self, config: &ConnectionConfig) -> EngineResult<SessionId> {
-        pg_compat::connect(&self.sessions, config, &Self::conn_str(config)).await
+        pg_compat::connect(&self.sessions, config, &self.conn_str(config)).await
     }
 
     async fn disconnect(&self, session: SessionId) -> EngineResult<()> {
@@ -577,7 +616,7 @@ mod tests {
     fn test_connection_string_building() {
         let config = make_config("user", "pass");
 
-        let conn_str = PostgresDriver::conn_str(&config);
+        let conn_str = PostgresDriver::new().conn_str(&config);
         assert!(conn_str.contains("localhost:5432"));
         assert!(conn_str.contains("testdb"));
         assert!(conn_str.contains("sslmode=disable"));
@@ -587,7 +626,7 @@ mod tests {
     fn test_connection_string_special_chars_in_password() {
         let config = make_config("admin", "p@ss:word/123?#&=!");
 
-        let conn_str = PostgresDriver::conn_str(&config);
+        let conn_str = PostgresDriver::new().conn_str(&config);
         assert!(!conn_str.contains("p@ss:word/123?#&=!"));
         assert!(conn_str.contains("p%40ss%3Aword%2F123%3F%23%26%3D%21"));
         assert!(conn_str.contains("@localhost:5432"));
@@ -597,8 +636,21 @@ mod tests {
     fn test_connection_string_special_chars_in_username() {
         let config = make_config("user@domain", "pass");
 
-        let conn_str = PostgresDriver::conn_str(&config);
+        let conn_str = PostgresDriver::new().conn_str(&config);
         assert!(conn_str.contains("user%40domain"));
         assert!(conn_str.contains("@localhost:5432"));
+    }
+
+    #[test]
+    fn yugabytedb_has_its_own_identity_and_default_database() {
+        let postgres = PostgresDriver::new();
+        let yugabyte = PostgresDriver::yugabytedb();
+        let mut config = make_config("yugabyte", "pass");
+        config.database = None;
+
+        assert_eq!(yugabyte.driver_id(), "yugabytedb");
+        assert_eq!(yugabyte.driver_name(), "YugabyteDB");
+        assert_eq!(yugabyte.capabilities(), postgres.capabilities());
+        assert!(yugabyte.conn_str(&config).contains("/yugabyte?"));
     }
 }

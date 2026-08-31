@@ -132,8 +132,14 @@ export const SQLEditor = forwardRef<SQLEditorHandle, SQLEditorProps>(function SQ
       case Driver.Mysql:
       case Driver.Mariadb:
       case Driver.PlanetScale:
+      case Driver.TiDb:
+      case Driver.StarRocks:
+      case Driver.Doris:
+      case Driver.SingleStore:
         return MySQL;
       case Driver.SqlServer:
+      case Driver.AzureSql:
+      case Driver.Synapse:
         return MSSQL;
       default:
         return PostgreSQL;
@@ -170,7 +176,9 @@ export const SQLEditor = forwardRef<SQLEditorHandle, SQLEditorProps>(function SQ
       if (!connectionDatabase) return namespaces[0];
       const matches = namespaces.filter(ns => ns.database === connectionDatabase);
       if (!matches.length) return namespaces[0];
-      const defaultSchema = dialect === Driver.SqlServer ? 'dbo' : 'public';
+      const defaultSchema = [Driver.SqlServer, Driver.AzureSql, Driver.Synapse].includes(dialect)
+        ? 'dbo'
+        : 'public';
       const schemaMatch = matches.find(ns => ns.schema === defaultSchema);
       return schemaMatch || matches[0];
     },

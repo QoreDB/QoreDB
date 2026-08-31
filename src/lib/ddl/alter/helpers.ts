@@ -87,7 +87,10 @@ const DROP_INDEX_NEEDS_TABLE = new Set<Driver>([
   Driver.Mysql,
   Driver.Mariadb,
   Driver.PlanetScale,
+  Driver.TiDb,
+  Driver.SingleStore,
   Driver.SqlServer,
+  Driver.AzureSql,
 ]);
 
 export function dropIndexStmt(name: string, ctx: BuilderContext): string {

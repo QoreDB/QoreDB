@@ -44,12 +44,16 @@ tempfile = "3.24.0"
 [features]
 default = ["all-drivers"]
 all-drivers = [
+    "driver-azuresql",
     "driver-clickhouse",
     "driver-cockroachdb",
+    "driver-doris",
     "driver-documentdb",
     "driver-dragonfly",
     "driver-duckdb",
     "driver-elasticsearch",
+    "driver-garnet",
+    "driver-keydb",
     "driver-mariadb",
     "driver-mongodb",
     "driver-motherduck",
@@ -61,14 +65,23 @@ all-drivers = [
     "driver-redis",
     "driver-sqlite",
     "driver-sqlserver",
+    "driver-singlestore",
+    "driver-starrocks",
     "driver-supabase",
+    "driver-synapse",
+    "driver-tidb",
     "driver-timescaledb",
     "driver-valkey",
+    "driver-yugabytedb",
 ]
+driver-azuresql = ["qore-drivers/driver-azuresql"]
 driver-clickhouse = ["qore-drivers/driver-clickhouse"]
 driver-cockroachdb = ["qore-drivers/driver-cockroachdb"]
+driver-doris = ["qore-drivers/driver-doris"]
 driver-duckdb = ["qore-drivers/driver-duckdb"]
 driver-elasticsearch = ["qore-drivers/driver-elasticsearch"]
+driver-garnet = ["qore-drivers/driver-garnet"]
+driver-keydb = ["qore-drivers/driver-keydb"]
 driver-mariadb = ["qore-drivers/driver-mariadb"]
 driver-documentdb = ["qore-drivers/driver-documentdb"]
 driver-dragonfly = ["qore-drivers/driver-dragonfly"]
@@ -82,7 +95,12 @@ driver-postgres = ["qore-drivers/driver-postgres"]
 driver-redis = ["qore-drivers/driver-redis"]
 driver-sqlite = ["qore-drivers/driver-sqlite"]
 driver-sqlserver = ["qore-drivers/driver-sqlserver"]
+driver-singlestore = ["qore-drivers/driver-singlestore"]
+driver-starrocks = ["qore-drivers/driver-starrocks"]
 driver-supabase = ["qore-drivers/driver-supabase"]
+driver-synapse = ["qore-drivers/driver-synapse"]
+driver-tidb = ["qore-drivers/driver-tidb"]
 driver-timescaledb = ["qore-drivers/driver-timescaledb"]
 driver-valkey = ["qore-drivers/driver-valkey"]
+driver-yugabytedb = ["qore-drivers/driver-yugabytedb"]
 duckdb-bundled = ["driver-duckdb", "qore-drivers/duckdb-bundled"]

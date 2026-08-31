@@ -51,10 +51,11 @@ impl SqlDialect {
             // The managed Postgres drivers speak the same DML as Postgres; they
             // differ in connection handling, not in generated SQL.
             "postgres" | "postgresql" | "cockroachdb" | "cockroach" | "neon" | "supabase"
-            | "timescaledb" => Some(SqlDialect::Postgres),
-            "mysql" | "mariadb" | "planetscale" => Some(SqlDialect::MySql),
+            | "timescaledb" | "yugabytedb" => Some(SqlDialect::Postgres),
+            "mysql" | "mariadb" | "planetscale" | "tidb" | "starrocks" | "doris"
+            | "singlestore" => Some(SqlDialect::MySql),
             "sqlite" => Some(SqlDialect::Sqlite),
-            "sqlserver" | "mssql" => Some(SqlDialect::SqlServer),
+            "sqlserver" | "mssql" | "azuresql" | "synapse" => Some(SqlDialect::SqlServer),
             _ => None,
         }
     }
@@ -490,11 +491,30 @@ mod tests {
 
     #[test]
     fn managed_postgres_drivers_resolve_to_postgres() {
-        for driver in ["cockroachdb", "neon", "supabase", "timescaledb"] {
+        for driver in [
+            "cockroachdb",
+            "neon",
+            "supabase",
+            "timescaledb",
+            "yugabytedb",
+        ] {
             assert_eq!(
                 SqlDialect::from_driver_id(driver),
                 Some(SqlDialect::Postgres),
                 "{driver} must not fall through to the unknown-driver branch"
+            );
+        }
+    }
+
+    #[test]
+    fn wire_compatible_drivers_resolve_to_their_sql_dialect() {
+        for driver in ["tidb", "starrocks", "doris", "singlestore"] {
+            assert_eq!(SqlDialect::from_driver_id(driver), Some(SqlDialect::MySql));
+        }
+        for driver in ["azuresql", "synapse"] {
+            assert_eq!(
+                SqlDialect::from_driver_id(driver),
+                Some(SqlDialect::SqlServer)
             );
         }
     }

@@ -19,13 +19,13 @@ pub enum Dialect {
 impl Dialect {
     pub fn from_driver_id(id: &str) -> Option<Dialect> {
         match id.to_ascii_lowercase().as_str() {
-            "postgres" | "postgresql" | "cockroachdb" | "neon" | "supabase" | "timescaledb" => {
-                Some(Dialect::Postgres)
-            }
-            "mysql" | "mariadb" | "planetscale" => Some(Dialect::MySql),
+            "postgres" | "postgresql" | "cockroachdb" | "neon" | "supabase" | "timescaledb"
+            | "yugabytedb" => Some(Dialect::Postgres),
+            "mysql" | "mariadb" | "planetscale" | "tidb" | "starrocks" | "doris"
+            | "singlestore" => Some(Dialect::MySql),
             "sqlite" => Some(Dialect::Sqlite),
             "duckdb" => Some(Dialect::DuckDb),
-            "sqlserver" | "mssql" => Some(Dialect::SqlServer),
+            "sqlserver" | "mssql" | "azuresql" | "synapse" => Some(Dialect::SqlServer),
             "clickhouse" => Some(Dialect::ClickHouse),
             _ => None,
         }
@@ -189,6 +189,15 @@ mod tests {
             Some(Dialect::Postgres)
         );
         assert_eq!(Dialect::from_driver_id("mariadb"), Some(Dialect::MySql));
+        assert_eq!(Dialect::from_driver_id("tidb"), Some(Dialect::MySql));
+        assert_eq!(
+            Dialect::from_driver_id("yugabytedb"),
+            Some(Dialect::Postgres)
+        );
+        assert_eq!(
+            Dialect::from_driver_id("azuresql"),
+            Some(Dialect::SqlServer)
+        );
         assert_eq!(
             Dialect::from_driver_id("clickhouse"),
             Some(Dialect::ClickHouse)

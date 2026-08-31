@@ -794,6 +794,12 @@ export function QueryPanel({
       case Driver.PlanetScale:
         explainQuery = `EXPLAIN FORMAT=JSON ${trimmed}`;
         break;
+      case Driver.TiDb:
+      case Driver.StarRocks:
+      case Driver.Doris:
+      case Driver.SingleStore:
+        explainQuery = `EXPLAIN ${trimmed}`;
+        break;
       case Driver.Sqlite:
         explainQuery = `EXPLAIN QUERY PLAN ${trimmed}`;
         break;

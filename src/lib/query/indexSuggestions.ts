@@ -165,6 +165,7 @@ export function supportsIndexSuggestions(driver: Driver): boolean {
     driver === Driver.Postgres ||
     isMySqlFamily(driver) ||
     driver === Driver.Cockroachdb ||
+    driver === Driver.YugabyteDb ||
     driver === Driver.Supabase ||
     driver === Driver.Neon ||
     driver === Driver.Timescaledb

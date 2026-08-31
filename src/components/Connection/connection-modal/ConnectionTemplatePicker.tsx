@@ -33,7 +33,43 @@ const APPLIABLE_KEYS: ReadonlyArray<keyof ConnectionFormData> = [
 function templateMatchesDriver(templateDriver: string, current: Driver): boolean {
   const normalised = templateDriver.trim().toLowerCase();
   if (normalised === current) return true;
-  if ((normalised === 'postgresql' || normalised === 'postgres') && current === Driver.Postgres) {
+  if (
+    (normalised === 'postgresql' || normalised === 'postgres') &&
+    [
+      Driver.Postgres,
+      Driver.Cockroachdb,
+      Driver.Supabase,
+      Driver.Neon,
+      Driver.Timescaledb,
+      Driver.YugabyteDb,
+    ].includes(current)
+  ) {
+    return true;
+  }
+  if (
+    normalised === 'mysql' &&
+    [
+      Driver.Mysql,
+      Driver.Mariadb,
+      Driver.PlanetScale,
+      Driver.TiDb,
+      Driver.StarRocks,
+      Driver.Doris,
+      Driver.SingleStore,
+    ].includes(current)
+  ) {
+    return true;
+  }
+  if (
+    (normalised === 'sqlserver' || normalised === 'mssql') &&
+    [Driver.SqlServer, Driver.AzureSql, Driver.Synapse].includes(current)
+  ) {
+    return true;
+  }
+  if (
+    normalised === 'redis' &&
+    [Driver.Redis, Driver.Valkey, Driver.Dragonfly, Driver.KeyDb, Driver.Garnet].includes(current)
+  ) {
     return true;
   }
   if (normalised === 'sqlite3' && current === Driver.Sqlite) return true;

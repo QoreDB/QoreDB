@@ -94,7 +94,7 @@ pub fn classify_mutation(driver_id: &str, query: &str) -> Option<bool> {
     let driver_lower = driver_id.to_ascii_lowercase();
     match driver_lower.as_str() {
         "mongodb" | "documentdb" => Some(is_mongo_mutation(query)),
-        "redis" | "valkey" | "dragonfly" => Some(is_redis_mutation(query)),
+        "redis" | "valkey" | "dragonfly" | "keydb" | "garnet" => Some(is_redis_mutation(query)),
         "elasticsearch" | "opensearch" => Some(is_search_mutation(query)),
         _ => sql_safety::analyze_sql(driver_id, query)
             .ok()
@@ -341,7 +341,7 @@ pub async fn preflight_with_source(
     );
     let is_redis_driver = matches!(
         driver.driver_id().to_ascii_lowercase().as_str(),
-        "redis" | "valkey" | "dragonfly"
+        "redis" | "valkey" | "dragonfly" | "keydb" | "garnet"
     );
     let is_search_driver = matches!(
         driver.driver_id().to_ascii_lowercase().as_str(),

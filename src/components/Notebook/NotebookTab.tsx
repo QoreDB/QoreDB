@@ -58,7 +58,9 @@ export function NotebookTab({
     schemaCache.getNamespaces().then(ns => {
       setNamespaces(ns);
       if (!selectedNamespace && ns.length > 0) {
-        const defaultSchema = dialect === Driver.SqlServer ? 'dbo' : 'public';
+        const defaultSchema = [Driver.SqlServer, Driver.AzureSql, Driver.Synapse].includes(dialect)
+          ? 'dbo'
+          : 'public';
         const match = connectionDatabase
           ? (ns.find(n => n.database === connectionDatabase && n.schema === defaultSchema) ??
             ns.find(n => n.database === connectionDatabase))

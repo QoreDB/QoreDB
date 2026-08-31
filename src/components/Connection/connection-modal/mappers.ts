@@ -10,6 +10,10 @@ function isSearchDriver(driver: Driver): boolean {
   return driver === Driver.Elasticsearch || driver === Driver.OpenSearch;
 }
 
+function isSqlServerDriver(driver: Driver): boolean {
+  return [Driver.SqlServer, Driver.AzureSql, Driver.Synapse].includes(driver);
+}
+
 export function buildConnectionConfig(formData: ConnectionFormData): ConnectionConfig {
   return {
     driver: formData.driver,
@@ -20,7 +24,7 @@ export function buildConnectionConfig(formData: ConnectionFormData): ConnectionC
     database: formData.database || undefined,
     ssl: formData.ssl,
     ssl_mode: formData.sslMode || undefined,
-    mssql_auth: formData.driver === Driver.SqlServer ? formData.mssqlAuthMode : undefined,
+    mssql_auth: isSqlServerDriver(formData.driver) ? formData.mssqlAuthMode : undefined,
     clickhouse_cluster:
       formData.driver === Driver.Clickhouse && formData.clickhouseCluster.trim().length > 0
         ? formData.clickhouseCluster.trim()
@@ -81,7 +85,7 @@ export function buildSavedConnection(
     database: formData.database || undefined,
     ssl: formData.ssl,
     ssl_mode: formData.sslMode || undefined,
-    mssql_auth: formData.driver === Driver.SqlServer ? formData.mssqlAuthMode : undefined,
+    mssql_auth: isSqlServerDriver(formData.driver) ? formData.mssqlAuthMode : undefined,
     clickhouse_cluster:
       formData.driver === Driver.Clickhouse && formData.clickhouseCluster.trim().length > 0
         ? formData.clickhouseCluster.trim()
@@ -184,13 +188,13 @@ export function getMissingRequirements(formData: ConnectionFormData): string[] {
     }
 
     const isMssqlIntegrated =
-      formData.driver === Driver.SqlServer && formData.mssqlAuthMode === 'windows_integrated';
+      isSqlServerDriver(formData.driver) && formData.mssqlAuthMode === 'windows_integrated';
     if (authRequired && !isMssqlIntegrated && !formData.username) {
       missing.push('connection.username');
     }
 
     const ntlmUsernameOk =
-      formData.driver !== Driver.SqlServer ||
+      !isSqlServerDriver(formData.driver) ||
       formData.mssqlAuthMode !== 'windows_ntlm' ||
       formData.username.includes('\\') ||
       formData.username.includes('@');

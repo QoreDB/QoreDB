@@ -61,12 +61,16 @@ tempfile = "3.24.0"
 [features]
 default = ["all-drivers"]
 all-drivers = [
+    "driver-azuresql",
     "driver-clickhouse",
     "driver-cockroachdb",
+    "driver-doris",
     "driver-documentdb",
     "driver-dragonfly",
     "driver-duckdb",
     "driver-elasticsearch",
+    "driver-garnet",
+    "driver-keydb",
     "driver-mariadb",
     "driver-mongodb",
     "driver-motherduck",
@@ -78,14 +82,23 @@ all-drivers = [
     "driver-redis",
     "driver-sqlite",
     "driver-sqlserver",
+    "driver-starrocks",
+    "driver-singlestore",
     "driver-supabase",
+    "driver-synapse",
+    "driver-tidb",
     "driver-timescaledb",
     "driver-valkey",
+    "driver-yugabytedb",
 ]
+driver-azuresql = ["driver-sqlserver"]
 driver-clickhouse = ["dep:reqwest"]
 driver-cockroachdb = ["sqlx-postgres"]
+driver-doris = ["sqlx-mysql"]
 driver-duckdb = ["dep:duckdb"]
 driver-elasticsearch = ["dep:reqwest"]
+driver-garnet = ["dep:futures", "dep:redis"]
+driver-keydb = ["dep:futures", "dep:redis"]
 driver-mariadb = ["sqlx-mysql"]
 driver-documentdb = ["driver-mongodb"]
 driver-dragonfly = ["dep:futures", "dep:redis"]
@@ -99,9 +112,14 @@ driver-postgres = ["sqlx-postgres"]
 driver-redis = ["dep:futures", "dep:redis"]
 driver-sqlite = ["dep:futures", "dep:sqlx", "sqlx/sqlite"]
 driver-sqlserver = ["dep:bb8", "dep:bb8-tiberius", "dep:tiberius", "dep:tokio-util"]
+driver-starrocks = ["sqlx-mysql"]
+driver-singlestore = ["sqlx-mysql"]
 driver-supabase = ["sqlx-postgres"]
+driver-synapse = ["driver-sqlserver"]
+driver-tidb = ["sqlx-mysql"]
 driver-timescaledb = ["sqlx-postgres"]
 driver-valkey = ["dep:futures", "dep:redis"]
+driver-yugabytedb = ["sqlx-postgres"]
 duckdb-bundled = ["driver-duckdb", "duckdb/bundled"]
 sqlx-mysql = ["dep:futures", "dep:sqlx", "sqlx/mysql"]
 sqlx-postgres = ["dep:futures", "dep:sqlx", "sqlx/postgres"]

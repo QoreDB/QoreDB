@@ -449,10 +449,9 @@ export function AppLayout() {
       if (!sessionId) return;
       const d = driver as Driver;
       const tableRef = buildQualifiedTableName(collection.namespace, collection.name, d);
-      const sql =
-        d === Driver.SqlServer
-          ? `SELECT TOP 100 * FROM ${tableRef};`
-          : `SELECT * FROM ${tableRef} LIMIT 100;`;
+      const sql = [Driver.SqlServer, Driver.AzureSql, Driver.Synapse].includes(d)
+        ? `SELECT TOP 100 * FROM ${tableRef};`
+        : `SELECT * FROM ${tableRef} LIMIT 100;`;
       openTab(createQueryTab(sql, collection.namespace));
     },
     [sessionId, driver, openTab]

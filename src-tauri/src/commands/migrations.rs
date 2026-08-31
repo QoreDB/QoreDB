@@ -32,13 +32,20 @@ const MIGRATION_CONFIRMATION_ACTION: &str = "apply_migration";
 const SCHEMA_MIGRATION_DRIVERS: &[&str] = &[
     "postgres",
     "cockroachdb",
+    "yugabytedb",
     "mysql",
     "mariadb",
     "planetscale",
+    "tidb",
+    "starrocks",
+    "doris",
+    "singlestore",
     "sqlite",
     "duckdb",
     "motherduck",
     "sqlserver",
+    "azuresql",
+    "synapse",
     "timescaledb",
     "supabase",
     "neon",
@@ -167,11 +174,14 @@ fn sql_str(value: &str) -> String {
 }
 
 fn is_sqlserver(driver_id: &str) -> bool {
-    matches!(driver_id, "sqlserver" | "mssql")
+    matches!(driver_id, "sqlserver" | "mssql" | "azuresql" | "synapse")
 }
 
 fn is_mysql_family(driver_id: &str) -> bool {
-    matches!(driver_id, "mysql" | "mariadb" | "planetscale")
+    matches!(
+        driver_id,
+        "mysql" | "mariadb" | "planetscale" | "tidb" | "starrocks" | "doris" | "singlestore"
+    )
 }
 
 fn migration_namespace(database: &str) -> Option<Namespace> {
@@ -1372,13 +1382,20 @@ mod tests {
             &[
                 "postgres",
                 "cockroachdb",
+                "yugabytedb",
                 "mysql",
                 "mariadb",
                 "planetscale",
+                "tidb",
+                "starrocks",
+                "doris",
+                "singlestore",
                 "sqlite",
                 "duckdb",
                 "motherduck",
                 "sqlserver",
+                "azuresql",
+                "synapse",
                 "timescaledb",
                 "supabase",
                 "neon",
@@ -1391,6 +1408,8 @@ mod tests {
             "redis",
             "valkey",
             "dragonfly",
+            "keydb",
+            "garnet",
             "elasticsearch",
             "opensearch",
         ] {

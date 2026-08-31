@@ -128,6 +128,14 @@ garantit pas l'introspection gratuite.
 Coût attendu par moteur : le fichier driver est un dérivé de ~300–500 lignes,
 l'essentiel du travail est la traversée de la checklist front + docs.
 
+État au 30 août 2026 : A1 est implémenté pour les neuf identités. Les variantes
+qui partagent exactement le même transport sont portées par un `flavor` dans
+`MySqlDriver`, `PostgresDriver`, `RedisDriver` ou `SqlServerDriver`, plutôt que
+par neuf wrappers dupliqués. Les capacités sont restreintes lorsque le dialecte
+de gestion diverge : DDL visuel désactivé pour StarRocks, Doris et Synapse,
+mutations structurées désactivées pour les deux moteurs OLAP et Synapse, et
+objets stockés MySQL masqués sur les quatre nouveaux flavors.
+
 ### A2 — wire compatible, introspection divergente
 
 | Moteur | Divergence | Surcoût |
@@ -258,7 +266,9 @@ quasi gratuit ensuite — Amazon Keyspaces (TLS forcé, port 9142).
 
 ## Checklist de bout en bout
 
-Établie en traçant les 41 fichiers touchés par l'ajout de PlanetScale.
+Établie en traçant les 41 fichiers touchés par l'ajout de PlanetScale. C'est un
+gabarit à reparcourir pour *chaque* lot, pas un état d'avancement : les cases
+restent vides même après A1, qui l'a traversée intégralement.
 
 ### Backend Rust
 

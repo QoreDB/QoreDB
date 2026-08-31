@@ -19,7 +19,13 @@ use qore_drivers::drivers::mariadb::MariaDbDriver;
 use qore_drivers::drivers::mongodb::MongoDriver;
 #[cfg(feature = "driver-motherduck")]
 use qore_drivers::drivers::motherduck::MotherDuckDriver;
-#[cfg(feature = "driver-mysql")]
+#[cfg(any(
+    feature = "driver-doris",
+    feature = "driver-mysql",
+    feature = "driver-singlestore",
+    feature = "driver-starrocks",
+    feature = "driver-tidb"
+))]
 use qore_drivers::drivers::mysql::MySqlDriver;
 #[cfg(feature = "driver-neon")]
 use qore_drivers::drivers::neon::NeonDriver;
@@ -27,17 +33,23 @@ use qore_drivers::drivers::neon::NeonDriver;
 use qore_drivers::drivers::opensearch::OpenSearchDriver;
 #[cfg(feature = "driver-planetscale")]
 use qore_drivers::drivers::planetscale::PlanetScaleDriver;
-#[cfg(feature = "driver-postgres")]
+#[cfg(any(feature = "driver-postgres", feature = "driver-yugabytedb"))]
 use qore_drivers::drivers::postgres::PostgresDriver;
 #[cfg(any(
     feature = "driver-dragonfly",
+    feature = "driver-garnet",
+    feature = "driver-keydb",
     feature = "driver-redis",
     feature = "driver-valkey"
 ))]
 use qore_drivers::drivers::redis::RedisDriver;
 #[cfg(feature = "driver-sqlite")]
 use qore_drivers::drivers::sqlite::SqliteDriver;
-#[cfg(feature = "driver-sqlserver")]
+#[cfg(any(
+    feature = "driver-azuresql",
+    feature = "driver-sqlserver",
+    feature = "driver-synapse"
+))]
 use qore_drivers::drivers::sqlserver::SqlServerDriver;
 #[cfg(feature = "driver-supabase")]
 use qore_drivers::drivers::supabase::SupabaseDriver;
@@ -76,6 +88,14 @@ impl ServiceContext {
         registry.register(Arc::new(PostgresDriver::new()));
         #[cfg(feature = "driver-mysql")]
         registry.register(Arc::new(MySqlDriver::new()));
+        #[cfg(feature = "driver-tidb")]
+        registry.register(Arc::new(MySqlDriver::tidb()));
+        #[cfg(feature = "driver-starrocks")]
+        registry.register(Arc::new(MySqlDriver::starrocks()));
+        #[cfg(feature = "driver-doris")]
+        registry.register(Arc::new(MySqlDriver::doris()));
+        #[cfg(feature = "driver-singlestore")]
+        registry.register(Arc::new(MySqlDriver::singlestore()));
         #[cfg(feature = "driver-mongodb")]
         registry.register(Arc::new(MongoDriver::new()));
         #[cfg(feature = "driver-documentdb")]
@@ -86,6 +106,10 @@ impl ServiceContext {
         registry.register(Arc::new(RedisDriver::valkey()));
         #[cfg(feature = "driver-dragonfly")]
         registry.register(Arc::new(RedisDriver::dragonfly()));
+        #[cfg(feature = "driver-keydb")]
+        registry.register(Arc::new(RedisDriver::keydb()));
+        #[cfg(feature = "driver-garnet")]
+        registry.register(Arc::new(RedisDriver::garnet()));
         #[cfg(feature = "driver-sqlite")]
         registry.register(Arc::new(SqliteDriver::new()));
         #[cfg(feature = "driver-duckdb")]
@@ -94,8 +118,14 @@ impl ServiceContext {
         registry.register(Arc::new(MotherDuckDriver::new()));
         #[cfg(feature = "driver-cockroachdb")]
         registry.register(Arc::new(CockroachDbDriver::new()));
+        #[cfg(feature = "driver-yugabytedb")]
+        registry.register(Arc::new(PostgresDriver::yugabytedb()));
         #[cfg(feature = "driver-sqlserver")]
         registry.register(Arc::new(SqlServerDriver::new()));
+        #[cfg(feature = "driver-azuresql")]
+        registry.register(Arc::new(SqlServerDriver::azure_sql()));
+        #[cfg(feature = "driver-synapse")]
+        registry.register(Arc::new(SqlServerDriver::synapse()));
         #[cfg(feature = "driver-mariadb")]
         registry.register(Arc::new(MariaDbDriver::new()));
         #[cfg(feature = "driver-planetscale")]

@@ -53,18 +53,72 @@ impl MySqlSession {
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum MySqlFlavor {
+    MySql,
+    TiDb,
+    StarRocks,
+    Doris,
+    SingleStore,
+}
+
+impl MySqlFlavor {
+    fn driver_id(self) -> &'static str {
+        match self {
+            Self::MySql => "mysql",
+            Self::TiDb => "tidb",
+            Self::StarRocks => "starrocks",
+            Self::Doris => "doris",
+            Self::SingleStore => "singlestore",
+        }
+    }
+
+    fn driver_name(self) -> &'static str {
+        match self {
+            Self::MySql => "MySQL",
+            Self::TiDb => "TiDB",
+            Self::StarRocks => "StarRocks",
+            Self::Doris => "Apache Doris",
+            Self::SingleStore => "SingleStore",
+        }
+    }
+}
+
 pub struct MySqlDriver {
+    flavor: MySqlFlavor,
     sessions: Arc<RwLock<HashMap<SessionId, Arc<MySqlSession>>>>,
 }
 
 impl MySqlDriver {
     pub fn new() -> Self {
+        Self::with_flavor(MySqlFlavor::MySql)
+    }
+
+    pub fn tidb() -> Self {
+        Self::with_flavor(MySqlFlavor::TiDb)
+    }
+
+    pub fn starrocks() -> Self {
+        Self::with_flavor(MySqlFlavor::StarRocks)
+    }
+
+    pub fn doris() -> Self {
+        Self::with_flavor(MySqlFlavor::Doris)
+    }
+
+    pub fn singlestore() -> Self {
+        Self::with_flavor(MySqlFlavor::SingleStore)
+    }
+
+    fn with_flavor(flavor: MySqlFlavor) -> Self {
         Self {
+            flavor,
             sessions: Arc::new(RwLock::new(HashMap::new())),
         }
     }
 
     async fn create_pool(
+        &self,
         config: &ConnectionConfig,
         max_connections: u32,
         min_connections: u32,
@@ -73,6 +127,7 @@ impl MySqlDriver {
         run_test_query: bool,
     ) -> EngineResult<MySqlPool> {
         let opts = Self::build_connect_options(config);
+        let set_time_zone = !matches!(self.flavor, MySqlFlavor::SingleStore);
 
         let pool = MySqlPoolOptions::new()
             .max_connections(max_connections)
@@ -84,7 +139,7 @@ impl MySqlDriver {
             // (`replace('\'', "''")`) into an unsafe defence. utf8mb4 also
             // avoids silent corruption of emoji/4-byte chars when the server
             // default is latin1 / utf8mb3.
-            .after_connect(|conn, _meta| {
+            .after_connect(move |conn, _meta| {
                 Box::pin(async move {
                     sqlx::query(
                         "SET SESSION sql_mode = CONCAT_WS(',', @@sql_mode, 'NO_BACKSLASH_ESCAPES')",
@@ -95,9 +150,12 @@ impl MySqlDriver {
                     // Force UTC on the session so TIMESTAMP values render
                     // identically across clients and don't drift with the
                     // server's `@@global.time_zone` (cf. audit B3-H8).
-                    sqlx::query("SET time_zone = '+00:00'")
-                        .execute(&mut *conn)
-                        .await?;
+                    // SingleStore exposes this variable as read-only.
+                    if set_time_zone {
+                        sqlx::query("SET time_zone = '+00:00'")
+                            .execute(&mut *conn)
+                            .await?;
+                    }
                     Ok(())
                 })
             })
@@ -554,15 +612,15 @@ impl Default for MySqlDriver {
 #[async_trait]
 impl DataEngine for MySqlDriver {
     fn driver_id(&self) -> &'static str {
-        "mysql"
+        self.flavor.driver_id()
     }
 
     fn driver_name(&self) -> &'static str {
-        "MySQL"
+        self.flavor.driver_name()
     }
 
     async fn test_connection(&self, config: &ConnectionConfig) -> EngineResult<()> {
-        let pool = Self::create_pool(config, 1, 0, 10, true, true).await?;
+        let pool = self.create_pool(config, 1, 0, 10, true, true).await?;
         pool.close().await;
         Ok(())
     }
@@ -575,15 +633,16 @@ impl DataEngine for MySqlDriver {
             .min(max_connections);
         let acquire_timeout = config.pool_acquire_timeout_secs.unwrap_or(15);
 
-        let pool = Self::create_pool(
-            config,
-            max_connections,
-            min_connections,
-            acquire_timeout as u64,
-            true,
-            false,
-        )
-        .await?;
+        let pool = self
+            .create_pool(
+                config,
+                max_connections,
+                min_connections,
+                acquire_timeout as u64,
+                true,
+                false,
+            )
+            .await?;
 
         let session_id = SessionId::new();
         let session = Arc::new(MySqlSession::new(pool));
@@ -826,7 +885,7 @@ impl DataEngine for MySqlDriver {
     }
 
     fn supports_routines(&self) -> bool {
-        true
+        matches!(self.flavor, MySqlFlavor::MySql)
     }
 
     async fn get_routine_definition(
@@ -1048,7 +1107,7 @@ impl DataEngine for MySqlDriver {
     }
 
     fn supports_triggers(&self) -> bool {
-        true
+        matches!(self.flavor, MySqlFlavor::MySql)
     }
 
     async fn get_trigger_definition(
@@ -1248,7 +1307,7 @@ impl DataEngine for MySqlDriver {
     }
 
     fn supports_events(&self) -> bool {
-        true
+        matches!(self.flavor, MySqlFlavor::MySql)
     }
 
     async fn get_event_definition(
@@ -2483,7 +2542,7 @@ impl DataEngine for MySqlDriver {
     }
 
     fn supports_transactions(&self) -> bool {
-        true
+        !matches!(self.flavor, MySqlFlavor::StarRocks | MySqlFlavor::Doris)
     }
 
     fn supports_streaming(&self) -> bool {
@@ -2685,11 +2744,11 @@ impl DataEngine for MySqlDriver {
     }
 
     fn supports_mutations(&self) -> bool {
-        true
+        !matches!(self.flavor, MySqlFlavor::StarRocks | MySqlFlavor::Doris)
     }
 
     fn supports_maintenance(&self) -> bool {
-        true
+        matches!(self.flavor, MySqlFlavor::MySql)
     }
 
     async fn list_maintenance_operations(
@@ -2806,7 +2865,7 @@ impl DataEngine for MySqlDriver {
     }
 
     fn supports_truncate_all(&self) -> bool {
-        true
+        !matches!(self.flavor, MySqlFlavor::StarRocks | MySqlFlavor::Doris)
     }
 
     async fn truncate_all(
@@ -2885,5 +2944,40 @@ impl DataEngine for MySqlDriver {
             execution_time_ms,
             success: true,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn wire_compatible_flavors_have_distinct_identities_and_safe_capabilities() {
+        let mysql = MySqlDriver::new();
+        let flavors = [
+            (MySqlDriver::tidb(), "tidb", "TiDB"),
+            (MySqlDriver::starrocks(), "starrocks", "StarRocks"),
+            (MySqlDriver::doris(), "doris", "Apache Doris"),
+            (MySqlDriver::singlestore(), "singlestore", "SingleStore"),
+        ];
+
+        for (driver, id, name) in flavors {
+            assert_eq!(driver.driver_id(), id);
+            assert_eq!(driver.driver_name(), name);
+            assert_eq!(driver.cancel_support(), mysql.cancel_support());
+            assert_eq!(
+                driver.pagination_capability(),
+                mysql.pagination_capability()
+            );
+            assert!(!driver.supports_routines());
+            assert!(!driver.supports_triggers());
+            assert!(!driver.supports_events());
+            assert!(!driver.supports_maintenance());
+        }
+
+        assert!(MySqlDriver::tidb().supports_transactions());
+        assert!(MySqlDriver::singlestore().supports_mutations());
+        assert!(!MySqlDriver::starrocks().supports_transactions());
+        assert!(!MySqlDriver::doris().supports_mutations());
     }
 }

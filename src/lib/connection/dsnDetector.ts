@@ -45,6 +45,26 @@ export function detectDriverFromDsn(dsn: string): DsnDetection | null {
     return { driver: Driver.PlanetScale, hint: '*.psdb.cloud' };
   }
 
+  if (/\.tidbcloud\.com/i.test(trimmed)) {
+    return { driver: Driver.TiDb, hint: '*.tidbcloud.com' };
+  }
+
+  if (/\.yugabyte\.cloud/i.test(trimmed)) {
+    return { driver: Driver.YugabyteDb, hint: '*.yugabyte.cloud' };
+  }
+
+  if (/\.svc\.singlestore\.com/i.test(trimmed)) {
+    return { driver: Driver.SingleStore, hint: '*.svc.singlestore.com' };
+  }
+
+  if (/\.sql\.azuresynapse\.net/i.test(trimmed)) {
+    return { driver: Driver.Synapse, hint: '*.sql.azuresynapse.net' };
+  }
+
+  if (/\.database\.windows\.net/i.test(trimmed)) {
+    return { driver: Driver.AzureSql, hint: '*.database.windows.net' };
+  }
+
   // DocumentDB speaks MongoDB; the host carries the AWS service name.
   if (/\.docdb(-elastic)?\.amazonaws\.com/i.test(trimmed)) {
     return { driver: Driver.DocumentDb, hint: '*.docdb.amazonaws.com' };

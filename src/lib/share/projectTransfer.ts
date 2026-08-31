@@ -38,11 +38,20 @@ function asNumber(value: unknown): number | undefined {
 /** Wire-compatible engines import as themselves, not as their base driver. */
 const TRANSFERABLE_DRIVERS = [
   'postgres',
+  'yugabytedb',
   'mysql',
   'planetscale',
+  'tidb',
+  'starrocks',
+  'doris',
+  'singlestore',
   'mongodb',
   'documentdb',
   'dragonfly',
+  'keydb',
+  'garnet',
+  'azuresql',
+  'synapse',
 ] as const;
 
 type TransferableDriver = (typeof TRANSFERABLE_DRIVERS)[number];

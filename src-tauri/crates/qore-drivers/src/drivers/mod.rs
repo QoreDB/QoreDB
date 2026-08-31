@@ -17,9 +17,13 @@ pub mod mongodb;
 #[cfg(feature = "driver-motherduck")]
 pub mod motherduck;
 #[cfg(any(
+    feature = "driver-doris",
     feature = "driver-mariadb",
     feature = "driver-mysql",
-    feature = "driver-planetscale"
+    feature = "driver-planetscale",
+    feature = "driver-singlestore",
+    feature = "driver-starrocks",
+    feature = "driver-tidb"
 ))]
 pub mod mysql;
 #[cfg(feature = "driver-neon")]
@@ -30,12 +34,14 @@ pub mod opensearch;
 pub mod pg_compat;
 #[cfg(feature = "driver-planetscale")]
 pub mod planetscale;
-#[cfg(feature = "driver-postgres")]
+#[cfg(any(feature = "driver-postgres", feature = "driver-yugabytedb"))]
 pub mod postgres;
 #[cfg(feature = "sqlx-postgres")]
 pub mod postgres_utils;
 #[cfg(any(
     feature = "driver-dragonfly",
+    feature = "driver-garnet",
+    feature = "driver-keydb",
     feature = "driver-redis",
     feature = "driver-valkey"
 ))]
@@ -44,7 +50,11 @@ pub mod redis;
 pub mod search_compat;
 #[cfg(feature = "driver-sqlite")]
 pub mod sqlite;
-#[cfg(feature = "driver-sqlserver")]
+#[cfg(any(
+    feature = "driver-azuresql",
+    feature = "driver-sqlserver",
+    feature = "driver-synapse"
+))]
 pub mod sqlserver;
 #[cfg(feature = "driver-supabase")]
 pub mod supabase;

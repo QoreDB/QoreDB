@@ -60,6 +60,22 @@ const DRIVER_SCHEMA_OBJECT_CAPABILITIES: Record<Driver, DriverSchemaObjectCapabi
     events: false,
     sequences: false,
   },
+  keydb: {
+    routines: false,
+    functions: false,
+    procedures: false,
+    triggers: false,
+    events: false,
+    sequences: false,
+  },
+  garnet: {
+    routines: false,
+    functions: false,
+    procedures: false,
+    triggers: false,
+    events: false,
+    sequences: false,
+  },
   documentdb: {
     routines: false,
     functions: false,
@@ -71,6 +87,38 @@ const DRIVER_SCHEMA_OBJECT_CAPABILITIES: Record<Driver, DriverSchemaObjectCapabi
   // Vitess implements neither stored routines, triggers nor the event
   // scheduler; offering them would surface objects the engine refuses.
   planetscale: {
+    routines: false,
+    functions: false,
+    procedures: false,
+    triggers: false,
+    events: false,
+    sequences: false,
+  },
+  tidb: {
+    routines: false,
+    functions: false,
+    procedures: false,
+    triggers: false,
+    events: false,
+    sequences: false,
+  },
+  starrocks: {
+    routines: false,
+    functions: false,
+    procedures: false,
+    triggers: false,
+    events: false,
+    sequences: false,
+  },
+  doris: {
+    routines: false,
+    functions: false,
+    procedures: false,
+    triggers: false,
+    events: false,
+    sequences: false,
+  },
+  singlestore: {
     routines: false,
     functions: false,
     procedures: false,
@@ -110,7 +158,31 @@ const DRIVER_SCHEMA_OBJECT_CAPABILITIES: Record<Driver, DriverSchemaObjectCapabi
     events: false,
     sequences: false,
   },
+  azuresql: {
+    routines: true,
+    functions: true,
+    procedures: true,
+    triggers: true,
+    events: false,
+    sequences: false,
+  },
+  synapse: {
+    routines: true,
+    functions: false,
+    procedures: true,
+    triggers: false,
+    events: false,
+    sequences: false,
+  },
   cockroachdb: {
+    routines: true,
+    functions: true,
+    procedures: true,
+    triggers: true,
+    events: false,
+    sequences: false,
+  },
+  yugabytedb: {
     routines: true,
     functions: true,
     procedures: true,
@@ -185,7 +257,9 @@ export function isDocumentDatabase(driver: Driver | string): boolean {
  * MariaDB and PlanetScale differ from MySQL in ways the UI does not model.
  */
 export function isMySqlFamily(driver: Driver | string): boolean {
-  return driver === 'mysql' || driver === 'mariadb' || driver === 'planetscale';
+  return ['mysql', 'mariadb', 'planetscale', 'tidb', 'starrocks', 'doris', 'singlestore'].includes(
+    driver
+  );
 }
 
 export function isRelationalDatabase(driver: Driver | string): boolean {

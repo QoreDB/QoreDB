@@ -43,10 +43,13 @@ impl Dialect {
     /// (MongoDB, Redis).
     pub fn from_driver_id(driver_id: &str) -> Option<Self> {
         match driver_id.to_ascii_lowercase().as_str() {
-            "postgres" | "postgresql" | "cockroachdb" | "cockroach" => Some(Dialect::Postgres),
-            "mysql" | "mariadb" | "planetscale" => Some(Dialect::MySql),
+            "postgres" | "postgresql" | "cockroachdb" | "cockroach" | "yugabytedb" => {
+                Some(Dialect::Postgres)
+            }
+            "mysql" | "mariadb" | "planetscale" | "tidb" | "starrocks" | "doris"
+            | "singlestore" => Some(Dialect::MySql),
             "sqlite" => Some(Dialect::Sqlite),
-            "sqlserver" | "mssql" => Some(Dialect::SqlServer),
+            "sqlserver" | "mssql" | "azuresql" | "synapse" => Some(Dialect::SqlServer),
             "duckdb" | "motherduck" => Some(Dialect::DuckDb),
             _ => None,
         }

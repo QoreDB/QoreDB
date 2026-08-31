@@ -28,6 +28,27 @@ describe('detectDriverFromDsn', () => {
     ).toBe(Driver.DocumentDb);
   });
 
+  it('detects cloud hosts for wire-compatible SQL drivers', () => {
+    expect(
+      detectDriverFromDsn('mysql://root:p@gateway01.us-west-2.prod.aws.tidbcloud.com:4000/test')
+        ?.driver
+    ).toBe(Driver.TiDb);
+    expect(
+      detectDriverFromDsn('postgresql://admin:p@us-west1.cluster.aws.yugabyte.cloud:5433/yugabyte')
+        ?.driver
+    ).toBe(Driver.YugabyteDb);
+    expect(
+      detectDriverFromDsn('mysql://admin:p@svc-cluster-dml.aws.svc.singlestore.com:3306/test')
+        ?.driver
+    ).toBe(Driver.SingleStore);
+    expect(
+      detectDriverFromDsn('sqlserver://u:p@server.database.windows.net:1433/test')?.driver
+    ).toBe(Driver.AzureSql);
+    expect(
+      detectDriverFromDsn('sqlserver://u:p@workspace.sql.azuresynapse.net:1433/test')?.driver
+    ).toBe(Driver.Synapse);
+  });
+
   /** A plain MySQL/Mongo host must keep whatever driver the user picked. */
   it('returns null for a self-hosted host', () => {
     expect(detectDriverFromDsn('mysql://u:p@localhost:3306/app')).toBeNull();

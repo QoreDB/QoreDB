@@ -6,12 +6,14 @@ import type { Namespace } from '../tauri';
 export function getTriggerTemplate(driver: Driver, namespace: Namespace): string {
   switch (driver) {
     case Driver.Postgres:
+    case Driver.YugabyteDb:
       return postgresCreateTrigger(namespace);
     case Driver.Mysql:
     case Driver.Mariadb:
     case Driver.PlanetScale:
       return mysqlCreateTrigger(namespace);
     case Driver.SqlServer:
+    case Driver.AzureSql:
       return sqlserverCreateTrigger(namespace);
     default:
       return '-- Triggers are not supported for this driver\n';

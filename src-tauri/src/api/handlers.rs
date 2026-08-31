@@ -311,13 +311,13 @@ enum ParamDialect {
 impl ParamDialect {
     fn from_driver_id(driver_id: &str) -> Option<Self> {
         match driver_id.to_ascii_lowercase().as_str() {
-            "postgres" | "postgresql" | "cockroachdb" | "neon" | "supabase" | "timescaledb" => {
-                Some(Self::Postgres)
-            }
-            "mysql" | "mariadb" | "planetscale" => Some(Self::MySql),
+            "postgres" | "postgresql" | "cockroachdb" | "neon" | "supabase" | "timescaledb"
+            | "yugabytedb" => Some(Self::Postgres),
+            "mysql" | "mariadb" | "planetscale" | "tidb" | "starrocks" | "doris"
+            | "singlestore" => Some(Self::MySql),
             "sqlite" => Some(Self::Sqlite),
             "duckdb" | "motherduck" => Some(Self::DuckDb),
-            "sqlserver" | "mssql" => Some(Self::SqlServer),
+            "sqlserver" | "mssql" | "azuresql" | "synapse" => Some(Self::SqlServer),
             "clickhouse" => Some(Self::ClickHouse),
             _ => None,
         }
@@ -807,11 +807,23 @@ mod tests {
             Some(ParamDialect::MySql)
         );
         assert_eq!(
+            ParamDialect::from_driver_id("tidb"),
+            Some(ParamDialect::MySql)
+        );
+        assert_eq!(
+            ParamDialect::from_driver_id("yugabytedb"),
+            Some(ParamDialect::Postgres)
+        );
+        assert_eq!(
             ParamDialect::from_driver_id("sqlserver")
                 .unwrap()
                 .safety_driver_id(),
             "sqlserver"
         );
         assert_eq!(ParamDialect::from_driver_id("mongodb"), None);
+        assert_eq!(
+            ParamDialect::from_driver_id("synapse"),
+            Some(ParamDialect::SqlServer)
+        );
     }
 }

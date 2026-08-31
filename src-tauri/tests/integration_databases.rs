@@ -13,7 +13,7 @@ use qoredb_lib::engine::{
         clickhouse::ClickHouseDriver, documentdb::DocumentDbDriver, duckdb::DuckDbDriver,
         elasticsearch::ElasticsearchDriver, mongodb::MongoDriver, mysql::MySqlDriver,
         planetscale::PlanetScaleDriver, postgres::PostgresDriver, redis::RedisDriver,
-        sqlite::SqliteDriver,
+        sqlite::SqliteDriver, sqlserver::SqlServerDriver,
     },
     error::{EngineError, EngineResult},
     traits::DataEngine,
@@ -61,6 +61,7 @@ enum Service {
     Redis,
     Dragonfly,
     PlanetScale,
+    SqlServer,
     ClickHouse,
     Search,
 }
@@ -75,6 +76,7 @@ impl Service {
             Service::Redis => "Redis",
             Service::Dragonfly => "Dragonfly",
             Service::PlanetScale => "MySQL (PlanetScale stand-in)",
+            Service::SqlServer => "SQL Server",
             Service::ClickHouse => "ClickHouse",
             Service::Search => "Elasticsearch",
         }
@@ -89,6 +91,7 @@ impl Service {
             Service::Redis => "QOREDB_TEST_REDIS_REQUIRED",
             Service::Dragonfly => "QOREDB_TEST_DRAGONFLY_REQUIRED",
             Service::PlanetScale => "QOREDB_TEST_PLANETSCALE_REQUIRED",
+            Service::SqlServer => "QOREDB_TEST_SQLSERVER_REQUIRED",
             Service::ClickHouse => "QOREDB_TEST_CLICKHOUSE_REQUIRED",
             Service::Search => "QOREDB_TEST_SEARCH_REQUIRED",
         }
@@ -248,6 +251,31 @@ fn redis_config() -> ConnectionConfig {
         username: env_or_default("QOREDB_TEST_REDIS_USER", "default"),
         password: env_or_default("QOREDB_TEST_REDIS_PASSWORD", "qoredb_test"),
         database: Some(env_or_default("QOREDB_TEST_REDIS_DB", "0")),
+        ssl: false,
+        ssl_mode: None,
+        environment: "development".to_string(),
+        read_only: false,
+        ssh_tunnel: None,
+        pool_acquire_timeout_secs: None,
+        pool_max_connections: None,
+        pool_min_connections: None,
+        proxy: None,
+        mssql_auth: None,
+        clickhouse_cluster: None,
+        search_auth_mode: None,
+        ssl_ca_cert: None,
+    }
+}
+
+fn sqlserver_config() -> ConnectionConfig {
+    ConnectionConfig {
+        options: Default::default(),
+        driver: "sqlserver".to_string(),
+        host: env_or_default("QOREDB_TEST_SQLSERVER_HOST", "127.0.0.1"),
+        port: env_u16_or_default("QOREDB_TEST_SQLSERVER_PORT", 1433),
+        username: env_or_default("QOREDB_TEST_SQLSERVER_USER", "sa"),
+        password: env_or_default("QOREDB_TEST_SQLSERVER_PASSWORD", "QoreDB_Test123!"),
+        database: Some(env_or_default("QOREDB_TEST_SQLSERVER_DB", "master")),
         ssl: false,
         ssl_mode: None,
         environment: "development".to_string(),
@@ -436,6 +464,14 @@ async fn connect_mongo() -> EngineResult<(Arc<MongoDriver>, SessionId, Connectio
 async fn connect_redis() -> EngineResult<(Arc<RedisDriver>, SessionId, ConnectionConfig)> {
     let config = redis_config();
     let driver = Arc::new(RedisDriver::new());
+    wait_for_connection(driver.as_ref(), &config).await?;
+    let session = driver.connect(&config).await?;
+    Ok((driver, session, config))
+}
+
+async fn connect_sqlserver() -> EngineResult<(Arc<SqlServerDriver>, SessionId, ConnectionConfig)> {
+    let config = sqlserver_config();
+    let driver = Arc::new(SqlServerDriver::new());
     wait_for_connection(driver.as_ref(), &config).await?;
     let session = driver.connect(&config).await?;
     Ok((driver, session, config))
@@ -2212,6 +2248,123 @@ async fn planetscale_e2e() -> EngineResult<()> {
         .execute(session, &format!("DROP TABLE {}", table), QueryId::new())
         .await?;
     driver.disconnect(session).await?;
+    Ok(())
+}
+
+#[tokio::test]
+async fn mysql_wire_compatible_a1_e2e() -> EngineResult<()> {
+    let Some((base_driver, base_session, config)) = connect_or_skip(
+        connect_mysql().await,
+        Service::MySql,
+        "mysql_wire_compatible_a1_e2e",
+    )?
+    else {
+        return Ok(());
+    };
+    base_driver.disconnect(base_session).await?;
+
+    for (driver, id) in [
+        (MySqlDriver::tidb(), "tidb"),
+        (MySqlDriver::starrocks(), "starrocks"),
+        (MySqlDriver::doris(), "doris"),
+        (MySqlDriver::singlestore(), "singlestore"),
+    ] {
+        let config = ConnectionConfig {
+            driver: id.to_string(),
+            ..config.clone()
+        };
+        let session = driver.connect(&config).await?;
+        let result = driver.execute(session, "SELECT 1", QueryId::new()).await?;
+        assert_eq!(driver.driver_id(), id);
+        assert_eq!(result.rows.len(), 1);
+        driver.disconnect(session).await?;
+    }
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn yugabytedb_wire_compatible_a1_e2e() -> EngineResult<()> {
+    let Some((base_driver, base_session, config)) = connect_or_skip(
+        connect_postgres().await,
+        Service::Postgres,
+        "yugabytedb_wire_compatible_a1_e2e",
+    )?
+    else {
+        return Ok(());
+    };
+    base_driver.disconnect(base_session).await?;
+
+    let driver = PostgresDriver::yugabytedb();
+    let config = ConnectionConfig {
+        driver: "yugabytedb".to_string(),
+        ..config
+    };
+    let session = driver.connect(&config).await?;
+    let result = driver.execute(session, "SELECT 1", QueryId::new()).await?;
+    assert_eq!(driver.driver_id(), "yugabytedb");
+    assert_eq!(result.rows.len(), 1);
+    driver.disconnect(session).await?;
+    Ok(())
+}
+
+#[tokio::test]
+async fn redis_wire_compatible_a1_e2e() -> EngineResult<()> {
+    let Some((base_driver, base_session, config)) = connect_or_skip(
+        connect_redis().await,
+        Service::Redis,
+        "redis_wire_compatible_a1_e2e",
+    )?
+    else {
+        return Ok(());
+    };
+    base_driver.disconnect(base_session).await?;
+
+    for (driver, id) in [
+        (RedisDriver::keydb(), "keydb"),
+        (RedisDriver::garnet(), "garnet"),
+    ] {
+        let config = ConnectionConfig {
+            driver: id.to_string(),
+            ..config.clone()
+        };
+        let session = driver.connect(&config).await?;
+        let result = driver.execute(session, "PING", QueryId::new()).await?;
+        assert_eq!(driver.driver_id(), id);
+        assert_eq!(result.rows.len(), 1);
+        driver.disconnect(session).await?;
+    }
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn azure_sql_wire_compatible_a1_e2e() -> EngineResult<()> {
+    let Some((base_driver, base_session, config)) = connect_or_skip(
+        connect_sqlserver().await,
+        Service::SqlServer,
+        "azure_sql_wire_compatible_a1_e2e",
+    )?
+    else {
+        return Ok(());
+    };
+    base_driver.disconnect(base_session).await?;
+
+    for (driver, id) in [
+        (SqlServerDriver::azure_sql(), "azuresql"),
+        (SqlServerDriver::synapse(), "synapse"),
+    ] {
+        let config = ConnectionConfig {
+            driver: id.to_string(),
+            ..config.clone()
+        };
+        let session = driver.connect(&config).await?;
+        let result = driver.execute(session, "SELECT 1", QueryId::new()).await?;
+        assert_eq!(driver.driver_id(), id);
+        assert_eq!(result.rows.len(), 1);
+        driver.disconnect(session).await?;
+    }
+
     Ok(())
 }
 

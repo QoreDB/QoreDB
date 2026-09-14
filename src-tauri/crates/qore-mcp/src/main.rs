@@ -3,6 +3,7 @@
 mod prompts;
 mod resources;
 
+use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -27,16 +28,21 @@ use qore_core::{Namespace, SessionId};
 use qore_service::ServiceContext;
 use qore_service::agent_access::{self, AgentSessions, AgentVault};
 use qore_service::agent_tools::{self, AgentToolContext, PREVIEW_MAX_ROWS};
+use qore_service::federation::types::normalize_alias;
 use qore_service::interceptor::QuerySource;
+use qore_service::license::LicenseManager;
+use qore_service::license::status::LicenseTier;
 use qore_service::paths::{QUERY_TIMEOUT_MS, config_dir};
 use qore_service::policy::SafetyPolicy;
+use qore_service::vault::backend::KeyringProvider;
+use qore_service::workspace::query_library::{self, SavedQuery};
 
 const INSTRUCTIONS: &str = "QoreDB gives read-only access to the database connections the user \
 explicitly exposed to AI agents. Every session is forced read-only, the safety policy applies \
 (row cap, timeout, rate limit) and each call is written to the audit log.\n\
 \n\
 Tools:\n\
-- list_connections: the exposed connections (id, driver, host, environment). Start here.\n\
+- list_connections: the exposed connections (id, alias, driver, host, environment). Start here.\n\
 - list_namespaces: databases/schemas of a connection.\n\
 - list_tables: tables or collections of a namespace, with an optional name filter.\n\
 - describe_table: columns, primary key, foreign keys, indexes and row estimate of a table.\n\
@@ -44,6 +50,10 @@ Tools:\n\
 - search_schema: find tables and columns whose name contains a pattern.\n\
 - run_query: a read-only query, optionally scoped to a database/schema.\n\
 - explain_query: the execution plan of a read-only query.\n\
+- run_federated_query (Pro): a SELECT joining tables of several exposed connections, referenced \
+as alias.database.table with the aliases from list_connections.\n\
+- list_saved_queries: the queries saved in the workspace query library, with their variables.\n\
+- run_saved_query: a saved query run with values for its variables, read-only like run_query.\n\
 \n\
 Resources: qore://{connection_id} lists namespaces and tables; \
 qore://{connection_id}/{database}[/{schema}]/{table} returns a table schema as JSON.\n\
@@ -137,6 +147,32 @@ struct SearchSchemaReq {
     schema: Option<String>,
     #[schemars(description = "Case-insensitive substring to look for in table and column names")]
     pattern: String,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+struct FederatedQueryReq {
+    #[schemars(description = "IDs of the exposed connections the query joins")]
+    connection_ids: Vec<String>,
+    #[schemars(description = "SELECT referencing tables as alias.database.table or \
+                       alias.database.schema.table, with the aliases from list_connections")]
+    query: String,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+struct RunSavedQueryReq {
+    #[schemars(description = "ID of the saved connection to run the query on")]
+    connection_id: String,
+    #[schemars(description = "ID of the saved query, from list_saved_queries")]
+    query_id: String,
+    #[schemars(description = "Values for the query variables, by name; defaults apply otherwise")]
+    #[serde(default)]
+    variables: HashMap<String, String>,
+    #[schemars(description = "Database/namespace to run in (optional, defaults to the saved one)")]
+    #[serde(default)]
+    database: Option<String>,
+    #[schemars(description = "Schema name (optional)")]
+    #[serde(default)]
+    schema: Option<String>,
 }
 
 fn text_result(result: Result<String, String>) -> CallToolResult {
@@ -306,15 +342,124 @@ impl QoreMcp {
         to_json(&matches)
     }
 
+    /// The licence is read from the keyring on every call, like the vault, so
+    /// activating Pro in the app applies without restarting the server.
+    async fn do_run_federated_query(&self, req: &FederatedQueryReq) -> Result<String, String> {
+        let tier = LicenseManager::new(Box::new(KeyringProvider::new()))
+            .effective_status()
+            .tier;
+        if !tier.includes(LicenseTier::Pro) {
+            return Err(
+                "run_federated_query requires a QoreDB Pro license, activated in the QoreDB app."
+                    .to_string(),
+            );
+        }
+
+        let vault = self.vault();
+        let mut aliases = HashSet::new();
+        let mut sources = Vec::with_capacity(req.connection_ids.len());
+        for connection_id in &req.connection_ids {
+            let session = self.ensure_session(connection_id).await?;
+            let name = vault.get(connection_id)?.name;
+            let alias = normalize_alias(&name);
+            if !aliases.insert(alias.clone()) {
+                return Err(format!(
+                    "Several connections resolve to the alias `{alias}`: pass each connection \
+                     once and rename duplicates in QoreDB."
+                ));
+            }
+            sources.push((name, session));
+        }
+
+        let ctx = self.tool_ctx();
+        let (result, meta) = agent_tools::run_federated_query(
+            &ctx,
+            &sources,
+            &req.query,
+            Some(self.query_timeout(&ctx)),
+            QuerySource::Mcp,
+        )
+        .await?;
+        to_json(&serde_json::json!({
+            "result": result,
+            "sources": meta.source_results,
+            "warnings": meta.warnings,
+        }))
+    }
+
+    fn saved_queries(&self) -> Result<Vec<SavedQuery>, String> {
+        let vault = self.vault();
+        let Some(workspace) = vault.workspace_path() else {
+            return Err(
+                "The query library is only readable from a .qoredb workspace: start qore-mcp \
+                 from the project folder or pass --workspace <dir>."
+                    .to_string(),
+            );
+        };
+        query_library::read(workspace).map(|library| query_library::saved_queries(&library))
+    }
+
+    async fn do_run_saved_query(&self, req: &RunSavedQueryReq) -> Result<String, String> {
+        let saved = self
+            .saved_queries()?
+            .into_iter()
+            .find(|q| q.id == req.query_id)
+            .ok_or_else(|| format!("No saved query with id '{}'", req.query_id))?;
+        let query =
+            query_library::substitute_variables(&saved.query, &saved.variables, &req.variables)?;
+        self.do_run_query(&RunQueryReq {
+            connection_id: req.connection_id.clone(),
+            query,
+            database: req.database.clone().or(saved.database),
+            schema: req.schema.clone(),
+        })
+        .await
+    }
+
     #[tool(description = "List the saved connections exposed to AI agents (read-only access)")]
     async fn list_connections(&self) -> Result<CallToolResult, McpError> {
         let summary = self.vault().exposed().map(|connections| {
             connections
                 .iter()
-                .map(agent_access::connection_summary)
+                .map(|connection| {
+                    let mut summary = agent_access::connection_summary(connection);
+                    summary["alias"] = normalize_alias(&connection.name).into();
+                    summary
+                })
                 .collect::<Vec<_>>()
         });
         Ok(text_result(summary.and_then(|s| to_json(&s))))
+    }
+
+    #[tool(
+        description = "Run a read-only SELECT joining tables across several exposed connections \
+                          (Pro license). Reference tables as alias.database.table or \
+                          alias.database.schema.table, with the aliases from list_connections."
+    )]
+    async fn run_federated_query(
+        &self,
+        Parameters(req): Parameters<FederatedQueryReq>,
+    ) -> Result<CallToolResult, McpError> {
+        Ok(text_result(self.do_run_federated_query(&req).await))
+    }
+
+    #[tool(
+        description = "List the queries saved in the workspace query library (id, title, query, \
+                          variables with their type and default)"
+    )]
+    async fn list_saved_queries(&self) -> Result<CallToolResult, McpError> {
+        Ok(text_result(self.saved_queries().and_then(|q| to_json(&q))))
+    }
+
+    #[tool(
+        description = "Run a saved query from the workspace library on an exposed connection, \
+                          with values for its variables. Read-only, like run_query."
+    )]
+    async fn run_saved_query(
+        &self,
+        Parameters(req): Parameters<RunSavedQueryReq>,
+    ) -> Result<CallToolResult, McpError> {
+        Ok(text_result(self.do_run_saved_query(&req).await))
     }
 
     #[tool(

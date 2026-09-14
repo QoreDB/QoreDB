@@ -57,6 +57,13 @@ impl AgentVault {
         }
     }
 
+    pub fn workspace_path(&self) -> Option<&Path> {
+        match self {
+            Self::Default(_) => None,
+            Self::Workspace { path, .. } => Some(path),
+        }
+    }
+
     pub fn list(&self) -> Result<Vec<SavedConnection>, String> {
         match self {
             Self::Default(storage) => storage.list_connections_full(),

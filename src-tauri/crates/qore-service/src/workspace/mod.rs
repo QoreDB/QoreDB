@@ -7,6 +7,7 @@ use std::path::Path;
 
 pub mod connection_store;
 pub mod discovery;
+pub mod query_library;
 pub mod write_registry;
 
 pub const DEFAULT_PROJECT_ID: &str = "default";

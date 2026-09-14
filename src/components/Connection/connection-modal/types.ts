@@ -8,6 +8,7 @@ export interface ConnectionFormData {
   driver: Driver;
   environment: Environment;
   readOnly: boolean;
+  exposeToAgents: boolean;
   host: string;
   port: number;
   username: string;
@@ -60,6 +61,7 @@ export const initialConnectionFormData: ConnectionFormData = {
   driver: Driver.Postgres,
   environment: 'development',
   readOnly: false,
+  exposeToAgents: false,
   host: 'localhost',
   port: 5432,
   username: '',

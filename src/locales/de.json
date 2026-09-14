@@ -411,7 +411,9 @@
     "documentdb": {
       "caCertHint": "DocumentDB-Cluster sind von einer Amazon-CA signiert. Geben Sie hier die von Amazon veröffentlichte global-bundle.pem an; leer lassen, um den System-Zertifikatspeicher zu verwenden."
     },
-    "keyspace": "Keyspace"
+    "keyspace": "Keyspace",
+    "exposeToAgents": "Für KI-Agenten freigeben",
+    "exposeToAgentsHint": "Für KI-Agenten über MCP und die CLI sichtbar, immer schreibgeschützt."
   },
   "sidebar": {
     "connections": "Verbindungen",

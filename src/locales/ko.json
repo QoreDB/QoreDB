@@ -411,7 +411,9 @@
     "documentdb": {
       "caCertHint": "DocumentDB 클러스터는 Amazon CA가 서명합니다. Amazon이 배포하는 global-bundle.pem 파일을 지정하세요. 비워 두면 시스템 인증서 저장소를 사용합니다."
     },
-    "keyspace": "키스페이스"
+    "keyspace": "키스페이스",
+    "exposeToAgents": "AI 에이전트에 공개",
+    "exposeToAgentsHint": "MCP와 CLI를 통해 AI 에이전트에 표시되며 항상 읽기 전용입니다."
   },
   "sidebar": {
     "connections": "연결",

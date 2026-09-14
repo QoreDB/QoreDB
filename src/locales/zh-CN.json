@@ -411,7 +411,9 @@
     "documentdb": {
       "caCertHint": "DocumentDB 集群由 Amazon CA 签发。请指向 Amazon 发布的 global-bundle.pem 文件；留空则使用系统证书库。"
     },
-    "keyspace": "键空间"
+    "keyspace": "键空间",
+    "exposeToAgents": "向 AI 代理公开",
+    "exposeToAgentsHint": "通过 MCP 和 CLI 对 AI 代理可见，始终只读。"
   },
   "sidebar": {
     "connections": "连接",

@@ -411,7 +411,9 @@
     "documentdb": {
       "caCertHint": "Os clusters do DocumentDB são assinados por uma CA da Amazon. Aponte para o arquivo global-bundle.pem publicado pela Amazon; deixe vazio para usar o repositório de certificados do sistema."
     },
-    "keyspace": "Keyspace"
+    "keyspace": "Keyspace",
+    "exposeToAgents": "Expor a agentes de IA",
+    "exposeToAgentsHint": "Visível para agentes de IA via MCP e CLI, sempre somente leitura."
   },
   "sidebar": {
     "connections": "Conexões",

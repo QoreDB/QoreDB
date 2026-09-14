@@ -107,6 +107,7 @@ export function buildSavedConnection(
     driver: formData.driver,
     environment: formData.environment as Environment,
     read_only: formData.readOnly,
+    expose_to_agents: formData.exposeToAgents,
     host: hostFor(formData),
     port: formData.port,
     username: formData.username,

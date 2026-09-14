@@ -60,7 +60,7 @@ pub struct SaveConnectionInput {
     pub driver: String,
     pub environment: Environment,
     pub read_only: bool,
-    /// Managed from Settings > AI agents; `None` keeps the stored value.
+    /// `None` keeps the stored value, for callers that do not carry the flag.
     #[serde(default)]
     pub expose_to_agents: Option<bool>,
     pub host: String,

@@ -411,7 +411,9 @@
     "documentdb": {
       "caCertHint": "Кластеры DocumentDB подписаны центром сертификации Amazon. Укажите файл global-bundle.pem, публикуемый Amazon; оставьте пустым, чтобы использовать системное хранилище сертификатов."
     },
-    "keyspace": "Keyspace"
+    "keyspace": "Keyspace",
+    "exposeToAgents": "Открыть ИИ-агентам",
+    "exposeToAgentsHint": "Доступно ИИ-агентам через MCP и CLI, всегда только для чтения."
   },
   "sidebar": {
     "connections": "Подключения",

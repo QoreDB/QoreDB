@@ -74,6 +74,8 @@ export async function saveConnection(input: {
   driver: string;
   environment: Environment;
   read_only: boolean;
+  /** Omitted: the stored value is kept. */
+  expose_to_agents?: boolean;
   host: string;
   port: number;
   username: string;

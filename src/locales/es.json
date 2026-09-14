@@ -411,7 +411,9 @@
     "documentdb": {
       "caCertHint": "Los clústeres de DocumentDB están firmados por una CA de Amazon. Indica aquí el archivo global-bundle.pem que publica Amazon; déjalo vacío para usar el almacén de certificados del sistema."
     },
-    "keyspace": "Keyspace"
+    "keyspace": "Keyspace",
+    "exposeToAgents": "Exponer a los agentes de IA",
+    "exposeToAgentsHint": "Visible para los agentes de IA a través de MCP y la CLI, siempre en solo lectura."
   },
   "sidebar": {
     "connections": "Conexiones",

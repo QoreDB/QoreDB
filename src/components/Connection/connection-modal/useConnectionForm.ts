@@ -175,6 +175,7 @@ export function useConnectionForm(options: {
         driver,
         environment: editConnection.environment || 'development',
         readOnly: editConnection.read_only || false,
+        exposeToAgents: editConnection.expose_to_agents ?? false,
         host:
           driver === Driver.Motherduck
             ? resolveMotherDuckHost(editConnection.host, editPassword || '')

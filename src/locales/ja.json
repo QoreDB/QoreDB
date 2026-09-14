@@ -411,7 +411,9 @@
     "documentdb": {
       "caCertHint": "DocumentDB クラスターは Amazon の CA によって署名されています。Amazon が公開する global-bundle.pem を指定してください。空欄のままにするとシステムの証明書ストアを使います。"
     },
-    "keyspace": "キースペース"
+    "keyspace": "キースペース",
+    "exposeToAgents": "AIエージェントに公開",
+    "exposeToAgentsHint": "MCP と CLI を通じて AI エージェントから参照できます。常に読み取り専用です。"
   },
   "sidebar": {
     "connections": "接続",

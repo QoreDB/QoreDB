@@ -431,6 +431,7 @@ mod tests {
                 name: col.into(),
                 data_type: "int".into(),
                 nullable: false,
+                masked: false,
             }],
             rows: vec![Row {
                 values: vec![value],
@@ -447,11 +448,13 @@ mod tests {
                     name: "violations".into(),
                     data_type: "int".into(),
                     nullable: false,
+                    masked: false,
                 },
                 ColumnInfo {
                     name: "total".into(),
                     data_type: "int".into(),
                     nullable: false,
+                    masked: false,
                 },
             ],
             rows: vec![Row { values: vec![a, b] }],
@@ -553,6 +556,7 @@ mod tests {
                     name: "email".into(),
                     data_type: "text".into(),
                     nullable: true,
+                    masked: false,
                 }],
                 rows: vec![
                     Row {

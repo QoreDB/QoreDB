@@ -59,6 +59,15 @@ pub async fn run_query(
 ) -> Result<QueryResult, String> {
     let session_id = session.0.to_string();
 
+    if let Some(masking) = ctx.session_manager.masking(session).await {
+        let driver = ctx
+            .session_manager
+            .get_driver(session)
+            .await
+            .map_err(|e| e.sanitized_message())?;
+        crate::masking_guard::check_agent_query(driver.driver_id(), query, &masking.config)?;
+    }
+
     let pf = crate::query::preflight_with_source(
         &ctx.session_manager,
         &ctx.query_rate_limiter,
@@ -92,6 +101,7 @@ pub async fn run_query(
         false,
         None,
         None,
+        pf.masking.clone(),
         |_, _| {},
     )
     .await;

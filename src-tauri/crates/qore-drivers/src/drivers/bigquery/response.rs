@@ -62,6 +62,13 @@ impl Field {
             name: CompactString::new(&self.name),
             data_type: CompactString::new(self.declared_type()),
             nullable: self.nullable(),
+        },
+        masked: false,
+    
+            name: CompactString::new(&self.name),
+            data_type: CompactString::new(self.declared_type()),
+            nullable: self.nullable(),
+            masked: false,
         }
     }
 }

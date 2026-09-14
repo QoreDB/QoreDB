@@ -186,7 +186,7 @@ pub async fn create_endpoint(
     }
 
     let project_id = ws_manager.lock().await.project_id();
-    let (connection_config, _) = crate::commands::connection::resolve_saved_connection(
+    let (connection_config, _, _) = crate::commands::connection::resolve_saved_connection(
         &app,
         &ws_manager,
         &project_id,

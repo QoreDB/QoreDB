@@ -33,6 +33,7 @@ interface QueryPanelResultsProps {
   activeResultId: string | null;
   isDocumentBased: boolean;
   sessionId: string | null;
+  connectionId?: string;
   connectionName?: string;
   connectionDatabase?: string;
   environment: Environment;
@@ -54,6 +55,7 @@ export function QueryPanelResults({
   activeResultId,
   isDocumentBased,
   sessionId,
+  connectionId,
   connectionName,
   connectionDatabase,
   environment,
@@ -217,6 +219,7 @@ export function QueryPanelResults({
                 <DataGrid
                   result={activeResult.result}
                   sessionId={sessionId || undefined}
+                  connectionId={connectionId}
                   namespace={exportNamespace}
                   connectionName={connectionName}
                   connectionDatabase={connectionDatabase}

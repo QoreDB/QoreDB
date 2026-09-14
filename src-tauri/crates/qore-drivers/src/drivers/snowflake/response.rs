@@ -112,6 +112,7 @@ impl StatementBody {
                 name: CompactString::new(&c.name),
                 data_type: CompactString::new(declared_type(c)),
                 nullable: c.nullable,
+                masked: false,
             })
             .collect();
         let mut body = Self {

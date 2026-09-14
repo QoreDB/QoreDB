@@ -153,6 +153,7 @@ impl DuckDbEngine {
                     .unwrap_or_else(|_| format!("col_{i}").into()),
                 data_type: "VARCHAR".into(),
                 nullable: true,
+                masked: false,
             })
             .collect();
 
@@ -322,6 +323,7 @@ mod tests {
             name: "id".into(),
             data_type: "integer".into(),
             nullable: false,
+            masked: false,
         }];
         engine.create_temp_table("t", &columns).unwrap();
         engine

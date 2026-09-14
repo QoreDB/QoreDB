@@ -66,6 +66,7 @@ import { DataGridToolbar } from './DataGridToolbar';
 import { DeleteConfirmDialog } from './DeleteConfirmDialog';
 import { EditableDataCell } from './EditableDataCell';
 import type { GridColumnFilterValue } from './GridColumnFilter';
+import { useColumnMasking } from './hooks/useColumnMasking';
 import { useDataGridCopy } from './hooks/useDataGridCopy';
 import { useDataGridDelete } from './hooks/useDataGridDelete';
 import { useDataGridExport } from './hooks/useDataGridExport';
@@ -174,6 +175,8 @@ interface DataGridProps {
   footerMode?: 'auto' | 'pagination' | 'infinite' | 'none';
   /** SQL dialect for embedded previews (Bulk Edit, etc.). Defaults to Postgres. */
   driver?: Driver;
+  /** Saved connection behind the result, for masking rules. */
+  connectionId?: string;
 }
 
 export function DataGrid({
@@ -223,6 +226,7 @@ export function DataGrid({
   exportQuery,
   footerMode = 'auto',
   driver,
+  connectionId,
 }: DataGridProps) {
   const { t } = useTranslation();
 
@@ -360,6 +364,18 @@ export function DataGrid({
   const searchInputRef = useRef<HTMLInputElement>(null);
   const parentRef = useRef<HTMLDivElement>(null);
   const confirmationLabel = (connectionDatabase || connectionName || 'PROD').trim() || 'PROD';
+  const maskedColumns = useMemo(
+    () => new Set((result?.columns ?? []).filter(col => col.masked).map(col => col.name)),
+    [result?.columns]
+  );
+  const { columnMask, removalDialog } = useColumnMasking({
+    connectionId,
+    tableName,
+    environment,
+    confirmationLabel,
+    maskedColumns,
+    onChanged: onRowsUpdated,
+  });
 
   const totalRows = result?.rows.length ?? 0;
 
@@ -491,6 +507,7 @@ export function DataGrid({
     mutationsSupported,
     sandboxMode,
     columnTypeMap,
+    maskedColumns,
     onSandboxUpdate,
     onRowsUpdated,
   });
@@ -610,6 +627,7 @@ export function DataGrid({
             indexName={indexInfoMap.get(col.name)?.name}
             isCompositeIndex={indexInfoMap.get(col.name)?.isComposite}
             sortScansTable={isServerSideSorting && !sortableWithIndex.has(col.name)}
+            isMasked={Boolean(col.masked)}
           />
         ),
         cell: info => {
@@ -1043,6 +1061,7 @@ export function DataGrid({
               isServerSideSorting ? column => !sortableWithIndex.has(column) : undefined
             }
             onCreateIndex={onCreateIndex}
+            columnMask={columnMask}
           />
           <DataGridTableBody
             rows={rows}
@@ -1124,6 +1143,7 @@ export function DataGrid({
         dialect={driver}
         sandboxMode={sandboxMode}
         onSandboxUpdate={onSandboxUpdate}
+        maskedColumns={maskedColumns}
         onApplied={() => {
           table.resetRowSelection();
           onRowsUpdated?.();
@@ -1190,6 +1210,8 @@ export function DataGrid({
           setPendingUpdate(null);
         }}
       />
+
+      {removalDialog}
     </div>
   );
 }

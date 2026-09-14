@@ -413,7 +413,29 @@
     },
     "keyspace": "Keyspace",
     "exposeToAgents": "Für KI-Agenten freigeben",
-    "exposeToAgentsHint": "Für KI-Agenten über MCP und die CLI sichtbar, immer schreibgeschützt."
+    "exposeToAgentsHint": "Für KI-Agenten über MCP und die CLI sichtbar, immer schreibgeschützt.",
+    "masking": {
+      "title": "Spaltenmaskierung",
+      "description": "Ersetzt Werte in Ergebnissen, Exporten und Agentenantworten für alle Abfragen dieser Verbindung.",
+      "detected": "Erkannte sensible Spalten maskieren",
+      "detectedHint": "Teilweise Maskierung von Spalten, deren Name sensibel wirkt (E-Mail, Telefon, Passwort…).",
+      "table": "Tabelle",
+      "anyTable": "Alle Tabellen",
+      "column": "Spalte",
+      "mode": "Modus",
+      "modes": {
+        "hidden": "Verborgen",
+        "partial": "Teilweise",
+        "hash": "Hash"
+      },
+      "addRule": "Regel hinzufügen",
+      "removeRule": "Regel entfernen",
+      "empty": "Keine Regel: Werte werden wie gespeichert angezeigt.",
+      "proHint": "Das Hinzufügen von Regeln erfordert QoreDB Pro. Bestehende Regeln gelten weiter und können entfernt werden.",
+      "removeConfirmTitle": "Maskierung auf einer Produktionsverbindung entfernen",
+      "removeConfirmDescription": "Maskierte Werte werden in Ergebnissen, Exporten und Agentenantworten wieder sichtbar.",
+      "removeConfirmLabel": "Maskierung entfernen"
+    }
   },
   "sidebar": {
     "connections": "Verbindungen",
@@ -1258,7 +1280,8 @@
       "indexComposite": "Indiziert (zusammengesetzt: {{name}})",
       "unique": "Eindeutige Einschränkung",
       "copySuccess": "Zeile in Zwischenablage kopiert",
-      "sortScansTable": "Das Sortieren dieser Spalte folgt keinem Index: Die Engine sortiert die gesamte Tabelle."
+      "sortScansTable": "Das Sortieren dieser Spalte folgt keinem Index: Die Engine sortiert die gesamte Tabelle.",
+      "masked": "Werte durch die Regeln der Verbindung maskiert"
     },
     "rowsSelected": "{{count}} Zeile(n) ausgewählt",
     "rowsTotal": "{{count}} Zeile(n)",
@@ -1381,6 +1404,15 @@
     "pagination": {
       "unstableOrder": "instabile Reihenfolge",
       "unstableOrderHint": "Diese Tabelle hat keinen eindeutigen Schlüssel zum Blättern: Eine Zeile kann doppelt erscheinen oder übersprungen werden, wenn sich die Daten beim Scrollen ändern."
+    },
+    "masking": {
+      "mask": "Diese Spalte maskieren",
+      "unmask": "Maskierung entfernen",
+      "byDetection": "Durch Erkennung sensibler Spalten maskiert",
+      "readOnly": "Diese Spalte ist maskiert: Ihre Werte können nicht bearbeitet werden.",
+      "applied": "Maskierung angewendet",
+      "appliedNextRun": "Maskierung gespeichert: Sie gilt ab der nächsten Ausführung.",
+      "removed": "Maskierung entfernt"
     }
   },
   "export": {

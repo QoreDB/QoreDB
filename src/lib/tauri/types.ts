@@ -104,6 +104,8 @@ export interface SavedConnection {
   ssl_ca_cert?: string;
   /** Driver options preserved from a parsed URL. */
   options?: Record<string, string>;
+  /** Omitted when the connection has no masking. */
+  masking?: ConnectionMasking;
   ssh_tunnel?: {
     host: string;
     port: number;
@@ -124,6 +126,20 @@ export interface SavedConnection {
     username?: string;
     connect_timeout_secs: number;
   };
+}
+
+export type MaskMode = 'hidden' | 'partial' | 'hash';
+
+export interface MaskingRule {
+  /** Empty for any table. */
+  table: string;
+  column: string;
+  mode: MaskMode;
+}
+
+export interface ConnectionMasking {
+  rules: MaskingRule[];
+  mask_detected_columns: boolean;
 }
 
 export interface VaultStatus {
@@ -184,6 +200,8 @@ export interface ColumnInfo {
   name: string;
   data_type: string;
   nullable: boolean;
+  /** Values were replaced by the connection's masking rules. */
+  masked?: boolean;
 }
 
 export type Row = { values: Value[] };

@@ -124,9 +124,14 @@ pub async fn open_session(
     require_exposed(&saved)?;
     let creds = vault.credentials(connection_id)?;
     let config = agent_connection_config(&saved, &creds)?;
-    crate::connection::connect(session_manager, config)
+    let session = crate::connection::connect(session_manager, config)
         .await
-        .map_err(|e| e.sanitized())
+        .map_err(|e| e.sanitized())?;
+    session_manager
+        .set_saved_connection_identity(session, saved.id.clone(), saved.name.clone())
+        .await;
+    session_manager.set_masking(session, &saved.masking).await;
+    Ok(session)
 }
 
 pub fn exposed_connections(all: Vec<SavedConnection>) -> Vec<SavedConnection> {
@@ -238,6 +243,7 @@ mod tests {
             clickhouse_cluster: None,
             search_auth_mode: None,
             ssl_ca_cert: None,
+            masking: Default::default(),
             project_id: "default".to_string(),
         }
     }

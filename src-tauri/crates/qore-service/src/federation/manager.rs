@@ -256,7 +256,7 @@ async fn fetch_single_source(
 
     let namespace = Some(source.table_ref.namespace.clone());
 
-    let result = timeout(
+    let mut result = timeout(
         Duration::from_millis(SOURCE_FETCH_TIMEOUT_MS),
         driver.execute_in_namespace(source.session_id, namespace, &query, query_id),
     )
@@ -264,6 +264,15 @@ async fn fetch_single_source(
     .map_err(|_| EngineError::Timeout {
         timeout_ms: SOURCE_FETCH_TIMEOUT_MS,
     })??;
+
+    // Masked before DuckDB sees them, so the federated query cannot filter or
+    // join on the raw values; masked values are text whatever the source type.
+    if let Some(masking) = session_manager.masking(source.session_id).await {
+        masking.apply(Some(&source.table_ref.table), &mut result);
+        for column in result.columns.iter_mut().filter(|c| c.masked) {
+            column.data_type = "text".into();
+        }
+    }
 
     let row_count = result.rows.len() as u64;
     let fetch_time_ms = start.elapsed().as_secs_f64() * 1000.0;
@@ -319,6 +328,7 @@ fn flatten_mongo_documents(result: QueryResult) -> QueryResult {
             name: name.as_str().into(),
             data_type: "VARCHAR".into(),
             nullable: true,
+            masked: false,
         })
         .collect();
 

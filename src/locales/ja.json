@@ -413,7 +413,29 @@
     },
     "keyspace": "キースペース",
     "exposeToAgents": "AIエージェントに公開",
-    "exposeToAgentsHint": "MCP と CLI を通じて AI エージェントから参照できます。常に読み取り専用です。"
+    "exposeToAgentsHint": "MCP と CLI を通じて AI エージェントから参照できます。常に読み取り専用です。",
+    "masking": {
+      "title": "列のマスキング",
+      "description": "この接続のすべてのクエリで、結果・エクスポート・エージェントの応答に含まれる値を置き換えます。",
+      "detected": "検出された機密列をマスクする",
+      "detectedHint": "名前が機密に見える列（メール、電話番号、パスワードなど）を部分的にマスクします。",
+      "table": "テーブル",
+      "anyTable": "すべてのテーブル",
+      "column": "列",
+      "mode": "モード",
+      "modes": {
+        "hidden": "非表示",
+        "partial": "部分",
+        "hash": "ハッシュ"
+      },
+      "addRule": "ルールを追加",
+      "removeRule": "ルールを削除",
+      "empty": "ルールはありません。値は保存されたとおりに表示されます。",
+      "proHint": "ルールの追加には QoreDB Pro が必要です。既存のルールは引き続き適用され、削除できます。",
+      "removeConfirmTitle": "本番接続のマスキングを解除",
+      "removeConfirmDescription": "マスクされていた値が、結果・エクスポート・エージェントの応答で再び表示されます。",
+      "removeConfirmLabel": "マスキングを解除"
+    }
   },
   "sidebar": {
     "connections": "接続",
@@ -1249,7 +1271,8 @@
       "indexComposite": "インデックス付き（複合: {{name}}）",
       "unique": "ユニーク制約",
       "copySuccess": "行をクリップボードにコピーしました",
-      "sortScansTable": "この列での並べ替えは利用できるインデックスがなく、テーブル全体が並べ替えられます。"
+      "sortScansTable": "この列での並べ替えは利用できるインデックスがなく、テーブル全体が並べ替えられます。",
+      "masked": "接続のルールによって値がマスクされています"
     },
     "rowsSelected": "{{count}} 行を選択中",
     "rowsTotal": "{{count}} 行",
@@ -1372,6 +1395,15 @@
     "pagination": {
       "unstableOrder": "不安定な順序",
       "unstableOrderHint": "このテーブルにはページングに使える一意キーがありません。スクロール中にデータが変わると、行が重複したり抜け落ちたりすることがあります。"
+    },
+    "masking": {
+      "mask": "この列をマスク",
+      "unmask": "マスキングを解除",
+      "byDetection": "機密列の検出によりマスクされています",
+      "readOnly": "この列はマスクされているため、値を編集できません。",
+      "applied": "マスキングを適用しました",
+      "appliedNextRun": "マスキングを保存しました。次回の実行から適用されます。",
+      "removed": "マスキングを解除しました"
     }
   },
   "export": {

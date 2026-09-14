@@ -4,7 +4,9 @@
 
 pub mod cursor;
 pub mod error;
+pub mod masking;
 pub mod registry;
+pub mod sensitive;
 pub mod traits;
 pub mod types;
 

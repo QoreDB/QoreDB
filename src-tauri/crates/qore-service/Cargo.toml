@@ -32,7 +32,7 @@ chacha20poly1305 = "0.10"
 rand_core = { version = "0.6", features = ["getrandom"] }
 parking_lot = "0.12"
 duckdb = { workspace = true, optional = true }
-sqlparser = { workspace = true, optional = true }
+sqlparser = { workspace = true }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 security-framework = "3"
@@ -45,7 +45,7 @@ tempfile = "3.24.0"
 
 [features]
 default = ["all-drivers", "federation"]
-federation = ["dep:duckdb", "dep:sqlparser"]
+federation = ["dep:duckdb"]
 all-drivers = [
     "driver-azuresql",
     "driver-bigquery",

@@ -2,6 +2,7 @@
 
 import { isDocumentDatabase } from '@/lib/connection/driverCapabilities';
 import { Driver, isKeyValueDriver } from '@/lib/connection/drivers';
+import { normalizeMasking } from '@/lib/masking';
 import type { ConnectionConfig, Environment, SavedConnection } from '@/lib/tauri';
 import type { ConnectionFormData } from './types';
 
@@ -108,6 +109,7 @@ export function buildSavedConnection(
     environment: formData.environment as Environment,
     read_only: formData.readOnly,
     expose_to_agents: formData.exposeToAgents,
+    masking: normalizeMasking(formData.masking),
     host: hostFor(formData),
     port: formData.port,
     username: formData.username,

@@ -119,7 +119,7 @@ pub async fn run_contract(
     let sink = TauriContractSink { app: app.clone() };
     let root = active_workspace_path(&ws_manager).await;
 
-    let run = run_contract_inner(
+    let mut run = run_contract_inner(
         driver,
         session,
         connection_id,
@@ -133,6 +133,16 @@ pub async fn run_contract(
             format!("Driver '{d}' is not supported by Data Contracts")
         }
     })?;
+    if let Some(masking) = session_manager.masking(session).await {
+        for sample in run
+            .results
+            .iter_mut()
+            .filter_map(|rule| rule.samples.as_mut())
+            .flatten()
+        {
+            masking.apply_json(Some(&contract.target.table), sample);
+        }
+    }
 
     if let Err(err) = storage::append_run(&root, &contract.name, &run) {
         tracing::warn!("failed to append contract run history: {err}");

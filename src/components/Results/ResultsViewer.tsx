@@ -76,6 +76,7 @@ interface ResultsViewerProps {
   onEditDocument?: (doc: Record<string, unknown>, idValue?: Value) => void;
   exportQuery?: string;
   exportNamespace?: Namespace;
+  connectionId?: string;
 }
 
 export const ResultsViewer = memo(function ResultsViewer({
@@ -128,6 +129,7 @@ export const ResultsViewer = memo(function ResultsViewer({
   onEditDocument,
   exportQuery,
   exportNamespace,
+  connectionId,
 }: ResultsViewerProps) {
   const isDocument = isDocumentDatabase(driver);
   const safeResult: QueryResult = result ?? {
@@ -176,6 +178,7 @@ export const ResultsViewer = memo(function ResultsViewer({
       <DataGrid
         result={safeResult}
         sessionId={sessionId}
+        connectionId={connectionId}
         driver={driver}
         namespace={namespace}
         tableName={tableName}

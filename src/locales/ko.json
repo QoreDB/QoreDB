@@ -413,7 +413,29 @@
     },
     "keyspace": "키스페이스",
     "exposeToAgents": "AI 에이전트에 공개",
-    "exposeToAgentsHint": "MCP와 CLI를 통해 AI 에이전트에 표시되며 항상 읽기 전용입니다."
+    "exposeToAgentsHint": "MCP와 CLI를 통해 AI 에이전트에 표시되며 항상 읽기 전용입니다.",
+    "masking": {
+      "title": "열 마스킹",
+      "description": "이 연결의 모든 쿼리에서 결과, 내보내기, 에이전트 응답의 값을 대체합니다.",
+      "detected": "감지된 민감한 열 마스킹",
+      "detectedHint": "이름이 민감해 보이는 열(이메일, 전화번호, 비밀번호 등)을 부분 마스킹합니다.",
+      "table": "테이블",
+      "anyTable": "모든 테이블",
+      "column": "열",
+      "mode": "모드",
+      "modes": {
+        "hidden": "숨김",
+        "partial": "부분",
+        "hash": "해시"
+      },
+      "addRule": "규칙 추가",
+      "removeRule": "규칙 삭제",
+      "empty": "규칙 없음: 값이 저장된 그대로 표시됩니다.",
+      "proHint": "규칙을 추가하려면 QoreDB Pro가 필요합니다. 기존 규칙은 계속 적용되며 삭제할 수 있습니다.",
+      "removeConfirmTitle": "프로덕션 연결의 마스킹 해제",
+      "removeConfirmDescription": "마스킹된 값이 결과, 내보내기, 에이전트 응답에서 다시 표시됩니다.",
+      "removeConfirmLabel": "마스킹 해제"
+    }
   },
   "sidebar": {
     "connections": "연결",
@@ -1249,7 +1271,8 @@
       "indexComposite": "인덱스됨 (복합: {{name}})",
       "unique": "유니크 제약 조건",
       "copySuccess": "행이 클립보드에 복사되었습니다",
-      "sortScansTable": "이 열로 정렬하면 따라갈 인덱스가 없어 엔진이 테이블 전체를 정렬합니다."
+      "sortScansTable": "이 열로 정렬하면 따라갈 인덱스가 없어 엔진이 테이블 전체를 정렬합니다.",
+      "masked": "연결 규칙에 따라 값이 마스킹되었습니다"
     },
     "rowsSelected": "{{count}}개 행 선택됨",
     "rowsTotal": "{{count}}개 행",
@@ -1372,6 +1395,15 @@
     "pagination": {
       "unstableOrder": "불안정한 순서",
       "unstableOrderHint": "이 테이블에는 페이징에 사용할 고유 키가 없습니다. 스크롤 중 데이터가 바뀌면 행이 중복되거나 누락될 수 있습니다."
+    },
+    "masking": {
+      "mask": "이 열 마스킹",
+      "unmask": "마스킹 해제",
+      "byDetection": "민감한 열 감지로 마스킹됨",
+      "readOnly": "이 열은 마스킹되어 값을 편집할 수 없습니다.",
+      "applied": "마스킹이 적용되었습니다",
+      "appliedNextRun": "마스킹이 저장되었습니다. 다음 실행부터 적용됩니다.",
+      "removed": "마스킹이 해제되었습니다"
     }
   },
   "export": {

@@ -176,6 +176,7 @@ impl SqliteDriver {
                 name: col.name().into(),
                 data_type: col.type_info().name().into(),
                 nullable: true, // SQLite doesn't easily expose nullability from row metadata
+                masked: false,
             })
             .collect()
     }
@@ -1268,6 +1269,7 @@ impl DataEngine for SqliteDriver {
                     name: name.as_str().into(),
                     data_type: data_type.as_str().into(),
                     nullable: *notnull == 0,
+                    masked: false,
                 })
                 .collect();
 

@@ -295,6 +295,7 @@ mod tests {
                 keepalive_count_max: 3,
             }),
             project_id: project_id.clone(),
+            masking: Default::default(),
             pool_acquire_timeout_secs: None,
             pool_max_connections: None,
             pool_min_connections: None,

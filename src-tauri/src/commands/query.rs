@@ -213,6 +213,7 @@ pub async fn execute_query(
         is_sql_driver,
         connection_key,
         safety_warning,
+        masking,
     } = preflight;
     tracing::Span::current().record("driver", field::display(driver.driver_id()));
 
@@ -399,6 +400,7 @@ pub async fn execute_query(
         bypass_limits,
         sql_statements,
         stream_sender,
+        masking,
         on_complete,
     )
     .await;
@@ -1027,6 +1029,19 @@ pub async fn peek_foreign_key(
         driver.peek_foreign_key(session, &namespace, &foreign_key, &value, limit),
     )
     .await;
+    let result = match result {
+        Ok(Ok(mut result)) => {
+            qore_service::query::apply_masking(
+                &session_manager,
+                session,
+                Some(&foreign_key.referenced_table),
+                &mut result,
+            )
+            .await;
+            Ok(Ok(result))
+        }
+        other => other,
+    };
 
     match result {
         Ok(Ok(result)) => Ok(QueryResponse {

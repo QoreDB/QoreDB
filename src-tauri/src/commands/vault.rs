@@ -16,6 +16,37 @@ use crate::vault::credentials::{
 use crate::vault::storage::VaultStorage;
 use crate::workspace::connection_store::WorkspaceConnectionStore;
 use crate::workspace::types::WorkspaceSource;
+use qore_core::masking::ConnectionMasking;
+
+async fn has_pro_license(state: &State<'_, SharedState>) -> bool {
+    let tier = state.lock().await.license_manager.effective_status().tier;
+    tier.includes(crate::license::status::LicenseTier::Pro)
+}
+
+/// Adding or tightening masking needs Pro; removing it never does, so a lapsed
+/// licence cannot leave a user with masks they are no longer allowed to edit.
+fn masking_change_allowed(
+    pro: bool,
+    previous: &ConnectionMasking,
+    next: &ConnectionMasking,
+) -> Result<(), String> {
+    if pro || next.is_subset_of(previous) {
+        Ok(())
+    } else {
+        Err("Column masking requires a QoreDB Pro license".to_string())
+    }
+}
+
+async fn refresh_session_masking(
+    state: &State<'_, SharedState>,
+    connection_id: &str,
+    masking: &ConnectionMasking,
+) {
+    let session_manager = std::sync::Arc::clone(&state.lock().await.session_manager);
+    session_manager
+        .update_connection_masking(connection_id, masking)
+        .await;
+}
 
 /// Determines if the active workspace is file-based and returns its connection store.
 /// Returns None if the default workspace is active (use VaultStorage instead).
@@ -87,6 +118,9 @@ pub struct SaveConnectionInput {
     pub ssl_ca_cert: Option<String>,
     #[serde(default)]
     pub options: std::collections::HashMap<String, String>,
+    /// `None` keeps the stored rules.
+    #[serde(default)]
+    pub masking: Option<ConnectionMasking>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -296,6 +330,8 @@ pub async fn save_connection(
     };
 
     let keep_exposure = input.expose_to_agents.is_none();
+    let requested_masking = input.masking.clone();
+    let pro = has_pro_license(&state).await;
     let mut connection = SavedConnection {
         options: input.options.clone(),
         id: input.id.clone(),
@@ -319,16 +355,25 @@ pub async fn save_connection(
         clickhouse_cluster: input.clickhouse_cluster,
         search_auth_mode: input.search_auth_mode,
         ssl_ca_cert: input.ssl_ca_cert,
+        masking: ConnectionMasking::default(),
         project_id: input.project_id,
     };
 
     let result = match get_workspace_store(&ws_manager).await {
         Some(ws_store) => {
+            let stored = ws_store.get_connection(&connection.id).ok();
             if keep_exposure {
-                connection.expose_to_agents = ws_store
-                    .get_connection(&connection.id)
-                    .map(|c| c.expose_to_agents)
-                    .unwrap_or(false);
+                connection.expose_to_agents =
+                    stored.as_ref().is_some_and(|c| c.expose_to_agents);
+            }
+            let previous_masking = stored.map(|c| c.masking).unwrap_or_default();
+            connection.masking = requested_masking.unwrap_or_else(|| previous_masking.clone());
+            if let Err(error) = masking_change_allowed(pro, &previous_masking, &connection.masking)
+            {
+                return Ok(VaultResponse {
+                    success: false,
+                    error: Some(error),
+                });
             }
             let previous = ws_store.get_credentials(&connection.id).ok();
             let credentials = incoming.merge_with(previous.as_ref());
@@ -344,11 +389,19 @@ pub async fn save_connection(
                 storage_dir,
                 Box::new(KeyringProvider::new()),
             );
+            let stored = storage.get_connection(&connection.id).ok();
             if keep_exposure {
-                connection.expose_to_agents = storage
-                    .get_connection(&connection.id)
-                    .map(|c| c.expose_to_agents)
-                    .unwrap_or(false);
+                connection.expose_to_agents =
+                    stored.as_ref().is_some_and(|c| c.expose_to_agents);
+            }
+            let previous_masking = stored.map(|c| c.masking).unwrap_or_default();
+            connection.masking = requested_masking.unwrap_or_else(|| previous_masking.clone());
+            if let Err(error) = masking_change_allowed(pro, &previous_masking, &connection.masking)
+            {
+                return Ok(VaultResponse {
+                    success: false,
+                    error: Some(error),
+                });
             }
             let previous = storage.get_credentials(&connection.id).ok();
             let credentials = incoming.merge_with(previous.as_ref());
@@ -357,10 +410,13 @@ pub async fn save_connection(
     };
 
     match result {
-        Ok(()) => Ok(VaultResponse {
-            success: true,
-            error: None,
-        }),
+        Ok(()) => {
+            refresh_session_masking(&state, &connection.id, &connection.masking).await;
+            Ok(VaultResponse {
+                success: true,
+                error: None,
+            })
+        }
         Err(e) => Ok(VaultResponse {
             success: false,
             error: Some(e.sanitized_message()),
@@ -418,6 +474,80 @@ pub async fn set_connection_exposed(
         Err(e) => VaultResponse {
             success: false,
             error: Some(e.sanitized_message()),
+        },
+    })
+}
+
+/// Replaces a connection's masking rules and applies them to its open sessions.
+#[tauri::command]
+pub async fn set_connection_masking(
+    app: AppHandle,
+    state: State<'_, SharedState>,
+    ws_manager: State<'_, SharedWorkspaceManager>,
+    project_id: String,
+    connection_id: String,
+    masking: ConnectionMasking,
+) -> Result<VaultResponse, String> {
+    if state.lock().await.vault_lock.is_locked() {
+        return Ok(VaultResponse {
+            success: false,
+            error: Some("Vault is locked".to_string()),
+        });
+    }
+    let pro = has_pro_license(&state).await;
+
+    let update = |mut connection: SavedConnection| -> Result<SavedConnection, String> {
+        masking_change_allowed(pro, &connection.masking, &masking)?;
+        connection.masking = masking.clone();
+        Ok(connection)
+    };
+
+    let result = match get_workspace_store(&ws_manager).await {
+        Some(ws_store) => ws_store
+            .get_connection(&connection_id)
+            .map_err(|e| e.sanitized_message())
+            .and_then(update)
+            .and_then(|connection| {
+                let credentials = ws_store
+                    .get_credentials(&connection_id)
+                    .map_err(|e| e.sanitized_message())?;
+                ws_store
+                    .save_connection(&connection, &credentials)
+                    .map_err(|e| e.sanitized_message())
+            }),
+        None => {
+            let storage_dir = app
+                .path()
+                .app_config_dir()
+                .map_err(|e: tauri::Error| e.to_string())?;
+            let storage =
+                VaultStorage::new(&project_id, storage_dir, Box::new(KeyringProvider::new()));
+            storage
+                .get_connection(&connection_id)
+                .map_err(|e| e.sanitized_message())
+                .and_then(update)
+                .and_then(|connection| {
+                    let credentials = storage
+                        .get_credentials(&connection_id)
+                        .map_err(|e| e.sanitized_message())?;
+                    storage
+                        .save_connection(&connection, &credentials)
+                        .map_err(|e| e.sanitized_message())
+                })
+        }
+    };
+
+    Ok(match result {
+        Ok(()) => {
+            refresh_session_masking(&state, &connection_id, &masking).await;
+            VaultResponse {
+                success: true,
+                error: None,
+            }
+        }
+        Err(error) => VaultResponse {
+            success: false,
+            error: Some(error),
         },
     })
 }

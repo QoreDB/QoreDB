@@ -921,6 +921,7 @@ export function TableBrowser({
             result={data}
             driver={driver}
             sessionId={sessionId}
+            connectionId={connectionId}
             environment={environment}
             readOnly={readOnly}
             connectionName={connectionName}

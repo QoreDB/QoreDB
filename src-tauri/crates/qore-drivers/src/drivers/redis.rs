@@ -349,6 +349,7 @@ impl RedisDriver {
             name: "value".into(),
             data_type: "string".into(),
             nullable: false,
+            masked: false,
         }];
 
         let val = Self::redis_value_to_value(&value);
@@ -431,11 +432,13 @@ impl RedisDriver {
                 name: "index".into(),
                 data_type: "integer".into(),
                 nullable: false,
+                masked: false,
             },
             ColumnInfo {
                 name: "value".into(),
                 data_type: "string".into(),
                 nullable: false,
+                masked: false,
             },
         ];
 
@@ -530,11 +533,13 @@ impl RedisDriver {
                 name: "member".into(),
                 data_type: "string".into(),
                 nullable: false,
+                masked: false,
             },
             ColumnInfo {
                 name: "score".into(),
                 data_type: "float".into(),
                 nullable: false,
+                masked: false,
             },
         ];
 
@@ -585,11 +590,13 @@ impl RedisDriver {
                         name: "id".into(),
                         data_type: "string".into(),
                         nullable: false,
+                        masked: false,
                     },
                     ColumnInfo {
                         name: "data".into(),
                         data_type: "json".into(),
                         nullable: false,
+                        masked: false,
                     },
                 ],
                 rows: Vec::new(),
@@ -617,11 +624,13 @@ impl RedisDriver {
                 name: "id".into(),
                 data_type: "string".into(),
                 nullable: false,
+                masked: false,
             },
             ColumnInfo {
                 name: "data".into(),
                 data_type: "json".into(),
                 nullable: false,
+                masked: false,
             },
         ];
 
@@ -780,6 +789,7 @@ impl RedisDriver {
                     name: "result".into(),
                     data_type: "string".into(),
                     nullable: true,
+                    masked: false,
                 }],
                 rows: vec![QRow {
                     values: vec![Value::Null],
@@ -798,6 +808,7 @@ impl RedisDriver {
                     name: "result".into(),
                     data_type: "integer".into(),
                     nullable: false,
+                    masked: false,
                 }],
                 rows: vec![QRow {
                     values: vec![Value::Int(*i)],
@@ -810,6 +821,7 @@ impl RedisDriver {
                     name: "value".into(),
                     data_type: "string".into(),
                     nullable: true,
+                    masked: false,
                 }];
                 let rows: Vec<QRow> = arr
                     .iter()
@@ -829,6 +841,7 @@ impl RedisDriver {
                     name: "result".into(),
                     data_type: "string".into(),
                     nullable: true,
+                    masked: false,
                 }];
                 let rows = vec![QRow {
                     values: vec![Self::redis_value_to_value(&value)],
@@ -1441,11 +1454,13 @@ impl DataEngine for RedisDriver {
                             name: "field".into(),
                             data_type: "string".into(),
                             nullable: false,
+                            masked: false,
                         },
                         ColumnInfo {
                             name: "value".into(),
                             data_type: "string".into(),
                             nullable: false,
+                            masked: false,
                         },
                     ],
                     rows,
@@ -1462,6 +1477,7 @@ impl DataEngine for RedisDriver {
                         name: "member".into(),
                         data_type: "string".into(),
                         nullable: false,
+                        masked: false,
                     }],
                     rows,
                     affected_rows: None,
@@ -1533,11 +1549,13 @@ impl DataEngine for RedisDriver {
                             name: "field".into(),
                             data_type: "string".into(),
                             nullable: false,
+                            masked: false,
                         },
                         ColumnInfo {
                             name: "value".into(),
                             data_type: "string".into(),
                             nullable: false,
+                            masked: false,
                         },
                     ],
                     rows,
@@ -1586,6 +1604,7 @@ impl DataEngine for RedisDriver {
                         name: "member".into(),
                         data_type: "string".into(),
                         nullable: false,
+                        masked: false,
                     }],
                     rows,
                     affected_rows: None,

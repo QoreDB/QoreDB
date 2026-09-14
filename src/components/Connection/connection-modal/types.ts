@@ -1,7 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { Driver } from '@/lib/connection/drivers';
-import type { Environment, MssqlAuthMode, SearchAuthMode, SnowflakeAuthMode } from '@/lib/tauri';
+import { EMPTY_MASKING } from '@/lib/masking';
+import type {
+  ConnectionMasking,
+  Environment,
+  MssqlAuthMode,
+  SearchAuthMode,
+  SnowflakeAuthMode,
+} from '@/lib/tauri';
 
 export interface ConnectionFormData {
   name: string;
@@ -54,6 +61,7 @@ export interface ConnectionFormData {
   connectionUrl: string;
   /** Driver options carried over from a parsed URL, plus the warehouse fields above. */
   options: Record<string, string>;
+  masking: ConnectionMasking;
 }
 
 export const initialConnectionFormData: ConnectionFormData = {
@@ -101,4 +109,5 @@ export const initialConnectionFormData: ConnectionFormData = {
   useUrl: false,
   connectionUrl: '',
   options: {},
+  masking: EMPTY_MASKING,
 };

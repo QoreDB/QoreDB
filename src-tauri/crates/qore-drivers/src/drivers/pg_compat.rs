@@ -1568,6 +1568,7 @@ async fn query_table_with_dialect(
                     name: name.into(),
                     data_type: data_type.into(),
                     nullable: is_nullable == "YES",
+                    masked: false,
                 })
             })
             .collect();

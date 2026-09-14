@@ -37,7 +37,13 @@ pub async fn connect_saved(
     let config = saved
         .to_connection_config(&creds)
         .map_err(|e| e.sanitized_message())?;
-    qore_service::connection::connect(&state.ctx.session_manager, config)
+    let session_manager = &state.ctx.session_manager;
+    let session = qore_service::connection::connect(session_manager, config)
         .await
-        .map_err(|e| e.sanitized())
+        .map_err(|e| e.sanitized())?;
+    session_manager
+        .set_saved_connection_identity(session, saved.id.clone(), saved.name.clone())
+        .await;
+    session_manager.set_masking(session, &saved.masking).await;
+    Ok(session)
 }

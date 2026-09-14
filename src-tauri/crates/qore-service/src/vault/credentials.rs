@@ -7,6 +7,7 @@
 use serde::{Deserialize, Serialize};
 
 use qore_core::error::{EngineError, EngineResult};
+use qore_core::masking::ConnectionMasking;
 use qore_core::types::{ConnectionConfig, MssqlAuthMode, SshTunnelConfig};
 
 /// Environment classification for connections
@@ -76,6 +77,8 @@ pub struct SavedConnection {
     /// Driver options preserved from a parsed connection URL.
     #[serde(default)]
     pub options: std::collections::HashMap<String, String>,
+    #[serde(default, skip_serializing_if = "ConnectionMasking::is_empty")]
+    pub masking: ConnectionMasking,
     pub project_id: String,
 }
 
@@ -289,6 +292,7 @@ mod tests {
             clickhouse_cluster: None,
             search_auth_mode: None,
             ssl_ca_cert: None,
+            masking: Default::default(),
             project_id: "proj".to_string(),
         }
     }

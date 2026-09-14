@@ -284,6 +284,13 @@ mod tests {
             name: name.into(),
             data_type: data_type.into(),
             nullable: true,
+        },
+        masked: false,
+    
+            name: name.into(),
+            data_type: data_type.into(),
+            nullable: true,
+            masked: false,
         }
     }
 

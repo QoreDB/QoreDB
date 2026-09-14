@@ -413,7 +413,29 @@
     },
     "keyspace": "Keyspace",
     "exposeToAgents": "Expor a agentes de IA",
-    "exposeToAgentsHint": "Visível para agentes de IA via MCP e CLI, sempre somente leitura."
+    "exposeToAgentsHint": "Visível para agentes de IA via MCP e CLI, sempre somente leitura.",
+    "masking": {
+      "title": "Mascaramento de colunas",
+      "description": "Substitui os valores em resultados, exportações e respostas de agentes em todas as consultas desta conexão.",
+      "detected": "Mascarar colunas sensíveis detectadas",
+      "detectedHint": "Mascaramento parcial das colunas cujo nome parece sensível (email, telefone, senha…).",
+      "table": "Tabela",
+      "anyTable": "Todas as tabelas",
+      "column": "Coluna",
+      "mode": "Modo",
+      "modes": {
+        "hidden": "Oculto",
+        "partial": "Parcial",
+        "hash": "Hash"
+      },
+      "addRule": "Adicionar regra",
+      "removeRule": "Remover regra",
+      "empty": "Nenhuma regra: os valores aparecem como armazenados.",
+      "proHint": "Adicionar regras requer QoreDB Pro. As regras existentes continuam valendo e podem ser removidas.",
+      "removeConfirmTitle": "Remover mascaramento em uma conexão de produção",
+      "removeConfirmDescription": "Os valores mascarados voltarão a aparecer em resultados, exportações e respostas de agentes.",
+      "removeConfirmLabel": "Remover mascaramento"
+    }
   },
   "sidebar": {
     "connections": "Conexões",
@@ -1258,7 +1280,8 @@
       "indexComposite": "Indexado (composto: {{name}})",
       "unique": "Restrição de unicidade",
       "copySuccess": "Linha copiada para a área de transferência",
-      "sortScansTable": "Ordenar por esta coluna não segue nenhum índice: o motor ordena a tabela inteira."
+      "sortScansTable": "Ordenar por esta coluna não segue nenhum índice: o motor ordena a tabela inteira.",
+      "masked": "Valores mascarados pelas regras da conexão"
     },
     "rowsSelected": "{{count}} linha(s) selecionada(s)",
     "rowsTotal": "{{count}} linha(s)",
@@ -1381,6 +1404,15 @@
     "pagination": {
       "unstableOrder": "ordem instável",
       "unstableOrderHint": "Esta tabela não tem chave única para paginar: uma linha pode aparecer duas vezes ou ser pulada se os dados mudarem durante a rolagem."
+    },
+    "masking": {
+      "mask": "Mascarar esta coluna",
+      "unmask": "Remover mascaramento",
+      "byDetection": "Mascarada pela detecção de colunas sensíveis",
+      "readOnly": "Esta coluna está mascarada: seus valores não podem ser editados.",
+      "applied": "Mascaramento aplicado",
+      "appliedNextRun": "Mascaramento salvo: vale a partir da próxima execução.",
+      "removed": "Mascaramento removido"
     }
   },
   "export": {

@@ -442,7 +442,29 @@
     },
     "keyspace": "Keyspace",
     "exposeToAgents": "Exposer aux agents IA",
-    "exposeToAgentsHint": "Visible par les agents IA via MCP et la CLI, toujours en lecture seule."
+    "exposeToAgentsHint": "Visible par les agents IA via MCP et la CLI, toujours en lecture seule.",
+    "masking": {
+      "title": "Masquage des colonnes",
+      "description": "Remplace les valeurs dans les résultats, les exports et les réponses des agents, pour toutes les requêtes de cette connexion.",
+      "detected": "Masquer les colonnes sensibles détectées",
+      "detectedHint": "Masquage partiel des colonnes dont le nom semble sensible (email, téléphone, mot de passe…).",
+      "table": "Table",
+      "anyTable": "Toutes les tables",
+      "column": "Colonne",
+      "mode": "Mode",
+      "modes": {
+        "hidden": "Masqué",
+        "partial": "Partiel",
+        "hash": "Empreinte"
+      },
+      "addRule": "Ajouter une règle",
+      "removeRule": "Supprimer la règle",
+      "empty": "Aucune règle : les valeurs s’affichent telles qu’enregistrées.",
+      "proHint": "Ajouter des règles nécessite QoreDB Pro. Les règles existantes restent appliquées et peuvent être retirées.",
+      "removeConfirmTitle": "Retirer un masque sur une connexion de production",
+      "removeConfirmDescription": "Les valeurs masquées redeviendront visibles dans les résultats, les exports et les réponses des agents.",
+      "removeConfirmLabel": "Retirer le masque"
+    }
   },
   "sidebar": {
     "connections": "Connexions",
@@ -1293,7 +1315,8 @@
       "indexComposite": "Indexé (composite: {{name}})",
       "unique": "Contrainte unique",
       "copySuccess": "Ligne copiée dans le presse-papiers",
-      "sortScansTable": "Trier sur cette colonne ne suit aucun index : le moteur trie toute la table."
+      "sortScansTable": "Trier sur cette colonne ne suit aucun index : le moteur trie toute la table.",
+      "masked": "Valeurs masquées par les règles de la connexion"
     },
     "rowsSelected": "{{count}} ligne(s) sélectionnée(s)",
     "rowsTotal": "{{count}} ligne(s)",
@@ -1416,6 +1439,15 @@
     "pagination": {
       "unstableOrder": "ordre instable",
       "unstableOrderHint": "Cette table n'a pas de clé unique sur laquelle paginer : une ligne peut apparaître deux fois ou être sautée si les données changent pendant le défilement."
+    },
+    "masking": {
+      "mask": "Masquer cette colonne",
+      "unmask": "Retirer le masque",
+      "byDetection": "Masquée par la détection des colonnes sensibles",
+      "readOnly": "Cette colonne est masquée : ses valeurs ne peuvent pas être modifiées.",
+      "applied": "Masque appliqué",
+      "appliedNextRun": "Masque enregistré : il s’applique dès la prochaine exécution.",
+      "removed": "Masque retiré"
     }
   },
   "export": {

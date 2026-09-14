@@ -16,3 +16,4 @@ chrono = { workspace = true }
 base64 = { workspace = true }
 compact_str = { workspace = true }
 regex = "1"
+sha2 = "0.10"

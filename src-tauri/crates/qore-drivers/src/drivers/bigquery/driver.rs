@@ -169,6 +169,7 @@ impl BigQueryDriver {
                 name: CompactString::new(name),
                 data_type: CompactString::new(ty),
                 nullable: true,
+                masked: false,
             };
             return Ok(QueryResult {
                 columns: vec![

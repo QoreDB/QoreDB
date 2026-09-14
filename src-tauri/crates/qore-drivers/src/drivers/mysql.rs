@@ -353,6 +353,7 @@ impl MySqlDriver {
                 name: col.name().into(),
                 data_type: col.type_info().name().into(),
                 nullable: true,
+                masked: false,
             })
             .collect()
     }
@@ -2323,6 +2324,7 @@ impl DataEngine for MySqlDriver {
                         name: name.into(),
                         data_type: data_type.into(),
                         nullable: is_nullable == "YES",
+                        masked: false,
                     })
                 })
                 .collect();

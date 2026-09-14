@@ -122,6 +122,7 @@ async fn run(
         false,
         None,
         stream_sender,
+        pf.masking.clone(),
         |_, _| {},
     )
     .await;

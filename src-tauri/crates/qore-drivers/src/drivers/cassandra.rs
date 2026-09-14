@@ -177,6 +177,7 @@ fn to_query_result(rows: CqlRows, elapsed: Instant) -> QueryResult {
                 // CQL has no NOT NULL: any non-key column may be absent from a
                 // row, so claiming otherwise would be a lie the grid acts on.
                 nullable: true,
+                masked: false,
             })
             .collect(),
         rows: rows.rows.into_iter().map(|values| Row { values }).collect(),

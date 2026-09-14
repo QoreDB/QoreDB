@@ -34,7 +34,8 @@ export type ProFeature =
   | 'data_generator'
   | 'index_suggestions'
   | 'schema_diff'
-  | 'query_replay';
+  | 'query_replay'
+  | 'column_masking';
 
 const TIER_LEVELS: Record<LicenseTier, number> = {
   core: 0,
@@ -63,6 +64,7 @@ const FEATURE_REQUIRED_TIER: Record<ProFeature, LicenseTier> = {
   index_suggestions: 'pro',
   schema_diff: 'pro',
   query_replay: 'pro',
+  column_masking: 'pro',
 };
 
 export const PRO_FEATURES = (

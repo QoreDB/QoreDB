@@ -12,6 +12,7 @@ use super::SharedStateExt;
 use crate::commands::vault::get_workspace_store;
 use crate::commands::workspace::SharedWorkspaceManager;
 use crate::engine::types::ConnectionConfig;
+use qore_core::masking::ConnectionMasking;
 use crate::vault::VaultStorage;
 use crate::vault::backend::KeyringProvider;
 
@@ -39,7 +40,7 @@ pub(crate) async fn resolve_saved_connection(
     ws_manager: &State<'_, SharedWorkspaceManager>,
     project_id: &str,
     connection_id: &str,
-) -> Result<(ConnectionConfig, String), String> {
+) -> Result<(ConnectionConfig, String, ConnectionMasking), String> {
     if let Some(ws_store) = get_workspace_store(ws_manager).await {
         let saved = ws_store
             .get_connection(connection_id)
@@ -51,7 +52,7 @@ pub(crate) async fn resolve_saved_connection(
         let config = saved
             .to_connection_config(&creds)
             .map_err(|e| e.sanitized_message())?;
-        return Ok((config, name));
+        return Ok((config, name, saved.masking));
     }
 
     let storage_dir = app.path().app_config_dir().map_err(|e| e.to_string())?;
@@ -72,7 +73,7 @@ pub(crate) async fn resolve_saved_connection(
     let config = saved
         .to_connection_config(&creds)
         .map_err(|e| e.sanitized_message())?;
-    Ok((config, name))
+    Ok((config, name, saved.masking))
 }
 
 #[tauri::command]
@@ -129,7 +130,7 @@ pub async fn test_saved_connection(
 
     let config =
         match resolve_saved_connection(&app, &ws_manager, &project_id, &connection_id).await {
-            Ok((cfg, _name)) => cfg,
+            Ok((cfg, _name, _masking)) => cfg,
             Err(e) => {
                 return Ok(ConnectionResponse {
                     success: false,
@@ -213,9 +214,9 @@ pub async fn connect_saved_connection(
         Arc::clone(&state.session_manager)
     };
 
-    let (config, connection_name) =
+    let (config, connection_name, masking) =
         match resolve_saved_connection(&app, &ws_manager, &project_id, &connection_id).await {
-            Ok(pair) => pair,
+            Ok(resolved) => resolved,
             Err(e) => {
                 return Ok(ConnectionResponse {
                     success: false,
@@ -230,6 +231,7 @@ pub async fn connect_saved_connection(
             session_manager
                 .set_saved_connection_identity(session_id, connection_id.clone(), connection_name)
                 .await;
+            session_manager.set_masking(session_id, &masking).await;
             Ok(ConnectionResponse {
                 success: true,
                 session_id: Some(session_id.0.to_string()),

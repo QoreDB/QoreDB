@@ -1496,6 +1496,7 @@ function AppContent({
             driverCapabilities={driverCapabilities}
             environment={activeConnection?.environment || 'development'}
             readOnly={activeConnection?.read_only || false}
+            connectionId={activeConnection?.id}
             connectionName={activeConnection?.name}
             connectionDatabase={activeConnection?.database}
             connectionWarehouse={activeConnection?.options?.warehouse}

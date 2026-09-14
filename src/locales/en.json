@@ -442,7 +442,29 @@
     },
     "keyspace": "Keyspace",
     "exposeToAgents": "Expose to AI agents",
-    "exposeToAgentsHint": "Visible to AI agents through MCP and the CLI, always read-only."
+    "exposeToAgentsHint": "Visible to AI agents through MCP and the CLI, always read-only.",
+    "masking": {
+      "title": "Column masking",
+      "description": "Replaces values in results, exports and agent answers for every query on this connection.",
+      "detected": "Mask detected sensitive columns",
+      "detectedHint": "Partial masking on columns whose name looks sensitive (email, phone, password…).",
+      "table": "Table",
+      "anyTable": "Any table",
+      "column": "Column",
+      "mode": "Mode",
+      "modes": {
+        "hidden": "Hidden",
+        "partial": "Partial",
+        "hash": "Hash"
+      },
+      "addRule": "Add rule",
+      "removeRule": "Remove rule",
+      "empty": "No rule: values are shown as stored.",
+      "proHint": "Adding rules requires QoreDB Pro. Existing rules still apply and can be removed.",
+      "removeConfirmTitle": "Remove masking on a production connection",
+      "removeConfirmDescription": "Masked values will be visible again in results, exports and agent answers.",
+      "removeConfirmLabel": "Remove masking"
+    }
   },
   "sidebar": {
     "connections": "Connections",
@@ -1293,7 +1315,8 @@
       "indexComposite": "Indexed (composite: {{name}})",
       "unique": "Unique constraint",
       "copySuccess": "Row copied to clipboard",
-      "sortScansTable": "Sorting on this column has no index to follow: the engine sorts the whole table."
+      "sortScansTable": "Sorting on this column has no index to follow: the engine sorts the whole table.",
+      "masked": "Values masked by the connection's rules"
     },
     "rowsSelected": "{{count}} row(s) selected",
     "rowsTotal": "{{count}} row(s)",
@@ -1416,6 +1439,15 @@
     "pagination": {
       "unstableOrder": "unstable order",
       "unstableOrderHint": "This table has no unique key to page on, so a row may appear twice or be skipped if the data changes while you scroll."
+    },
+    "masking": {
+      "mask": "Mask this column",
+      "unmask": "Remove masking",
+      "byDetection": "Masked by sensitive-column detection",
+      "readOnly": "This column is masked: its values cannot be edited.",
+      "applied": "Masking applied",
+      "appliedNextRun": "Masking saved: it applies from the next run.",
+      "removed": "Masking removed"
     }
   },
   "export": {

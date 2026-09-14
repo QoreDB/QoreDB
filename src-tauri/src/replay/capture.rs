@@ -343,6 +343,7 @@ mod tests {
                 name: "id".into(),
                 data_type: "int".into(),
                 nullable: false,
+                masked: false,
             }],
             rows: (0..5)
                 .map(|i| Row {

@@ -904,6 +904,9 @@ pub struct ColumnInfo {
     pub name: CompactString,
     pub data_type: CompactString,
     pub nullable: bool,
+    /// Values were replaced by the connection's masking rules.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub masked: bool,
 }
 
 /// A single row of data (indexed by column order)

@@ -413,7 +413,29 @@
     },
     "keyspace": "Keyspace",
     "exposeToAgents": "Exponer a los agentes de IA",
-    "exposeToAgentsHint": "Visible para los agentes de IA a través de MCP y la CLI, siempre en solo lectura."
+    "exposeToAgentsHint": "Visible para los agentes de IA a través de MCP y la CLI, siempre en solo lectura.",
+    "masking": {
+      "title": "Enmascaramiento de columnas",
+      "description": "Sustituye los valores en resultados, exportaciones y respuestas de agentes para todas las consultas de esta conexión.",
+      "detected": "Enmascarar columnas sensibles detectadas",
+      "detectedHint": "Enmascaramiento parcial de las columnas cuyo nombre parece sensible (email, teléfono, contraseña…).",
+      "table": "Tabla",
+      "anyTable": "Todas las tablas",
+      "column": "Columna",
+      "mode": "Modo",
+      "modes": {
+        "hidden": "Oculto",
+        "partial": "Parcial",
+        "hash": "Hash"
+      },
+      "addRule": "Añadir regla",
+      "removeRule": "Eliminar regla",
+      "empty": "Sin reglas: los valores se muestran tal como están guardados.",
+      "proHint": "Añadir reglas requiere QoreDB Pro. Las reglas existentes siguen aplicándose y pueden eliminarse.",
+      "removeConfirmTitle": "Quitar el enmascaramiento en una conexión de producción",
+      "removeConfirmDescription": "Los valores enmascarados volverán a verse en resultados, exportaciones y respuestas de agentes.",
+      "removeConfirmLabel": "Quitar el enmascaramiento"
+    }
   },
   "sidebar": {
     "connections": "Conexiones",
@@ -1258,7 +1280,8 @@
       "indexComposite": "Indexado (compuesto: {{name}})",
       "unique": "Restricción única",
       "copySuccess": "Fila copiada al portapapeles",
-      "sortScansTable": "Ordenar por esta columna no sigue ningún índice: el motor ordena toda la tabla."
+      "sortScansTable": "Ordenar por esta columna no sigue ningún índice: el motor ordena toda la tabla.",
+      "masked": "Valores enmascarados por las reglas de la conexión"
     },
     "rowsSelected": "{{count}} fila(s) seleccionada(s)",
     "rowsTotal": "{{count}} fila(s)",
@@ -1381,6 +1404,15 @@
     "pagination": {
       "unstableOrder": "orden inestable",
       "unstableOrderHint": "Esta tabla no tiene una clave única para paginar: una fila puede aparecer dos veces u omitirse si los datos cambian mientras te desplazas."
+    },
+    "masking": {
+      "mask": "Enmascarar esta columna",
+      "unmask": "Quitar el enmascaramiento",
+      "byDetection": "Enmascarada por la detección de columnas sensibles",
+      "readOnly": "Esta columna está enmascarada: sus valores no se pueden editar.",
+      "applied": "Enmascaramiento aplicado",
+      "appliedNextRun": "Enmascaramiento guardado: se aplica desde la próxima ejecución.",
+      "removed": "Enmascaramiento eliminado"
     }
   },
   "export": {

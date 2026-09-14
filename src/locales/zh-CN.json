@@ -413,7 +413,29 @@
     },
     "keyspace": "键空间",
     "exposeToAgents": "向 AI 代理公开",
-    "exposeToAgentsHint": "通过 MCP 和 CLI 对 AI 代理可见，始终只读。"
+    "exposeToAgentsHint": "通过 MCP 和 CLI 对 AI 代理可见，始终只读。",
+    "masking": {
+      "title": "列脱敏",
+      "description": "替换此连接所有查询的结果、导出和代理回答中的值。",
+      "detected": "对检测到的敏感列脱敏",
+      "detectedHint": "对名称看起来敏感的列（邮箱、电话、密码等）进行部分脱敏。",
+      "table": "表",
+      "anyTable": "所有表",
+      "column": "列",
+      "mode": "模式",
+      "modes": {
+        "hidden": "隐藏",
+        "partial": "部分",
+        "hash": "哈希"
+      },
+      "addRule": "添加规则",
+      "removeRule": "删除规则",
+      "empty": "没有规则：按存储的原样显示值。",
+      "proHint": "添加规则需要 QoreDB Pro。现有规则仍然生效，并且可以删除。",
+      "removeConfirmTitle": "移除生产连接上的脱敏",
+      "removeConfirmDescription": "被脱敏的值将在结果、导出和代理回答中重新可见。",
+      "removeConfirmLabel": "移除脱敏"
+    }
   },
   "sidebar": {
     "connections": "连接",
@@ -1249,7 +1271,8 @@
       "indexComposite": "已索引（复合索引：{{name}}）",
       "unique": "唯一约束",
       "copySuccess": "行已复制到剪贴板",
-      "sortScansTable": "按该列排序没有可用索引：引擎将对整张表排序。"
+      "sortScansTable": "按该列排序没有可用索引：引擎将对整张表排序。",
+      "masked": "值已按连接规则脱敏"
     },
     "rowsSelected": "已选择 {{count}} 行",
     "rowsTotal": "共 {{count}} 行",
@@ -1372,6 +1395,15 @@
     "pagination": {
       "unstableOrder": "顺序不稳定",
       "unstableOrderHint": "该表没有可用于分页的唯一键：滚动期间数据发生变化时，某行可能重复出现或被跳过。"
+    },
+    "masking": {
+      "mask": "对此列脱敏",
+      "unmask": "移除脱敏",
+      "byDetection": "已由敏感列检测脱敏",
+      "readOnly": "此列已脱敏：无法编辑其值。",
+      "applied": "已应用脱敏",
+      "appliedNextRun": "脱敏已保存：将从下次执行起生效。",
+      "removed": "已移除脱敏"
     }
   },
   "export": {

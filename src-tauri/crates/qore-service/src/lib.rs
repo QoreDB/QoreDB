@@ -14,6 +14,7 @@ pub mod federation;
 pub mod governance;
 pub mod interceptor;
 pub mod license;
+pub mod masking_guard;
 pub mod metrics;
 pub mod mutation;
 pub mod paths;

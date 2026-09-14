@@ -226,6 +226,7 @@ pub async fn run_set(
             false,
             None,
             None,
+            preflight.masking.clone(),
             |_, _| {},
         )
         .await;
@@ -559,6 +560,7 @@ mod tests {
                 name: "id".into(),
                 data_type: "int".into(),
                 nullable: false,
+                masked: false,
             }],
             rows: ids
                 .iter()

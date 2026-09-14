@@ -593,6 +593,7 @@ pub(crate) fn get_column_info(row: &PgRow) -> Vec<ColumnInfo> {
             name: col.name().into(),
             data_type: col.type_info().name().into(),
             nullable: true,
+            masked: false,
         })
         .collect()
 }

@@ -5,7 +5,8 @@ import { supportsConnectionUrl } from '@/lib/connection/connectionUrls';
 import { DEFAULT_PORTS, Driver } from '@/lib/connection/drivers';
 import { detectDriverFromDsn } from '@/lib/connection/dsnDetector';
 import { resolveMotherDuckHost } from '@/lib/connection/motherduck';
-import type { PartialConnectionConfig, SavedConnection } from '@/lib/tauri';
+import { EMPTY_MASKING } from '@/lib/masking';
+import type { ConnectionMasking, PartialConnectionConfig, SavedConnection } from '@/lib/tauri';
 import { isConnectionFormValid } from './mappers';
 import { type ConnectionFormData, initialConnectionFormData } from './types';
 
@@ -220,6 +221,7 @@ export function useConnectionForm(options: {
         useUrl: false,
         connectionUrl: '',
         options: editConnection.options ?? {},
+        masking: editConnection.masking ?? EMPTY_MASKING,
       });
     } else {
       setFormData(initialConnectionFormData);
@@ -258,7 +260,10 @@ export function useConnectionForm(options: {
     ].includes(driver);
   }
 
-  function handleChange(field: keyof ConnectionFormData, value: string | number | boolean) {
+  function handleChange(
+    field: keyof ConnectionFormData,
+    value: string | number | boolean | ConnectionMasking
+  ) {
     setFormData(prev => {
       const next = { ...prev, [field]: value };
       if (prev.driver === Driver.Motherduck && field === 'password' && typeof value === 'string') {

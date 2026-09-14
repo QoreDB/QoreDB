@@ -187,7 +187,14 @@ pub async fn build_context(
                         .preview_table(session_id, namespace, table_name, SAMPLE_ROW_LIMIT)
                         .await
                     {
-                        Ok(preview) if !preview.rows.is_empty() => {
+                        Ok(mut preview) if !preview.rows.is_empty() => {
+                            qore_service::query::apply_masking(
+                                session_manager,
+                                session_id,
+                                Some(table_name),
+                                &mut preview,
+                            )
+                            .await;
                             full_desc.push_str(&format_sample_rows(&preview, redact_sensitive));
                             sampled_tables += 1;
                         }
@@ -584,16 +591,19 @@ mod tests {
                     name: "id".into(),
                     data_type: "INT".into(),
                     nullable: false,
+                    masked: false,
                 },
                 ColumnInfo {
                     name: "email".into(),
                     data_type: "VARCHAR".into(),
                     nullable: true,
+                    masked: false,
                 },
                 ColumnInfo {
                     name: "bio".into(),
                     data_type: "TEXT".into(),
                     nullable: true,
+                    masked: false,
                 },
             ],
             rows: vec![Row {

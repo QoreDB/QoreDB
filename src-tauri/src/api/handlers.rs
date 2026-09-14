@@ -146,10 +146,12 @@ pub async fn handle_endpoint(
         ));
     }
 
-    let result = driver
+    let mut result = driver
         .execute(session_id, &final_sql, QueryId::new())
         .await
         .map_err(|e| ApiError::Internal(e.sanitized_message()))?;
+    qore_service::query::apply_masking(&state.session_manager, session_id, None, &mut result)
+        .await;
 
     let rows = rows_to_json(&result.columns, &result.rows);
     Ok(build_response(&endpoint, rows))
@@ -437,7 +439,7 @@ async fn resolve_session(state: &ApiState, connection_id: &str) -> Result<Sessio
         state.sessions.lock().await.remove(connection_id);
     }
 
-    let config = load_saved_config(
+    let (config, masking) = load_saved_config(
         &state.project_id,
         state.workspace_connections_dir.as_deref(),
         connection_id,
@@ -458,6 +460,7 @@ async fn resolve_session(state: &ApiState, connection_id: &str) -> Result<Sessio
             connection_id.to_string(),
         )
         .await;
+    state.session_manager.set_masking(session_id, &masking).await;
 
     state
         .sessions
@@ -472,7 +475,13 @@ fn load_saved_config(
     workspace_connections_dir: Option<&std::path::Path>,
     connection_id: &str,
     storage_dir: &PathBuf,
-) -> Result<qore_core::types::ConnectionConfig, String> {
+) -> Result<
+    (
+        qore_core::types::ConnectionConfig,
+        qore_core::masking::ConnectionMasking,
+    ),
+    String,
+> {
     use crate::vault::backend::KeyringProvider;
 
     // File-based workspaces keep connections in their own directory; isolation
@@ -493,6 +502,7 @@ fn load_saved_config(
             .map_err(|e| e.sanitized_message())?;
         return saved
             .to_connection_config(&creds)
+            .map(|config| (config, saved.masking.clone()))
             .map_err(|e| e.sanitized_message());
     }
 
@@ -514,6 +524,7 @@ fn load_saved_config(
         .map_err(|e| e.sanitized_message())?;
     saved
         .to_connection_config(&creds)
+        .map(|config| (config, saved.masking.clone()))
         .map_err(|e| e.sanitized_message())
 }
 

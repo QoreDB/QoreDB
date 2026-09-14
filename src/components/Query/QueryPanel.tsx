@@ -112,6 +112,7 @@ interface QueryPanelProps {
   driverCapabilities?: DriverCapabilities | null;
   environment?: Environment;
   readOnly?: boolean;
+  connectionId?: string;
   connectionName?: string;
   connectionDatabase?: string;
   connectionWarehouse?: string;
@@ -132,6 +133,7 @@ export function QueryPanel({
   driverCapabilities = null,
   environment = 'development',
   readOnly = false,
+  connectionId,
   connectionName,
   connectionDatabase,
   connectionWarehouse,
@@ -1149,6 +1151,7 @@ export function QueryPanel({
           activeResultId={activeResultId}
           isDocumentBased={isDocument}
           sessionId={sessionId}
+          connectionId={connectionId}
           connectionName={connectionName}
           connectionDatabase={connectionDatabase}
           environment={environment}

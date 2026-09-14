@@ -427,11 +427,13 @@ mod tests {
                     name: "email".into(),
                     data_type: "text".into(),
                     nullable: false,
+                    masked: false,
                 },
                 ColumnInfo {
                     name: "city".into(),
                     data_type: "text".into(),
                     nullable: false,
+                    masked: false,
                 },
             ],
             rows: (0..60)

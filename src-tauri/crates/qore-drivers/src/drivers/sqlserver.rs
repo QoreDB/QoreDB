@@ -335,6 +335,7 @@ fn get_column_info(columns: &[tiberius::Column]) -> Vec<ColumnInfo> {
             name: col.name().into(),
             data_type: format!("{:?}", col.column_type()).into(),
             nullable: true,
+            masked: false,
         })
         .collect()
 }

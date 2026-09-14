@@ -26,13 +26,26 @@ export const CHANGELOG: ChangelogEntry[] = [
       {
         title: 'MCP server for AI agents',
         description:
-          'qore-mcp now ships with the app and exposes eight read-only tools (preview, schema search, explain, namespace-scoped queries), qore:// table resources and three prompts to Claude Desktop, Claude Code, Cursor and any MCP client.',
+          'qore-mcp now ships with the app and exposes eleven read-only tools (preview, schema search, explain, namespace-scoped queries, saved queries from the workspace library with their variables), qore:// table resources and three prompts to Claude Desktop, Claude Code, Cursor and any MCP client.',
         type: 'feature',
+      },
+      {
+        title: 'Federated queries for agents',
+        description:
+          'MCP clients can join tables across exposed connections with run_federated_query. The call is audited, capped by the safety policy row limit and checked against the license each time.',
+        type: 'feature',
+        proOnly: true,
+      },
+      {
+        title: 'Federation cannot reach local files',
+        description:
+          'Once the source rows are loaded, the DuckDB engine behind cross-database federation loses access to files, URLs and extensions, in the Federation panel as in agent calls.',
+        type: 'fix',
       },
       {
         title: 'Connections reach agents only on opt-in',
         description:
-          'Settings > AI agents lists every saved connection with an "Expose to AI agents" switch that gates MCP and CLI access. Existing connections stay hidden until you enable it; exposed sessions are forced read-only, follow the safety policy and close after ten idle minutes.',
+          'Settings > AI agents and the connection form carry an "Expose to AI agents" switch that gates MCP and CLI access. Existing connections stay hidden until you enable it; exposed sessions are forced read-only, follow the safety policy and close after ten idle minutes.',
         type: 'improvement',
       },
       {

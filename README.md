@@ -319,7 +319,7 @@ sudo apt-get install -y \
 
 QoreDB ships `qore-mcp`, a [Model Context Protocol](https://modelcontextprotocol.io) server that gives Claude Desktop, Claude Code, Cursor and any other MCP client read-only access to your saved connections. The binary is installed next to the app and can be downloaded on its own from the release assets (`qore-tools-<target>.tar.gz` / `.zip`).
 
-Nothing is exposed by default: switch a connection on under **Settings > AI agents** and it appears to agents. Every agent session is forced read-only, goes through the safety policy (row cap, timeout, rate limit) and is written to the audit log. Sessions idle for ten minutes are closed.
+Nothing is exposed by default: switch a connection on under **Settings > AI agents** or in its connection form and it appears to agents. Every agent session is forced read-only, goes through the safety policy (row cap, timeout, rate limit) and is written to the audit log. Sessions idle for ten minutes are closed.
 
 ```json
 {
@@ -333,7 +333,7 @@ Nothing is exposed by default: switch a connection on under **Settings > AI agen
 
 For Claude Code: `claude mcp add qoredb -- /path/to/qore-mcp`. Launched from a project folder that holds a `.qoredb` workspace, the server reads that workspace's connections, like the app does; `--workspace <dir>` selects one explicitly. **Settings > AI agents** shows the detected binary path and ready-to-copy snippets.
 
-Tools: `list_connections`, `list_namespaces`, `list_tables`, `describe_table`, `preview_table`, `search_schema`, `run_query`, `explain_query`. Resources `qore://{connection_id}` list a connection's tables and `qore://{connection_id}/{database}/{table}` return a table schema; prompts `audit_table`, `explain_slow_query` and `document_schema` package common workflows. The `qore` CLI applies the same exposure rule.
+Tools: `list_connections`, `list_namespaces`, `list_tables`, `describe_table`, `preview_table`, `search_schema`, `run_query`, `explain_query`, `list_saved_queries` and `run_saved_query` (the query library of the `.qoredb` workspace, variables substituted as literals), and `run_federated_query` (Pro license: joins across exposed connections in an ephemeral DuckDB with no file or network access). Resources `qore://{connection_id}` list a connection's tables and `qore://{connection_id}/{database}/{table}` return a table schema; prompts `audit_table`, `explain_slow_query` and `document_schema` package common workflows. The `qore` CLI applies the same exposure rule.
 
 ---
 

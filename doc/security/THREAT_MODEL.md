@@ -75,11 +75,14 @@ QoreDB is a desktop application (Tauri/Rust) that connects to user databases. Th
 
 - **Threat**: An AI agent, or any local process able to launch `qore-mcp` or `qore`, reads data it should not, or is steered by hostile data into damaging queries.
 - **Mitigation**:
-  - **Opt-in per connection**: nothing is visible to agents until the user switches the connection on under Settings > AI agents. The flag is stored with the connection and checked before any secret is read, even when the caller already knows the connection id.
+  - **Opt-in per connection**: nothing is visible to agents until the user switches the connection on under Settings > AI agents or in its connection form. The flag is stored with the connection and checked before any secret is read, even when the caller already knows the connection id.
   - **Read-only by construction**: agent sessions are opened with `read_only` forced on, then every statement goes through the same preflight as the editor (SQL, Mongo, Redis and search classification), the safety policy (row cap, duration, rate limit) and the audit log with source `mcp` or `cli`.
   - **Local transport only**: the MCP server speaks stdio to the client that spawned it; it opens no network listener.
   - **Bounded lifetime**: sessions idle for ten minutes are closed; the safety policy and the vault are reread on every call so a change in the app applies to the next agent query.
   - **Store scoping**: the server reads the default vault, or the `.qoredb` workspace it was pointed at or detected from its working directory, never both.
+  - **Federation (Pro)**: `run_federated_query` checks the license on every call and only joins exposed connections. The join runs in an in-memory DuckDB whose external access (files, URLs, extensions) is switched off and locked once the source rows are loaded, so a query cannot read `read_csv('/etc/passwd')`. The call is audited under the strictest environment of its sources and truncated to the policy row cap.
+  - **Saved queries**: `run_saved_query` reads the library of the selected workspace only. Declared variables are substituted as literals (numbers and dates validated, text quoted) and the statement goes through the same read-only preflight as `run_query`.
 - **Current limitation**:
+  - Source fetches of a federated query run the planner's generated `SELECT` directly on each session: the audit log holds one entry for the federated query, not one per source.
   - The app's master-password lock is not shared: the server reads secrets from the OS keyring directly, so a vault locked in the app stays readable by an agent as long as the keyring is unlocked. The exposure flag is the effective gate.
   - Query results are returned to the agent and may be sent to a remote model by the client; column masking is not applied yet (planned, see the v0.1.39 scope).

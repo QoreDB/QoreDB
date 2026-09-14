@@ -17,6 +17,12 @@ Procédure manuelle à dérouler avant une release qui touche `crates/qore-mcp`,
   dossier contenant un workspace `.qoredb`, ou avec `--workspace <dir>` ou
   `QOREDB_WORKSPACE` : il lit alors les connexions de ce workspace, comme l'app.
   Les `instructions` renvoyées à `initialize` indiquent le magasin utilisé.
+- Pour les requêtes enregistrées : un workspace `.qoredb` dont la Query Library
+  contient une requête `SELECT * FROM users WHERE city = {{city}}` (variable
+  `city` de type texte) et une requête `DELETE FROM users`.
+- Pour la fédération : une licence Pro active dans l'app (le serveur la lit dans
+  le trousseau ; sous macOS, autoriser l'accès au premier appel) et une seconde
+  connexion exposée vers un autre moteur.
 
 ## 2) Handshake JSON-RPC
 
@@ -34,12 +40,14 @@ printf '%s\n' \
 Attendu :
 
 - `initialize` renvoie les capacités `tools`, `resources` et `prompts` et des
-  `instructions` listant les huit outils.
+  `instructions` listant les onze outils.
 - `tools/list` : `list_connections`, `list_namespaces`, `list_tables`,
-  `describe_table`, `preview_table`, `search_schema`, `run_query`, `explain_query`.
+  `describe_table`, `preview_table`, `search_schema`, `run_query`, `explain_query`,
+  `run_federated_query`, `list_saved_queries`, `run_saved_query`.
 - `prompts/list` : `audit_table`, `explain_slow_query`, `document_schema`.
 - `resources/templates/list` : `qore://{connection_id}/{database}/{table}`.
-- `list_connections` ne contient que `agents-on`, avec `read_only: true`.
+- `list_connections` ne contient que `agents-on`, avec `read_only: true` et son
+  `alias` (`agents_on`).
 
 ## 3) Gouvernance
 
@@ -65,6 +73,17 @@ Avec l'inspecteur (`npx @modelcontextprotocol/inspector qore-mcp`) ou Claude Cod
    `mcp`.
 9. Laisser le serveur ouvert plus de dix minutes puis rappeler un outil : la
    session est rouverte sans erreur (fermeture des sessions inactives).
+10. `list_saved_queries` lancé hors workspace renvoie une erreur explicite ; dans
+    le workspace, il liste les requêtes avec leurs variables.
+11. `run_saved_query` avec `variables: {"city": "Paris"}` renvoie les lignes ;
+    une variable inconnue ou une valeur invalide pour un `number` est refusée
+    avant exécution ; la requête `DELETE` est refusée « read-only mode ».
+12. `run_federated_query` sans licence Pro renvoie un refus explicite. Avec la
+    licence, une jointure `agents_on.<db>.<table>` × seconde connexion renvoie
+    les lignes et la liste des sources ; un id non exposé dans `connection_ids`
+    est refusé.
+13. `run_federated_query` avec `... FROM agents_on.<db>.<table>,
+    read_csv('/etc/hosts')` échoue : DuckDB n'a pas accès aux fichiers.
 
 ## 4) Écran Settings
 
@@ -73,3 +92,5 @@ Avec l'inspecteur (`npx @modelcontextprotocol/inspector qore-mcp`) ou Claude Cod
 - Le snippet Claude Desktop copié contient le chemin absolu détecté.
 - Chaque connexion enregistrée apparaît avec son interrupteur ; le basculer
   met à jour `list_connections` au prochain appel, sans redémarrer le serveur.
+- Le formulaire de connexion affiche le même interrupteur « Exposer aux agents
+  IA », reflète l'état choisi dans Settings et l'enregistre avec la connexion.

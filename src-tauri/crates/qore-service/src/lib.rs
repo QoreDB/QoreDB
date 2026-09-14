@@ -9,6 +9,8 @@ pub mod cache;
 pub mod connection;
 pub mod context;
 pub mod error;
+#[cfg(feature = "federation")]
+pub mod federation;
 pub mod governance;
 pub mod interceptor;
 pub mod license;

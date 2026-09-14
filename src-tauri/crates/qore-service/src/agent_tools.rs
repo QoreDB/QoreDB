@@ -343,6 +343,132 @@ async fn described_columns(
     Ok(rows)
 }
 
+/// Joins tables across sessions in an ephemeral DuckDB. Each source pairs a
+/// connection's display name, whose snake_case form is the alias the query
+/// uses, with its session. Audited once, under the strictest environment of
+/// the sources, and capped by the policy row limit.
+#[cfg(feature = "federation")]
+pub async fn run_federated_query(
+    ctx: &AgentToolContext,
+    sources: &[(String, SessionId)],
+    query: &str,
+    timeout_ms: Option<u64>,
+    source: QuerySource,
+) -> Result<(QueryResult, crate::federation::types::FederationMetadata), String> {
+    use crate::federation::manager::execute_federation;
+    use crate::federation::types::{
+        AliasEntry, ConnectionAliasMap, FederationQueryOptions, normalize_alias,
+    };
+    use crate::interceptor::{Environment, QueryExecutionResult, map_environment};
+
+    let Some((_, first_session)) = sources.first() else {
+        return Err("No connection to federate".to_string());
+    };
+
+    let mut alias_map = ConnectionAliasMap::new();
+    let mut environment = Environment::Development;
+    for (name, session) in sources {
+        if ctx.policy.query_rate_limit_enabled
+            && !ctx.query_rate_limiter.try_acquire(&session.0.to_string())
+        {
+            return Err(crate::query::RATE_LIMIT_BLOCKED.to_string());
+        }
+        let driver = ctx
+            .session_manager
+            .get_driver(*session)
+            .await
+            .map_err(|e| e.sanitized_message())?;
+        let session_environment = ctx
+            .session_manager
+            .get_environment(*session)
+            .await
+            .map(|env| map_environment(&env))
+            .unwrap_or_default();
+        if session_environment == Environment::Production
+            || (session_environment == Environment::Staging
+                && environment == Environment::Development)
+        {
+            environment = session_environment;
+        }
+        alias_map
+            .entry(normalize_alias(name))
+            .or_insert(AliasEntry {
+                session_id: *session,
+                driver_id: driver.driver_id().to_string(),
+                display_name: name.clone(),
+            });
+    }
+
+    let context = ctx.interceptor.build_context_with_source(
+        &first_session.0.to_string(),
+        query,
+        "federation",
+        environment,
+        true,
+        false,
+        None,
+        None,
+        false,
+        source,
+    );
+    let safety = ctx.interceptor.pre_execute(&context);
+    if !safety.allowed {
+        let message = safety
+            .message
+            .unwrap_or_else(|| "Query blocked by safety rule".to_string());
+        ctx.interceptor.post_execute(
+            &context,
+            &QueryExecutionResult {
+                success: false,
+                error: Some(message.clone()),
+                execution_time_ms: 0.0,
+                row_count: None,
+            },
+            true,
+            safety.triggered_rule.as_deref(),
+        );
+        return Err(message);
+    }
+
+    let options = FederationQueryOptions {
+        timeout_ms,
+        stream: Some(false),
+        query_id: None,
+        row_limit_per_source: None,
+    };
+    let outcome = execute_federation(query, &alias_map, &ctx.session_manager, &options)
+        .await
+        .map_err(|e| e.sanitized_message());
+    let execution = match &outcome {
+        Ok((result, meta)) => QueryExecutionResult {
+            success: true,
+            error: None,
+            execution_time_ms: meta.total_time_ms,
+            row_count: Some(result.rows.len() as i64),
+        },
+        Err(err) => QueryExecutionResult {
+            success: false,
+            error: Some(err.clone()),
+            execution_time_ms: 0.0,
+            row_count: None,
+        },
+    };
+    ctx.interceptor
+        .post_execute(&context, &execution, false, None);
+
+    let (mut result, mut meta) = outcome?;
+    if let Some(max_rows) = ctx.policy.max_result_rows
+        && result.rows.len() as u64 > max_rows
+    {
+        meta.warnings.push(format!(
+            "Result truncated to {max_rows} of {} rows by the safety policy.",
+            result.rows.len()
+        ));
+        result.rows.truncate(max_rows as usize);
+    }
+    Ok((result, meta))
+}
+
 #[cfg(all(test, feature = "driver-sqlite"))]
 mod tests {
     use super::*;
@@ -378,32 +504,12 @@ mod tests {
             },
         };
 
-        let db_path = dir.path().join("agent_tools.db");
-        let config = ConnectionConfig {
-            options: Default::default(),
-            driver: "sqlite".to_string(),
-            host: db_path.to_string_lossy().to_string(),
-            port: 0,
-            username: String::new(),
-            password: String::new(),
-            database: None,
-            ssl: false,
-            ssl_mode: None,
-            environment: "development".to_string(),
-            read_only: false,
-            ssh_tunnel: None,
-            pool_acquire_timeout_secs: None,
-            pool_max_connections: None,
-            pool_min_connections: None,
-            proxy: None,
-            mssql_auth: None,
-            clickhouse_cluster: None,
-            search_auth_mode: None,
-            ssl_ca_cert: None,
-        };
-        let session = crate::connection::connect(&ctx.session_manager, config)
-            .await
-            .unwrap();
+        let session = crate::connection::connect(
+            &ctx.session_manager,
+            sqlite_config(&dir.path().join("agent_tools.db")),
+        )
+        .await
+        .unwrap();
 
         for statement in [
             "CREATE TABLE users (id INTEGER PRIMARY KEY, email TEXT NOT NULL, city TEXT)",
@@ -430,6 +536,88 @@ mod tests {
             namespace,
             _dir: dir,
         }
+    }
+
+    fn sqlite_config(db_path: &std::path::Path) -> ConnectionConfig {
+        ConnectionConfig {
+            options: Default::default(),
+            driver: "sqlite".to_string(),
+            host: db_path.to_string_lossy().to_string(),
+            port: 0,
+            username: String::new(),
+            password: String::new(),
+            database: None,
+            ssl: false,
+            ssl_mode: None,
+            environment: "development".to_string(),
+            read_only: false,
+            ssh_tunnel: None,
+            pool_acquire_timeout_secs: None,
+            pool_max_connections: None,
+            pool_min_connections: None,
+            proxy: None,
+            mssql_auth: None,
+            clickhouse_cluster: None,
+            search_auth_mode: None,
+            ssl_ca_cert: None,
+        }
+    }
+
+    #[cfg(feature = "federation")]
+    #[tokio::test]
+    async fn run_federated_query_joins_sessions_under_the_row_cap() {
+        let mut f = fixture().await;
+        let orders = crate::connection::connect(
+            &f.ctx.session_manager,
+            sqlite_config(&f._dir.path().join("orders.db")),
+        )
+        .await
+        .unwrap();
+        for statement in [
+            "CREATE TABLE orders (id INTEGER PRIMARY KEY, email TEXT, amount REAL)",
+            "INSERT INTO orders (email, amount) VALUES ('a@x.io', 10), ('a@x.io', 5), ('c@x.io', 7)",
+        ] {
+            run_query(
+                &f.ctx,
+                orders,
+                statement,
+                None,
+                false,
+                None,
+                QuerySource::Mcp,
+            )
+            .await
+            .unwrap();
+        }
+
+        let sources = vec![
+            ("Users DB".to_string(), f.session),
+            ("Orders DB".to_string(), orders),
+        ];
+        let db = &f.namespace.database;
+        let query = format!(
+            "SELECT u.city, o.amount FROM users_db.{db}.users u \
+             JOIN orders_db.{db}.orders o ON o.email = u.email ORDER BY o.amount"
+        );
+
+        let (result, meta) = run_federated_query(&f.ctx, &sources, &query, None, QuerySource::Mcp)
+            .await
+            .unwrap();
+        assert_eq!(result.rows.len(), 3);
+        assert_eq!(meta.source_results.len(), 2);
+
+        f.ctx.policy.max_result_rows = Some(2);
+        let (capped, meta) = run_federated_query(&f.ctx, &sources, &query, None, QuerySource::Mcp)
+            .await
+            .unwrap();
+        assert_eq!(capped.rows.len(), 2);
+        assert!(meta.warnings.iter().any(|w| w.contains("truncated")));
+
+        assert!(
+            run_federated_query(&f.ctx, &[], &query, None, QuerySource::Mcp)
+                .await
+                .is_err()
+        );
     }
 
     #[tokio::test]

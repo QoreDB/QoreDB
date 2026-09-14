@@ -10,8 +10,8 @@ use std::time::Instant;
 
 use duckdb::{Connection, params_from_iter, types::Value as DuckValue};
 
-use crate::engine::error::{EngineError, EngineResult};
-use crate::engine::types::{ColumnInfo, QueryResult, Row, Value};
+use qore_core::error::{EngineError, EngineResult};
+use qore_core::types::{ColumnInfo, QueryResult, Row, Value};
 
 /// Batch size for inserting rows into DuckDB temp tables.
 const INSERT_BATCH_SIZE: usize = 1000;
@@ -27,6 +27,14 @@ impl DuckDbEngine {
         let conn = Connection::open_in_memory()
             .map_err(|e| EngineError::internal(format!("Failed to open DuckDB: {e}")))?;
         Ok(Self { conn })
+    }
+
+    /// Once the sources are loaded, the query may only read the temp tables:
+    /// no local files, URLs or extensions, and no way to turn that back on.
+    pub fn disable_external_access(&self) -> EngineResult<()> {
+        self.conn
+            .execute_batch("SET enable_external_access = false; SET lock_configuration = true;")
+            .map_err(|e| EngineError::internal(format!("Failed to restrict DuckDB: {e}")))
     }
 
     /// Creates a temporary table with the given schema.
@@ -296,4 +304,47 @@ fn duckdb_value_to_qoredb(row: &duckdb::Row<'_>, idx: usize) -> Value {
         };
     }
     Value::Null
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn restricted_engine_reads_temp_tables_but_not_files() {
+        let dir = tempfile::tempdir().unwrap();
+        let csv = dir.path().join("secret.csv");
+        std::fs::write(&csv, "a\n1\n").unwrap();
+        let read_file = format!("SELECT * FROM read_csv('{}')", csv.display());
+
+        let engine = DuckDbEngine::new().unwrap();
+        let columns = vec![ColumnInfo {
+            name: "id".into(),
+            data_type: "integer".into(),
+            nullable: false,
+        }];
+        engine.create_temp_table("t", &columns).unwrap();
+        engine
+            .insert_batch(
+                "t",
+                &[Row {
+                    values: vec![Value::Int(7)],
+                }],
+                &columns,
+            )
+            .unwrap();
+        assert!(engine.execute_query(&read_file).is_ok());
+
+        engine.disable_external_access().unwrap();
+        assert_eq!(
+            engine.execute_query("SELECT id FROM t").unwrap().rows.len(),
+            1
+        );
+        assert!(engine.execute_query(&read_file).is_err());
+        assert!(
+            engine
+                .execute_query("SET enable_external_access = true")
+                .is_err()
+        );
+    }
 }

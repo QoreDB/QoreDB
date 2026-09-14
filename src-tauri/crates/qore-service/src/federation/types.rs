@@ -6,7 +6,7 @@ use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 
-use crate::engine::types::{Namespace, SessionId};
+use qore_core::types::{Namespace, SessionId};
 
 /// A reference to a table from a specific database connection.
 #[derive(Debug, Clone)]

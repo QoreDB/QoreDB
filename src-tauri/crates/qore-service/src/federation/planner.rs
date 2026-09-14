@@ -7,8 +7,8 @@
 
 use std::collections::HashMap;
 
-use crate::engine::error::{EngineError, EngineResult};
-use crate::engine::sql_generator::SqlDialect;
+use qore_core::error::{EngineError, EngineResult};
+use qore_sql::generator::SqlDialect;
 
 use super::parser::{build_dotted_name, parse_federation_refs, rewrite_query};
 use super::types::{
@@ -151,8 +151,8 @@ fn build_mongo_source_query(source: &SourceFetchPlan) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::engine::types::SessionId;
     use crate::federation::types::AliasEntry;
+    use qore_core::types::SessionId;
 
     fn test_alias_map() -> ConnectionAliasMap {
         let mut map = ConnectionAliasMap::new();

@@ -14,8 +14,6 @@ pub mod contracts;
 pub mod emit_gate;
 pub mod engine;
 pub mod export;
-#[cfg(feature = "pro")]
-pub mod federation;
 pub mod observability;
 pub mod plugins;
 pub mod redaction;

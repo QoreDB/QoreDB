@@ -209,6 +209,7 @@ pro = [
     "tower-http",
     "rcgen",
     "rustls",
+    "qore-service/federation",
 ]
 team = ["pro"]
 enterprise = ["team"]

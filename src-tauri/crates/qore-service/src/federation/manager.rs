@@ -11,10 +11,10 @@ use std::time::Instant;
 use tokio::time::{Duration, timeout};
 use tracing::instrument;
 
-use crate::engine::error::{EngineError, EngineResult};
-use crate::engine::session_manager::SessionManager;
-use crate::engine::traits::{StreamEvent, StreamSender};
-use crate::engine::types::{ColumnInfo, QueryId, QueryResult, Row, Value};
+use qore_core::error::{EngineError, EngineResult};
+use qore_core::traits::{StreamEvent, StreamSender};
+use qore_core::types::{ColumnInfo, QueryId, QueryResult, Row, Value};
+use qore_drivers::session_manager::SessionManager;
 
 use super::duckdb_engine::DuckDbEngine;
 use super::planner::{build_plan, build_source_query};
@@ -198,6 +198,7 @@ async fn prepare_duckdb(
         engine.create_temp_table(&source.table_ref.local_alias, &result.columns)?;
         engine.insert_batch(&source.table_ref.local_alias, &result.rows, &result.columns)?;
     }
+    engine.disable_external_access()?;
 
     Ok((engine, fetch_results, duckdb_start))
 }

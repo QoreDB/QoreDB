@@ -26,7 +26,7 @@ const READ_ONLY_BLOCKED: &str = "Operation blocked: read-only mode";
 const DANGEROUS_BLOCKED: &str = "Dangerous query blocked: confirmation required";
 const DANGEROUS_BLOCKED_POLICY: &str = "Dangerous query blocked by policy";
 const SQL_PARSE_BLOCKED: &str = "Operation blocked: SQL parser could not classify the query";
-const RATE_LIMIT_BLOCKED: &str =
+pub(crate) const RATE_LIMIT_BLOCKED: &str =
     "Operation blocked: query rate limit exceeded — too many queries in a short time";
 const SAFETY_RULE_BLOCKED: &str = "Query blocked by safety rule";
 

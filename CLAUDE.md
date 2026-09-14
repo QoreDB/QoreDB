@@ -191,7 +191,7 @@ The following files are currently marked Premium (`BUSL-1.1`), grouped by module
 
 - `src/components/Federation/*`
 - `src/lib/connection/federation.ts`
-- `src-tauri/src/federation/*`
+- `src-tauri/crates/qore-service/src/federation/*`
 - `src-tauri/src/commands/federation.rs`
 
 #### Query Replay Lab

@@ -14,8 +14,8 @@ use sqlparser::ast::{
 use sqlparser::dialect::GenericDialect;
 use sqlparser::parser::Parser;
 
-use crate::engine::error::{EngineError, EngineResult};
-use crate::engine::types::Namespace;
+use qore_core::error::{EngineError, EngineResult};
+use qore_core::types::Namespace;
 
 use super::types::FederatedTableRef;
 

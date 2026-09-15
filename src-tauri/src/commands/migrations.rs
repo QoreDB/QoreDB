@@ -1274,12 +1274,6 @@ mod tests {
             name: name.into(),
             data_type: "text".into(),
             nullable: true,
-        },
-        masked: false,
-    
-            name: name.into(),
-            data_type: "text".into(),
-            nullable: true,
             masked: false,
         }
     }

@@ -941,7 +941,8 @@
         "data_generator": "Générateur de données",
         "index_suggestions": "Suggestions d'index",
         "schema_diff": "Diff de schéma",
-        "query_replay": "Rejeu de requêtes"
+        "query_replay": "Rejeu de requêtes",
+        "column_masking": "Masquage des colonnes"
       },
       "devOverrideTitle": "Override licence (dev)",
       "devOverrideDescription": "Changer le tier de licence pour le développement. Réinitialisé au redémarrage.",
@@ -2747,6 +2748,13 @@
           "bullet1": "Requêtes cassées, écarts de lignes et de contenu, ralentissements : un seul rapport",
           "bullet2": "Les jeux vivent dans .qoredb/ et se partagent par Git — des attentes, jamais de lignes de résultat",
           "bullet3": "Ouvrez le diff référence ↔ rejeu sur n'importe quelle ligne, depuis le rapport"
+        },
+        "column_masking": {
+          "title": "Gardez les valeurs sensibles hors de vue",
+          "description": "Masquez des colonnes par connexion : résultats, exports, requêtes fédérées et agents IA ne voient que la valeur masquée.",
+          "bullet1": "Valeurs masquées, partielles ou en empreinte, avec détection automatique des colonnes sensibles",
+          "bullet2": "Appliqué sur tous les chemins qui renvoient des lignes, MCP et CLI compris",
+          "bullet3": "Un agent ne peut ni filtrer, ni trier, ni renommer une colonne masquée pour la relire"
         }
       }
     },
@@ -2763,7 +2771,8 @@
       "query_library_advanced": "La bibliothèque de requêtes avancée nécessite une licence Pro.",
       "virtual_relations_auto_suggest": "La suggestion automatique de relations virtuelles nécessite une licence Pro.",
       "federation": "La fédération inter-bases nécessite une licence Pro.",
-      "query_replay": "Le rejeu de requêtes nécessite une licence Pro."
+      "query_replay": "Le rejeu de requêtes nécessite une licence Pro.",
+      "column_masking": "Le masquage des colonnes nécessite une licence Pro."
     }
   },
   "proDiscovery": {

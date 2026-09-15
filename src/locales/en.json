@@ -941,7 +941,8 @@
         "data_generator": "Data Generator",
         "index_suggestions": "Index Suggestions",
         "schema_diff": "Schema Diff",
-        "query_replay": "Query Replay Lab"
+        "query_replay": "Query Replay Lab",
+        "column_masking": "Column masking"
       },
       "devOverrideTitle": "Dev License Override",
       "devOverrideDescription": "Override license tier for development testing. Resets on app restart.",
@@ -2747,6 +2748,13 @@
           "bullet1": "Broken queries, row-count and content differences, and slowdowns in one report",
           "bullet2": "Replay sets live in .qoredb/ and are shared through Git — expectations only, never result rows",
           "bullet3": "Open the baseline ↔ run diff on any row, right from the report"
+        },
+        "column_masking": {
+          "title": "Keep sensitive values out of sight",
+          "description": "Mask columns per connection: results, exports, federated queries and AI agents only ever see the masked value.",
+          "bullet1": "Hidden, partial or hashed values, with automatic detection of sensitive column names",
+          "bullet2": "Applied on every path that returns rows, including MCP and the CLI",
+          "bullet3": "Agents cannot filter, sort or alias a masked column to read it back"
         }
       }
     },
@@ -2763,7 +2771,8 @@
       "query_library_advanced": "Advanced query library requires a Pro license.",
       "virtual_relations_auto_suggest": "Auto-suggest virtual relations requires a Pro license.",
       "federation": "Cross-database federation requires a Pro license.",
-      "query_replay": "Query Replay Lab requires a Pro license."
+      "query_replay": "Query Replay Lab requires a Pro license.",
+      "column_masking": "Column masking requires a Pro license."
     }
   },
   "proDiscovery": {

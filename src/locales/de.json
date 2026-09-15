@@ -912,7 +912,8 @@
         "data_generator": "Datengenerator",
         "index_suggestions": "Indexvorschläge",
         "schema_diff": "Schema-Diff",
-        "query_replay": "Query-Replay"
+        "query_replay": "Query-Replay",
+        "column_masking": "Spaltenmaskierung"
       },
       "devOverrideTitle": "Entwickler-Lizenz-Override",
       "devOverrideDescription": "Lizenzstufe für Entwicklungstests überschreiben. Wird beim Neustart zurückgesetzt.",
@@ -2708,6 +2709,13 @@
           "bullet1": "Defekte Abfragen, Zeilen- und Inhaltsunterschiede sowie Verlangsamungen in einem Bericht",
           "bullet2": "Replay-Sets liegen in .qoredb/ und werden über Git geteilt — nur Erwartungen, nie Ergebniszeilen",
           "bullet3": "Diff Referenz ↔ Lauf für jede Zeile direkt aus dem Bericht öffnen"
+        },
+        "column_masking": {
+          "title": "Sensible Werte bleiben verborgen",
+          "description": "Maskieren Sie Spalten pro Verbindung: Ergebnisse, Exporte, föderierte Abfragen und KI-Agenten sehen nur den maskierten Wert.",
+          "bullet1": "Verborgene, teilweise oder gehashte Werte, mit automatischer Erkennung sensibler Spaltennamen",
+          "bullet2": "Auf allen Wegen angewendet, die Zeilen liefern, einschließlich MCP und CLI",
+          "bullet3": "Agenten können eine maskierte Spalte weder filtern, sortieren noch umbenennen, um sie auszulesen"
         }
       }
     },
@@ -2724,7 +2732,8 @@
       "query_library_advanced": "Erweiterte Abfragebibliothek erfordert eine Pro-Lizenz.",
       "virtual_relations_auto_suggest": "Automatische Vorschläge für virtuelle Relationen erfordern eine Pro-Lizenz.",
       "federation": "Datenbankübergreifende Föderierung erfordert eine Pro-Lizenz.",
-      "query_replay": "Query-Replay erfordert eine Pro-Lizenz."
+      "query_replay": "Query-Replay erfordert eine Pro-Lizenz.",
+      "column_masking": "Die Spaltenmaskierung erfordert eine Pro-Lizenz."
     }
   },
   "proDiscovery": {

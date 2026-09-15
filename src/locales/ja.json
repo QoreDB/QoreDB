@@ -903,7 +903,8 @@
         "data_generator": "データジェネレーター",
         "index_suggestions": "インデックスの提案",
         "schema_diff": "スキーマ差分",
-        "query_replay": "クエリリプレイ"
+        "query_replay": "クエリリプレイ",
+        "column_masking": "列のマスキング"
       },
       "devOverrideTitle": "開発用ライセンスオーバーライド",
       "devOverrideDescription": "開発テスト用にライセンスティアをオーバーライドします。アプリ再起動時にリセットされます。",
@@ -2699,6 +2700,13 @@
           "bullet1": "失敗したクエリ、行数と内容の差分、低速化を 1 つのレポートに",
           "bullet2": "リプレイセットは .qoredb/ に置かれ Git で共有 — 期待値のみで、結果の行は含みません",
           "bullet3": "レポートの任意の行から、基準 ↔ 実行の差分をそのまま開けます"
+        },
+        "column_masking": {
+          "title": "機密値を見えないように",
+          "description": "接続ごとに列をマスクします。結果、エクスポート、フェデレーテッドクエリ、AI エージェントにはマスクされた値だけが渡ります。",
+          "bullet1": "非表示・部分・ハッシュの各モードと、機密列名の自動検出",
+          "bullet2": "MCP や CLI を含め、行を返すすべての経路に適用",
+          "bullet3": "エージェントはマスクされた列をフィルタ・並べ替え・別名で読み戻せません"
         }
       }
     },
@@ -2715,7 +2723,8 @@
       "query_library_advanced": "高度なクエリライブラリには Pro ライセンスが必要です。",
       "virtual_relations_auto_suggest": "仮想リレーションの自動提案には Pro ライセンスが必要です。",
       "federation": "クロスデータベースフェデレーションには Pro ライセンスが必要です。",
-      "query_replay": "クエリリプレイには Pro ライセンスが必要です。"
+      "query_replay": "クエリリプレイには Pro ライセンスが必要です。",
+      "column_masking": "列のマスキングには Pro ライセンスが必要です。"
     }
   },
   "proDiscovery": {

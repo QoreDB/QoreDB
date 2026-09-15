@@ -100,9 +100,11 @@ pub fn check_agent_query(
         .map(|(index, _)| index)
         .collect();
 
-    let set_operation = tokens
-        .iter()
-        .any(|token| ["UNION", "INTERSECT", "EXCEPT", "MINUS"].iter().any(|k| is_kw(token, k)));
+    let set_operation = tokens.iter().any(|token| {
+        ["UNION", "INTERSECT", "EXCEPT", "MINUS"]
+            .iter()
+            .any(|k| is_kw(token, k))
+    });
     if set_operation && !masked.is_empty() {
         return Err(refusal(&word(&tokens[masked[0]]).expect("word").value));
     }
@@ -125,6 +127,10 @@ pub fn check_agent_query(
             }
         }
         allowed.insert(column);
+        // `email AS email`: the alias repeats the column name, so it is allowed too.
+        if let Some(&alias) = item.last() {
+            allowed.insert(alias);
+        }
     }
 
     match masked.iter().find(|index| !allowed.contains(*index)) {
@@ -227,9 +233,11 @@ fn projection_items(tokens: &[Token], depths: &[usize]) -> Vec<Vec<usize>> {
             let token = &tokens[index];
             if depths[index] < depth
                 || (depths[index] == depth
-                    && ["FROM", "WHERE", "GROUP", "ORDER", "LIMIT", "HAVING", "INTO", "UNION"]
-                        .iter()
-                        .any(|k| is_kw(token, k)))
+                    && [
+                        "FROM", "WHERE", "GROUP", "ORDER", "LIMIT", "HAVING", "INTO", "UNION",
+                    ]
+                    .iter()
+                    .any(|k| is_kw(token, k)))
             {
                 break;
             }
@@ -266,7 +274,7 @@ fn bare_column(tokens: &[Token], item: &[usize]) -> Option<usize> {
         end -= 1;
     }
     let path = &item[..end];
-    if path.is_empty() || path.len() % 2 == 0 {
+    if path.is_empty() || path.len().is_multiple_of(2) {
         return None;
     }
     for (offset, position) in path.iter().enumerate() {
@@ -370,8 +378,12 @@ mod tests {
         };
         assert!(check_agent_query("postgres", "SELECT id FROM email_log", &detected).is_ok());
         assert!(
-            check_agent_query("postgres", "SELECT id FROM users WHERE phone = '1'", &detected)
-                .is_err()
+            check_agent_query(
+                "postgres",
+                "SELECT id FROM users WHERE phone = '1'",
+                &detected
+            )
+            .is_err()
         );
     }
 }

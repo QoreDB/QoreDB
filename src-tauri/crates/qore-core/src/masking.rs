@@ -169,7 +169,8 @@ impl MaskPlan {
                     match self.session.config.mode_for(self.table.as_deref(), key) {
                         Some(_) if value.is_null() => {}
                         Some(mode) => {
-                            *value = serde_json::Value::String(self.mask_text(mode, &json_text(value)))
+                            *value =
+                                serde_json::Value::String(self.mask_text(mode, &json_text(value)))
                         }
                         None => self.mask_document(value),
                     }

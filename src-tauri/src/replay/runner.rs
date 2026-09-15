@@ -195,7 +195,10 @@ pub async fn run_set(
         // declared as a read would otherwise run — in production included.
         if preflight.is_mutation {
             let refusal = if is_production {
-                Some((CODE_MUTATION_PRODUCTION_BLOCKED, MUTATION_PRODUCTION_BLOCKED))
+                Some((
+                    CODE_MUTATION_PRODUCTION_BLOCKED,
+                    MUTATION_PRODUCTION_BLOCKED,
+                ))
             } else if !options.allow_mutations {
                 Some((CODE_MUTATION_EXCLUDED, MUTATION_EXCLUDED))
             } else {
@@ -361,7 +364,10 @@ async fn plan_exclusions(
             continue;
         }
         let refusal = if is_production {
-            (CODE_MUTATION_PRODUCTION_BLOCKED, MUTATION_PRODUCTION_BLOCKED)
+            (
+                CODE_MUTATION_PRODUCTION_BLOCKED,
+                MUTATION_PRODUCTION_BLOCKED,
+            )
         } else if !options.allow_mutations {
             (CODE_MUTATION_EXCLUDED, MUTATION_EXCLUDED)
         } else {

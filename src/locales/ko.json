@@ -903,7 +903,8 @@
         "data_generator": "데이터 생성기",
         "index_suggestions": "인덱스 제안",
         "schema_diff": "스키마 비교",
-        "query_replay": "쿼리 리플레이"
+        "query_replay": "쿼리 리플레이",
+        "column_masking": "열 마스킹"
       },
       "devOverrideTitle": "개발용 라이선스 재정의",
       "devOverrideDescription": "개발 테스트를 위한 라이선스 티어 재정의입니다. 앱을 다시 시작하면 초기화됩니다.",
@@ -2699,6 +2700,13 @@
           "bullet1": "실패한 쿼리, 행 수와 내용 차이, 느려짐을 하나의 보고서로",
           "bullet2": "리플레이 세트는 .qoredb/에 있고 Git으로 공유됩니다 — 기대값만, 결과 행은 없습니다",
           "bullet3": "보고서의 어느 행에서든 기준 ↔ 실행 차이를 바로 열 수 있습니다"
+        },
+        "column_masking": {
+          "title": "민감한 값을 보이지 않게",
+          "description": "연결별로 열을 마스킹합니다. 결과, 내보내기, 페더레이션 쿼리, AI 에이전트는 마스킹된 값만 봅니다.",
+          "bullet1": "숨김, 부분, 해시 모드와 민감한 열 이름 자동 감지",
+          "bullet2": "MCP와 CLI를 포함해 행을 반환하는 모든 경로에 적용",
+          "bullet3": "에이전트는 마스킹된 열을 필터링, 정렬, 별칭으로 다시 읽을 수 없습니다"
         }
       }
     },
@@ -2715,7 +2723,8 @@
       "query_library_advanced": "고급 쿼리 라이브러리는 Pro 라이선스가 필요합니다.",
       "virtual_relations_auto_suggest": "가상 관계 자동 추천은 Pro 라이선스가 필요합니다.",
       "federation": "크로스 데이터베이스 페더레이션은 Pro 라이선스가 필요합니다.",
-      "query_replay": "쿼리 리플레이에는 Pro 라이선스가 필요합니다."
+      "query_replay": "쿼리 리플레이에는 Pro 라이선스가 필요합니다.",
+      "column_masking": "열 마스킹에는 Pro 라이선스가 필요합니다."
     }
   },
   "proDiscovery": {

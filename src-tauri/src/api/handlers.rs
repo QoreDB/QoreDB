@@ -150,8 +150,7 @@ pub async fn handle_endpoint(
         .execute(session_id, &final_sql, QueryId::new())
         .await
         .map_err(|e| ApiError::Internal(e.sanitized_message()))?;
-    qore_service::query::apply_masking(&state.session_manager, session_id, None, &mut result)
-        .await;
+    qore_service::query::apply_masking(&state.session_manager, session_id, None, &mut result).await;
 
     let rows = rows_to_json(&result.columns, &result.rows);
     Ok(build_response(&endpoint, rows))
@@ -460,7 +459,10 @@ async fn resolve_session(state: &ApiState, connection_id: &str) -> Result<Sessio
             connection_id.to_string(),
         )
         .await;
-    state.session_manager.set_masking(session_id, &masking).await;
+    state
+        .session_manager
+        .set_masking(session_id, &masking)
+        .await;
 
     state
         .sessions

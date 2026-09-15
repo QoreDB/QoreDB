@@ -92,8 +92,13 @@ pub async fn insert_row(
     match driver.insert_row(session, &namespace, &table, &data).await {
         Ok(mut result) => {
             result.execution_time_ms = start_time.elapsed().as_micros() as f64 / 1000.0;
-            qore_service::query::apply_masking(&session_manager, session, Some(&table), &mut result)
-                .await;
+            qore_service::query::apply_masking(
+                &session_manager,
+                session,
+                Some(&table),
+                &mut result,
+            )
+            .await;
             interceptor.post_execute(
                 &interceptor_context,
                 &QueryExecutionResult {
@@ -235,8 +240,13 @@ pub async fn update_row(
     {
         Ok(mut result) => {
             result.execution_time_ms = start_time.elapsed().as_micros() as f64 / 1000.0;
-            qore_service::query::apply_masking(&session_manager, session, Some(&table), &mut result)
-                .await;
+            qore_service::query::apply_masking(
+                &session_manager,
+                session,
+                Some(&table),
+                &mut result,
+            )
+            .await;
             interceptor.post_execute(
                 &interceptor_context,
                 &QueryExecutionResult {
@@ -378,8 +388,13 @@ pub async fn delete_row(
     {
         Ok(mut result) => {
             result.execution_time_ms = start_time.elapsed().as_micros() as f64 / 1000.0;
-            qore_service::query::apply_masking(&session_manager, session, Some(&table), &mut result)
-                .await;
+            qore_service::query::apply_masking(
+                &session_manager,
+                session,
+                Some(&table),
+                &mut result,
+            )
+            .await;
             interceptor.post_execute(
                 &interceptor_context,
                 &QueryExecutionResult {

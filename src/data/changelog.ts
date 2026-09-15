@@ -37,6 +37,13 @@ export const CHANGELOG: ChangelogEntry[] = [
         proOnly: true,
       },
       {
+        title: 'Column masking',
+        description:
+          'Mask columns per connection (hidden, partial or hashed), or let QoreDB detect sensitive names. Masked values replace the real ones in the grid, exports, federated queries, the Data API and agent answers; masked columns cannot be edited, and agents cannot filter, sort or alias them to read them back.',
+        type: 'feature',
+        proOnly: true,
+      },
+      {
         title: 'Federation cannot reach local files',
         description:
           'Once the source rows are loaded, the DuckDB engine behind cross-database federation loses access to files, URLs and extensions, in the Federation panel as in agent calls.',

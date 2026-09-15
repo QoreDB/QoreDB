@@ -54,12 +54,6 @@ pub fn build_column_info(name: &str, declared_type: &str) -> ColumnInfo {
         name: CompactString::new(name),
         data_type: CompactString::new(inner),
         nullable,
-    },
-    masked: false,
-
-        name: CompactString::new(name),
-        data_type: CompactString::new(inner),
-        nullable,
         masked: false,
     }
 }

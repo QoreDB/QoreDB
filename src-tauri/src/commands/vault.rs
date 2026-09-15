@@ -363,8 +363,7 @@ pub async fn save_connection(
         Some(ws_store) => {
             let stored = ws_store.get_connection(&connection.id).ok();
             if keep_exposure {
-                connection.expose_to_agents =
-                    stored.as_ref().is_some_and(|c| c.expose_to_agents);
+                connection.expose_to_agents = stored.as_ref().is_some_and(|c| c.expose_to_agents);
             }
             let previous_masking = stored.map(|c| c.masking).unwrap_or_default();
             connection.masking = requested_masking.unwrap_or_else(|| previous_masking.clone());
@@ -391,8 +390,7 @@ pub async fn save_connection(
             );
             let stored = storage.get_connection(&connection.id).ok();
             if keep_exposure {
-                connection.expose_to_agents =
-                    stored.as_ref().is_some_and(|c| c.expose_to_agents);
+                connection.expose_to_agents = stored.as_ref().is_some_and(|c| c.expose_to_agents);
             }
             let previous_masking = stored.map(|c| c.masking).unwrap_or_default();
             connection.masking = requested_masking.unwrap_or_else(|| previous_masking.clone());

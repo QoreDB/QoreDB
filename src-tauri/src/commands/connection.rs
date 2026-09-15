@@ -12,9 +12,9 @@ use super::SharedStateExt;
 use crate::commands::vault::get_workspace_store;
 use crate::commands::workspace::SharedWorkspaceManager;
 use crate::engine::types::ConnectionConfig;
-use qore_core::masking::ConnectionMasking;
 use crate::vault::VaultStorage;
 use crate::vault::backend::KeyringProvider;
+use qore_core::masking::ConnectionMasking;
 
 #[derive(Debug, Serialize)]
 pub struct ConnectionResponse {

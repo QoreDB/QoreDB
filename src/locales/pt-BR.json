@@ -912,7 +912,8 @@
         "data_generator": "Gerador de dados",
         "index_suggestions": "Sugestões de índice",
         "schema_diff": "Diff de esquema",
-        "query_replay": "Reexecução de consultas"
+        "query_replay": "Reexecução de consultas",
+        "column_masking": "Mascaramento de colunas"
       },
       "devOverrideTitle": "Substituição de Licença Dev",
       "devOverrideDescription": "Substituir nível de licença para testes de desenvolvimento. Reinicia ao reiniciar o app.",
@@ -2708,6 +2709,13 @@
           "bullet1": "Consultas quebradas, diferenças de linhas e de conteúdo, e lentidões em um só relatório",
           "bullet2": "Os conjuntos ficam em .qoredb/ e são compartilhados por Git — apenas expectativas, nunca linhas de resultado",
           "bullet3": "Abra o diff referência ↔ execução em qualquer linha, direto do relatório"
+        },
+        "column_masking": {
+          "title": "Mantenha valores sensíveis fora de vista",
+          "description": "Mascare colunas por conexão: resultados, exportações, consultas federadas e agentes de IA só veem o valor mascarado.",
+          "bullet1": "Valores ocultos, parciais ou com hash, com detecção automática de colunas sensíveis",
+          "bullet2": "Aplicado em todos os caminhos que retornam linhas, incluindo MCP e CLI",
+          "bullet3": "Agentes não conseguem filtrar, ordenar ou renomear uma coluna mascarada para lê-la"
         }
       }
     },
@@ -2724,7 +2732,8 @@
       "query_library_advanced": "A biblioteca de consultas avançada requer uma licença Pro.",
       "virtual_relations_auto_suggest": "A sugestão automática de relações virtuais requer uma licença Pro.",
       "federation": "A federação entre bancos de dados requer uma licença Pro.",
-      "query_replay": "A reexecução de consultas requer uma licença Pro."
+      "query_replay": "A reexecução de consultas requer uma licença Pro.",
+      "column_masking": "O mascaramento de colunas requer uma licença Pro."
     }
   },
   "proDiscovery": {

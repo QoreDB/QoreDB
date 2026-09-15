@@ -903,7 +903,8 @@
         "data_generator": "数据生成器",
         "index_suggestions": "索引建议",
         "schema_diff": "架构差异",
-        "query_replay": "查询重放"
+        "query_replay": "查询重放",
+        "column_masking": "列脱敏"
       },
       "devOverrideTitle": "开发许可证覆盖",
       "devOverrideDescription": "覆盖许可证等级以进行开发测试。应用重启后重置。",
@@ -2699,6 +2700,13 @@
           "bullet1": "失败的查询、行数与内容差异、性能下降，汇总在一份报告里",
           "bullet2": "重放集合存放在 .qoredb/ 并通过 Git 共享 —— 只有期望值，不含结果数据行",
           "bullet3": "在报告的任意一行，直接打开基准 ↔ 本次重放的差异"
+        },
+        "column_masking": {
+          "title": "让敏感值不被看见",
+          "description": "按连接对列脱敏：结果、导出、联邦查询和 AI 代理只能看到脱敏后的值。",
+          "bullet1": "隐藏、部分或哈希模式，并自动检测敏感列名",
+          "bullet2": "作用于所有返回行的路径，包括 MCP 和 CLI",
+          "bullet3": "代理无法通过过滤、排序或别名读回脱敏列"
         }
       }
     },
@@ -2715,7 +2723,8 @@
       "query_library_advanced": "高级查询库需要 Pro 许可证。",
       "virtual_relations_auto_suggest": "自动建议虚拟关系需要 Pro 许可证。",
       "federation": "跨数据库联合查询需要 Pro 许可证。",
-      "query_replay": "查询重放需要 Pro 许可证。"
+      "query_replay": "查询重放需要 Pro 许可证。",
+      "column_masking": "列脱敏需要 Pro 许可证。"
     }
   },
   "proDiscovery": {

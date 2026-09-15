@@ -247,6 +247,14 @@ The following files are currently marked Premium (`BUSL-1.1`), grouped by module
 - `src/components/Migrations/SchemaDiffViewer.tsx`
 - `src-tauri/src/commands/workspace_baselines.rs`
 
+#### Column Masking
+
+- `src-tauri/crates/qore-core/src/masking.rs`
+- `src-tauri/crates/qore-service/src/masking_guard.rs`
+- `src/lib/masking.ts` (+ `masking.test.ts`)
+- `src/components/Connection/connection-modal/MaskingSection.tsx`
+- `src/components/Grid/hooks/useColumnMasking.tsx`
+
 Everything else is Core by default (`Apache-2.0`), unless explicitly decided otherwise.
 
 ### When you create/move a file

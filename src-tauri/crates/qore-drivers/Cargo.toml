@@ -84,6 +84,7 @@ all-drivers = [
     "driver-elasticsearch",
     "driver-garnet",
     "driver-keydb",
+    "driver-keyspaces",
     "driver-mariadb",
     "driver-mongodb",
     "driver-motherduck",
@@ -116,6 +117,7 @@ driver-duckdb = ["dep:duckdb"]
 driver-elasticsearch = ["dep:reqwest"]
 driver-garnet = ["dep:futures", "dep:redis"]
 driver-keydb = ["dep:futures", "dep:redis"]
+driver-keyspaces = ["driver-cassandra"]
 driver-mariadb = ["sqlx-mysql"]
 driver-documentdb = ["driver-mongodb"]
 driver-dragonfly = ["dep:futures", "dep:redis"]

@@ -6,6 +6,7 @@ import { Driver } from '../connection/drivers';
 const DIALECT_MAP: Record<Driver, SqlLanguage> = {
   [Driver.Cassandra]: 'sql',
   [Driver.ScyllaDb]: 'sql',
+  [Driver.Keyspaces]: 'sql',
   [Driver.Snowflake]: 'snowflake',
   [Driver.BigQuery]: 'bigquery',
   [Driver.Postgres]: 'postgresql',

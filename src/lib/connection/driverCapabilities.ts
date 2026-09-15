@@ -28,6 +28,14 @@ const DRIVER_SCHEMA_OBJECT_CAPABILITIES: Record<Driver, DriverSchemaObjectCapabi
     events: false,
     sequences: false,
   },
+  keyspaces: {
+    routines: false,
+    functions: false,
+    procedures: false,
+    triggers: false,
+    events: false,
+    sequences: false,
+  },
   snowflake: {
     routines: false,
     functions: false,

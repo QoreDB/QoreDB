@@ -70,6 +70,10 @@ export function detectDriverFromDsn(dsn: string): DsnDetection | null {
     return { driver: Driver.DocumentDb, hint: '*.docdb.amazonaws.com' };
   }
 
+  if (/cassandra\.[a-z0-9-]+\.amazonaws\.com/i.test(trimmed)) {
+    return { driver: Driver.Keyspaces, hint: 'cassandra.<region>.amazonaws.com' };
+  }
+
   return null;
 }
 

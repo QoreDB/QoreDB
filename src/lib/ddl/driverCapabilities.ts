@@ -149,6 +149,7 @@ const SINGLESTORE_CAPS: DdlCapabilities = {
 const CAPABILITIES: Record<Driver, DdlCapabilities> = {
   [Driver.Cassandra]: NO_DDL,
   [Driver.ScyllaDb]: NO_DDL,
+  [Driver.Keyspaces]: NO_DDL,
   [Driver.Snowflake]: NO_DDL,
   [Driver.BigQuery]: NO_DDL,
   [Driver.Postgres]: POSTGRES_CAPS,

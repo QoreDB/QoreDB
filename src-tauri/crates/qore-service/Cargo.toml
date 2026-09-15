@@ -59,6 +59,7 @@ all-drivers = [
     "driver-elasticsearch",
     "driver-garnet",
     "driver-keydb",
+    "driver-keyspaces",
     "driver-mariadb",
     "driver-mongodb",
     "driver-motherduck",
@@ -91,6 +92,7 @@ driver-duckdb = ["qore-drivers/driver-duckdb"]
 driver-elasticsearch = ["qore-drivers/driver-elasticsearch"]
 driver-garnet = ["qore-drivers/driver-garnet"]
 driver-keydb = ["qore-drivers/driver-keydb"]
+driver-keyspaces = ["qore-drivers/driver-keyspaces"]
 driver-mariadb = ["qore-drivers/driver-mariadb"]
 driver-documentdb = ["qore-drivers/driver-documentdb"]
 driver-dragonfly = ["qore-drivers/driver-dragonfly"]

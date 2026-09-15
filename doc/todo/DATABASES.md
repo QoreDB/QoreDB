@@ -88,7 +88,7 @@
 ### NoSQL Colonnes
 
 - [ ] **HBase** — Hadoop ecosystem
-- [ ] **Amazon Keyspaces** — Cassandra géré (dérivé du client CQL, TLS forcé, port 9142)
+- [x] **Amazon Keyspaces** — Cassandra géré (dérivé du client CQL, TLS forcé, port 9142)
 
 ### NoSQL Graphe
 

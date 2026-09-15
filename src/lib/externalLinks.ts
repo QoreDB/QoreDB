@@ -40,6 +40,7 @@ const DRIVER_DOC_SLUGS: Record<string, string> = {
   cockroachdb: 'cockroachdb',
   cassandra: 'cassandra',
   scylladb: 'cassandra',
+  keyspaces: 'keyspaces',
   snowflake: 'snowflake',
   bigquery: 'bigquery',
   clickhouse: 'clickhouse',

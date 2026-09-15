@@ -146,6 +146,8 @@ impl ServiceContext {
         registry.register(Arc::new(CassandraDriver::new()));
         #[cfg(feature = "driver-scylladb")]
         registry.register(Arc::new(CassandraDriver::scylladb()));
+        #[cfg(feature = "driver-keyspaces")]
+        registry.register(Arc::new(CassandraDriver::keyspaces()));
         #[cfg(feature = "driver-snowflake")]
         registry.register(Arc::new(SnowflakeDriver::new()));
         #[cfg(feature = "driver-bigquery")]

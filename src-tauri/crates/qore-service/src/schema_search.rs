@@ -55,7 +55,7 @@ pub fn columns_query(driver_id: &str, namespace: &Namespace) -> Option<String> {
             "SELECT table, name, type FROM system.columns WHERE database = {database} \
              ORDER BY table, position"
         ),
-        "cassandra" | "scylladb" => format!(
+        "cassandra" | "scylladb" | "keyspaces" => format!(
             "SELECT table_name, column_name, type FROM system_schema.columns \
              WHERE keyspace_name = {database}"
         ),

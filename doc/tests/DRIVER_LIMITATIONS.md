@@ -201,6 +201,25 @@ collection type runs in `integration_databases.rs` against Cassandra 5 and
 ScyllaDB 6.2; it is what found that a v4 server sends `duration` as a custom
 type and that ScyllaDB sets the warning flag on `CREATE KEYSPACE`.
 
+## Amazon Keyspaces
+
+Amazon Keyspaces is a third flavor of `CassandraDriver`, on the same CQL v4
+client. Everything listed for Cassandra applies, with these differences:
+
+- TLS is forced whatever the saved connection says, and the default port is
+  9142. The endpoint certificate chains to a public root, so no CA bundle is
+  needed.
+- Authentication uses service-specific credentials through SASL PLAIN. The
+  SigV4 authenticator plugin, which signs with an IAM access key, is not
+  implemented: create service-specific credentials for the IAM user instead.
+- `ALLOW FILTERING` is refused in every environment, not only in production.
+  Keyspaces bills read capacity per row scanned, so a filtered scan costs as
+  much as the table it walks.
+- The identity is picked by the user or detected from a
+  `cassandra.<region>.amazonaws.com` endpoint. `keyspaces_e2e` in
+  `integration_databases.rs` runs only when `QOREDB_TEST_KEYSPACES_HOST`,
+  `_USER` and `_PASSWORD` are set; it is skipped otherwise.
+
 ## Snowflake
 
 Snowflake is driven through the SQL API v2 in

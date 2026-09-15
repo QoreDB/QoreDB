@@ -28,6 +28,13 @@ describe('detectDriverFromDsn', () => {
     ).toBe(Driver.DocumentDb);
   });
 
+  it('detects Amazon Keyspaces from its regional endpoint', () => {
+    expect(
+      detectDriverFromDsn('cassandra://svc-user:secret@cassandra.eu-west-1.amazonaws.com:9142/app')
+        ?.driver
+    ).toBe(Driver.Keyspaces);
+  });
+
   it('detects cloud hosts for wire-compatible SQL drivers', () => {
     expect(
       detectDriverFromDsn('mysql://root:p@gateway01.us-west-2.prod.aws.tidbcloud.com:4000/test')

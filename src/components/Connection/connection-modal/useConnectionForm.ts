@@ -64,6 +64,8 @@ function mapDriverString(driver: string | undefined): Driver | undefined {
     case 'scylladb':
     case 'scylla':
       return Driver.ScyllaDb;
+    case 'keyspaces':
+      return Driver.Keyspaces;
     case 'snowflake':
       return Driver.Snowflake;
     case 'bigquery':
@@ -239,7 +241,9 @@ export function useConnectionForm(options: {
           : prev.host,
       username: driver === Driver.Motherduck && !prev.username ? 'postgres' : prev.username,
       database: driver === Driver.Motherduck && !prev.database ? 'md:' : prev.database,
-      ssl: [Driver.Motherduck, Driver.AzureSql, Driver.Synapse].includes(driver) ? true : prev.ssl,
+      ssl: [Driver.Motherduck, Driver.AzureSql, Driver.Synapse, Driver.Keyspaces].includes(driver)
+        ? true
+        : prev.ssl,
       sslMode: driver === Driver.Motherduck && !prev.sslMode ? 'verify-full' : prev.sslMode,
       // Cloud-managed Postgres providers are almost always configured via DSN —
       // pre-enable the URL toggle so the user can paste right away.

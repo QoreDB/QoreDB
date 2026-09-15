@@ -54,6 +54,7 @@ const TRANSFERABLE_DRIVERS = [
   'synapse',
   'cassandra',
   'scylladb',
+  'keyspaces',
   'snowflake',
   'bigquery',
 ] as const;

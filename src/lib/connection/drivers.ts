@@ -31,6 +31,7 @@ export enum Driver {
   BigQuery = 'bigquery',
   Cassandra = 'cassandra',
   ScyllaDb = 'scylladb',
+  Keyspaces = 'keyspaces',
   Clickhouse = 'clickhouse',
   Elasticsearch = 'elasticsearch',
   OpenSearch = 'opensearch',
@@ -1115,6 +1116,13 @@ export const DRIVERS: Record<Driver, DriverMetadata> = {
     label: 'ScyllaDB',
     icon: 'scylladb.png',
     ...CASSANDRA_COMPAT_METADATA,
+  },
+  [Driver.Keyspaces]: {
+    id: Driver.Keyspaces,
+    label: 'Amazon Keyspaces',
+    icon: 'keyspaces.png',
+    ...CASSANDRA_COMPAT_METADATA,
+    defaultPort: 9142,
   },
 };
 

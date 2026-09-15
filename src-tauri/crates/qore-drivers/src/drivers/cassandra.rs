@@ -44,6 +44,7 @@ const IO_TIMEOUT: Duration = Duration::from_secs(60);
 enum CassandraFlavor {
     Cassandra,
     ScyllaDb,
+    Keyspaces,
 }
 
 impl CassandraFlavor {
@@ -51,6 +52,7 @@ impl CassandraFlavor {
         match self {
             CassandraFlavor::Cassandra => "cassandra",
             CassandraFlavor::ScyllaDb => "scylladb",
+            CassandraFlavor::Keyspaces => "keyspaces",
         }
     }
 
@@ -58,6 +60,7 @@ impl CassandraFlavor {
         match self {
             CassandraFlavor::Cassandra => "Cassandra",
             CassandraFlavor::ScyllaDb => "ScyllaDB",
+            CassandraFlavor::Keyspaces => "Amazon Keyspaces",
         }
     }
 }
@@ -68,6 +71,9 @@ struct CassandraSession {
     /// the password alive for the life of the session.
     read_only: bool,
     environment: String,
+    /// Keyspaces bills read capacity per row scanned, so a filtered scan is
+    /// refused in every environment rather than only in production.
+    refuse_allow_filtering: bool,
 }
 
 pub struct CassandraDriver {
@@ -84,6 +90,10 @@ impl CassandraDriver {
         Self::with_flavor(CassandraFlavor::ScyllaDb)
     }
 
+    pub fn keyspaces() -> Self {
+        Self::with_flavor(CassandraFlavor::Keyspaces)
+    }
+
     fn with_flavor(flavor: CassandraFlavor) -> Self {
         Self {
             flavor,
@@ -91,9 +101,11 @@ impl CassandraDriver {
         }
     }
 
-    async fn open(config: &ConnectionConfig) -> EngineResult<CqlConnection> {
+    async fn open(&self, config: &ConnectionConfig) -> EngineResult<CqlConnection> {
         let tls = TlsOptions {
-            enabled: config.ssl,
+            // Keyspaces only listens on TLS; a saved connection that says
+            // otherwise would fail on a confusing handshake error.
+            enabled: config.ssl || self.flavor == CassandraFlavor::Keyspaces,
             ca_cert_path: config
                 .ssl_ca_cert
                 .as_deref()
@@ -139,6 +151,12 @@ impl CassandraDriver {
         if session.read_only && class != CqlQueryClass::Read {
             return Err(EngineError::validation(
                 "This connection is read-only; only SELECT statements are allowed",
+            ));
+        }
+        if session.refuse_allow_filtering && cassandra_safety::uses_allow_filtering(query) {
+            return Err(EngineError::validation(
+                "ALLOW FILTERING is refused on Amazon Keyspaces: every row the scan reads is \
+                 billed. Query by partition key instead",
             ));
         }
         if session.environment.eq_ignore_ascii_case("production")
@@ -308,19 +326,20 @@ impl DataEngine for CassandraDriver {
     }
 
     async fn test_connection(&self, config: &ConnectionConfig) -> EngineResult<()> {
-        let mut conn = Self::open(config).await?;
+        let mut conn = self.open(config).await?;
         conn.query("SELECT release_version FROM system.local", None, None)
             .await?;
         Ok(())
     }
 
     async fn connect(&self, config: &ConnectionConfig) -> EngineResult<SessionId> {
-        let conn = Self::open(config).await?;
+        let conn = self.open(config).await?;
         let session_id = SessionId::new();
         let session = Arc::new(CassandraSession {
             conn: Mutex::new(conn),
             read_only: config.read_only,
             environment: config.environment.clone(),
+            refuse_allow_filtering: self.flavor == CassandraFlavor::Keyspaces,
         });
         self.sessions.write().await.insert(session_id, session);
         Ok(session_id)
@@ -987,6 +1006,7 @@ mod tests {
             conn: Mutex::new(unreachable_connection()),
             read_only: true,
             environment: "development".to_string(),
+            refuse_allow_filtering: false,
         };
         assert!(CassandraDriver::guard(&session, "SELECT * FROM t WHERE id = 1").is_ok());
         assert!(CassandraDriver::guard(&session, "INSERT INTO t (a) VALUES (1)").is_err());
@@ -1001,12 +1021,36 @@ mod tests {
             conn: Mutex::new(unreachable_connection()),
             read_only: false,
             environment: "production".to_string(),
+            refuse_allow_filtering: false,
         };
         assert!(CassandraDriver::guard(&session, "SELECT * FROM t WHERE id = 1").is_ok());
         assert!(CassandraDriver::guard(&session, "INSERT INTO t (a) VALUES (1)").is_ok());
         assert!(CassandraDriver::guard(&session, "TRUNCATE t").is_err());
         assert!(CassandraDriver::guard(&session, "SELECT * FROM t").is_err());
         assert!(CassandraDriver::guard(&session, "SELECT * FROM t ALLOW FILTERING").is_err());
+    }
+
+    #[test]
+    fn keyspaces_refuses_allow_filtering_outside_production_too() {
+        let keyspaces = CassandraDriver::keyspaces();
+        assert_eq!(keyspaces.driver_id(), "keyspaces");
+        assert_eq!(keyspaces.driver_name(), "Amazon Keyspaces");
+        assert_eq!(
+            keyspaces.capabilities(),
+            CassandraDriver::new().capabilities()
+        );
+
+        let session = CassandraSession {
+            conn: Mutex::new(unreachable_connection()),
+            read_only: false,
+            environment: "development".to_string(),
+            refuse_allow_filtering: true,
+        };
+        assert!(
+            CassandraDriver::guard(&session, "SELECT * FROM t WHERE a = 1 ALLOW FILTERING")
+                .is_err()
+        );
+        assert!(CassandraDriver::guard(&session, "SELECT * FROM t WHERE id = 1").is_ok());
     }
 
     #[test]

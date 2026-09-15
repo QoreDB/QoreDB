@@ -65,6 +65,7 @@ enum Service {
     SqlServer,
     Cassandra,
     ScyllaDb,
+    Keyspaces,
     ClickHouse,
     Search,
     Snowflake,
@@ -84,6 +85,7 @@ impl Service {
             Service::SqlServer => "SQL Server",
             Service::Cassandra => "Cassandra",
             Service::ScyllaDb => "ScyllaDB",
+            Service::Keyspaces => "Amazon Keyspaces",
             Service::ClickHouse => "ClickHouse",
             Service::Search => "Elasticsearch",
             Service::Snowflake => "Snowflake",
@@ -103,6 +105,7 @@ impl Service {
             Service::SqlServer => "QOREDB_TEST_SQLSERVER_REQUIRED",
             Service::Cassandra => "QOREDB_TEST_CASSANDRA_REQUIRED",
             Service::ScyllaDb => "QOREDB_TEST_SCYLLADB_REQUIRED",
+            Service::Keyspaces => "QOREDB_TEST_KEYSPACES_REQUIRED",
             Service::ClickHouse => "QOREDB_TEST_CLICKHOUSE_REQUIRED",
             Service::Search => "QOREDB_TEST_SEARCH_REQUIRED",
             Service::Snowflake => "QOREDB_TEST_SNOWFLAKE_REQUIRED",
@@ -2653,6 +2656,52 @@ async fn cassandra_e2e() -> EngineResult<()> {
     assert_eq!(second.result.rows.len(), 1);
 
     driver.drop_database(session, &keyspace).await?;
+    driver.disconnect(session).await?;
+    Ok(())
+}
+
+/// Needs a real Keyspaces endpoint and service-specific credentials, so it runs
+/// only when they are configured. The saved config leaves TLS off on purpose:
+/// the flavor must force it.
+#[tokio::test]
+async fn keyspaces_e2e() -> EngineResult<()> {
+    let var = |name: &str| std::env::var(format!("QOREDB_TEST_KEYSPACES_{name}")).ok();
+    let (Some(host), Some(user), Some(password)) = (var("HOST"), var("USER"), var("PASSWORD"))
+    else {
+        if Service::Keyspaces.required() {
+            panic!("QOREDB_TEST_KEYSPACES_* must be set when Keyspaces is required");
+        }
+        eprintln!("keyspaces_e2e skipped: no endpoint configured");
+        return Ok(());
+    };
+    let config = ConnectionConfig {
+        driver: "keyspaces".to_string(),
+        host,
+        port: env_u16_or_default("QOREDB_TEST_KEYSPACES_PORT", 9142),
+        username: user,
+        password,
+        ssl: false,
+        ..ConnectionConfig::default()
+    };
+
+    let driver = Arc::new(CassandraDriver::keyspaces());
+    let session = driver.connect(&config).await?;
+    assert!(
+        !driver.list_namespaces(session).await?.is_empty(),
+        "the system keyspaces are listed"
+    );
+    assert!(
+        driver
+            .execute(
+                session,
+                "SELECT keyspace_name FROM system_schema.keyspaces WHERE durable_writes = true \
+                 ALLOW FILTERING",
+                QueryId::new(),
+            )
+            .await
+            .is_err(),
+        "ALLOW FILTERING is refused before reaching the endpoint"
+    );
     driver.disconnect(session).await?;
     Ok(())
 }

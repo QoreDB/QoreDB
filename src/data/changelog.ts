@@ -93,6 +93,12 @@ export const CHANGELOG: ChangelogEntry[] = [
         type: 'feature',
       },
       {
+        title: 'Amazon Keyspaces',
+        description:
+          'Connect to Amazon Keyspaces with service-specific credentials. TLS is forced on port 9142, the regional endpoint is recognised, and ALLOW FILTERING is refused because every scanned row is billed.',
+        type: 'feature',
+      },
+      {
         title: 'Snowflake',
         description:
           'Browse and query Snowflake over its SQL API with key-pair or access-token authentication. Warehouse and role are set per connection, and cancelling a statement really stops it.',

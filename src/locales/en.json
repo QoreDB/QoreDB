@@ -441,8 +441,6 @@
       "caCertHint": "DocumentDB clusters are signed by an Amazon CA. Point this at the global-bundle.pem file Amazon publishes; leave it empty to use the system trust store."
     },
     "keyspace": "Keyspace",
-    "exposeToAgents": "Expose to AI agents",
-    "exposeToAgentsHint": "Visible to AI agents through MCP and the CLI, always read-only.",
     "masking": {
       "title": "Column masking",
       "description": "Replaces values in results, exports and agent answers for every query on this connection.",
@@ -1113,7 +1111,7 @@
         "title": "Exposed connections",
         "description": "Switch on the connections AI agents may read. Off by default, including for connections saved before this version.",
         "empty": "No saved connection yet. Create one from the sidebar, then expose it here.",
-        "toggle": "Expose to AI agents",
+        "toggle": "Allow access to this connection",
         "storeDefault": "Store in use: default vault. Agents launched from a project folder holding a .qoredb workspace read that workspace instead.",
         "storeWorkspace": "Store in use: workspace {{path}}. The snippets pass it to the server; Claude Code launched from this folder detects it by itself."
       },

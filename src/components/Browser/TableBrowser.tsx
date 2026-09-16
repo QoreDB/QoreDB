@@ -1004,6 +1004,9 @@ export function TableBrowser({
           connectionDatabase={connectionDatabase}
           readOnly={readOnly}
           initialData={selectedRow}
+          maskedColumns={
+            new Set(data?.columns.filter(column => column.masked).map(column => column.name))
+          }
           onSuccess={reload}
           sandboxMode={sandboxActive}
           onSandboxInsert={handleSandboxInsert}

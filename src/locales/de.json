@@ -412,8 +412,6 @@
       "caCertHint": "DocumentDB-Cluster sind von einer Amazon-CA signiert. Geben Sie hier die von Amazon veröffentlichte global-bundle.pem an; leer lassen, um den System-Zertifikatspeicher zu verwenden."
     },
     "keyspace": "Keyspace",
-    "exposeToAgents": "Für KI-Agenten freigeben",
-    "exposeToAgentsHint": "Für KI-Agenten über MCP und die CLI sichtbar, immer schreibgeschützt.",
     "masking": {
       "title": "Spaltenmaskierung",
       "description": "Ersetzt Werte in Ergebnissen, Exporten und Agentenantworten für alle Abfragen dieser Verbindung.",
@@ -1084,7 +1082,7 @@
         "title": "Freigegebene Verbindungen",
         "description": "Schalten Sie die Verbindungen frei, die KI-Agenten lesen dürfen. Standardmäßig aus, auch für Verbindungen, die vor dieser Version gespeichert wurden.",
         "empty": "Noch keine gespeicherte Verbindung. Legen Sie eine in der Seitenleiste an und geben Sie sie hier frei.",
-        "toggle": "Für KI-Agenten freigeben",
+        "toggle": "Zugriff auf diese Verbindung erlauben",
         "storeDefault": "Verwendeter Speicher: Standard-Vault. Ein Agent, der aus einem Projektordner mit einem .qoredb-Workspace gestartet wird, liest stattdessen diesen Workspace.",
         "storeWorkspace": "Verwendeter Speicher: Workspace {{path}}. Die Ausschnitte übergeben ihn an den Server; aus diesem Ordner gestartetes Claude Code erkennt ihn selbst."
       },

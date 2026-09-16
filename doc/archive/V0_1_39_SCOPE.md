@@ -39,8 +39,9 @@ reportée : elle demande un canal du binaire `qore-mcp` vers l'app desktop qui n
 ### A1. Gouvernance par connexion
 
 - Nouveau champ `expose_to_agents: bool` sur `SavedConnection` (`vault/credentials.rs`),
-  `#[serde(default)]`, faux par défaut. Case à cocher dans le formulaire de connexion,
-  section Sécurité, avec un texte d'aide : « Visible par les agents IA via MCP et CLI ».
+  `#[serde(default)]`, faux par défaut. Activation uniquement dans Settings > Agents IA,
+  via « Autoriser l’accès à cette connexion ». Le formulaire de connexion n’affiche
+  pas cette option et préserve le choix existant lors d’une modification.
 - `list_connections` ne renvoie que les connexions exposées. `ensure_session` refuse une
   connexion non exposée avec un message explicite, même si l'agent connaît l'id.
 - Une connexion `production` exposée reste en lecture seule forcée (déjà le cas) et
@@ -93,7 +94,7 @@ Nouvelle section `src/components/Settings/sections/AgentsSection.tsx` :
 - État : chemin du binaire `qore-mcp` détecté, version.
 - Snippet de configuration prêt à copier pour Claude Desktop, Claude Code et Cursor,
   avec le chemin absolu résolu.
-- Liste des connexions exposées avec lien vers le formulaire.
+- Liste des connexions enregistrées avec un interrupteur d’autorisation par connexion.
 - Rappel des limites appliquées (lecture seule, timeout, lignes max).
 
 i18n dans les 9 fichiers de locale. Composants `ui/` uniquement.

@@ -300,6 +300,13 @@ impl BigQueryClient {
     /// Polls the job to completion and walks every page after the first.
     pub async fn finish(&self, mut page: QueryPage, max_rows: usize) -> EngineResult<QueryPage> {
         let Some(job) = page.job.clone() else {
+            page.finalize()?;
+            if page.rows.len() > max_rows {
+                return Err(EngineError::result_too_large(
+                    page.rows.len() as u64,
+                    max_rows as u64,
+                ));
+            }
             return Ok(page);
         };
         let path = format!("projects/{}/queries/{}", job.project_id, job.job_id);
@@ -316,7 +323,10 @@ impl BigQueryClient {
         }
         while let Some(token) = page.page_token.take() {
             if page.rows.len() >= max_rows {
-                break;
+                return Err(EngineError::result_too_large(
+                    page.total_rows.unwrap_or(page.rows.len() as u64 + 1),
+                    max_rows as u64,
+                ));
             }
             let mut query = location.clone();
             query.push(("pageToken", token));
@@ -741,5 +751,42 @@ mod tests {
             })
             .await
             .unwrap();
+    }
+
+    #[tokio::test]
+    async fn row_limit_rejects_unread_pages_but_accepts_complete_results() {
+        let client = BigQueryClient::for_tests("http://127.0.0.1:1");
+        for has_job in [false, true] {
+            for (rows, more, should_fail) in [(1, false, false), (1, true, true), (2, false, true)]
+            {
+                if !has_job && more {
+                    continue;
+                }
+                let mut payload = serde_json::json!({
+                    "jobComplete": true,
+                    "schema": {"fields": [{"name": "id", "type": "INTEGER"}]},
+                    "rows": (0..rows).map(|i| serde_json::json!({"f": [{"v": i.to_string()}]})).collect::<Vec<_>>()
+                });
+                if has_job {
+                    payload["jobReference"] =
+                        serde_json::json!({"projectId": "proj", "jobId": "job"});
+                }
+                if more {
+                    payload["pageToken"] = "next".into();
+                    payload["totalRows"] = "2".into();
+                }
+                let result = client
+                    .finish(QueryPage::parse(&payload.to_string()).unwrap(), 1)
+                    .await;
+                if should_fail {
+                    assert!(matches!(
+                        result,
+                        Err(EngineError::ResultTooLarge { limit: 1, .. })
+                    ));
+                } else {
+                    assert_eq!(result.unwrap().rows.len(), 1);
+                }
+            }
+        }
     }
 }

@@ -412,8 +412,6 @@
       "caCertHint": "Los clústeres de DocumentDB están firmados por una CA de Amazon. Indica aquí el archivo global-bundle.pem que publica Amazon; déjalo vacío para usar el almacén de certificados del sistema."
     },
     "keyspace": "Keyspace",
-    "exposeToAgents": "Exponer a los agentes de IA",
-    "exposeToAgentsHint": "Visible para los agentes de IA a través de MCP y la CLI, siempre en solo lectura.",
     "masking": {
       "title": "Enmascaramiento de columnas",
       "description": "Sustituye los valores en resultados, exportaciones y respuestas de agentes para todas las consultas de esta conexión.",
@@ -1084,7 +1082,7 @@
         "title": "Conexiones expuestas",
         "description": "Active las conexiones que los agentes de IA pueden leer. Desactivado por defecto, incluso para las conexiones guardadas antes de esta versión.",
         "empty": "Aún no hay conexiones guardadas. Cree una desde la barra lateral y expóngala aquí.",
-        "toggle": "Exponer a los agentes de IA",
+        "toggle": "Permitir el acceso a esta conexión",
         "storeDefault": "Almacén en uso: vault por defecto. Un agente lanzado desde una carpeta de proyecto con un workspace .qoredb lee ese workspace en su lugar.",
         "storeWorkspace": "Almacén en uso: workspace {{path}}. Los fragmentos lo pasan al servidor; Claude Code lanzado desde esta carpeta lo detecta por sí mismo."
       },

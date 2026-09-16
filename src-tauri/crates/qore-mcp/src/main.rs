@@ -243,18 +243,16 @@ impl QoreMcp {
 
     async fn ensure_session(&self, connection_id: &str) -> Result<SessionId, String> {
         self.close_idle_sessions().await;
-        if let Some(session) = self.sessions.lock().await.get(connection_id) {
-            return Ok(session);
-        }
-
-        let session =
-            agent_access::open_session(&self.vault(), &self.ctx.session_manager, connection_id)
-                .await?;
         self.sessions
             .lock()
             .await
-            .insert(connection_id.to_string(), session);
-        Ok(session)
+            .ensure_session(
+                &self.vault(),
+                &self.ctx.session_manager,
+                &self.ctx.query_rate_limiter,
+                connection_id,
+            )
+            .await
     }
 
     async fn do_run_query(&self, req: &RunQueryReq) -> Result<String, String> {
@@ -329,6 +327,7 @@ impl QoreMcp {
             &namespace,
             &req.table,
             req.limit.unwrap_or(20).min(PREVIEW_MAX_ROWS),
+            QuerySource::Mcp,
         )
         .await?;
         to_json(&result)

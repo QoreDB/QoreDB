@@ -159,6 +159,14 @@ user picks the identity.
   partition, not a multi-statement transaction, and nothing here opens one.
 - No cancel. The protocol has no cancel frame, so `cancel_support` is `None`
   and a statement runs to completion or hits the 60-second I/O timeout.
+  An I/O error, timeout or dropped in-flight exchange closes the socket;
+  reconnect before retrying. Closing the socket does not guarantee that the
+  server stopped executing a mutation. Late responses are never reused by a
+  subsequent query.
+- Namespace selection and query execution (including result pages) share one
+  lock, so concurrent callers cannot switch each other's keyspace.
+- Credentials may be left empty for Cassandra and ScyllaDB clusters without
+  authentication. Amazon Keyspaces still requires a service username.
 - No routines, triggers, events or sequences: CQL has none.
 - No visual DDL. The type palette is empty on purpose, which is what hides
   "create table" and schema export. Table structure stays viewable, and CQL DDL
@@ -241,7 +249,9 @@ rather than best-effort, at the price of one extra round-trip.
 Introspection uses `SHOW SCHEMAS`, `SHOW TERSE OBJECTS`, `DESCRIBE TABLE` and
 `SHOW IMPORTED KEYS`, none of which needs a running warehouse. The row-count
 estimate comes from `INFORMATION_SCHEMA.TABLES` and is skipped silently when
-no warehouse answers. Results are capped at 200 000 rows.
+no warehouse answers. Results are capped at 200 000 rows. Exceeding the cap,
+or reaching it while more pages remain, returns an error instead of a partial
+successful result.
 
 Not covered: transactions (no session), visual DDL, routines, streaming, SSH
 tunnels, and connection URLs. Result cells arrive as strings: `NUMBER` with a
@@ -268,6 +278,8 @@ ones are polled and their pages walked. `cancel` calls `jobs.cancel`.
 through `tabledata.list`, which bills nothing and returns the row count.
 `EXPLAIN <query>` runs a dry run and answers with the bytes the query would
 scan and whether the cache would serve it. Results are capped at 200 000 rows.
+Exceeding the cap, or reaching it while more pages remain, returns an error
+instead of a partial successful result.
 
 The query editor requests a dry run through the existing query/interceptor path,
 shows the scan estimate and waits for confirmation before submitting the original

@@ -76,6 +76,7 @@ pub fn normalize_config(mut config: ConnectionConfig) -> Result<ConnectionConfig
     let snowflake_token = config.driver == "snowflake"
         && config.options.get("auth").map(String::as_str) == Some("token");
     let is_bigquery = config.driver == "bigquery";
+    let optional_cql_auth = matches!(config.driver.as_str(), "cassandra" | "scylladb");
 
     // Username is required for SQL databases but optional for MongoDB, file-based DBs, Redis,
     // SQL Server integrated authentication, and non-basic search auth.
@@ -88,6 +89,7 @@ pub fn normalize_config(mut config: ConnectionConfig) -> Result<ConnectionConfig
         && !search_without_username
         && !snowflake_token
         && !is_bigquery
+        && !optional_cql_auth
     {
         return Err("Username is required".to_string());
     }
@@ -199,5 +201,28 @@ fn normalize_environment(env: &str) -> Result<String, String> {
     match normalized.as_str() {
         "development" | "staging" | "production" => Ok(normalized),
         _ => Err(format!("Invalid environment: {}", env)),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn cql_authentication_is_optional_except_for_keyspaces() {
+        for driver in ["cassandra", "scylladb", "keyspaces", "postgres"] {
+            let config: ConnectionConfig = serde_json::from_value(serde_json::json!({
+                "driver": driver, "host": "localhost", "port": 9042,
+                "username": "", "password": "", "ssl": false,
+                "environment": "development", "read_only": false
+            }))
+            .unwrap();
+            let result = normalize_config(config);
+            if matches!(driver, "cassandra" | "scylladb") {
+                assert!(result.is_ok(), "{driver}: {result:?}");
+            } else {
+                assert_eq!(result.unwrap_err(), "Username is required");
+            }
+        }
     }
 }

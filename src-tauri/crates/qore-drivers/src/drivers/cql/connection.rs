@@ -77,7 +77,7 @@ pub struct Prepared {
 }
 
 pub struct CqlConnection {
-    stream: Box<dyn CqlStream>,
+    stream: Option<Box<dyn CqlStream>>,
     io_timeout: Duration,
     prepared: HashMap<String, Prepared>,
     keyspace: Option<String>,
@@ -111,7 +111,7 @@ impl CqlConnection {
         };
 
         let mut conn = Self {
-            stream,
+            stream: Some(stream),
             io_timeout,
             prepared: HashMap::new(),
             keyspace: None,
@@ -130,9 +130,14 @@ impl CqlConnection {
     #[cfg(test)]
     pub fn for_tests() -> Self {
         let (client, _server) = tokio::io::duplex(64);
+        Self::with_test_stream(client, Duration::from_secs(1))
+    }
+
+    #[cfg(test)]
+    pub(crate) fn with_test_stream(stream: impl CqlStream + 'static, io_timeout: Duration) -> Self {
         Self {
-            stream: Box::new(client),
-            io_timeout: Duration::from_secs(1),
+            stream: Some(Box::new(stream)),
+            io_timeout,
             prepared: HashMap::new(),
             keyspace: None,
         }
@@ -185,18 +190,24 @@ impl CqlConnection {
     }
 
     async fn call(&mut self, opcode: Opcode, body: Vec<u8>) -> EngineResult<(Opcode, Vec<u8>)> {
+        // Taking ownership closes the socket on errors and when an outer
+        // timeout/cancellation drops this future. Stream 0 must never consume
+        // a late reply as the response to a subsequent request.
+        let mut stream = self.stream.take().ok_or_else(|| {
+            EngineError::connection_failed("CQL connection interrupted; reconnect before retrying")
+        })?;
         let frame = encode_header(opcode, 0, &body);
-        tokio::time::timeout(self.io_timeout, self.stream.write_all(&frame))
+        tokio::time::timeout(self.io_timeout, stream.write_all(&frame))
             .await
             .map_err(|_| EngineError::connection_failed("Timed out writing a CQL frame"))?
             .map_err(|e| EngineError::connection_failed(format!("CQL write failed: {e}")))?;
-        tokio::time::timeout(self.io_timeout, self.stream.flush())
+        tokio::time::timeout(self.io_timeout, stream.flush())
             .await
             .map_err(|_| EngineError::connection_failed("Timed out flushing a CQL frame"))?
             .map_err(|e| EngineError::connection_failed(format!("CQL flush failed: {e}")))?;
 
         let mut header = [0u8; HEADER_LEN];
-        tokio::time::timeout(self.io_timeout, self.stream.read_exact(&mut header))
+        tokio::time::timeout(self.io_timeout, stream.read_exact(&mut header))
             .await
             .map_err(|_| EngineError::connection_failed("Timed out reading a CQL header"))?
             .map_err(|e| EngineError::connection_failed(format!("CQL read failed: {e}")))?;
@@ -204,12 +215,13 @@ impl CqlConnection {
 
         let mut body = vec![0u8; header.length];
         if header.length > 0 {
-            tokio::time::timeout(self.io_timeout, self.stream.read_exact(&mut body))
+            tokio::time::timeout(self.io_timeout, stream.read_exact(&mut body))
                 .await
                 .map_err(|_| EngineError::connection_failed("Timed out reading a CQL body"))?
                 .map_err(|e| EngineError::connection_failed(format!("CQL read failed: {e}")))?;
         }
         let body = strip_body_prefix(header.flags, &body)?.to_vec();
+        self.stream = Some(stream);
         Ok((header.opcode, body))
     }
 
@@ -561,7 +573,80 @@ async fn upgrade_to_tls(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::drivers::cql::test_support::{read_query, reply_void, response};
     use crate::drivers::cql::value::CqlType;
+
+    #[tokio::test]
+    async fn timeout_closes_the_socket_before_a_late_reply_can_be_reused() {
+        for prefix_len in [0, 4, HEADER_LEN + 2] {
+            let (client, mut peer) = tokio::io::duplex(1024);
+            let mut conn = CqlConnection::with_test_stream(client, Duration::from_millis(100));
+            let frame = response(Opcode::Result, &1i32.to_be_bytes());
+            let (result, ()) = tokio::join!(conn.query("SELECT first", None, None), async {
+                assert_eq!(read_query(&mut peer).await, "SELECT first");
+                peer.write_all(&frame[..prefix_len]).await.unwrap();
+            });
+            assert!(result.is_err(), "partial frame length {prefix_len}");
+            assert!(peer.write_all(&frame[prefix_len..]).await.is_err());
+            let error = conn.query("SELECT second", None, None).await.unwrap_err();
+            assert!(error.to_string().contains("reconnect"), "{error}");
+            assert_eq!(peer.read(&mut [0]).await.unwrap(), 0);
+        }
+    }
+
+    #[tokio::test]
+    async fn dropping_an_in_flight_query_closes_the_socket() {
+        let (client, mut peer) = tokio::io::duplex(1024);
+        let mut conn = CqlConnection::with_test_stream(client, Duration::from_secs(10));
+        {
+            let pending = conn.query("SELECT first", None, None);
+            tokio::pin!(pending);
+            tokio::select! {
+                result = &mut pending => panic!("query completed unexpectedly: {result:?}"),
+                query = read_query(&mut peer) => assert_eq!(query, "SELECT first"),
+            }
+        }
+        assert_eq!(
+            tokio::time::timeout(Duration::from_secs(1), peer.read(&mut [0]))
+                .await
+                .expect("cancelled exchange must close the socket")
+                .unwrap(),
+            0
+        );
+        assert!(
+            conn.query("SELECT second", None, None)
+                .await
+                .unwrap_err()
+                .to_string()
+                .contains("reconnect")
+        );
+    }
+
+    #[tokio::test]
+    async fn a_complete_server_error_does_not_poison_the_connection() {
+        let (client, mut peer) = tokio::io::duplex(1024);
+        let mut conn = CqlConnection::with_test_stream(client, Duration::from_secs(1));
+        let ((), ()) = tokio::join!(
+            async {
+                assert!(conn.query("SELECT invalid", None, None).await.is_err());
+                assert!(matches!(
+                    conn.query("SELECT valid", None, None).await.unwrap(),
+                    CqlResult::Void
+                ));
+            },
+            async {
+                assert_eq!(read_query(&mut peer).await, "SELECT invalid");
+                let mut error = Writer::new();
+                error.i32(0x2200);
+                error.string("Invalid query");
+                peer.write_all(&response(Opcode::Error, &error.finish()))
+                    .await
+                    .unwrap();
+                assert_eq!(read_query(&mut peer).await, "SELECT valid");
+                reply_void(&mut peer).await;
+            }
+        );
+    }
 
     fn rows_body(build: impl FnOnce(&mut Writer)) -> Vec<u8> {
         let mut w = Writer::new();

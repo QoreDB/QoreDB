@@ -278,7 +278,10 @@ impl SnowflakeClient {
         let mut body = StatementBody::parse(&text)?;
         for partition in 1..body.partitions {
             if body.rows.len() >= max_rows {
-                break;
+                return Err(EngineError::result_too_large(
+                    body.rows.len() as u64 + 1,
+                    max_rows as u64,
+                ));
             }
             let response = self
                 .request(
@@ -631,5 +634,34 @@ mod tests {
             .await;
         let client = SnowflakeClient::for_tests(&server.uri(), AUTH_TOKEN);
         client.cancel("h").await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn row_limit_rejects_unread_partitions_but_accepts_complete_results() {
+        for partitions in [1, 2] {
+            let server = MockServer::start().await;
+            Mock::given(method("GET"))
+                .and(path("/api/v2/statements/h"))
+                .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                    "resultSetMetaData": {
+                        "partitionInfo": vec![serde_json::json!({"rowCount": 1}); partitions],
+                        "rowType": [{"name": "ID", "type": "fixed", "scale": 0}]
+                    },
+                    "data": [["1"]]
+                })))
+                .expect(1)
+                .mount(&server)
+                .await;
+            let client = SnowflakeClient::for_tests(&server.uri(), AUTH_TOKEN);
+            let result = client.wait("h", 1).await;
+            if partitions == 1 {
+                assert_eq!(result.unwrap().rows.len(), 1);
+            } else {
+                assert!(matches!(
+                    result,
+                    Err(EngineError::ResultTooLarge { limit: 1, .. })
+                ));
+            }
+        }
     }
 }

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Bot, Lock, Shield } from 'lucide-react';
+import { Lock, Shield } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { Button } from '@/components/ui/button';
@@ -145,20 +145,6 @@ export function BasicSection({
             />
           </div>
         </div>
-      </div>
-
-      <div className="flex items-center justify-between gap-3 rounded-md border border-border bg-background px-3 py-2">
-        <div className="min-w-0 space-y-0.5">
-          <Label className="flex items-center gap-2">
-            <Bot size={14} className="text-muted-foreground" />
-            {t('connection.exposeToAgents')}
-          </Label>
-          <p className="text-xs text-muted-foreground">{t('connection.exposeToAgentsHint')}</p>
-        </div>
-        <Switch
-          checked={formData.exposeToAgents}
-          onCheckedChange={checked => onChange('exposeToAgents', checked)}
-        />
       </div>
 
       {/* File-based connection for SQLite */}

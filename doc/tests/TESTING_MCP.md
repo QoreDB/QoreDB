@@ -84,6 +84,21 @@ Avec l'inspecteur (`npx @modelcontextprotocol/inspector qore-mcp`) ou Claude Cod
     est refusé.
 13. `run_federated_query` avec `... FROM agents_on.<db>.<table>,
     read_csv('/etc/hosts')` échoue : DuckDB n'a pas accès aux fichiers.
+14. Après une première lecture réussie, désactiver l'exposition de `agents-on`
+    sans redémarrer MCP : le prochain `run_query` ou `resources/read` est refusé,
+    même sur une session en cache. Réactiver l'exposition permet une nouvelle
+    connexion. Supprimer la connexion sauvegardée doit également couper sa
+    réutilisation.
+15. Sur cette session déjà ouverte, ajouter un masque `hidden` sur `users.email` :
+    le prochain `SELECT email FROM users` renvoie des valeurs masquées. La requête
+    `WITH c(leaked) AS (SELECT email FROM users) SELECT leaked FROM c` est refusée,
+    tout comme une liste de noms sur une table dérivée. Une CTE qui conserve les
+    noms d'origine reste utilisable et son résultat reste masqué.
+
+16. Répéter `preview_table` jusqu’à épuiser le quota : l’aperçu et `run_query`
+    doivent tous deux être refusés jusqu’au renouvellement du budget. Vérifier
+    dans l’audit les aperçus réussis, y compris ceux servis depuis le cache, et
+    l’échec sur une table inexistante : source `mcp`, opération de lecture.
 
 ## 4) Écran Settings
 
@@ -92,5 +107,7 @@ Avec l'inspecteur (`npx @modelcontextprotocol/inspector qore-mcp`) ou Claude Cod
 - Le snippet Claude Desktop copié contient le chemin absolu détecté.
 - Chaque connexion enregistrée apparaît avec son interrupteur ; le basculer
   met à jour `list_connections` au prochain appel, sans redémarrer le serveur.
-- Le formulaire de connexion affiche le même interrupteur « Exposer aux agents
-  IA », reflète l'état choisi dans Settings et l'enregistre avec la connexion.
+- Le formulaire de connexion n’affiche aucune option d’accès aux agents. Une
+  nouvelle connexion reste désactivée dans Settings > Agents IA. Après activation
+  dans cet écran, modifier puis enregistrer la connexion conserve l’autorisation ;
+  après désactivation, la même opération la laisse désactivée.

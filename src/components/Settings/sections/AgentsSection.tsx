@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Bot, Check, Copy } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { Bot, Check, ChevronRight, Copy } from 'lucide-react';
+import { type ReactNode, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
@@ -54,38 +54,11 @@ export function AgentsSection({ searchQuery }: AgentsSectionProps) {
   return (
     <>
       <SettingsCard
-        id="agents-status"
-        title={t('settings.agents.status.title')}
-        description={t('settings.agents.status.description')}
-        searchQuery={searchQuery}
-      >
-        <BinaryStatus status={status} />
-      </SettingsCard>
-
-      <SettingsCard
-        id="agents-config"
-        title={t('settings.agents.config.title')}
-        description={t('settings.agents.config.description')}
-        searchQuery={searchQuery}
-      >
-        <div className="space-y-3">
-          {snippets.map(snippet => (
-            <SnippetBlock key={snippet.id} snippet={snippet} />
-          ))}
-        </div>
-      </SettingsCard>
-
-      <SettingsCard
         id="agents-connections"
         title={t('settings.agents.connections.title')}
         description={t('settings.agents.connections.description')}
         searchQuery={searchQuery}
       >
-        <p className="mb-3 text-xs text-muted-foreground">
-          {workspacePath
-            ? t('settings.agents.connections.storeWorkspace', { path: workspacePath })
-            : t('settings.agents.connections.storeDefault')}
-        </p>
         <ConnectionExposure
           connections={savedConnections}
           projectId={projectId}
@@ -94,14 +67,60 @@ export function AgentsSection({ searchQuery }: AgentsSectionProps) {
       </SettingsCard>
 
       <SettingsCard
-        id="agents-limits"
-        title={t('settings.agents.limits.title')}
-        description={t('settings.agents.limits.description')}
+        id="agents-status"
+        title={t('settings.agents.status.title')}
         searchQuery={searchQuery}
       >
-        <AppliedLimits policy={policy} />
+        <BinaryStatus status={status} />
+        <Disclosure title={t('settings.agents.config.title')}>
+          <p className="mb-3 text-xs text-muted-foreground">
+            {t('settings.agents.config.description')}
+          </p>
+          <p className="mb-3 text-xs text-muted-foreground">
+            {workspacePath
+              ? t('settings.agents.connections.storeWorkspace', { path: workspacePath })
+              : t('settings.agents.connections.storeDefault')}
+          </p>
+          <div className="space-y-3">
+            {snippets.map(snippet => (
+              <SnippetBlock key={snippet.id} snippet={snippet} />
+            ))}
+          </div>
+        </Disclosure>
       </SettingsCard>
+
+      <Disclosure id="agents-limits" title={t('settings.agents.limits.title')} className="py-4">
+        <p className="mb-3 text-xs text-muted-foreground">
+          {t('settings.agents.limits.description')}
+        </p>
+        <AppliedLimits policy={policy} />
+      </Disclosure>
     </>
+  );
+}
+
+function Disclosure({
+  id,
+  title,
+  className,
+  children,
+}: {
+  id?: string;
+  title: string;
+  className?: string;
+  children: ReactNode;
+}) {
+  return (
+    <details id={id} className={`group ${className ?? 'mt-3 border-t border-border/50 pt-3'}`}>
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-sm font-medium text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring">
+        {title}
+        <ChevronRight
+          size={14}
+          className="shrink-0 text-muted-foreground transition-transform group-open:rotate-90"
+        />
+      </summary>
+      <div className="mt-3">{children}</div>
+    </details>
   );
 }
 
@@ -209,8 +228,8 @@ function ConnectionExposure({
               <span className="truncate font-medium">{connection.name}</span>
               <Badge variant="outline">{t(`environment.${connection.environment}`)}</Badge>
             </div>
-            <div className="truncate font-mono text-xs text-muted-foreground">
-              {getDriverMetadata(connection.driver).label} · {connection.id}
+            <div className="truncate text-xs text-muted-foreground">
+              {getDriverMetadata(connection.driver).label}
             </div>
           </div>
           <Switch

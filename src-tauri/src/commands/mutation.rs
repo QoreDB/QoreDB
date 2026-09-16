@@ -197,6 +197,22 @@ pub async fn update_row(
         format_table_ref(&database, &schema, &table)
     );
 
+    if let Err(error) = qore_service::mutation::check_update_masking(
+        &session_manager,
+        session,
+        &table,
+        &primary_key,
+        &data,
+    )
+    .await
+    {
+        return Ok(MutationResponse {
+            success: false,
+            result: None,
+            error: Some(error),
+        });
+    }
+
     let preflight = match qore_service::mutation::preflight(
         &session_manager,
         &interceptor,

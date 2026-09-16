@@ -320,7 +320,7 @@ sudo apt-get install -y \
 
 QoreDB ships `qore-mcp`, a [Model Context Protocol](https://modelcontextprotocol.io) server that gives Claude Desktop, Claude Code, Cursor and any other MCP client read-only access to your saved connections. The binary is installed next to the app and can be downloaded on its own from the release assets (`qore-tools-<target>.tar.gz` / `.zip`).
 
-Nothing is exposed by default: switch a connection on under **Settings > AI agents** or in its connection form and it appears to agents. Every agent session is forced read-only, goes through the safety policy (row cap, timeout, rate limit) and is written to the audit log. Sessions idle for ten minutes are closed. With a Pro license, column masking rules set on the connection also apply to agent results, and agents cannot alias, filter or sort a masked column.
+Nothing is exposed by default: switch a connection on under **Settings > AI agents** and it appears to agents. Every agent session is forced read-only, goes through the safety policy (row cap, timeout, rate limit) and is written to the audit log. Sessions idle for ten minutes are closed. With a Pro license, column masking rules set on the connection also apply to agent results, and agents cannot alias, filter or sort a masked column.
 
 ```json
 {

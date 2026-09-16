@@ -185,6 +185,44 @@ pub struct AgentSessions {
 }
 
 impl AgentSessions {
+    /// The caller holds its sessions lock across validation and reuse/opening.
+    /// A cached session must never outlive a revoked opt-in or stale mask.
+    pub async fn ensure_session(
+        &mut self,
+        vault: &AgentVault,
+        session_manager: &SessionManager,
+        rate_limiter: &crate::ratelimit::QueryRateLimiter,
+        connection_id: &str,
+    ) -> Result<SessionId, String> {
+        let saved = vault.get(connection_id).and_then(|saved| {
+            require_exposed(&saved)?;
+            Ok(saved)
+        });
+        let saved = match saved {
+            Ok(saved) => saved,
+            Err(error) => {
+                if let Some(session) = self.remove(connection_id) {
+                    if let Err(err) =
+                        crate::connection::disconnect(session_manager, rate_limiter, session).await
+                    {
+                        tracing::warn!("failed to close revoked session: {}", err.sanitized());
+                    }
+                }
+                return Err(error);
+            }
+        };
+        if let Some(session) = self.get(connection_id) {
+            if session_manager.session_exists(session).await {
+                session_manager.set_masking(session, &saved.masking).await;
+                return Ok(session);
+            }
+            self.remove(connection_id);
+        }
+        let session = open_session(vault, session_manager, connection_id).await?;
+        self.insert(connection_id.to_string(), session);
+        Ok(session)
+    }
+
     pub fn get(&mut self, connection_id: &str) -> Option<SessionId> {
         let (session, last_used) = self.entries.get_mut(connection_id)?;
         *last_used = Instant::now();
@@ -194,6 +232,12 @@ impl AgentSessions {
     pub fn insert(&mut self, connection_id: String, session: SessionId) {
         self.entries
             .insert(connection_id, (session, Instant::now()));
+    }
+
+    pub fn remove(&mut self, connection_id: &str) -> Option<SessionId> {
+        self.entries
+            .remove(connection_id)
+            .map(|(session, _)| session)
     }
 
     pub fn take_idle(&mut self) -> Vec<SessionId> {
@@ -334,5 +378,114 @@ mod tests {
         sessions.entries.get_mut("c").unwrap().1 = Instant::now() - IDLE_SESSION_TIMEOUT;
         assert_eq!(sessions.get("c"), Some(id));
         assert!(sessions.take_idle().is_empty());
+    }
+
+    #[cfg(feature = "driver-sqlite")]
+    #[tokio::test]
+    async fn cached_sessions_refresh_masks_and_close_on_revocation_or_deletion() {
+        use crate::vault::backend::MockProvider;
+        use qore_core::masking::{ConnectionMasking, MaskMode, MaskingRule};
+        use std::sync::Arc;
+
+        let dir = tempfile::tempdir().unwrap();
+        let mut registry = qore_core::DriverRegistry::new();
+        registry.register(Arc::new(qore_drivers::drivers::sqlite::SqliteDriver::new()));
+        let manager = SessionManager::new(Arc::new(registry));
+        let limiter = crate::ratelimit::QueryRateLimiter::with_defaults();
+        let mut sessions = AgentSessions::default();
+
+        // Exercise both stores: MCP reloads metadata without restarting.
+        for workspace in [false, true] {
+            let vault = if workspace {
+                AgentVault::Workspace {
+                    path: dir.path().to_path_buf(),
+                    store: WorkspaceConnectionStore::new(
+                        dir.path().join("connections"),
+                        "test".into(),
+                        Box::new(MockProvider::new()),
+                    ),
+                }
+            } else {
+                AgentVault::Default(VaultStorage::new(
+                    "test",
+                    dir.path().to_path_buf(),
+                    Box::new(MockProvider::new()),
+                ))
+            };
+            let save = |saved: &SavedConnection| match &vault {
+                AgentVault::Default(store) => store.save_connection(saved, &creds()).unwrap(),
+                AgentVault::Workspace { store, .. } => {
+                    store.save_connection(saved, &creds()).unwrap()
+                }
+            };
+            let mut saved = connection("review", true);
+            saved.driver = "sqlite".into();
+            saved.host = dir.path().join("test.db").to_string_lossy().into_owned();
+            saved.environment = Environment::Development;
+            save(&saved);
+            let id = sessions
+                .ensure_session(&vault, &manager, &limiter, &saved.id)
+                .await
+                .unwrap();
+            assert!(manager.is_read_only(id).await.unwrap());
+            assert!(manager.masking(id).await.is_none());
+
+            saved.masking = ConnectionMasking {
+                rules: vec![MaskingRule {
+                    table: "users".into(),
+                    column: "email".into(),
+                    mode: MaskMode::Hidden,
+                }],
+                mask_detected_columns: false,
+            };
+            save(&saved);
+            assert_eq!(
+                sessions
+                    .ensure_session(&vault, &manager, &limiter, &saved.id)
+                    .await
+                    .unwrap(),
+                id
+            );
+            assert_eq!(manager.masking(id).await.unwrap().config, saved.masking);
+            saved.masking = ConnectionMasking::default();
+            save(&saved);
+            sessions
+                .ensure_session(&vault, &manager, &limiter, &saved.id)
+                .await
+                .unwrap();
+            assert!(manager.masking(id).await.is_none());
+
+            saved.expose_to_agents = false;
+            save(&saved);
+            assert!(
+                sessions
+                    .ensure_session(&vault, &manager, &limiter, &saved.id)
+                    .await
+                    .unwrap_err()
+                    .contains("not exposed")
+            );
+            assert!(!manager.session_exists(id).await);
+            assert!(sessions.get(&saved.id).is_none());
+
+            saved.expose_to_agents = true;
+            save(&saved);
+            let next = sessions
+                .ensure_session(&vault, &manager, &limiter, &saved.id)
+                .await
+                .unwrap();
+            assert_ne!(next, id);
+            match &vault {
+                AgentVault::Default(store) => store.delete_connection(&saved.id).unwrap(),
+                AgentVault::Workspace { store, .. } => store.delete_connection(&saved.id).unwrap(),
+            }
+            assert!(
+                sessions
+                    .ensure_session(&vault, &manager, &limiter, &saved.id)
+                    .await
+                    .is_err()
+            );
+            assert!(!manager.session_exists(next).await);
+            assert!(sessions.get(&saved.id).is_none());
+        }
     }
 }

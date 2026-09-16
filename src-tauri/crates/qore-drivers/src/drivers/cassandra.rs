@@ -483,12 +483,30 @@ impl DataEngine for CassandraDriver {
         &self,
         session: SessionId,
         query: &str,
+        query_id: QueryId,
+    ) -> EngineResult<QueryResult> {
+        self.execute_in_namespace(session, None, query, query_id)
+            .await
+    }
+
+    async fn execute_in_namespace(
+        &self,
+        session: SessionId,
+        namespace: Option<Namespace>,
+        query: &str,
         _query_id: QueryId,
     ) -> EngineResult<QueryResult> {
         let session = self.get_session(session).await?;
         Self::guard(&session, query)?;
         let started = Instant::now();
         let mut conn = session.conn.lock().await;
+        // USE changes socket state: hold the lock through execution and every
+        // result page so another caller cannot switch keyspaces in between.
+        if let Some(ns) = namespace {
+            if conn.keyspace() != Some(ns.database.as_str()) {
+                conn.use_keyspace(&ns.database).await?;
+            }
+        }
 
         // A single statement only. Splitting on `;` here would mean parsing CQL
         // string literals, and running half a script before failing on the rest
@@ -532,23 +550,6 @@ impl DataEngine for CassandraDriver {
             | CqlResult::SchemaChange
             | CqlResult::Prepared(_) => Ok(empty_result(started)),
         }
-    }
-
-    async fn execute_in_namespace(
-        &self,
-        session: SessionId,
-        namespace: Option<Namespace>,
-        query: &str,
-        query_id: QueryId,
-    ) -> EngineResult<QueryResult> {
-        if let Some(ns) = namespace {
-            let handle = self.get_session(session).await?;
-            let mut conn = handle.conn.lock().await;
-            if conn.keyspace() != Some(ns.database.as_str()) {
-                conn.use_keyspace(&ns.database).await?;
-            }
-        }
-        self.execute(session, query, query_id).await
     }
 
     async fn describe_table(
@@ -1076,5 +1077,56 @@ mod tests {
     /// something that satisfies the type.
     fn unreachable_connection() -> CqlConnection {
         CqlConnection::for_tests()
+    }
+
+    #[tokio::test]
+    async fn concurrent_namespaces_keep_use_and_query_in_one_exchange() {
+        use crate::drivers::cql::test_support::{read_query, reply_void};
+
+        let driver = CassandraDriver::new();
+        let id = SessionId::new();
+        let (client, mut peer) = tokio::io::duplex(1024);
+        driver.sessions.write().await.insert(
+            id,
+            Arc::new(CassandraSession {
+                conn: Mutex::new(CqlConnection::with_test_stream(
+                    client,
+                    Duration::from_secs(1),
+                )),
+                read_only: false,
+                environment: "development".into(),
+                refuse_allow_filtering: false,
+            }),
+        );
+        let first = Namespace {
+            database: "first".into(),
+            schema: None,
+        };
+        let second = Namespace {
+            database: "second".into(),
+            schema: None,
+        };
+        let exchanges = async {
+            let (a, b, ()) = tokio::join!(
+                driver.execute_in_namespace(id, Some(first), "SELECT * FROM a", QueryId::new()),
+                driver.execute_in_namespace(id, Some(second), "SELECT * FROM b", QueryId::new()),
+                async {
+                    for expected in [
+                        "USE \"first\"",
+                        "SELECT * FROM a",
+                        "USE \"second\"",
+                        "SELECT * FROM b",
+                    ] {
+                        assert_eq!(read_query(&mut peer).await, expected);
+                        reply_void(&mut peer).await;
+                    }
+                }
+            );
+            a.unwrap();
+            b.unwrap();
+        };
+        tokio::time::timeout(Duration::from_secs(3), exchanges)
+            .await
+            .unwrap();
     }
 }

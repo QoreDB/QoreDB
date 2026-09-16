@@ -14,6 +14,47 @@ use sqlparser::tokenizer::{Token, Tokenizer, Word};
 
 use qore_core::masking::ConnectionMasking;
 
+/// Full-row/document editors must never write display placeholders back to storage.
+pub fn check_row_update(
+    masking: &ConnectionMasking,
+    table: &str,
+    primary_key: &qore_core::RowData,
+    data: &qore_core::RowData,
+) -> Result<(), String> {
+    fn contains_masked(
+        masking: &ConnectionMasking,
+        table: &str,
+        value: &serde_json::Value,
+    ) -> bool {
+        match value {
+            serde_json::Value::Object(fields) => fields.iter().any(|(key, value)| {
+                masking.mode_for(Some(table), key).is_some()
+                    || key
+                        .split('.')
+                        .any(|part| masking.mode_for(Some(table), part).is_some())
+                    || contains_masked(masking, table, value)
+            }),
+            serde_json::Value::Array(values) => values
+                .iter()
+                .any(|value| contains_masked(masking, table, value)),
+            _ => false,
+        }
+    }
+
+    for row in [primary_key, data] {
+        let object = serde_json::Value::Object(
+            row.columns
+                .iter()
+                .map(|(key, value)| (key.clone(), value.to_json()))
+                .collect(),
+        );
+        if contains_masked(masking, table, &object) {
+            return Err("MASKED_FIELD_UPDATE".to_string());
+        }
+    }
+    Ok(())
+}
+
 const ROW_SERIALIZERS: &[&str] = &[
     "row_to_json",
     "to_json",
@@ -89,6 +130,43 @@ pub fn check_agent_query(
     }
 
     let (relation_positions, relation_names) = relations(&tokens, &depths);
+    // Column lists rename by position, including columns hidden behind `*`.
+    // Without source lineage we cannot safely mask their output names.
+    for (index, token) in tokens.iter().enumerate() {
+        if word(token).is_none() || !matches!(tokens.get(index + 1), Some(Token::LParen)) {
+            continue;
+        }
+        let after_derived = index.checked_sub(1).is_some_and(|previous| {
+            matches!(tokens[previous], Token::RParen)
+                || (is_kw(&tokens[previous], "AS")
+                    && previous
+                        .checked_sub(1)
+                        .is_some_and(|before_as| matches!(tokens[before_as], Token::RParen)))
+        });
+        let cte_columns = (index + 2..tokens.len())
+            .find(|&end| depths[end] == depths[index])
+            .is_some_and(|end| {
+                matches!(tokens[end], Token::RParen)
+                    && tokens.get(end + 1).is_some_and(|t| is_kw(t, "AS"))
+                    && tokens.get(end + 2).is_some_and(|t| {
+                        matches!(t, Token::LParen)
+                            || (is_kw(t, "MATERIALIZED")
+                                && matches!(tokens.get(end + 3), Some(Token::LParen)))
+                            || (is_kw(t, "NOT")
+                                && tokens
+                                    .get(end + 3)
+                                    .is_some_and(|t| is_kw(t, "MATERIALIZED"))
+                                && matches!(tokens.get(end + 4), Some(Token::LParen)))
+                    })
+            });
+        if relation_positions.contains(&index) || after_derived || cte_columns {
+            return Err(
+                "Column masking is active on this connection: column alias lists on CTEs \
+                 and table references are refused. Keep the original column names."
+                    .to_string(),
+            );
+        }
+    }
     let masked: Vec<usize> = tokens
         .iter()
         .enumerate()
@@ -357,6 +435,26 @@ mod tests {
     }
 
     #[test]
+    fn positional_column_aliases_cannot_bypass_masking() {
+        for query in [
+            "WITH c(leaked) AS (SELECT email FROM users) SELECT leaked FROM c",
+            "WITH RECURSIVE c(leaked) AS (SELECT email FROM users) SELECT * FROM c",
+            "WITH c(leaked) AS MATERIALIZED (SELECT email FROM users) SELECT * FROM c",
+            "WITH c(leaked) AS NOT MATERIALIZED (SELECT email FROM users) SELECT * FROM c",
+            "WITH a AS (SELECT 1), c(id, leaked) AS (SELECT * FROM users) SELECT * FROM c",
+            "SELECT leaked FROM (SELECT email FROM users) AS c(leaked)",
+            "SELECT * FROM (SELECT * FROM users) c(id, leaked)",
+            "SELECT * FROM users AS u(id, leaked)",
+            "SELECT * FROM users u(id, leaked)",
+        ] {
+            assert!(check(query).is_err(), "{query} should be refused");
+        }
+        assert!(check("WITH c AS (SELECT email FROM users) SELECT email FROM c").is_ok());
+        assert!(check("SELECT count(*) AS total FROM users").is_ok());
+        assert!(check("SELECT count(*) AS materialized FROM users").is_ok());
+    }
+
+    #[test]
     fn document_stores_refuse_any_mention_of_a_masked_key() {
         let rules = masking();
         assert!(check_agent_query("mongodb", r#"db.users.find({})"#, &rules).is_ok());
@@ -382,6 +480,52 @@ mod tests {
                 "postgres",
                 "SELECT id FROM users WHERE phone = '1'",
                 &detected
+            )
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn updates_reject_masked_fields_and_keys_including_nested_documents() {
+        use qore_core::{RowData, Value};
+        let config = masking();
+        let pk = RowData::new().with_column("id", Value::Int(1));
+        for data in [
+            RowData::new().with_column("email", Value::Text("••••••".into())),
+            RowData::new().with_column("EMAIL", Value::Null),
+            RowData::new().with_column("profile.email", Value::Text("changed".into())),
+            RowData::new().with_column(
+                "profile",
+                Value::Json(serde_json::json!({"email": "••••••", "city": "Lyon"})),
+            ),
+            RowData::new().with_column(
+                "contacts",
+                Value::Json(serde_json::json!([{ "email": "••••••" }])),
+            ),
+        ] {
+            assert!(check_row_update(&config, "public.users", &pk, &data).is_err());
+            assert!(check_row_update(&config, "users", &data, &pk).is_err());
+            assert!(check_row_update(&config, "other_table", &pk, &data).is_ok());
+        }
+        assert!(
+            check_row_update(
+                &config,
+                "users",
+                &pk,
+                &RowData::new().with_column("city", Value::Text("Lyon".into()))
+            )
+            .is_ok()
+        );
+        let detected = ConnectionMasking {
+            rules: vec![],
+            mask_detected_columns: true,
+        };
+        assert!(
+            check_row_update(
+                &detected,
+                "users",
+                &pk,
+                &RowData::new().with_column("password", Value::Null)
             )
             .is_err()
         );

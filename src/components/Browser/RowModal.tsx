@@ -31,6 +31,7 @@ import { RowModalUpdatePreview } from './RowModalUpdatePreview';
 import {
   buildColumnsData,
   buildInitialRowModalState,
+  buildRowUpdateData,
   computePreview,
   formatPreviewValue,
 } from './rowModalUtils';
@@ -50,6 +51,7 @@ interface RowModalProps {
 
   readOnly?: boolean;
   initialData?: Record<string, Value>;
+  maskedColumns?: ReadonlySet<string>;
   onSuccess: () => void;
 
   sandboxMode?: boolean;
@@ -75,6 +77,7 @@ export function RowModal({
   connectionDatabase,
   readOnly = false,
   initialData,
+  maskedColumns,
   onSuccess,
   sandboxMode = false,
   onSandboxInsert,
@@ -173,11 +176,16 @@ export function RowModal({
     setPreviewError(null);
 
     try {
-      const columnsData = buildColumnsData({
-        columns: effectiveColumns,
-        formData,
-        nulls,
-      });
+      const columnsData =
+        mode === 'insert'
+          ? buildColumnsData({ columns: effectiveColumns, formData, nulls })
+          : buildRowUpdateData({
+              columns: effectiveColumns,
+              formData,
+              nulls,
+              initialData,
+              maskedColumns,
+            });
 
       // Sandbox mode: add changes locally instead of executing
       if (sandboxMode) {
@@ -298,7 +306,12 @@ export function RowModal({
           onSuccess();
           onClose();
         } else {
-          notify.error(t('rowModal.updateError'), res.error);
+          notify.error(
+            res.error === 'MASKED_FIELD_UPDATE'
+              ? t('grid.masking.readOnly')
+              : t('rowModal.updateError'),
+            res.error === 'MASKED_FIELD_UPDATE' ? undefined : res.error
+          );
         }
       }
     } catch (err) {
@@ -318,6 +331,7 @@ export function RowModal({
     effectiveColumns,
     formData,
     nulls,
+    maskedColumns,
   });
   const updatePreview = preview.type === 'update' ? preview : null;
   const hasPreviewChanges = preview.type === 'insert' ? true : preview.changes.length > 0;
@@ -342,6 +356,7 @@ export function RowModal({
               formData={formData}
               nulls={nulls}
               readOnly={readOnly}
+              maskedColumns={mode === 'update' ? maskedColumns : undefined}
               onNullToggle={handleNullToggle}
               onInputChange={handleInputChange}
             />

@@ -9,3 +9,6 @@
 pub mod connection;
 pub mod frame;
 pub mod value;
+
+#[cfg(test)]
+pub(crate) mod test_support;

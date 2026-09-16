@@ -412,8 +412,6 @@
       "caCertHint": "DocumentDB 集群由 Amazon CA 签发。请指向 Amazon 发布的 global-bundle.pem 文件；留空则使用系统证书库。"
     },
     "keyspace": "键空间",
-    "exposeToAgents": "向 AI 代理公开",
-    "exposeToAgentsHint": "通过 MCP 和 CLI 对 AI 代理可见，始终只读。",
     "masking": {
       "title": "列脱敏",
       "description": "替换此连接所有查询的结果、导出和代理回答中的值。",
@@ -1075,7 +1073,7 @@
         "title": "已公开的连接",
         "description": "开启 AI 代理可以读取的连接。默认关闭,包括此版本之前保存的连接。",
         "empty": "还没有已保存的连接。请在侧边栏创建一个,然后在此处公开。",
-        "toggle": "向 AI 代理公开",
+        "toggle": "允许访问此连接",
         "storeDefault": "当前存储:默认 vault。从包含 .qoredb 工作区的项目文件夹启动的代理将改为读取该工作区。",
         "storeWorkspace": "当前存储:工作区 {{path}}。片段会将其传给服务器;从此文件夹启动的 Claude Code 会自动检测。"
       },

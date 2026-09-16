@@ -412,8 +412,6 @@
       "caCertHint": "DocumentDB 클러스터는 Amazon CA가 서명합니다. Amazon이 배포하는 global-bundle.pem 파일을 지정하세요. 비워 두면 시스템 인증서 저장소를 사용합니다."
     },
     "keyspace": "키스페이스",
-    "exposeToAgents": "AI 에이전트에 공개",
-    "exposeToAgentsHint": "MCP와 CLI를 통해 AI 에이전트에 표시되며 항상 읽기 전용입니다.",
     "masking": {
       "title": "열 마스킹",
       "description": "이 연결의 모든 쿼리에서 결과, 내보내기, 에이전트 응답의 값을 대체합니다.",
@@ -1075,7 +1073,7 @@
         "title": "공개된 연결",
         "description": "AI 에이전트가 읽을 수 있는 연결을 켜세요. 이 버전 이전에 저장된 연결을 포함해 기본값은 꺼짐입니다.",
         "empty": "저장된 연결이 아직 없습니다. 사이드바에서 연결을 만든 뒤 여기서 공개하세요.",
-        "toggle": "AI 에이전트에 공개",
+        "toggle": "이 연결에 대한 접근 허용",
         "storeDefault": "사용 중인 저장소: 기본 vault. .qoredb 워크스페이스가 있는 프로젝트 폴더에서 실행된 에이전트는 대신 그 워크스페이스를 읽습니다.",
         "storeWorkspace": "사용 중인 저장소: 워크스페이스 {{path}}. 스니펫이 이를 서버에 전달하며, 이 폴더에서 실행된 Claude Code는 자동으로 감지합니다."
       },

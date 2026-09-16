@@ -14,6 +14,19 @@ const MUTATIONS_NOT_SUPPORTED: &str = "Mutations are not supported by this drive
 const DANGEROUS_BLOCKED: &str = "Dangerous query blocked: confirmation required";
 const SAFETY_RULE_BLOCKED: &str = "Query blocked by safety rule";
 
+pub async fn check_update_masking(
+    session_manager: &SessionManager,
+    session: SessionId,
+    table: &str,
+    primary_key: &qore_core::RowData,
+    data: &qore_core::RowData,
+) -> Result<(), String> {
+    if let Some(masking) = session_manager.masking(session).await {
+        crate::masking_guard::check_row_update(&masking.config, table, primary_key, data)?;
+    }
+    Ok(())
+}
+
 pub struct MutationPreflight {
     pub driver: Arc<dyn DataEngine>,
     pub context: QueryContext,

@@ -14,7 +14,9 @@ use qore_drivers::session_manager::SessionManager;
 
 use crate::ServiceContext;
 use crate::cache::QueryCache;
-use crate::interceptor::{InterceptorPipeline, QuerySource};
+use crate::interceptor::{
+    InterceptorPipeline, QueryExecutionResult, QueryOperationType, QuerySource, map_environment,
+};
 use crate::policy::SafetyPolicy;
 use crate::ratelimit::QueryRateLimiter;
 use crate::virtual_relations::VirtualRelationStore;
@@ -179,8 +181,66 @@ pub async fn preview_table(
     namespace: &Namespace,
     table: &str,
     limit: u32,
+    source: QuerySource,
 ) -> Result<QueryResult, String> {
-    crate::query::preview_table(
+    let session_id = session.0.to_string();
+    if ctx.policy.query_rate_limit_enabled && !ctx.query_rate_limiter.try_acquire(&session_id) {
+        return Err(crate::query::RATE_LIMIT_BLOCKED.to_string());
+    }
+    let driver = ctx
+        .session_manager
+        .get_driver(session)
+        .await
+        .map_err(|e| e.sanitized_message())?;
+    let environment = ctx
+        .session_manager
+        .get_environment(session)
+        .await
+        .map_err(|e| e.sanitized_message())?;
+    let read_only = ctx
+        .session_manager
+        .is_read_only(session)
+        .await
+        .map_err(|e| e.sanitized_message())?;
+    let limit = limit.clamp(1, PREVIEW_MAX_ROWS);
+    // This describes the native preview operation, including on non-SQL drivers.
+    let query = format!(
+        "preview_table {}",
+        serde_json::json!({"database": namespace.database, "schema": namespace.schema, "table": table, "limit": limit})
+    );
+    let mut context = ctx.interceptor.build_context_with_source(
+        &session_id,
+        &query,
+        driver.driver_id(),
+        map_environment(&environment),
+        read_only,
+        false,
+        Some(&namespace.database),
+        None,
+        false,
+        source,
+    );
+    context.operation_type = QueryOperationType::Select;
+    let safety = ctx.interceptor.pre_execute(&context);
+    if !safety.allowed {
+        let error = safety
+            .message
+            .unwrap_or_else(|| "Preview blocked by safety rule".to_string());
+        ctx.interceptor.post_execute(
+            &context,
+            &QueryExecutionResult {
+                success: false,
+                error: Some(error.clone()),
+                execution_time_ms: 0.0,
+                row_count: None,
+            },
+            true,
+            safety.triggered_rule.as_deref(),
+        );
+        return Err(error);
+    }
+    let start = std::time::Instant::now();
+    let result = crate::query::preview_table(
         &ctx.session_manager,
         &ctx.query_manager,
         &ctx.query_cache,
@@ -188,11 +248,23 @@ pub async fn preview_table(
         session,
         namespace,
         table,
-        limit.clamp(1, PREVIEW_MAX_ROWS),
+        limit,
         false,
     )
     .await
-    .map_err(|e| e.sanitized())
+    .map_err(|e| e.sanitized());
+    ctx.interceptor.post_execute(
+        &context,
+        &QueryExecutionResult {
+            success: result.is_ok(),
+            error: result.as_ref().err().cloned(),
+            execution_time_ms: start.elapsed().as_secs_f64() * 1000.0,
+            row_count: result.as_ref().ok().map(|result| result.rows.len() as i64),
+        },
+        false,
+        safety.triggered_rule.as_deref(),
+    );
+    result
 }
 
 pub async fn explain_query(
@@ -649,16 +721,87 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn masked_results_cannot_be_renamed_through_a_cte() {
+        use qore_core::masking::{ConnectionMasking, HIDDEN_VALUE, MaskMode, MaskingRule};
+
+        let f = fixture().await;
+        f.ctx
+            .session_manager
+            .set_saved_connection_identity(f.session, "masked".into(), "Masked".into())
+            .await;
+        f.ctx
+            .session_manager
+            .set_masking(
+                f.session,
+                &ConnectionMasking {
+                    rules: vec![MaskingRule {
+                        table: "users".into(),
+                        column: "email".into(),
+                        mode: MaskMode::Hidden,
+                    }],
+                    mask_detected_columns: false,
+                },
+            )
+            .await;
+
+        for query in [
+            "WITH c(leaked) AS (SELECT email FROM users) SELECT leaked FROM c",
+            "WITH c(id, leaked, city) AS (SELECT * FROM users) SELECT * FROM c",
+        ] {
+            let result = run_query(
+                &f.ctx,
+                f.session,
+                query,
+                None,
+                false,
+                None,
+                QuerySource::Mcp,
+            )
+            .await;
+            assert!(result.unwrap_err().contains("column alias lists"));
+        }
+        let safe = run_query(
+            &f.ctx,
+            f.session,
+            "WITH c AS (SELECT email FROM users) SELECT email FROM c",
+            None,
+            false,
+            None,
+            QuerySource::Mcp,
+        )
+        .await
+        .unwrap();
+        assert!(safe.columns[0].masked);
+        assert!(safe.rows.iter().all(
+            |row| matches!(&row.values[0], qore_core::Value::Text(value) if value == HIDDEN_VALUE)
+        ));
+    }
+
+    #[tokio::test]
     async fn preview_table_honours_and_caps_the_limit() {
         let f = fixture().await;
-        let two = preview_table(&f.ctx, f.session, &f.namespace, "users", 2)
-            .await
-            .unwrap();
+        let two = preview_table(
+            &f.ctx,
+            f.session,
+            &f.namespace,
+            "users",
+            2,
+            QuerySource::Mcp,
+        )
+        .await
+        .unwrap();
         assert_eq!(two.rows.len(), 2);
 
-        let capped = preview_table(&f.ctx, f.session, &f.namespace, "users", 10_000)
-            .await
-            .unwrap();
+        let capped = preview_table(
+            &f.ctx,
+            f.session,
+            &f.namespace,
+            "users",
+            10_000,
+            QuerySource::Mcp,
+        )
+        .await
+        .unwrap();
         assert_eq!(capped.rows.len(), 3);
     }
 
@@ -733,5 +876,139 @@ mod tests {
                 .await
                 .is_err()
         );
+    }
+
+    #[tokio::test]
+    async fn previews_share_the_query_budget_and_audit_cached_reads_and_errors() {
+        let mut f = fixture().await;
+        f.ctx.policy.query_rate_limit_enabled = true;
+        f.ctx.query_rate_limiter = Arc::new(QueryRateLimiter::new(3.0, 0.0));
+        f.ctx.interceptor.clear_audit();
+        for _ in 0..2 {
+            let result = preview_table(
+                &f.ctx,
+                f.session,
+                &f.namespace,
+                "users",
+                2,
+                QuerySource::Mcp,
+            )
+            .await
+            .unwrap();
+            assert_eq!(result.rows.len(), 2);
+        }
+        assert!(
+            preview_table(
+                &f.ctx,
+                f.session,
+                &f.namespace,
+                "missing_table",
+                2,
+                QuerySource::Mcp
+            )
+            .await
+            .is_err()
+        );
+        let entries: Vec<crate::interceptor::AuditLogEntry> =
+            serde_json::from_str(&f.ctx.interceptor.export_audit()).unwrap();
+        assert_eq!(entries.len(), 3);
+        assert!(entries.iter().all(|entry| entry.source == QuerySource::Mcp
+            && entry.operation_type == QueryOperationType::Select));
+        assert_eq!(entries.iter().filter(|entry| entry.success).count(), 2);
+        assert_eq!(
+            preview_table(
+                &f.ctx,
+                f.session,
+                &f.namespace,
+                "users",
+                2,
+                QuerySource::Mcp
+            )
+            .await
+            .unwrap_err(),
+            crate::query::RATE_LIMIT_BLOCKED
+        );
+        assert_eq!(
+            run_query(
+                &f.ctx,
+                f.session,
+                "SELECT * FROM users",
+                None,
+                false,
+                None,
+                QuerySource::Mcp
+            )
+            .await
+            .unwrap_err(),
+            crate::query::RATE_LIMIT_BLOCKED
+        );
+    }
+
+    #[tokio::test]
+    async fn row_updates_keep_masked_storage_unchanged() {
+        use qore_core::{
+            RowData, Value,
+            masking::{ConnectionMasking, MaskMode, MaskingRule},
+        };
+        let f = fixture().await;
+        f.ctx
+            .session_manager
+            .set_saved_connection_identity(f.session, "masked".into(), "Masked".into())
+            .await;
+        f.ctx
+            .session_manager
+            .set_masking(
+                f.session,
+                &ConnectionMasking {
+                    rules: vec![MaskingRule {
+                        table: "users".into(),
+                        column: "email".into(),
+                        mode: MaskMode::Hidden,
+                    }],
+                    mask_detected_columns: false,
+                },
+            )
+            .await;
+        let pk = RowData::new().with_column("id", Value::Int(1));
+        let unsafe_data = RowData::new()
+            .with_column("email", Value::Text("••••••".into()))
+            .with_column("city", Value::Text("Lyon".into()));
+        assert_eq!(
+            crate::mutation::check_update_masking(
+                &f.ctx.session_manager,
+                f.session,
+                "users",
+                &pk,
+                &unsafe_data
+            )
+            .await
+            .unwrap_err(),
+            "MASKED_FIELD_UPDATE"
+        );
+        let safe_data = RowData::new().with_column("city", Value::Text("Lyon".into()));
+        crate::mutation::check_update_masking(
+            &f.ctx.session_manager,
+            f.session,
+            "users",
+            &pk,
+            &safe_data,
+        )
+        .await
+        .unwrap();
+        let driver = f.ctx.session_manager.get_driver(f.session).await.unwrap();
+        driver
+            .update_row(f.session, &f.namespace, "users", &pk, &safe_data)
+            .await
+            .unwrap();
+        let stored = driver
+            .execute(
+                f.session,
+                "SELECT email, city FROM users WHERE id = 1",
+                qore_core::QueryId::new(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(stored.rows[0].values[0].as_text(), Some("a@x.io"));
+        assert_eq!(stored.rows[0].values[1].as_text(), Some("Lyon"));
     }
 }

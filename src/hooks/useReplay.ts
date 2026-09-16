@@ -4,12 +4,14 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { notify } from '@/lib/notify';
 import {
+  acceptReplayRun,
   type CaptureMode,
   cancelRecording,
   cancelReplayRun,
   DEFAULT_RUN_OPTIONS,
   deleteReplaySet,
   discardRecorded,
+  discardRecordedMutations,
   getRecordedPreviews,
   getRecordingStatus,
   type LastReport,
@@ -17,10 +19,12 @@ import {
   listReplaySets,
   loadLastReport,
   loadReplaySet,
+  RECORDING_CHANGED_EVENT,
   REPLAY_PROGRESS_EVENT,
   type RecordedPreview,
   type RecordingStatus,
   type ReplayAbReport,
+  type ReplayEntryResult,
   type ReplayProgress,
   type ReplayReport,
   type ReplayRunOptions,
@@ -32,6 +36,7 @@ import {
   setIgnoredColumns,
   startRecording,
   stopRecording,
+  summarizeVerdicts,
 } from '@/lib/replay';
 import { getSecretPolicy } from '@/lib/replayPreferences';
 import { listSessions, type SessionListItem } from '@/lib/tauri';
@@ -115,6 +120,15 @@ export function useReplay(sessionId: string | null) {
       .catch(() => setSessions([]));
   }, [refreshSets, refreshRecording]);
 
+  useEffect(() => {
+    const onChanged = () => {
+      void refreshRecording();
+      void refreshSets();
+    };
+    window.addEventListener(RECORDING_CHANGED_EVENT, onChanged);
+    return () => window.removeEventListener(RECORDING_CHANGED_EVENT, onChanged);
+  }, [refreshRecording, refreshSets]);
+
   // The recorder lives in the backend and fills up as the user runs queries in
   // other tabs, so the counter is polled rather than pushed.
   useEffect(() => {
@@ -146,6 +160,7 @@ export function useReplay(sessionId: string | null) {
     async (options: {
       name: string;
       ignoredColumns: string[];
+      recordMutations: boolean;
       captureMode: CaptureMode;
       allowProductionCapture: boolean;
     }) => {
@@ -158,6 +173,7 @@ export function useReplay(sessionId: string | null) {
           session_id: sessionId,
           name: options.name,
           ignored_columns: options.ignoredColumns,
+          record_mutations: options.recordMutations,
           capture_mode: options.captureMode,
           allow_production_capture: options.allowProductionCapture,
           // Read at start: the set is governed by the policy in force when it
@@ -193,6 +209,15 @@ export function useReplay(sessionId: string | null) {
     setRecording(null);
     setPreviews([]);
   }, []);
+
+  const dropMutations = useCallback(async () => {
+    try {
+      await discardRecordedMutations();
+      await refreshRecording();
+    } catch (err) {
+      notify.error(t('replay.errors.discard'), String(err));
+    }
+  }, [refreshRecording, t]);
 
   const dropRecorded = useCallback(
     async (index: number) => {
@@ -289,6 +314,44 @@ export function useReplay(sessionId: string | null) {
     [activeSlug, refreshSets, t]
   );
 
+  const acceptRun = useCallback(
+    async (runId: string, entryIds?: string[]) => {
+      if (!activeSlug) return;
+      try {
+        setActiveSet(
+          await acceptReplayRun({ slug: activeSlug, run_id: runId, entry_ids: entryIds ?? null })
+        );
+        // The accepted entries are now their own expectation, so the report on
+        // screen would otherwise keep flagging what the user just accepted.
+        setReport(current => {
+          if (!current || current.run.run_id !== runId) return current;
+          const targeted = entryIds ? new Set(entryIds) : null;
+          const results = current.results.map<ReplayEntryResult>(result => {
+            if (result.verdict === 'skipped') return result;
+            if (targeted && !targeted.has(result.entry_id)) return result;
+            return {
+              ...result,
+              verdict: 'match',
+              expected_row_count: result.row_count,
+              expected_digest: result.digest,
+              expected_execution_time_ms: result.execution_time_ms,
+            };
+          });
+          return { ...current, results, summary: summarizeVerdicts(results) };
+        });
+        notify.success(
+          entryIds
+            ? t('replay.referenceAcceptedEntries', { count: entryIds.length })
+            : t('replay.referenceAcceptedAll')
+        );
+        await refreshRuns(activeSlug);
+      } catch (err) {
+        notify.error(t('replay.errors.acceptRun'), String(err));
+      }
+    },
+    [activeSlug, refreshRuns, t]
+  );
+
   const updateIgnoredColumns = useCallback(
     async (columns: string[]) => {
       if (!activeSlug) return;
@@ -319,6 +382,8 @@ export function useReplay(sessionId: string | null) {
     endRecording,
     abortRecording,
     dropRecorded,
+    dropMutations,
+    acceptRun,
     replay,
     replayAb,
     abortReplay,

@@ -8,19 +8,28 @@
 
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::time::Instant;
 
+use chrono::{Duration, Utc};
 use parking_lot::RwLock;
 use tracing::{debug, info};
 
+use super::alerts::{Threshold, ThresholdMonitor, Thresholds};
 use super::audit::{AuditStats, AuditStore};
+use super::n_plus_one::NPlusOneDetector;
 use super::profiling::ProfilingStore;
 use super::safety::SafetyEngine;
+use super::trends::{self, FingerprintTrend, TrendFilter};
 use super::types::{
-    AuditLogEntry, BuiltinRuleOverride, Environment, InterceptorConfig, ProfilingMetrics,
-    QueryContext, QueryExecutionResult, QueryOperationType, QuerySource, SafetyCheckResult,
-    SafetyRule, SlowQueryEntry,
+    AuditLogEntry, BuiltinRuleOverride, Environment, InterceptorAlert, InterceptorConfig,
+    ProfilingMetrics, QueryContext, QueryExecutionResult, QueryOperationType, QuerySource,
+    RULE_ALERT_ERROR_RATE, RULE_ALERT_SLOW_QUERIES, RULE_N_PLUS_ONE, SafetyCheckResult, SafetyRule,
+    SlowQueryEntry,
 };
 use qore_sql::safety::SqlSafetyAnalysis;
+
+pub type AlertSink = Arc<dyn Fn(InterceptorAlert) + Send + Sync>;
 
 pub struct InterceptorPipeline {
     audit: Arc<AuditStore>,
@@ -28,6 +37,12 @@ pub struct InterceptorPipeline {
     safety: Arc<SafetyEngine>,
     config: RwLock<InterceptorConfig>,
     data_dir: PathBuf,
+    n_plus_one: NPlusOneDetector,
+    thresholds: ThresholdMonitor,
+    alert_sink: RwLock<Option<AlertSink>>,
+    /// N+1 detection and threshold alerts are Pro; the desktop app keeps
+    /// this in sync with the active licence.
+    pro_detection: AtomicBool,
 }
 
 impl InterceptorPipeline {
@@ -51,6 +66,28 @@ impl InterceptorPipeline {
             safety,
             config: RwLock::new(config),
             data_dir,
+            n_plus_one: NPlusOneDetector::default(),
+            thresholds: ThresholdMonitor::default(),
+            alert_sink: RwLock::new(None),
+            pro_detection: AtomicBool::new(false),
+        }
+    }
+
+    pub fn set_alert_sink(&self, sink: AlertSink) {
+        *self.alert_sink.write() = Some(sink);
+    }
+
+    pub fn set_pro_detection(&self, enabled: bool) {
+        self.pro_detection.store(enabled, Ordering::Relaxed);
+    }
+
+    fn pro_detection_enabled(&self) -> bool {
+        self.pro_detection.load(Ordering::Relaxed)
+    }
+
+    fn push_alert(&self, alert: InterceptorAlert) {
+        if let Some(sink) = self.alert_sink.read().as_ref() {
+            sink(alert);
         }
     }
 
@@ -271,7 +308,114 @@ impl InterceptorPipeline {
         entry.safety_rule = safety_rule.map(|s| s.to_string());
         entry.source = context.source;
 
+        if self.pro_detection_enabled() && !blocked {
+            self.detect_burst(&mut entry);
+        }
         self.audit.log(entry);
+
+        if self.pro_detection_enabled() && !blocked {
+            self.check_thresholds(context, result);
+        }
+    }
+
+    /// Tags the entry that crosses the N+1 threshold so the audit log carries
+    /// the repeated query itself, then notifies once for the session.
+    fn detect_burst(&self, entry: &mut AuditLogEntry) {
+        let Some(fingerprint) = entry.fingerprint.as_deref() else {
+            return;
+        };
+        let Some(count) = self
+            .n_plus_one
+            .observe(&entry.session_id, fingerprint, Instant::now())
+        else {
+            return;
+        };
+        entry.safety_rule = Some(RULE_N_PLUS_ONE.to_string());
+        self.push_alert(InterceptorAlert::NPlusOne {
+            session_id: entry.session_id.clone(),
+            fingerprint: fingerprint.to_string(),
+            query_preview: entry.query_preview.clone(),
+            count: count as u64,
+        });
+    }
+
+    fn check_thresholds(&self, context: &QueryContext, result: &QueryExecutionResult) {
+        let thresholds = {
+            let config = self.config.read();
+            Thresholds {
+                error_rate_percent: config.alert_error_rate_percent,
+                slow_queries_count: config.alert_slow_queries_count,
+            }
+        };
+        if thresholds.error_rate_percent.is_none() && thresholds.slow_queries_count.is_none() {
+            return;
+        }
+        let slow = result.execution_time_ms >= self.profiling.get_slow_threshold() as f64;
+        for fired in self
+            .thresholds
+            .observe(&thresholds, result.success, slow, Instant::now())
+        {
+            let (rule, description, alert) = match fired {
+                Threshold::ErrorRate {
+                    percent,
+                    threshold,
+                    total,
+                } => (
+                    RULE_ALERT_ERROR_RATE,
+                    format!(
+                        "Error rate {percent:.0}% over the last 15 minutes ({total} queries), threshold {threshold}%"
+                    ),
+                    InterceptorAlert::ErrorRate {
+                        percent,
+                        threshold,
+                        total,
+                    },
+                ),
+                Threshold::SlowQueries { count, threshold } => (
+                    RULE_ALERT_SLOW_QUERIES,
+                    format!("{count} slow queries in the last 15 minutes, threshold {threshold}"),
+                    InterceptorAlert::SlowQueries { count, threshold },
+                ),
+            };
+            let mut entry = AuditLogEntry::new(
+                context.session_id.clone(),
+                description,
+                context.environment,
+                context.driver_id.clone(),
+            );
+            entry.database = context.database.clone();
+            entry.success = true;
+            entry.safety_rule = Some(rule.to_string());
+            entry.fingerprint = None;
+            entry.source = context.source;
+            self.audit.log(entry);
+            self.push_alert(alert);
+        }
+    }
+
+    /// Trends come from the audit file, not the in-memory profiling store, so
+    /// they survive restarts; the file keeps the last `max_audit_entries`.
+    pub fn get_query_trends(
+        &self,
+        filter: &TrendFilter,
+        include_regressions: bool,
+    ) -> Result<Vec<FingerprintTrend>, String> {
+        let now = Utc::now();
+        let from = now - Duration::days(filter.days.max(1) as i64);
+        let entries = self
+            .audit
+            .get_entries_from_disk(0, 0, None, None, None, None, Some(from), None, None, None)
+            .map_err(|e| format!("Failed to read audit log: {e}"))?;
+        Ok(trends::compute_trends(
+            &entries,
+            filter,
+            now,
+            |samples, now| {
+                include_regressions
+                    .then(|| super::regression::detect(samples, now))
+                    .flatten()
+            },
+        ))
     }
 
     #[allow(clippy::too_many_arguments)]

@@ -31,8 +31,8 @@ pub fn map_environment(env: &str) -> Environment {
 }
 
 /// Origin of a query, for audit attribution: issued by the user, by the
-/// in-app AI agent, by an external client via the MCP server, or by a Query
-/// Replay Lab run.
+/// in-app AI agent, by an external client via the MCP server, by the `qore`
+/// CLI, or by a Query Replay Lab run.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum QuerySource {
@@ -40,6 +40,7 @@ pub enum QuerySource {
     User,
     Ai,
     Mcp,
+    Cli,
     Replay,
 }
 
@@ -325,7 +326,39 @@ pub struct InterceptorConfig {
     /// `[REDACTED]` on top of the driver-specific rules.
     #[serde(default)]
     pub redaction_patterns: Vec<String>,
+    /// Alert when the error rate over the last 15 minutes reaches this
+    /// percentage. `None` or 0 disables the alert.
+    #[serde(default)]
+    pub alert_error_rate_percent: Option<u32>,
+    /// Alert when this many slow queries ran in the last 15 minutes.
+    #[serde(default)]
+    pub alert_slow_queries_count: Option<u32>,
 }
+
+/// Pushed to the desktop app as it happens; also mirrored in the audit log.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum InterceptorAlert {
+    NPlusOne {
+        session_id: String,
+        fingerprint: String,
+        query_preview: String,
+        count: u64,
+    },
+    ErrorRate {
+        percent: f64,
+        threshold: u32,
+        total: u64,
+    },
+    SlowQueries {
+        count: u64,
+        threshold: u32,
+    },
+}
+
+pub const RULE_N_PLUS_ONE: &str = "n_plus_one";
+pub const RULE_ALERT_ERROR_RATE: &str = "alert_error_rate";
+pub const RULE_ALERT_SLOW_QUERIES: &str = "alert_slow_queries";
 
 /// Persisted enabled state for built-in rules
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -359,6 +392,8 @@ impl Default for InterceptorConfig {
             builtin_rule_overrides: Vec::new(),
             redact_enabled: true,
             redaction_patterns: Vec::new(),
+            alert_error_rate_percent: None,
+            alert_slow_queries_count: None,
         }
     }
 }

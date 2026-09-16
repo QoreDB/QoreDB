@@ -199,6 +199,7 @@ pub async fn fulltext_search(
     let session_manager = state.session_manager().await;
 
     let session = parse_session_id(&session_id)?;
+    let masking = session_manager.masking(session).await;
 
     let driver = match session_manager.get_driver(session).await {
         Ok(d) => d,
@@ -323,6 +324,7 @@ pub async fn fulltext_search(
     let matches_found_counter = Arc::new(std::sync::atomic::AtomicU32::new(0));
 
     let driver_ref = &driver;
+    let masking_ref = &masking;
     let strategy_ref = search_strategy.as_ref();
     let search_options_ref = &search_options;
     let capability_cache_ref = &capability_cache;
@@ -399,9 +401,18 @@ pub async fn fulltext_search(
                         );
                     }
                     let mut matches = Vec::new();
+                    // A masked column never counts as a match: a hit on it would
+                    // reveal what the hidden value contains.
+                    let mut masked_columns = query_result.columns.clone();
+                    let plan = masking_ref
+                        .as_ref()
+                        .map(|m| m.plan(Some(&table_name), &mut masked_columns));
 
                     for row in query_result.rows {
                         for (idx, col_info) in query_result.columns.iter().enumerate() {
+                            if masked_columns[idx].masked {
+                                continue;
+                            }
                             if let Some(value) = row.values.get(idx) {
                                 let col_name: String = col_info.name.as_str().to_lowercase();
                                 let is_searchable = text_column_set.contains(&col_name)
@@ -413,11 +424,15 @@ pub async fn fulltext_search(
                                         case_sensitive,
                                     )
                                 {
+                                    let mut preview_row = row.clone();
+                                    if let Some(plan) = &plan {
+                                        plan.apply_row(&mut preview_row);
+                                    }
                                     let row_preview: Vec<(String, Value)> = query_result
                                         .columns
                                         .iter()
-                                        .zip(row.values.iter())
-                                        .map(|(c, v)| (c.name.to_string(), v.clone()))
+                                        .zip(preview_row.values)
+                                        .map(|(c, v)| (c.name.to_string(), v))
                                         .collect();
 
                                     matches.push(FulltextMatch {

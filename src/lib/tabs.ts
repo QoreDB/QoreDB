@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import i18n from '../i18n';
 import type { Namespace, QueryResult, RelationFilter, SearchFilter } from './tauri';
 
 export type TabType =
@@ -191,7 +192,7 @@ export function createReplayTab(): OpenTab {
   return {
     id: generateTabId(),
     type: 'replay',
-    title: 'Query Replay',
+    title: i18n.t('replay.title'),
   };
 }
 

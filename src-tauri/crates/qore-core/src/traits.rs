@@ -461,6 +461,7 @@ pub trait DataEngine: Send + Sync {
             schema: self.supports_schema(),
             streaming: self.supports_streaming(),
             explain: self.supports_explain(),
+            explain_prefix: self.explain_prefix().map(str::to_string),
             maintenance: self.supports_maintenance(),
             pagination: self.pagination_capability(),
         }
@@ -519,6 +520,23 @@ pub trait DataEngine: Send + Sync {
     /// Check if the driver supports explain plans.
     fn supports_explain(&self) -> bool {
         false
+    }
+
+    /// Prefix to put before a statement to get its execution plan. The one
+    /// table every surface (editor, MCP, CLI) reads; SQL Server has no EXPLAIN
+    /// statement (plans come from `SET SHOWPLAN_*`), hence `None` there.
+    fn explain_prefix(&self) -> Option<&'static str> {
+        if !self.supports_explain() {
+            return None;
+        }
+        Some(match self.driver_id().to_ascii_lowercase().as_str() {
+            "mysql" | "mariadb" | "planetscale" => "EXPLAIN FORMAT=JSON",
+            "tidb" | "starrocks" | "doris" | "singlestore" | "bigquery" => "EXPLAIN",
+            "sqlite" => "EXPLAIN QUERY PLAN",
+            "snowflake" => "EXPLAIN USING TABULAR",
+            "sqlserver" | "azuresql" | "synapse" => return None,
+            _ => "EXPLAIN (FORMAT JSON)",
+        })
     }
 
     // Default implementations return NotSupported.

@@ -14,6 +14,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { insertRow, type RowData, updateRow } from '../../lib/tauri';
+import { changedDocumentFields } from './documentEditorUtils';
 import { MongoEditor } from './MongoEditor';
 
 interface DocumentEditorModalProps {
@@ -97,8 +98,17 @@ export function DocumentEditorModal({
         return;
       }
       const rowData: RowData = { columns: {} };
-      for (const [k, v] of Object.entries(parsed as Record<string, unknown>)) {
+      const fields =
+        mode === 'edit'
+          ? changedDocumentFields(JSON.parse(initialData), parsed as Record<string, unknown>)
+          : (parsed as Record<string, unknown>);
+      for (const [k, v] of Object.entries(fields)) {
         rowData.columns[k] = v as unknown as import('../../lib/tauri').Value;
+      }
+
+      if (mode === 'edit' && Object.keys(rowData.columns).length === 0) {
+        onClose();
+        return;
       }
 
       if (environment !== 'development') {
@@ -156,7 +166,11 @@ export function DocumentEditorModal({
           onSuccess();
           onClose();
         } else {
-          setError(result.error || t('rowModal.updateError'));
+          setError(
+            result.error === 'MASKED_FIELD_UPDATE'
+              ? t('grid.masking.readOnly')
+              : result.error || t('rowModal.updateError')
+          );
         }
       }
     } catch (err) {

@@ -70,6 +70,7 @@ interface QueryPanelToolbarProps {
   canCancel: boolean;
   connectionName?: string;
   connectionDatabase?: string;
+  connectionWarehouse?: string;
   activeNamespace?: Namespace | null;
   onExecute: () => void;
   onCancel: () => void;
@@ -106,6 +107,7 @@ export function QueryPanelToolbar({
   canCancel,
   connectionName,
   connectionDatabase,
+  connectionWarehouse,
   activeNamespace,
   onExecute,
   onCancel,
@@ -221,6 +223,15 @@ export function QueryPanelToolbar({
               )}
             </>
           )}
+        </span>
+      )}
+
+      {sessionId && connectionWarehouse && (
+        <span
+          className="truncate max-w-48 rounded-md border border-border bg-muted/50 px-2.5 py-1 text-xs text-muted-foreground"
+          title={connectionWarehouse}
+        >
+          {t('connection.snowflake.warehouse')}: {connectionWarehouse}
         </span>
       )}
 

@@ -30,6 +30,7 @@ import {
   type BackupOptions,
   cancelBackup,
   listenBackupProgress,
+  PG_BACKUP_DRIVERS,
   startBackup,
 } from '@/lib/tauri/backup';
 
@@ -41,15 +42,6 @@ interface BackupDialogProps {
 }
 
 type Phase = 'idle' | 'running' | 'done';
-
-const PG_DRIVERS = new Set([
-  'postgres',
-  'postgresql',
-  'supabase',
-  'neon',
-  'timescaledb',
-  'cockroachdb',
-]);
 
 function defaultExtension(driver: string, format: BackupFormat): string {
   if (driver === 'mongodb' || driver === 'documentdb') return 'archive';
@@ -94,7 +86,7 @@ export function BackupDialog({ connection, database, open, onClose }: BackupDial
   }, []);
 
   const driver = connection?.driver ?? 'postgres';
-  const isPostgres = PG_DRIVERS.has(driver);
+  const isPostgres = PG_BACKUP_DRIVERS.has(driver);
   const isDuckdb = driver === 'duckdb';
   // File-based engines store a path in `database`, unfit for a title.
   const titleName =

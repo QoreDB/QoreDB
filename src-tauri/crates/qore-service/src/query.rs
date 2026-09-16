@@ -2,6 +2,7 @@
 
 use std::sync::Arc;
 
+use qore_core::masking::{SessionMasking, mask_stream};
 use qore_core::{
     DataEngine, EngineError, Namespace, PaginatedQueryResult, QueryId, QueryResult, SessionId,
     StreamEvent, StreamSender, TableQueryOptions, TableSchema,
@@ -26,7 +27,7 @@ const READ_ONLY_BLOCKED: &str = "Operation blocked: read-only mode";
 const DANGEROUS_BLOCKED: &str = "Dangerous query blocked: confirmation required";
 const DANGEROUS_BLOCKED_POLICY: &str = "Dangerous query blocked by policy";
 const SQL_PARSE_BLOCKED: &str = "Operation blocked: SQL parser could not classify the query";
-const RATE_LIMIT_BLOCKED: &str =
+pub(crate) const RATE_LIMIT_BLOCKED: &str =
     "Operation blocked: query rate limit exceeded — too many queries in a short time";
 const SAFETY_RULE_BLOCKED: &str = "Query blocked by safety rule";
 
@@ -94,11 +95,24 @@ pub fn classify_mutation(driver_id: &str, query: &str) -> Option<bool> {
     let driver_lower = driver_id.to_ascii_lowercase();
     match driver_lower.as_str() {
         "mongodb" | "documentdb" => Some(is_mongo_mutation(query)),
-        "redis" | "valkey" | "dragonfly" => Some(is_redis_mutation(query)),
+        "redis" | "valkey" | "dragonfly" | "keydb" | "garnet" => Some(is_redis_mutation(query)),
         "elasticsearch" | "opensearch" => Some(is_search_mutation(query)),
         _ => sql_safety::analyze_sql(driver_id, query)
             .ok()
             .map(|a| a.is_mutation),
+    }
+}
+
+/// Masks `result` with the session's rules. Every path that returns rows
+/// outside `execute`, `preview_table` and `query_table` calls it itself.
+pub async fn apply_masking(
+    session_manager: &SessionManager,
+    session: SessionId,
+    table: Option<&str>,
+    result: &mut QueryResult,
+) {
+    if let Some(masking) = session_manager.masking(session).await {
+        masking.apply(table, result);
     }
 }
 
@@ -160,7 +174,8 @@ pub async fn preview_table(
     );
     if use_cache {
         if let Some(hit) = query_cache.get(&cache_key) {
-            if let Ok(result) = serde_json::from_str::<QueryResult>(&hit.value) {
+            if let Ok(mut result) = serde_json::from_str::<QueryResult>(&hit.value) {
+                apply_masking(session_manager, session, Some(table), &mut result).await;
                 return Ok(result);
             }
         }
@@ -178,12 +193,13 @@ pub async fn preview_table(
     )
     .await
     {
-        Ok(Ok(result)) => {
+        Ok(Ok(mut result)) => {
             if use_cache {
                 if let Ok(json) = serde_json::to_string(&result) {
                     query_cache.put(cache_key, connection_key.unwrap_or_default(), json);
                 }
             }
+            apply_masking(session_manager, session, Some(table), &mut result).await;
             Ok(result)
         }
         Ok(Err(e)) => Err(ServiceError::Engine(e)),
@@ -219,7 +235,8 @@ pub async fn query_table(
     );
     if use_cache {
         if let Some(hit) = query_cache.get(&cache_key) {
-            if let Ok(result) = serde_json::from_str::<PaginatedQueryResult>(&hit.value) {
+            if let Ok(mut result) = serde_json::from_str::<PaginatedQueryResult>(&hit.value) {
+                apply_masking(session_manager, session, Some(table), &mut result.result).await;
                 return Ok((result, Some(hit.age_ms)));
             }
         }
@@ -245,12 +262,13 @@ pub async fn query_table(
     )
     .await
     {
-        Ok(Ok(result)) => {
+        Ok(Ok(mut result)) => {
             if use_cache {
                 if let Ok(json) = serde_json::to_string(&result) {
                     query_cache.put(cache_key, connection_key.unwrap_or_default(), json);
                 }
             }
+            apply_masking(session_manager, session, Some(table), &mut result.result).await;
             Ok((result, None))
         }
         Ok(Err(e)) => Err(ServiceError::Engine(e)),
@@ -268,6 +286,7 @@ pub struct Preflight {
     pub is_sql_driver: bool,
     pub connection_key: Option<String>,
     pub safety_warning: Option<String>,
+    pub masking: Option<Arc<SessionMasking>>,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -341,7 +360,7 @@ pub async fn preflight_with_source(
     );
     let is_redis_driver = matches!(
         driver.driver_id().to_ascii_lowercase().as_str(),
-        "redis" | "valkey" | "dragonfly"
+        "redis" | "valkey" | "dragonfly" | "keydb" | "garnet"
     );
     let is_search_driver = matches!(
         driver.driver_id().to_ascii_lowercase().as_str(),
@@ -492,6 +511,7 @@ pub async fn preflight_with_source(
         is_sql_driver,
         connection_key,
         safety_warning,
+        masking: session_manager.masking(session).await,
     })
 }
 
@@ -525,11 +545,16 @@ pub async fn execute(
     bypass_limits: bool,
     sql_statements: Option<Vec<String>>,
     stream_sender: Option<StreamSender>,
+    masking: Option<Arc<SessionMasking>>,
     mut on_complete: impl FnMut(&QueryExecutionResult, Option<&QueryResult>),
 ) -> ExecuteOutcome {
     use tokio::time::{Duration, timeout};
 
     if let Some(sender) = stream_sender {
+        let sender = match &masking {
+            Some(masking) => mask_stream(Arc::clone(masking), None, sender),
+            None => sender,
+        };
         let error_sender = sender.clone();
         let start_time = std::time::Instant::now();
         let execution =
@@ -700,6 +725,11 @@ pub async fn execute(
     let outcome = match result {
         Ok(mut results) => {
             crate::metrics::record_query(duration_ms, true);
+            if let Some(masking) = &masking {
+                for result in &mut results {
+                    masking.apply(None, result);
+                }
+            }
 
             let mut primary = results.remove(0);
             primary.execution_time_ms = duration_ms;

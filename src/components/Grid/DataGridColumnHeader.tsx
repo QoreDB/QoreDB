@@ -1,7 +1,16 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { Column } from '@tanstack/react-table';
-import { ArrowDown, ArrowUp, ArrowUpDown, Fingerprint, KeyRound, Link2, Zap } from 'lucide-react';
+import {
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
+  EyeOff,
+  Fingerprint,
+  KeyRound,
+  Link2,
+  Zap,
+} from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { TooltipContent, TooltipRoot, TooltipTrigger } from '@/components/ui/tooltip';
@@ -21,6 +30,7 @@ export interface DataGridColumnHeaderProps {
   isCompositeIndex?: boolean;
   /** Server-side sort on this column has no index to follow. */
   sortScansTable?: boolean;
+  isMasked?: boolean;
 }
 
 export function DataGridColumnHeader({
@@ -35,6 +45,7 @@ export function DataGridColumnHeader({
   indexName,
   isCompositeIndex = false,
   sortScansTable = false,
+  isMasked = false,
 }: DataGridColumnHeaderProps) {
   const { t } = useTranslation();
 
@@ -89,6 +100,16 @@ export function DataGridColumnHeader({
             {isCompositeIndex
               ? t('grid.columnIndicators.indexComposite', { name: indexName })
               : t('grid.columnIndicators.indexed')}
+          </TooltipContent>
+        </TooltipRoot>
+      )}
+      {isMasked && (
+        <TooltipRoot>
+          <TooltipTrigger asChild>
+            <EyeOff size={12} className="shrink-0 text-warning" />
+          </TooltipTrigger>
+          <TooltipContent side="bottom" className="max-w-xs">
+            {t('grid.columnIndicators.masked')}
           </TooltipContent>
         </TooltipRoot>
       )}

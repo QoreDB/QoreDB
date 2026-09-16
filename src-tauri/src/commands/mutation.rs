@@ -92,6 +92,13 @@ pub async fn insert_row(
     match driver.insert_row(session, &namespace, &table, &data).await {
         Ok(mut result) => {
             result.execution_time_ms = start_time.elapsed().as_micros() as f64 / 1000.0;
+            qore_service::query::apply_masking(
+                &session_manager,
+                session,
+                Some(&table),
+                &mut result,
+            )
+            .await;
             interceptor.post_execute(
                 &interceptor_context,
                 &QueryExecutionResult {
@@ -190,6 +197,22 @@ pub async fn update_row(
         format_table_ref(&database, &schema, &table)
     );
 
+    if let Err(error) = qore_service::mutation::check_update_masking(
+        &session_manager,
+        session,
+        &table,
+        &primary_key,
+        &data,
+    )
+    .await
+    {
+        return Ok(MutationResponse {
+            success: false,
+            result: None,
+            error: Some(error),
+        });
+    }
+
     let preflight = match qore_service::mutation::preflight(
         &session_manager,
         &interceptor,
@@ -233,6 +256,13 @@ pub async fn update_row(
     {
         Ok(mut result) => {
             result.execution_time_ms = start_time.elapsed().as_micros() as f64 / 1000.0;
+            qore_service::query::apply_masking(
+                &session_manager,
+                session,
+                Some(&table),
+                &mut result,
+            )
+            .await;
             interceptor.post_execute(
                 &interceptor_context,
                 &QueryExecutionResult {
@@ -374,6 +404,13 @@ pub async fn delete_row(
     {
         Ok(mut result) => {
             result.execution_time_ms = start_time.elapsed().as_micros() as f64 / 1000.0;
+            qore_service::query::apply_masking(
+                &session_manager,
+                session,
+                Some(&table),
+                &mut result,
+            )
+            .await;
             interceptor.post_execute(
                 &interceptor_context,
                 &QueryExecutionResult {

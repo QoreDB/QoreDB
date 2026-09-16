@@ -5,7 +5,7 @@
 
 **One app for all your databases.**
 
-The fast, open-source database client built with Rust. Connect to **15 native drivers** from a single, beautiful interface. Local-first: your data stays yours.
+The fast, open-source database client built with Rust. Connect to **34 supported databases** from a single, beautiful interface. Local-first: your data stays yours.
 
 [![License](https://img.shields.io/badge/license-Apache--2.0%20%2F%20BUSL--1.1-blue?style=flat-square)](LICENSE)
 [![Release](https://img.shields.io/github/v/release/QoreDB/QoreDB?include_prereleases&style=flat-square&color=8b5cf6&cacheSeconds=86400)](https://github.com/QoreDB/QoreDB/releases)
@@ -17,7 +17,7 @@ The fast, open-source database client built with Rust. Connect to **15 native dr
 
 [**Website**](https://qoredb.com) · [**Download**](https://qoredb.com/download) · [**Docs**](https://qoredb.com/docs) · [**Roadmap**](https://qoredb.com/roadmap) · [**Discord**](https://discord.gg/Yr6P3wuZDt)
 
-<sub>10,000+ downloads · 15 database drivers · Two releases a month · Used in production by indie devs and startups.</sub>
+<sub>10,000+ downloads · 34 supported databases · Two releases a month · Used in production by indie devs and startups.</sub>
 
   <img src="doc/screenshots/query-screen.png" alt="QoreDB SQL editor and result grid" width="100%" />
 
@@ -34,7 +34,7 @@ DBeaver, pgAdmin, phpMyAdmin do the job — but they feel slow, dated, and full 
 | ⚡ **Native performance** | Rust + Tauri. No Electron tax — small binary, instant startup, low memory. ~25% faster on real workloads than the previous baseline (Apple Silicon). |
 | 🔒 **Local-first & secure** | Credentials in your OS keychain (Argon2). Dev/Staging/Prod guards, dangerous query detection, read-only mode. |
 | 🕵️ **Zero telemetry** | No analytics SDK ships in the binary — nothing to opt out of. Your data, queries and credentials never leave your machine. Crash reports stay on disk until *you* choose to share one, and log exports are scrubbed of credentials. The only outbound call is the GitHub update check: it never fires before you've been through onboarding, and you can switch it off. |
-| 🧩 **SQL + NoSQL, unified** | One UI for PostgreSQL, MySQL, MariaDB, SQL Server, SQLite, DuckDB, CockroachDB, ClickHouse, MongoDB, Redis, Valkey, Dragonfly, Elasticsearch and OpenSearch — plus first-class support for Supabase, Neon, PlanetScale, Amazon DocumentDB, MotherDuck and TimescaleDB. |
+| 🧩 **SQL + NoSQL, unified** | One UI for PostgreSQL, MySQL, MariaDB, TiDB, SingleStore, YugabyteDB, SQL Server, Azure SQL, SQLite, DuckDB, StarRocks, Doris, Synapse, Snowflake, BigQuery, CockroachDB, ClickHouse, MongoDB, Redis, Valkey, Dragonfly, KeyDB, Garnet, Cassandra, ScyllaDB, Elasticsearch and OpenSearch — plus first-class support for Supabase, Neon, PlanetScale, Amazon DocumentDB, Amazon Keyspaces, MotherDuck and TimescaleDB. |
 | 📓 **Notebooks built-in** | Executable SQL/Mongo + Markdown documents with parameters, charts and Git-diffable `.qnb` files. |
 | 🛡️ **Safety-first** | Universal Query Interceptor, audit logging, sandbox mode with migration generation. Production damage is harder to do by accident. |
 | 🤝 **Open core** | Apache 2.0 core, readable and auditable. Premium add-ons under BUSL-1.1 — never at the expense of the open-source experience. |
@@ -48,16 +48,30 @@ DBeaver, pgAdmin, phpMyAdmin do the job — but they feel slow, dated, and full 
   <img src="public/databases/mysql.png" alt="MySQL" height="40" />&nbsp;&nbsp;
   <img src="public/databases/mariadb.png" alt="MariaDB" height="40" />&nbsp;&nbsp;
   <img src="public/databases/planetscale.png" alt="PlanetScale" height="40" />&nbsp;&nbsp;
+  <img src="public/databases/tidb.png" alt="TiDB" height="40" />&nbsp;&nbsp;
+  <img src="public/databases/singlestore.png" alt="SingleStore" height="40" />&nbsp;&nbsp;
   <img src="public/databases/sqlserver.png" alt="SQL Server" height="40" />&nbsp;&nbsp;
+  <img src="public/databases/azuresql.png" alt="Azure SQL" height="40" />&nbsp;&nbsp;
+  <img src="public/databases/synapse.png" alt="Azure Synapse" height="40" />&nbsp;&nbsp;
   <img src="public/databases/sqlite.png" alt="SQLite" height="40" />&nbsp;&nbsp;
   <img src="public/databases/duckdb.png" alt="DuckDB" height="40" />&nbsp;&nbsp;
   <img src="public/databases/motherduck.png" alt="MotherDuck" height="40" />&nbsp;&nbsp;
   <img src="public/databases/cockroachdb.png" alt="CockroachDB" height="40" />&nbsp;&nbsp;
+  <img src="public/databases/yugabytedb.png" alt="YugabyteDB" height="40" />&nbsp;&nbsp;
+  <img src="public/databases/starrocks.png" alt="StarRocks" height="40" />&nbsp;&nbsp;
+  <img src="public/databases/doris.png" alt="Apache Doris" height="40" />&nbsp;&nbsp;
   <img src="public/databases/mongodb.png" alt="MongoDB" height="40" />&nbsp;&nbsp;
   <img src="public/databases/documentdb.png" alt="Amazon DocumentDB" height="40" />&nbsp;&nbsp;
   <img src="public/databases/redis.png" alt="Redis" height="40" />&nbsp;&nbsp;
   <img src="public/databases/valkey.png" alt="Valkey" height="40" />&nbsp;&nbsp;
   <img src="public/databases/dragonfly.png" alt="Dragonfly" height="40" />&nbsp;&nbsp;
+  <img src="public/databases/keydb.png" alt="KeyDB" height="40" />&nbsp;&nbsp;
+  <img src="public/databases/garnet.png" alt="Garnet" height="40" />&nbsp;&nbsp;
+  <img src="public/databases/cassandra.png" alt="Cassandra" height="40" />&nbsp;&nbsp;
+  <img src="public/databases/scylladb.png" alt="ScyllaDB" height="40" />&nbsp;&nbsp;
+  <img src="public/databases/keyspaces.png" alt="Amazon Keyspaces" height="40" />&nbsp;&nbsp;
+  <img src="public/databases/snowflake.png" alt="Snowflake" height="40" />&nbsp;&nbsp;
+  <img src="public/databases/bigquery.png" alt="BigQuery" height="40" />&nbsp;&nbsp;
   <img src="public/databases/supabase.png" alt="Supabase" height="40" />&nbsp;&nbsp;
   <img src="public/databases/neon.png" alt="Neon" height="40" />&nbsp;&nbsp;
   <img src="public/databases/timescaledb.png" alt="TimescaleDB" height="40" />&nbsp;&nbsp;
@@ -154,7 +168,14 @@ DBeaver, pgAdmin, phpMyAdmin do the job — but they feel slow, dated, and full 
 - **Redis** — Create, edit and delete keys and values across all Redis types from the UI, with Lua script evaluation
 - **Valkey** — Same driver and same features as Redis; connects over `valkey://` / `valkeys://` or the Redis schemes
 - **Dragonfly** — Same driver and same features as Redis; connects over the Redis schemes
+- **KeyDB and Garnet** — Redis protocol support with their own connection identity and icon
 - **PlanetScale** — Same driver and same features as MySQL, with TLS forced on connect
+- **TiDB, StarRocks, Apache Doris and SingleStore** — MySQL protocol connections with engine-specific ports, identities and conservative capabilities
+- **YugabyteDB** — PostgreSQL protocol support with YugabyteDB's default database and port
+- **Azure SQL and Azure Synapse** — SQL Server protocol support with TLS forced on connect; Synapse keeps mutation and visual DDL actions disabled across dedicated and serverless endpoints
+- **Cassandra and ScyllaDB** — Wide-column browsing over a CQL client written against the protocol, with native cursor pagination, row editing that requires the full primary key, and guards against ring-wide scans. Amazon Keyspaces runs on the same client with TLS forced on port 9142 and service-specific credentials
+- **Snowflake** — Cloud warehouse access over the SQL API with key-pair JWT or access-token authentication, warehouse and role per connection, and real statement cancellation
+- **BigQuery** — Service-account access over the REST API across every project the account can see, free previews through table storage reads, and an automatic scan estimate with confirmation before editor queries run
 </details>
 
 <details>
@@ -211,7 +232,7 @@ DBeaver, pgAdmin, phpMyAdmin do the job — but they feel slow, dated, and full 
 | | **QoreDB** | DBeaver | TablePlus | pgAdmin |
 |---|---|---|---|---|
 | Open source core | ✅ Apache 2.0 | ⚪ Community | ❌ No | ✅ Yes |
-| Multi-database (SQL + NoSQL) | ✅ 15 drivers | ✅ Yes | ⚪ Limited | ❌ PG only |
+| Multi-database (SQL + NoSQL) | ✅ 31 databases | ✅ Yes | ⚪ Limited | ❌ PG only |
 | Native performance | ✅ Rust/Tauri | ❌ Java/Swing | ✅ Native | ❌ Web-based |
 | Local-first / no cloud | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes |
 | Encrypted credential vault | ✅ Argon2 | ⚪ Basic | ✅ Keychain | ❌ No |
@@ -250,7 +271,7 @@ yay -S qoredb-bin
 
 ### Build from source
 
-**Prerequisites:** Node.js 18+, pnpm, Rust 1.70+, [Tauri system dependencies](https://tauri.app/start/prerequisites/).
+**Prerequisites:** Node.js 22.12+ (22.x as in CI), the pnpm version pinned in `package.json`, Rust stable, and [Tauri system dependencies](https://v2.tauri.app/start/prerequisites/). See [contributor setup](CONTRIBUTING.md).
 
 ```bash
 git clone https://github.com/QoreDB/QoreDB.git
@@ -295,20 +316,44 @@ sudo apt-get install -y \
 | `Cmd/Ctrl + S` | Save |
 | `Cmd/Ctrl + ,` | Settings |
 
+## AI agents and MCP
+
+QoreDB ships `qore-mcp`, a [Model Context Protocol](https://modelcontextprotocol.io) server that gives Claude Desktop, Claude Code, Cursor and any other MCP client read-only access to your saved connections. The binary is installed next to the app and can be downloaded on its own from the release assets (`qore-tools-<target>.tar.gz` / `.zip`).
+
+Nothing is exposed by default: switch a connection on under **Settings > AI agents** and it appears to agents. Every agent session is forced read-only, goes through the safety policy (row cap, timeout, rate limit) and is written to the audit log. Sessions idle for ten minutes are closed. With a Pro license, column masking rules set on the connection also apply to agent results, and agents cannot alias, filter or sort a masked column.
+
+```json
+{
+  "mcpServers": {
+    "qoredb": {
+      "command": "/path/to/qore-mcp"
+    }
+  }
+}
+```
+
+For Claude Code: `claude mcp add qoredb -- /path/to/qore-mcp`. Launched from a project folder that holds a `.qoredb` workspace, the server reads that workspace's connections, like the app does; `--workspace <dir>` selects one explicitly. **Settings > AI agents** shows the detected binary path and ready-to-copy snippets.
+
+Tools: `list_connections`, `list_namespaces`, `list_tables`, `describe_table`, `preview_table`, `search_schema`, `run_query`, `explain_query`, `list_saved_queries` and `run_saved_query` (the query library of the `.qoredb` workspace, variables substituted as literals), and `run_federated_query` (Pro license: joins across exposed connections in an ephemeral DuckDB with no file or network access). Resources `qore://{connection_id}` list a connection's tables and `qore://{connection_id}/{database}/{table}` return a table schema; prompts `audit_table`, `explain_slow_query` and `document_schema` package common workflows. The `qore` CLI applies the same exposure rule.
+
 ---
 
 ## Development
 
-**Frontend:** React 19 · TypeScript 5.9 · Vite 8 · Tailwind CSS 4 · Radix UI · CodeMirror 6 · TanStack Table · i18next
-**Backend:** Rust 2024 · Tauri 2.10 · Tokio · SQLx (PostgreSQL, MySQL, SQLite) · Tiberius + bb8 (SQL Server) · MongoDB &amp; Redis native drivers · DuckDB (embedded analytics + federation)
+See the [documentation index](doc/README.md), [architecture map](doc/development/ARCHITECTURE.md),
+and [testing matrix](doc/development/TESTING.md) for contributor workflows.
+
+**Frontend:** React 19 · TypeScript 6 · Vite 8 · Tailwind CSS 4 · Radix UI · CodeMirror 6 · TanStack Table · i18next
+**Backend:** Rust 2024 · Tauri 2 · Tokio · SQLx (PostgreSQL, MySQL, SQLite) · Tiberius + bb8 (SQL Server) · MongoDB &amp; Redis native drivers · DuckDB (embedded analytics + federation)
 
 ```bash
 pnpm tauri dev              # run app in dev mode (hot reload)
 pnpm tauri build            # build production app
-pnpm lint:fix               # lint + auto-fix
-pnpm format:write           # format code
-pnpm test                   # run Rust tests
-docker-compose up -d        # start dev databases
+pnpm check                  # Biome checks (no file writes)
+pnpm typecheck              # TypeScript validation
+pnpm docs:check             # documentation and repository conventions
+pnpm test                   # TypeScript tests, then desktop Rust tests
+docker compose up -d postgres # start the selected test database
 ```
 
 For project structure, architecture notes and contribution workflow, see [CONTRIBUTING.md](CONTRIBUTING.md) and [`doc/`](doc/).
@@ -330,7 +375,7 @@ For project structure, architecture notes and contribution workflow, see [CONTRI
 Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a PR. In short:
 
 1. Fork the repo and create a feature branch
-2. Run `pnpm lint:fix` and `pnpm test` before pushing
+2. Run the [checks for the affected surface](doc/development/TESTING.md) before pushing
 3. Add the SPDX license header to new files (`Apache-2.0` for core, `BUSL-1.1` for premium)
 4. Open a PR — we'll review, suggest changes, and ship it
 

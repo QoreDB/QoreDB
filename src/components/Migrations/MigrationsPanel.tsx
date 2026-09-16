@@ -37,7 +37,11 @@ import { isMySqlFamily } from '@/lib/connection/driverCapabilities';
 import type { Driver } from '@/lib/connection/drivers';
 import type { DdlWarning } from '@/lib/ddl';
 import { loadBaselineFile, saveBaseline, useBaseline } from '@/lib/migrations/baselineStore';
-import { NON_TX_DDL_DRIVERS, SCHEMA_MIGRATION_DRIVERS } from '@/lib/migrations/drivers';
+import {
+  NON_TX_DDL_DRIVERS,
+  SCHEMA_DIFF_DRIVERS,
+  SCHEMA_MIGRATION_DRIVERS,
+} from '@/lib/migrations/drivers';
 import { loadMigrations, useMigrationsStore } from '@/lib/migrations/migrationsStore';
 import {
   buildMigrationFilename,
@@ -116,11 +120,12 @@ export function MigrationsPanel({
 
   const isDefault = activeWorkspace == null || activeWorkspace.source === 'default';
   const driverSupported = driver != null && SCHEMA_MIGRATION_DRIVERS.has(driver);
+  const schemaDiffSupported = driver != null && SCHEMA_DIFF_DRIVERS.has(driver);
   const requiresTargetDatabase = !!driver && isMySqlFamily(driver);
   const databaseReady = !requiresTargetDatabase || targetDatabase.length > 0;
   const canApply = !!sessionId && driverSupported && !readOnly && databaseReady;
 
-  const schemaDiffAvailable = !!sessionId && !!connectionId && driverSupported && databaseReady;
+  const schemaDiffAvailable = !!sessionId && !!connectionId && schemaDiffSupported && databaseReady;
   const hasSchemaDiff = isFeatureEnabled('schema_diff');
   const canGenerate = schemaDiffAvailable && hasSchemaDiff;
   const baseline = useBaseline(connectionId ?? null, targetDatabase || undefined);
@@ -354,7 +359,7 @@ export function MigrationsPanel({
   );
 
   const handleCaptureBaseline = useCallback(async () => {
-    if (!sessionId || !connectionId || !driverSupported) return;
+    if (!sessionId || !connectionId || !schemaDiffSupported) return;
     setCapturing(true);
     try {
       const { snapshot, failedTables } = await captureSnapshot(
@@ -373,10 +378,10 @@ export function MigrationsPanel({
     } finally {
       setCapturing(false);
     }
-  }, [sessionId, connectionId, driverSupported, driver, targetDatabase, t]);
+  }, [sessionId, connectionId, schemaDiffSupported, driver, targetDatabase, t]);
 
   const handleGenerate = useCallback(async () => {
-    if (!sessionId || !connectionId || !driverSupported || !baseline) return;
+    if (!sessionId || !connectionId || !schemaDiffSupported || !baseline) return;
     setGenerating(true);
     try {
       const { snapshot: live, failedTables } = await captureSnapshot(
@@ -431,10 +436,19 @@ export function MigrationsPanel({
     } finally {
       setGenerating(false);
     }
-  }, [sessionId, connectionId, driverSupported, driver, targetDatabase, baseline, migrations, t]);
+  }, [
+    sessionId,
+    connectionId,
+    schemaDiffSupported,
+    driver,
+    targetDatabase,
+    baseline,
+    migrations,
+    t,
+  ]);
 
   const handleCheckDrift = useCallback(async () => {
-    if (!sessionId || !driverSupported || !baseline) return;
+    if (!sessionId || !schemaDiffSupported || !baseline) return;
     setCheckingDrift(true);
     try {
       const { snapshot: live, failedTables } = await captureSnapshot(
@@ -457,7 +471,7 @@ export function MigrationsPanel({
     } finally {
       setCheckingDrift(false);
     }
-  }, [sessionId, driverSupported, driver, targetDatabase, baseline, t]);
+  }, [sessionId, schemaDiffSupported, driver, targetDatabase, baseline, t]);
 
   if (isDefault) {
     return (

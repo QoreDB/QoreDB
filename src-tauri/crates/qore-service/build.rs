@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Injects PUBLIC_KEY_BASE64 (read by license/key.rs via env!) at compile time.
 fn main() {
     let _ = dotenvy::from_path("../../../.env");

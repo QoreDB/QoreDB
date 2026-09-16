@@ -11,16 +11,29 @@ use crate::license::status::{LicenseStatus, LicenseTier};
 /// calls are proxied through these Rust commands.
 const SITE_BASE_URL: &str = "https://www.qoredb.com";
 
+/// The interceptor's Pro detections (N+1, threshold alerts) follow the
+/// licence in force; call after anything that changes it.
+pub(crate) fn sync_pro_detection(state: &crate::AppState) {
+    let pro = state
+        .license_manager
+        .effective_status()
+        .tier
+        .includes(crate::license::status::LicenseTier::Pro);
+    state.interceptor.set_pro_detection(pro);
+}
+
 #[tauri::command]
 pub async fn activate_license(
     state: State<'_, SharedState>,
     key: String,
 ) -> Result<LicenseStatus, String> {
     let mut state = state.lock().await;
-    state
+    let status = state
         .license_manager
         .activate(&key)
-        .map_err(|e| e.to_string())
+        .map_err(|e| e.to_string())?;
+    sync_pro_detection(&state);
+    Ok(status)
 }
 
 #[tauri::command]
@@ -38,7 +51,9 @@ pub async fn deactivate_license(state: State<'_, SharedState>) -> Result<(), Str
     state
         .license_manager
         .deactivate()
-        .map_err(|e| e.to_string())
+        .map_err(|e| e.to_string())?;
+    sync_pro_detection(&state);
+    Ok(())
 }
 
 #[derive(Deserialize)]
@@ -80,10 +95,12 @@ pub async fn refresh_license(state: State<'_, SharedState>) -> Result<LicenseSta
         .map_err(|e| format!("REFRESH_INVALID_RESPONSE: {e}"))?;
 
     let mut state = state.lock().await;
-    state
+    let status = state
         .license_manager
         .activate(&body.license_key)
-        .map_err(|e| e.to_string())
+        .map_err(|e| e.to_string())?;
+    sync_pro_detection(&state);
+    Ok(status)
 }
 
 #[derive(Deserialize)]
@@ -135,6 +152,7 @@ pub async fn dev_set_license_tier(
 ) -> Result<LicenseStatus, String> {
     let mut state = state.lock().await;
     state.license_manager.set_dev_override(tier);
+    sync_pro_detection(&state);
     Ok(state.license_manager.effective_status())
 }
 

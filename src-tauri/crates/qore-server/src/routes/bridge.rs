@@ -277,6 +277,7 @@ async fn execute_query(state: &AppState, args: &Value) -> Json<Value> {
         bypass_limits,
         None,
         None,
+        pf.masking.clone(),
         |_, _| {},
     )
     .await;

@@ -4,6 +4,8 @@ import { useSyncExternalStore } from 'react';
 import { UI_EVENT_OPEN_LOGS } from '../events/uiEvents';
 import type { SavedConnection } from '../tauri';
 
+export type AuditLogTab = 'audit' | 'profiling' | 'slow' | 'trends';
+
 interface ModalState {
   searchOpen: boolean;
   fulltextSearchOpen: boolean;
@@ -12,6 +14,7 @@ interface ModalState {
   logsOpen: boolean;
   paginationMetricsOpen: boolean;
   auditLogOpen: boolean;
+  auditLogTab: AuditLogTab;
   contractsOpen: boolean;
   instantApiOpen: boolean;
   settingsOpen: boolean;
@@ -51,6 +54,7 @@ let state: ModalState = {
   logsOpen: false,
   paginationMetricsOpen: false,
   auditLogOpen: false,
+  auditLogTab: 'audit',
   contractsOpen: false,
   instantApiOpen: false,
   settingsOpen: false,
@@ -126,9 +130,8 @@ export function setPaginationMetricsOpen(open: boolean) {
   updateState({ paginationMetricsOpen: open });
 }
 
-export function setAuditLogOpen(open: boolean) {
-  if (state.auditLogOpen === open) return;
-  updateState({ auditLogOpen: open });
+export function setAuditLogOpen(open: boolean, tab: AuditLogTab = 'audit') {
+  updateState({ auditLogOpen: open, auditLogTab: open ? tab : state.auditLogTab });
 }
 
 export function setContractsOpen(open: boolean) {

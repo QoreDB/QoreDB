@@ -5,7 +5,16 @@ import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { AiAssistantPanel } from '@/components/AI/AiAssistantPanel';
 import { InlineEditDialog } from '@/components/AI/InlineEditDialog';
+import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { UI_EVENT_AI_INLINE_EDIT, UI_EVENT_OPEN_HISTORY } from '@/lib/events/uiEvents';
+import { estimateBigQueryScan } from '@/lib/query/bigqueryEstimate';
 import { createNotebookTab } from '@/lib/tabs';
 import { recordQueryAndMaybeNotify } from '@/lib/usageBanner';
 import { useLicense } from '@/providers/LicenseProvider';
@@ -103,8 +112,10 @@ interface QueryPanelProps {
   driverCapabilities?: DriverCapabilities | null;
   environment?: Environment;
   readOnly?: boolean;
+  connectionId?: string;
   connectionName?: string;
   connectionDatabase?: string;
+  connectionWarehouse?: string;
   activeNamespace?: Namespace | null;
   initialQuery?: string;
   onSchemaChange?: () => void;
@@ -122,8 +133,10 @@ export function QueryPanel({
   driverCapabilities = null,
   environment = 'development',
   readOnly = false,
+  connectionId,
   connectionName,
   connectionDatabase,
+  connectionWarehouse,
   activeNamespace,
   initialQuery,
   onSchemaChange,
@@ -156,6 +169,23 @@ export function QueryPanel({
   const [dangerConfirmLabel, setDangerConfirmLabel] = useState<string | undefined>(undefined);
   const [dangerConfirmInfo, setDangerConfirmInfo] = useState<string | undefined>(undefined);
   const [pendingQuery, setPendingQuery] = useState<string | null>(null);
+  const [scanEstimate, setScanEstimate] = useState<{
+    query: string;
+    sessionId: string;
+    namespace: string;
+    bytes: number | null;
+    acknowledgedDangerous: boolean;
+    bypassLimits: boolean;
+  } | null>(null);
+  const scanRequest = useRef(0);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: A context change invalidates pending scan estimates.
+  useEffect(() => {
+    scanRequest.current += 1;
+    setScanEstimate(null);
+    return () => {
+      scanRequest.current += 1;
+    };
+  }, [sessionId, activeNamespace?.database, activeNamespace?.schema, connectionDatabase]);
   const [overrideDialogOpen, setOverrideDialogOpen] = useState(false);
   const [overrideKind, setOverrideKind] = useState<OverrideLimitsKind>('truncated');
   const [pendingOverrideQuery, setPendingOverrideQuery] = useState<string | null>(null);
@@ -244,7 +274,8 @@ export function QueryPanel({
       queryToRun: string,
       acknowledgedDangerous = false,
       kind: QueryResultEntry['kind'] = 'query',
-      bypassLimits = false
+      bypassLimits = false,
+      acknowledgedScan = false
     ) => {
       if (!sessionId) {
         setPanelError(t('query.noConnectionError'));
@@ -375,6 +406,29 @@ export function QueryPanel({
           kind === 'query' &&
           !isDocument &&
           isFederationQuery(queryToRun, federationAliasSet);
+
+        if (
+          dialect === Driver.BigQuery &&
+          kind === 'query' &&
+          !isFederated &&
+          !acknowledgedScan &&
+          !/^\s*EXPLAIN\s/i.test(queryToRun)
+        ) {
+          const request = ++scanRequest.current;
+          const namespace =
+            activeNamespace ?? (connectionDatabase ? { database: connectionDatabase } : undefined);
+          const bytes = await estimateBigQueryScan(sessionId, queryToRun, namespace);
+          if (request !== scanRequest.current) return;
+          setScanEstimate({
+            query: queryToRun,
+            sessionId,
+            namespace: JSON.stringify(namespace),
+            bytes,
+            acknowledgedDangerous,
+            bypassLimits,
+          });
+          return;
+        }
 
         const response = isFederated
           ? await executeFederationQuery(queryToRun, buildAliasMap(federationSources), {
@@ -733,6 +787,7 @@ export function QueryPanel({
     }
 
     setCancelling(true);
+    scanRequest.current += 1;
     try {
       await cancelQuery(sessionId, activeQueryId ?? undefined);
     } catch (err) {
@@ -786,24 +841,12 @@ export function QueryPanel({
     const queryToExplain = selection && selection.trim().length > 0 ? selection : query;
     if (!queryToExplain.trim()) return;
     const trimmed = queryToExplain.replace(/;+\s*$/, '');
+    // The driver declares its own EXPLAIN syntax; the PostgreSQL form is the
+    // fallback while capabilities are still loading.
+    const prefix = driverCapabilities?.explain_prefix ?? 'EXPLAIN (FORMAT JSON)';
 
-    let explainQuery: string;
-    switch (dialect) {
-      case Driver.Mysql:
-      case Driver.Mariadb:
-      case Driver.PlanetScale:
-        explainQuery = `EXPLAIN FORMAT=JSON ${trimmed}`;
-        break;
-      case Driver.Sqlite:
-        explainQuery = `EXPLAIN QUERY PLAN ${trimmed}`;
-        break;
-      default:
-        explainQuery = `EXPLAIN (FORMAT JSON) ${trimmed}`;
-        break;
-    }
-
-    await runQuery(explainQuery, false, 'explain');
-  }, [sessionId, isDocument, isExplainSupported, query, runQuery, dialect]);
+    await runQuery(`${prefix} ${trimmed}`, false, 'explain');
+  }, [sessionId, isDocument, isExplainSupported, query, runQuery, driverCapabilities]);
 
   const handleToggleKeepResults = useCallback(() => {
     setKeepResults(prev => {
@@ -1019,6 +1062,7 @@ export function QueryPanel({
         canCancel={canCancel}
         connectionName={connectionName}
         connectionDatabase={connectionDatabase}
+        connectionWarehouse={dialect === Driver.Snowflake ? connectionWarehouse : undefined}
         activeNamespace={activeNamespace}
         onExecute={handleExecuteCurrent}
         onCancel={handleCancel}
@@ -1107,6 +1151,7 @@ export function QueryPanel({
           activeResultId={activeResultId}
           isDocumentBased={isDocument}
           sessionId={sessionId}
+          connectionId={connectionId}
           connectionName={connectionName}
           connectionDatabase={connectionDatabase}
           environment={environment}
@@ -1196,6 +1241,57 @@ export function QueryPanel({
         confirmLabel={t('common.confirm')}
         onConfirm={handleDangerConfirm}
       />
+
+      <Dialog
+        open={scanEstimate !== null}
+        onOpenChange={open => {
+          if (!open) setScanEstimate(null);
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t('query.bigqueryScan.title')}</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            {scanEstimate?.bytes == null
+              ? t('query.bigqueryScan.unknown')
+              : t('query.bigqueryScan.bytes', { bytes: scanEstimate.bytes.toLocaleString() })}
+          </p>
+          <p className="text-sm text-muted-foreground">{t('query.bigqueryScan.hint')}</p>
+          <pre className="max-h-40 overflow-auto whitespace-pre-wrap rounded-md bg-muted p-3 text-xs">
+            {scanEstimate?.query}
+          </pre>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setScanEstimate(null)}>
+              {t('common.cancel')}
+            </Button>
+            <Button
+              onClick={() => {
+                const pending = scanEstimate;
+                setScanEstimate(null);
+                const namespace =
+                  activeNamespace ??
+                  (connectionDatabase ? { database: connectionDatabase } : undefined);
+                if (
+                  pending &&
+                  pending.sessionId === sessionId &&
+                  pending.namespace === JSON.stringify(namespace)
+                ) {
+                  void runQuery(
+                    pending.query,
+                    pending.acknowledgedDangerous,
+                    'query',
+                    pending.bypassLimits,
+                    true
+                  );
+                }
+              }}
+            >
+              {t('common.confirm')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <DocumentEditorModal
         isOpen={docModalOpen}

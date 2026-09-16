@@ -449,10 +449,9 @@ export function AppLayout() {
       if (!sessionId) return;
       const d = driver as Driver;
       const tableRef = buildQualifiedTableName(collection.namespace, collection.name, d);
-      const sql =
-        d === Driver.SqlServer
-          ? `SELECT TOP 100 * FROM ${tableRef};`
-          : `SELECT * FROM ${tableRef} LIMIT 100;`;
+      const sql = [Driver.SqlServer, Driver.AzureSql, Driver.Synapse].includes(d)
+        ? `SELECT TOP 100 * FROM ${tableRef};`
+        : `SELECT * FROM ${tableRef} LIMIT 100;`;
       openTab(createQueryTab(sql, collection.namespace));
     },
     [sessionId, driver, openTab]
@@ -1452,6 +1451,8 @@ function AppContent({
             key={activeTab.id}
             sessionId={sessionId}
             environment={activeConnection?.environment}
+            connectionName={activeConnection?.name}
+            database={activeConnection?.database}
             onOpenDiff={(left, right, title) => onOpenTab(createDiffTab(left, right, title))}
           />
         </LicenseGate>
@@ -1495,8 +1496,10 @@ function AppContent({
             driverCapabilities={driverCapabilities}
             environment={activeConnection?.environment || 'development'}
             readOnly={activeConnection?.read_only || false}
+            connectionId={activeConnection?.id}
             connectionName={activeConnection?.name}
             connectionDatabase={activeConnection?.database}
+            connectionWarehouse={activeConnection?.options?.warehouse}
             activeNamespace={activeTab.namespace}
             initialQuery={queryDrafts[activeTab.id] ?? activeTab.initialQuery}
             onSchemaChange={onSchemaChange}

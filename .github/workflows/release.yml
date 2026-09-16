@@ -125,6 +125,49 @@ jobs:
             Write-Host "Could not add Defender exclusion (non-fatal): $($_.Exception.Message)"
           }
 
+      - name: Build the headless binaries (qore-mcp, qore CLI)
+        shell: bash
+        env:
+          PUBLIC_KEY_BASE64: ${{ secrets.PUBLIC_KEY_BASE64 }}
+        run: |
+          set -euo pipefail
+          target="${{ matrix.target }}"
+          triple="${target:-$(rustc -vV | sed -n 's/^host: //p')}"
+          cd src-tauri
+          if [ -n "$target" ]; then
+            cargo build --release -p qore-mcp -p qore-cli --features duckdb-bundled --target "$triple"
+            out="target/$triple/release"
+          else
+            cargo build --release -p qore-mcp -p qore-cli --features duckdb-bundled
+            out="target/release"
+          fi
+          ext=""
+          case "$triple" in *windows*) ext=".exe" ;; esac
+          # Tauri expects sidecars named with their target triple; it strips it when bundling.
+          mkdir -p binaries
+          cp "$out/qore-mcp$ext" "binaries/qore-mcp-$triple$ext"
+          cp "$out/qore$ext" "binaries/qore-$triple$ext"
+          staging="../qore-tools-$triple"
+          mkdir -p "$staging"
+          cp "$out/qore-mcp$ext" "$staging/qore-mcp$ext"
+          cp "$out/qore$ext" "$staging/qore$ext"
+          cd ..
+          if [ -n "$ext" ]; then
+            7z a "qore-tools-$triple.zip" "qore-tools-$triple"
+          else
+            tar czf "qore-tools-$triple.tar.gz" "qore-tools-$triple"
+          fi
+
+      - name: Upload the headless binaries to the release
+        uses: softprops/action-gh-release@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          draft: true
+          files: |
+            qore-tools-*.tar.gz
+            qore-tools-*.zip
+
       - name: Build Tauri app
         uses: tauri-apps/tauri-action@v0
         timeout-minutes: 60
@@ -143,7 +186,7 @@ jobs:
           releaseId: ${{ needs.release-notes.outputs.release_id }}
           # latest.json is assembled once by the updater-json job below.
           includeUpdaterJson: false
-          args: ${{ matrix.args }} --features pro,duckdb-bundled --verbose
+          args: ${{ matrix.args }} --features pro,duckdb-bundled --config src-tauri/tauri.sidecar.conf.json --verbose
 
       - name: Build MSIX (Windows only)
         if: matrix.platform == 'windows-2022'

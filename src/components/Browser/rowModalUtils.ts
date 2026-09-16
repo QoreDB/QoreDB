@@ -161,6 +161,7 @@ export function computePreview({
   effectiveColumns,
   formData,
   nulls,
+  maskedColumns,
 }: {
   mode: RowModalMode;
   schema: TableSchema;
@@ -168,8 +169,18 @@ export function computePreview({
   effectiveColumns: TableColumn[];
   formData: RowModalFormData;
   nulls: RowModalNulls;
+  maskedColumns?: ReadonlySet<string>;
 }): RowModalPreview {
-  const data = buildColumnsData({ columns: effectiveColumns, formData, nulls });
+  const data =
+    mode === 'insert'
+      ? buildColumnsData({ columns: effectiveColumns, formData, nulls })
+      : buildRowUpdateData({
+          columns: effectiveColumns,
+          formData,
+          nulls,
+          initialData,
+          maskedColumns,
+        });
 
   if (mode === 'insert') {
     return {
@@ -199,4 +210,38 @@ export function computePreview({
   });
 
   return { type: 'update', changes };
+}
+
+export function buildRowUpdateData({
+  columns,
+  formData,
+  nulls,
+  initialData,
+  maskedColumns,
+}: {
+  columns: TableColumn[];
+  formData: RowModalFormData;
+  nulls: RowModalNulls;
+  initialData?: Record<string, Value>;
+  maskedColumns?: ReadonlySet<string>;
+}): Record<string, Value> {
+  const data = buildColumnsData({
+    columns: columns.filter(column => {
+      if (maskedColumns?.has(column.name)) return false;
+      const previous = initialData?.[column.name];
+      const isNull = Boolean(nulls[column.name]);
+      // Compare the form before parsing: an unchanged numeric placeholder is not a NULL update.
+      return (
+        isNull !== (previous === null) ||
+        (!isNull && formData[column.name] !== String(previous ?? ''))
+      );
+    }),
+    formData,
+    nulls,
+  });
+  return Object.fromEntries(
+    Object.entries(data).filter(
+      ([key, value]) => JSON.stringify(value ?? null) !== JSON.stringify(initialData?.[key] ?? null)
+    )
+  );
 }

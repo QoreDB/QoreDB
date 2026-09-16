@@ -3,7 +3,11 @@ import path from 'node:path';
 
 const root = process.cwd();
 const pkgPath = path.join(root, 'package.json');
-const cargoPath = path.join(root, 'src-tauri', 'Cargo.toml');
+const cargoPaths = [
+  path.join(root, 'src-tauri', 'Cargo.toml'),
+  path.join(root, 'src-tauri', 'crates', 'qore-mcp', 'Cargo.toml'),
+  path.join(root, 'src-tauri', 'crates', 'qore-cli', 'Cargo.toml'),
+];
 
 const pkg = JSON.parse(readFileSync(pkgPath, 'utf8'));
 const version = pkg?.version;
@@ -13,35 +17,37 @@ if (!version) {
   process.exit(1);
 }
 
-const cargo = readFileSync(cargoPath, 'utf8');
-const lines = cargo.split(/\r?\n/);
+for (const cargoPath of cargoPaths) {
+  const cargo = readFileSync(cargoPath, 'utf8');
+  const lines = cargo.split(/\r?\n/);
 
-let inPackage = false;
-let updated = false;
+  let inPackage = false;
+  let updated = false;
 
-for (let i = 0; i < lines.length; i += 1) {
-  const line = lines[i];
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = lines[i];
 
-  if (/^\s*\[package\]\s*$/.test(line)) {
-    inPackage = true;
-    continue;
+    if (/^\s*\[package\]\s*$/.test(line)) {
+      inPackage = true;
+      continue;
+    }
+
+    if (inPackage && /^\s*\[.+\]\s*$/.test(line)) {
+      inPackage = false;
+    }
+
+    if (inPackage && /^\s*version\s*=/.test(line)) {
+      lines[i] = `version = "${version}"`;
+      updated = true;
+      break;
+    }
   }
 
-  if (inPackage && /^\s*\[.+\]\s*$/.test(line)) {
-    inPackage = false;
+  if (!updated) {
+    console.error(`Could not find package.version in ${cargoPath}.`);
+    process.exit(1);
   }
 
-  if (inPackage && /^\s*version\s*=/.test(line)) {
-    lines[i] = `version = "${version}"`;
-    updated = true;
-    break;
-  }
+  writeFileSync(cargoPath, lines.join('\n'));
+  console.log(`Synced ${path.relative(root, cargoPath)} version to ${version}`);
 }
-
-if (!updated) {
-  console.error('Could not find package.version in Cargo.toml.');
-  process.exit(1);
-}
-
-writeFileSync(cargoPath, lines.join('\n'));
-console.log(`Synced Cargo.toml version to ${version}`);

@@ -325,6 +325,45 @@ export function InterceptorSettingsPanel() {
               disabled={!config.profiling_enabled}
             />
           </SettingRow>
+
+          <SettingRow
+            label={t('interceptor.profiling.alertErrorRate')}
+            description={t('interceptor.profiling.alertErrorRateDescription')}
+          >
+            <div className="flex items-center gap-2">
+              <Input
+                type="number"
+                value={config.alert_error_rate_percent ?? 0}
+                onChange={e =>
+                  updateConfig({
+                    alert_error_rate_percent: parseInt(e.target.value, 10) || 0,
+                  })
+                }
+                className="w-24 h-8 text-sm"
+                min={0}
+                max={100}
+                disabled={!config.profiling_enabled}
+              />
+              <span className="text-sm text-muted-foreground">%</span>
+            </div>
+          </SettingRow>
+
+          <SettingRow
+            label={t('interceptor.profiling.alertSlowQueries')}
+            description={t('interceptor.profiling.alertSlowQueriesDescription')}
+          >
+            <Input
+              type="number"
+              value={config.alert_slow_queries_count ?? 0}
+              onChange={e =>
+                updateConfig({ alert_slow_queries_count: parseInt(e.target.value, 10) || 0 })
+              }
+              className="w-24 h-8 text-sm"
+              min={0}
+              max={10000}
+              disabled={!config.profiling_enabled}
+            />
+          </SettingRow>
         </Section>
       </LicenseGate>
 

@@ -7,6 +7,7 @@ import {
   Braces,
   CheckCircle2,
   ExternalLink,
+  EyeOff,
   FileSpreadsheet,
   GitCompare,
   History,
@@ -53,6 +54,7 @@ const PRO_FEATURES: FeatureEntry[] = [
   { id: 'bulk_edit_unlimited', icon: Table2 },
   { id: 'er_diagram', icon: Network },
   { id: 'query_replay', icon: Repeat2 },
+  { id: 'column_masking', icon: EyeOff },
 ];
 
 interface ProDiscoveryPanelProps {

@@ -235,6 +235,7 @@
     "showPassword": "비밀번호 표시",
     "hidePassword": "비밀번호 숨기기",
     "database": "데이터베이스",
+    "project": "프로젝트",
     "databaseInitial": "초기 데이터베이스",
     "databaseIndex": "데이터베이스 인덱스 (0-15)",
     "filePath": "데이터베이스 파일",
@@ -363,7 +364,8 @@
       "keyValue": "키-값",
       "timeSeries": "시계열",
       "search": "검색",
-      "graph": "그래프"
+      "graph": "그래프",
+      "wideColumn": "와이드 컬럼"
     },
     "driverSearch": "엔진 검색…",
     "driverSearchEmpty": "“{{query}}”와 일치하는 엔진이 없습니다",
@@ -371,6 +373,28 @@
       "cluster": "클러스터 이름 (선택)",
       "clusterPlaceholder": "예: shard_cluster",
       "clusterHint": "값을 설정하면 DDL(CREATE/DROP DATABASE/TABLE)이 ON CLUSTER 와 함께 실행되어 모든 복제본에 전파됩니다. 단일 노드 설치에서는 비워두세요."
+    },
+    "snowflake": {
+      "account": "계정 식별자",
+      "accountHint": "계정 식별자(myorg-myaccount 또는 xy12345.eu-central-1) 또는 전체 호스트 이름.",
+      "authMode": "인증",
+      "authKeyPair": "키 쌍",
+      "authToken": "액세스 토큰",
+      "privateKey": "개인 키(PEM)",
+      "privateKeyHint": "공개 키가 사용자에 등록된 암호화되지 않은 RSA 개인 키(ALTER USER … SET RSA_PUBLIC_KEY).",
+      "token": "프로그래밍 방식 액세스 토큰",
+      "warehouse": "웨어하우스",
+      "warehouseHint": "모든 쿼리에 사용되는 컴퓨팅. SHOW와 DESCRIBE는 없어도 실행됩니다.",
+      "role": "역할(선택)"
+    },
+    "bigquery": {
+      "projectHint": "데이터세트가 있는 프로젝트. 비워 두면 서비스 계정 자체의 프로젝트를 사용합니다.",
+      "serviceAccount": "서비스 계정 키(JSON)",
+      "serviceAccountHint": "BigQuery Job User 및 Data Viewer 역할이 있는 서비스 계정의 JSON 키 파일.",
+      "location": "위치(선택)",
+      "locationHint": "EU 또는 us-central1 같은 데이터세트 위치. 새 데이터세트와 다중 리전 쿼리에 사용됩니다.",
+      "billingProject": "결제 프로젝트(선택)",
+      "billingProjectHint": "데이터가 있는 프로젝트와 다를 때 쿼리 비용이 청구되는 프로젝트."
     },
     "search": {
       "authMode": "인증",
@@ -386,6 +410,29 @@
     },
     "documentdb": {
       "caCertHint": "DocumentDB 클러스터는 Amazon CA가 서명합니다. Amazon이 배포하는 global-bundle.pem 파일을 지정하세요. 비워 두면 시스템 인증서 저장소를 사용합니다."
+    },
+    "keyspace": "키스페이스",
+    "masking": {
+      "title": "열 마스킹",
+      "description": "이 연결의 모든 쿼리에서 결과, 내보내기, 에이전트 응답의 값을 대체합니다.",
+      "detected": "감지된 민감한 열 마스킹",
+      "detectedHint": "이름이 민감해 보이는 열(이메일, 전화번호, 비밀번호 등)을 부분 마스킹합니다.",
+      "table": "테이블",
+      "anyTable": "모든 테이블",
+      "column": "열",
+      "mode": "모드",
+      "modes": {
+        "hidden": "숨김",
+        "partial": "부분",
+        "hash": "해시"
+      },
+      "addRule": "규칙 추가",
+      "removeRule": "규칙 삭제",
+      "empty": "규칙 없음: 값이 저장된 그대로 표시됩니다.",
+      "proHint": "규칙을 추가하려면 QoreDB Pro가 필요합니다. 기존 규칙은 계속 적용되며 삭제할 수 있습니다.",
+      "removeConfirmTitle": "프로덕션 연결의 마스킹 해제",
+      "removeConfirmDescription": "마스킹된 값이 결과, 내보내기, 에이전트 응답에서 다시 표시됩니다.",
+      "removeConfirmLabel": "마스킹 해제"
     }
   },
   "sidebar": {
@@ -672,14 +719,14 @@
     "setName": "세트 이름",
     "setNamePlaceholder": "checkout-flow",
     "ignoredColumns": "무시할 열",
-    "ignoredColumnsHint": "쉼표로 구분. 비교에서 제외되어 타임스탬프가 실행할 때마다 차이로 보고되지 않습니다.",
-    "queryTextWarning": "세트는 쿼리 본문을 그대로 담아 저장소에 커밋됩니다. 쿼리 안의 리터럴(키, 비밀번호, 페이로드)도 함께 버전 관리됩니다. 결과 행은 절대 포함되지 않습니다.",
+    "ignoredColumnsHint": "비교에서 제외합니다. 예: updated_at.",
+    "queryTextWarning": "쿼리는 그대로 버전 관리됩니다. 비밀 정보가 없는지 확인하세요.",
     "secretsDetected": "자격 증명으로 보이는 값이 담긴 쿼리가 {{count}}개 있습니다. 세트를 공유하기 전에 제거하거나 설정에서 가림으로 전환하세요.",
     "secretsRedacted": "자격 증명으로 보이는 값이 담긴 쿼리 {{count}}개를 가렸습니다.",
     "looksLikeSecret": "자격 증명으로 보임",
     "redactedCannotReplay": "이 세트는 가림을 적용해 기록되었습니다. 쿼리가 더 이상 아무것도 찾지 못하므로 재실행할 수 없습니다. 목록으로는 계속 읽을 수 있습니다.",
-    "captureValues": "결과 값 저장",
-    "captureValuesOn": "행이 로컬에 저장되어 차이를 보여줄 수 있습니다.",
+    "captureValues": "결과를 로컬에 보관",
+    "captureValuesOn": "차이를 행 단위로 열어볼 수 있습니다.",
     "captureValuesOff": "메타데이터와 다이제스트만: 차이는 보고되지만 표시되지 않습니다.",
     "productionCapture": "운영 환경의 값 저장",
     "productionCaptureHint": "기본적으로 꺼져 있습니다. 운영 데이터는 이 컴퓨터를 벗어나지 않습니다.",
@@ -705,12 +752,11 @@
     "ignoring": "{{columns}} 무시",
     "ignoringNone": "무시할 열 없음",
     "editIgnoredColumns": "무시할 열 편집",
-    "compareToBaseline": "기록과 비교",
+    "compareToBaseline": "최초 기록",
     "compareToRun": "{{date}}와 비교",
     "compareToConnection": "{{name}}와 비교",
     "sideA": "이 연결",
     "sideB": "다른 연결",
-    "allowMutations": "변경 쿼리도 실행",
     "run": "리플레이",
     "progress": "{{completed}} / {{total}}",
     "partialComparison": "비교는 저장된 행으로 제한됩니다.",
@@ -719,18 +765,19 @@
     "currentRun": "이번 실행",
     "verdict": {
       "match": "동일",
-      "broken": "실패",
+      "broken": "오류",
       "row_count_diff": "행 수",
-      "digest_diff": "내용",
+      "digest_diff": "결과 변경됨",
       "slower": "느려짐",
-      "skipped": "건너뜀"
+      "skipped": "미실행",
+      "not_compared": "결과 미비교"
     },
     "column": {
       "query": "쿼리",
       "verdict": "판정",
       "rows": "행",
       "duration": "소요 시간",
-      "runVsExpected": "실행 / 기록"
+      "referenceToRun": "기록 → 실행"
     },
     "errors": {
       "listSets": "리플레이 세트를 불러오지 못했습니다",
@@ -743,7 +790,8 @@
       "deleteSet": "리플레이 세트를 삭제하지 못했습니다",
       "ignoredColumns": "무시할 열을 업데이트하지 못했습니다",
       "noBaseline": "이 세트에는 비교할 기준 캡처가 없습니다",
-      "loadCapture": "저장된 행을 불러오지 못했습니다"
+      "loadCapture": "저장된 행을 불러오지 못했습니다",
+      "acceptRun": "이 실행을 기준으로 채택하지 못했습니다"
     },
     "settings": {
       "title": "리플레이 세트와 자격 증명",
@@ -755,6 +803,50 @@
       "offHint": "아무것도 검사하지 않습니다. 이 컴퓨터를 벗어나지 않는 세트에 적합합니다.",
       "warnHint": "기록 중에 표시되어 바로 제거할 수 있습니다. 세트는 계속 재실행할 수 있습니다.",
       "redactHint": "내보낼 때 리터럴을 제거합니다. 마음 놓고 공유할 수 있지만 더 이상 재실행할 수 없습니다."
+    },
+    "newRecording": "새 기록",
+    "selectSet": "세트 선택",
+    "selectSetHint": "재생할 세트를 선택하세요.",
+    "searchSets": "세트 검색",
+    "noMatchingSet": "일치하는 세트가 없습니다",
+    "replayTarget": "대상: {{target}}",
+    "options": "옵션",
+    "includeMutations_other": "변경 쿼리 {{count}}개 포함",
+    "recordMutations": "변경 쿼리 기록",
+    "recordMutationsHint": "꺼짐: 기록 중 실행한 마이그레이션은 세트에 포함되지 않습니다.",
+    "removeMutations": "변경 쿼리 제거",
+    "cancelRecording": "기록 취소",
+    "clearFilter": "모두 표시",
+    "expandQuery": "전체 쿼리 보기",
+    "collapseQuery": "쿼리 접기",
+    "acceptEntry": "이 결과를 기준으로 채택",
+    "acceptAll": "이 실행을 기준으로 채택",
+    "acceptAllHint": "의도한 마이그레이션 후, 이 실행의 결과가 세트의 기준이 됩니다.",
+    "referenceAcceptedAll": "이 실행이 기준이 되었습니다",
+    "referenceAcceptedEntries_other": "{{count}}개 항목이 갱신되었습니다",
+    "queryTextWarningDetail": "리터럴은 버전 관리되는 SQL의 일부입니다. 결과 행은 로컬에 남으며 저장소에 추가되지 않습니다.",
+    "composition": {
+      "total_other": "쿼리 {{count}}개",
+      "reads_other": "읽기 {{count}}개",
+      "mutations_other": "변경 {{count}}개",
+      "excludedMutations_other": "변경 {{count}}개 제외됨"
+    },
+    "coverage": {
+      "compared": "결과 {{compared}}/{{total}}개 비교됨",
+      "notCompared_other": "{{count}}개 미비교",
+      "skipped_other": "{{count}}개 미실행",
+      "broken_other": "{{count}}개 오류"
+    },
+    "confirm": {
+      "deleteTitle": "“{{name}}”을(를) 삭제할까요?",
+      "deleteBody": "세트와 로컬에 저장된 모든 실행 결과가 삭제됩니다. 되돌릴 수 없습니다.",
+      "acceptEntryTitle": "이 결과를 기준으로 채택할까요?",
+      "acceptAllTitle": "이 실행을 쿼리 {{count}}개의 기준으로 채택할까요?",
+      "acceptBody": "세트의 기대값이 이 실행에서 관측된 값으로 대체됩니다. 이후 재생은 이것과 비교됩니다."
+    },
+    "skipReason": {
+      "mutation_excluded": "변경 쿼리는 재생에서 제외됨",
+      "mutation_production_blocked": "변경 쿼리는 프로덕션에서 재생되지 않습니다"
     }
   },
   "settings": {
@@ -809,7 +901,8 @@
         "data_generator": "데이터 생성기",
         "index_suggestions": "인덱스 제안",
         "schema_diff": "스키마 비교",
-        "query_replay": "쿼리 리플레이"
+        "query_replay": "쿼리 리플레이",
+        "column_masking": "열 마스킹"
       },
       "devOverrideTitle": "개발용 라이선스 재정의",
       "devOverrideDescription": "개발 테스트를 위한 라이선스 티어 재정의입니다. 앱을 다시 시작하면 초기화됩니다.",
@@ -861,7 +954,8 @@
       "plugins": "플러그인",
       "license": "라이선스",
       "ai": "AI 어시스턴트",
-      "admin": "관리"
+      "admin": "관리",
+      "agents": "AI 에이전트"
     },
     "search": {
       "placeholder": "설정 검색...",
@@ -953,6 +1047,47 @@
       "passwordReset": "{{email}}의 비밀번호를 재설정했습니다.",
       "resetFailed": "비밀번호 재설정에 실패했습니다",
       "loadFailed": "사용자를 불러오지 못했습니다"
+    },
+    "agents": {
+      "status": {
+        "title": "MCP 서버",
+        "description": "QoreDB와 함께 제공되는 qore-mcp 바이너리로, Claude, Cursor 및 기타 MCP 클라이언트가 사용합니다.",
+        "loading": "감지 중…",
+        "found": "감지됨",
+        "notFound": "찾을 수 없음",
+        "path": "경로",
+        "version": "버전",
+        "hint": "릴리스 에셋에서 qore-mcp를 설치하거나 cargo build -p qore-mcp로 빌드한 뒤 PATH에 추가하세요."
+      },
+      "config": {
+        "title": "클라이언트 설정",
+        "description": "사용하는 클라이언트의 스니펫을 복사하세요. 경로는 감지된 바이너리를 가리킵니다.",
+        "claudeDesktop": "Claude Desktop (claude_desktop_config.json)",
+        "claudeCode": "Claude Code",
+        "cursor": "Cursor (.cursor/mcp.json)",
+        "copy": "복사",
+        "copied": "복사됨",
+        "copyFailed": "클립보드에 복사하지 못했습니다"
+      },
+      "connections": {
+        "title": "공개된 연결",
+        "description": "AI 에이전트가 읽을 수 있는 연결을 켜세요. 이 버전 이전에 저장된 연결을 포함해 기본값은 꺼짐입니다.",
+        "empty": "저장된 연결이 아직 없습니다. 사이드바에서 연결을 만든 뒤 여기서 공개하세요.",
+        "toggle": "이 연결에 대한 접근 허용",
+        "storeDefault": "사용 중인 저장소: 기본 vault. .qoredb 워크스페이스가 있는 프로젝트 폴더에서 실행된 에이전트는 대신 그 워크스페이스를 읽습니다.",
+        "storeWorkspace": "사용 중인 저장소: 워크스페이스 {{path}}. 스니펫이 이를 서버에 전달하며, 이 폴더에서 실행된 Claude Code는 자동으로 감지합니다."
+      },
+      "limits": {
+        "title": "적용되는 제한",
+        "description": "이 보호 장치는 연결 설정과 관계없이 모든 에이전트 호출에 적용됩니다.",
+        "readOnly": "읽기 전용: 읽기 전용 모드 없이 저장된 연결에서도 쓰기는 거부됩니다.",
+        "timeout": "쿼리 시간 제한: {{seconds}}초",
+        "rows": "쿼리당 최대 행 수: {{count}}",
+        "rowsUnlimited": "쿼리당 최대 행 수: 제한 없음(보안에서 설정하세요).",
+        "rateLimit": "세션당 속도 제한: {{state}}",
+        "idle": "10분 동안 유휴 상태인 세션은 종료됩니다.",
+        "audit": "모든 호출은 소스 “mcp”로 감사 로그에 기록됩니다."
+      }
     }
   },
   "table": {
@@ -1042,6 +1177,12 @@
     "unknownConnection": "알 수 없는 연결"
   },
   "query": {
+    "bigqueryScan": {
+      "title": "BigQuery 스캔 예상량",
+      "bytes": "예상 데이터 스캔량: {{bytes}}바이트.",
+      "unknown": "이 쿼리의 스캔량을 확인할 수 없습니다.",
+      "hint": "이 예상량은 요금 한도가 아닙니다. 스크립트와 외부 테이블은 더 많은 데이터를 스캔할 수 있습니다."
+    },
     "run": "실행",
     "running": "실행 중...",
     "stop": "중지",
@@ -1129,7 +1270,8 @@
       "indexComposite": "인덱스됨 (복합: {{name}})",
       "unique": "유니크 제약 조건",
       "copySuccess": "행이 클립보드에 복사되었습니다",
-      "sortScansTable": "이 열로 정렬하면 따라갈 인덱스가 없어 엔진이 테이블 전체를 정렬합니다."
+      "sortScansTable": "이 열로 정렬하면 따라갈 인덱스가 없어 엔진이 테이블 전체를 정렬합니다.",
+      "masked": "연결 규칙에 따라 값이 마스킹되었습니다"
     },
     "rowsSelected": "{{count}}개 행 선택됨",
     "rowsTotal": "{{count}}개 행",
@@ -1252,6 +1394,15 @@
     "pagination": {
       "unstableOrder": "불안정한 순서",
       "unstableOrderHint": "이 테이블에는 페이징에 사용할 고유 키가 없습니다. 스크롤 중 데이터가 바뀌면 행이 중복되거나 누락될 수 있습니다."
+    },
+    "masking": {
+      "mask": "이 열 마스킹",
+      "unmask": "마스킹 해제",
+      "byDetection": "민감한 열 감지로 마스킹됨",
+      "readOnly": "이 열은 마스킹되어 값을 편집할 수 없습니다.",
+      "applied": "마스킹이 적용되었습니다",
+      "appliedNextRun": "마스킹이 저장되었습니다. 다음 실행부터 적용됩니다.",
+      "removed": "마스킹이 해제되었습니다"
     }
   },
   "export": {
@@ -1584,7 +1735,7 @@
   },
   "paginationDiagnostics": {
     "title": "페이지네이션 진단",
-    "description": "현재 세션의 탭별 측정값입니다. 테이블 이름, 셀 값, 커서는 기록하지 않습니다.",
+    "description": "탭별 세션 측정값입니다. 테이블 이름, 셀 값, 커서는 기록되지 않습니다.",
     "empty": "이 세션에서 아직 탐색한 테이블이 없습니다.",
     "scope": "탭",
     "pages": "페이지",
@@ -1631,7 +1782,13 @@
     "clusters": "클러스터",
     "index": "인덱스",
     "indexes": "인덱스",
-    "indexesHeader": "인덱스"
+    "indexesHeader": "인덱스",
+    "keyspace": "키스페이스",
+    "keyspaces": "키스페이스",
+    "keyspacesHeader": "키스페이스",
+    "dataset": "데이터세트",
+    "datasets": "데이터세트",
+    "datasetsHeader": "데이터세트"
   },
   "createTable": {
     "title": "테이블 만들기",
@@ -1991,7 +2148,8 @@
         "fingerprint": "지문",
         "filterByFingerprint": "이 지문으로 필터링",
         "blockedBy": "안전 규칙에 의해 차단됨",
-        "error": "오류"
+        "error": "오류",
+        "flaggedBy": "규칙에 의해 표시됨"
       },
       "stats": {
         "total": "전체 쿼리",
@@ -2000,6 +2158,22 @@
         "success": "성공",
         "failed": "실패",
         "lastHour": "최근 1시간"
+      },
+      "tabs": {
+        "audit": "감사 로그",
+        "profiling": "프로파일링",
+        "trends": "추세",
+        "slow": "느린 쿼리"
+      },
+      "flaggedBy": "표시 규칙: {{rule}}",
+      "columns": {
+        "time": "시간",
+        "environment": "환경",
+        "query": "쿼리",
+        "database": "데이터베이스",
+        "duration": "소요 시간",
+        "rows": "행",
+        "operation": "작업"
       }
     },
     "profiling": {
@@ -2051,7 +2225,11 @@
       "environments": {
         "title": "환경별"
       },
-      "period": "{{date}}부터 수집된 데이터"
+      "period": "{{date}}부터 수집된 데이터",
+      "alertErrorRate": "오류율 알림",
+      "alertErrorRateDescription": "15분 동안의 오류율이 이 비율에 도달하면 알립니다. 0이면 비활성화됩니다.",
+      "alertSlowQueries": "느린 쿼리 알림",
+      "alertSlowQueriesDescription": "15분 이내에 이만큼의 느린 쿼리가 실행되면 알립니다. 0이면 비활성화됩니다."
     },
     "safety": {
       "title": "안전망",
@@ -2079,7 +2257,10 @@
         "builtin-confirm-delete-production": "프로덕션에서 DELETE 확인",
         "builtin-confirm-update-no-where": "WHERE 없는 UPDATE 확인",
         "builtin-confirm-delete-no-where": "WHERE 없는 DELETE 확인",
-        "builtin-warn-alter-production": "프로덕션에서 ALTER 경고"
+        "builtin-warn-alter-production": "프로덕션에서 ALTER 경고",
+        "n_plus_one": "N+1 패턴",
+        "alert_error_rate": "오류율 알림",
+        "alert_slow_queries": "느린 쿼리 알림"
       },
       "builtinRuleDescriptions": {
         "builtin-no-drop-production": "프로덕션 환경에서 DROP 문을 방지합니다",
@@ -2087,7 +2268,10 @@
         "builtin-confirm-delete-production": "프로덕션에서 DELETE 문에 대한 확인을 요청합니다",
         "builtin-confirm-update-no-where": "WHERE 절 없는 UPDATE 문에 대한 확인을 요청합니다",
         "builtin-confirm-delete-no-where": "WHERE 절 없는 DELETE 문에 대한 확인을 요청합니다",
-        "builtin-warn-alter-production": "프로덕션에서 ALTER 문 전에 경고합니다"
+        "builtin-warn-alter-production": "프로덕션에서 ALTER 문 전에 경고합니다",
+        "n_plus_one": "같은 쿼리가 한 세션에서 2초 안에 20번 이상 실행되었습니다.",
+        "alert_error_rate": "최근 15분간의 오류율이 설정한 임계값에 도달했습니다.",
+        "alert_slow_queries": "최근 15분간의 느린 쿼리 수가 설정한 임계값에 도달했습니다."
       },
       "action": {
         "block": "차단",
@@ -2174,6 +2358,27 @@
       "maxConcurrentDescription": "동시에 실행되는 최대 쿼리 수",
       "maxConcurrentPlaceholder": "제한 없음",
       "resultsTruncated": "결과 잘림: {{total}}개 중 {{max}}개 행 표시"
+    },
+    "trends": {
+      "description": "감사 로그에서 가장 자주 실행된 쿼리를 지문별로 묶고 일별 P95를 표시합니다.",
+      "days": "최근 {{count}}일",
+      "empty": "이 기간에 실행된 쿼리가 없습니다.",
+      "loadError": "추세를 불러올 수 없습니다",
+      "columns": {
+        "query": "쿼리",
+        "count": "실행 횟수",
+        "errorRate": "오류",
+        "sparkline": "일별 P95"
+      },
+      "regression": "회귀",
+      "regressionDetail": "최근 24시간 P95 {{recent}}, 이전 7일 {{baseline}} ({{count}}회 실행)"
+    },
+    "alerts": {
+      "nPlusOne": "N+1 가능성: 같은 쿼리가 2초 안에 {{count}}번 실행됨",
+      "errorRate": "최근 15분 오류율 {{percent}}% ({{total}}개 쿼리)",
+      "slowQueries": "최근 15분 동안 느린 쿼리 {{count}}개",
+      "open": "추세 열기",
+      "badge": "성능 알림 {{count}}건"
     }
   },
   "titlebar": {
@@ -2493,6 +2698,13 @@
           "bullet1": "실패한 쿼리, 행 수와 내용 차이, 느려짐을 하나의 보고서로",
           "bullet2": "리플레이 세트는 .qoredb/에 있고 Git으로 공유됩니다 — 기대값만, 결과 행은 없습니다",
           "bullet3": "보고서의 어느 행에서든 기준 ↔ 실행 차이를 바로 열 수 있습니다"
+        },
+        "column_masking": {
+          "title": "민감한 값을 보이지 않게",
+          "description": "연결별로 열을 마스킹합니다. 결과, 내보내기, 페더레이션 쿼리, AI 에이전트는 마스킹된 값만 봅니다.",
+          "bullet1": "숨김, 부분, 해시 모드와 민감한 열 이름 자동 감지",
+          "bullet2": "MCP와 CLI를 포함해 행을 반환하는 모든 경로에 적용",
+          "bullet3": "에이전트는 마스킹된 열을 필터링, 정렬, 별칭으로 다시 읽을 수 없습니다"
         }
       }
     },
@@ -2509,7 +2721,8 @@
       "query_library_advanced": "고급 쿼리 라이브러리는 Pro 라이선스가 필요합니다.",
       "virtual_relations_auto_suggest": "가상 관계 자동 추천은 Pro 라이선스가 필요합니다.",
       "federation": "크로스 데이터베이스 페더레이션은 Pro 라이선스가 필요합니다.",
-      "query_replay": "쿼리 리플레이에는 Pro 라이선스가 필요합니다."
+      "query_replay": "쿼리 리플레이에는 Pro 라이선스가 필요합니다.",
+      "column_masking": "열 마스킹에는 Pro 라이선스가 필요합니다."
     }
   },
   "proDiscovery": {

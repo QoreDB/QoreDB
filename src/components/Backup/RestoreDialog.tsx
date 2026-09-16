@@ -27,6 +27,7 @@ import {
   type BackupEvent,
   type BackupFormat,
   cancelBackup,
+  PG_BACKUP_DRIVERS,
   type RestoreOptions,
   startRestore,
 } from '@/lib/tauri/backup';
@@ -40,17 +41,8 @@ interface RestoreDialogProps {
 
 type Phase = 'idle' | 'running' | 'done';
 
-const PG_DRIVERS = new Set([
-  'postgres',
-  'postgresql',
-  'supabase',
-  'neon',
-  'timescaledb',
-  'cockroachdb',
-]);
-
 function defaultExtensionsForDriver(driver: string): string[] {
-  if (PG_DRIVERS.has(driver)) return ['sql', 'dump', 'tar'];
+  if (PG_BACKUP_DRIVERS.has(driver)) return ['sql', 'dump', 'tar'];
   if (driver === 'mongodb' || driver === 'documentdb') return ['archive', 'gz'];
   if (driver === 'sqlite') return ['sql', 'sqlite'];
   return ['sql'];
@@ -90,7 +82,7 @@ export function RestoreDialog({ connection, database, open: isOpen, onClose }: R
   }, []);
 
   const driver = connection?.driver ?? 'postgres';
-  const isPostgres = PG_DRIVERS.has(driver);
+  const isPostgres = PG_BACKUP_DRIVERS.has(driver);
   const isDuckdb = driver === 'duckdb';
   const expectedDb = database ?? '';
   // File-based engines store a path in `database`, unfit for a title.

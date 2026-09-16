@@ -7,9 +7,55 @@ use std::sync::Arc;
 use tauri::State;
 
 use crate::interceptor::{
-    AuditExportFormat, AuditLogEntry, AuditStats, Environment, InterceptorConfig, ProfilingMetrics,
-    QueryOperationType, SafetyRule, SlowQueryEntry,
+    AuditExportFormat, AuditLogEntry, AuditStats, Environment, FingerprintTrend, InterceptorConfig,
+    ProfilingMetrics, QueryOperationType, SafetyRule, SlowQueryEntry, TrendFilter,
 };
+
+#[derive(Debug, Serialize)]
+pub struct QueryTrendsResponse {
+    pub success: bool,
+    pub trends: Vec<FingerprintTrend>,
+    pub error: Option<String>,
+}
+
+/// True iff the in-memory licence currently grants Pro-tier features; every
+/// Pro entry point of this module checks it at call time, never at compile
+/// time, so activating a licence takes effect without a rebuild.
+async fn license_allows_pro(state: &State<'_, crate::SharedState>) -> bool {
+    let tier = {
+        let guard = state.lock().await;
+        guard.license_manager.effective_status().tier
+    };
+    tier.includes(crate::license::status::LicenseTier::Pro)
+}
+
+/// Core: per-fingerprint trends from the audit file. Regressions ride along
+/// only with a Pro licence.
+#[tauri::command]
+pub async fn get_query_trends(
+    state: State<'_, crate::SharedState>,
+    filter: TrendFilter,
+) -> Result<QueryTrendsResponse, String> {
+    let include_regressions = license_allows_pro(&state).await;
+    let interceptor = {
+        let state = state.lock().await;
+        Arc::clone(&state.interceptor)
+    };
+    Ok(
+        match interceptor.get_query_trends(&filter, include_regressions) {
+            Ok(trends) => QueryTrendsResponse {
+                success: true,
+                trends,
+                error: None,
+            },
+            Err(error) => QueryTrendsResponse {
+                success: false,
+                trends: Vec::new(),
+                error: Some(error),
+            },
+        },
+    )
+}
 
 #[derive(Debug, Serialize)]
 pub struct InterceptorConfigResponse {
@@ -136,29 +182,30 @@ pub async fn get_audit_entries(
         Arc::clone(&state.interceptor)
     };
 
-    #[cfg(feature = "pro")]
-    let entries = interceptor.get_audit_entries(
-        filter.limit.unwrap_or(100),
-        filter.offset.unwrap_or(0),
-        filter.environment,
-        filter.operation,
-        filter.success,
-        filter.search.as_deref(),
-        filter.fingerprint.as_deref(),
-        filter.blocked,
-    );
-
-    #[cfg(not(feature = "pro"))]
-    let entries = interceptor.get_audit_entries(
-        filter.limit.unwrap_or(50).min(50),
-        filter.offset.unwrap_or(0),
-        None, // No environment filter in Core
-        None, // No operation filter in Core
-        None, // No success filter in Core
-        None, // No search in Core
-        None, // No fingerprint filter in Core
-        None, // No blocked filter in Core
-    );
+    let entries = if license_allows_pro(&state).await {
+        interceptor.get_audit_entries(
+            filter.limit.unwrap_or(100),
+            filter.offset.unwrap_or(0),
+            filter.environment,
+            filter.operation,
+            filter.success,
+            filter.search.as_deref(),
+            filter.fingerprint.as_deref(),
+            filter.blocked,
+        )
+    } else {
+        // Core: 50 entries, no filters.
+        interceptor.get_audit_entries(
+            filter.limit.unwrap_or(50).min(50),
+            filter.offset.unwrap_or(0),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        )
+    };
 
     Ok(AuditEntriesResponse {
         success: true,
@@ -217,13 +264,19 @@ pub async fn clear_audit_log(
 /// `from_disk` is `true`, the entire retained history is read from the rotated
 /// JSONL file rather than just the in-memory cache — useful when retention
 /// exceeds the cache size.
-#[cfg(feature = "pro")]
 #[tauri::command]
 pub async fn export_audit_log(
     state: State<'_, crate::SharedState>,
     format: Option<AuditExportFormat>,
     from_disk: Option<bool>,
 ) -> Result<ExportResponse, String> {
+    if !license_allows_pro(&state).await {
+        return Ok(ExportResponse {
+            success: false,
+            data: None,
+            error: Some("Audit log export requires QoreDB Pro".into()),
+        });
+    }
     let interceptor = {
         let state = state.lock().await;
         Arc::clone(&state.interceptor)
@@ -246,25 +299,17 @@ pub async fn export_audit_log(
     }
 }
 
-#[cfg(not(feature = "pro"))]
-#[tauri::command]
-pub async fn export_audit_log(
-    _state: State<'_, crate::SharedState>,
-    _format: Option<AuditExportFormat>,
-    _from_disk: Option<bool>,
-) -> Result<ExportResponse, String> {
-    Ok(ExportResponse {
-        success: false,
-        data: None,
-        error: Some("Audit log export requires QoreDB Pro".into()),
-    })
-}
-
-#[cfg(feature = "pro")]
 #[tauri::command]
 pub async fn get_profiling_metrics(
     state: State<'_, crate::SharedState>,
 ) -> Result<ProfilingMetricsResponse, String> {
+    if !license_allows_pro(&state).await {
+        return Ok(ProfilingMetricsResponse {
+            success: false,
+            metrics: None,
+            error: Some("Query profiling requires QoreDB Pro".into()),
+        });
+    }
     let interceptor = {
         let state = state.lock().await;
         Arc::clone(&state.interceptor)
@@ -277,25 +322,19 @@ pub async fn get_profiling_metrics(
     })
 }
 
-#[cfg(not(feature = "pro"))]
-#[tauri::command]
-pub async fn get_profiling_metrics(
-    _state: State<'_, crate::SharedState>,
-) -> Result<ProfilingMetricsResponse, String> {
-    Ok(ProfilingMetricsResponse {
-        success: false,
-        metrics: None,
-        error: Some("Query profiling requires QoreDB Pro".into()),
-    })
-}
-
-#[cfg(feature = "pro")]
 #[tauri::command]
 pub async fn get_slow_queries(
     state: State<'_, crate::SharedState>,
     limit: Option<usize>,
     offset: Option<usize>,
 ) -> Result<SlowQueriesResponse, String> {
+    if !license_allows_pro(&state).await {
+        return Ok(SlowQueriesResponse {
+            success: false,
+            queries: vec![],
+            error: Some("Query profiling requires QoreDB Pro".into()),
+        });
+    }
     let interceptor = {
         let state = state.lock().await;
         Arc::clone(&state.interceptor)
@@ -308,25 +347,16 @@ pub async fn get_slow_queries(
     })
 }
 
-#[cfg(not(feature = "pro"))]
-#[tauri::command]
-pub async fn get_slow_queries(
-    _state: State<'_, crate::SharedState>,
-    _limit: Option<usize>,
-    _offset: Option<usize>,
-) -> Result<SlowQueriesResponse, String> {
-    Ok(SlowQueriesResponse {
-        success: false,
-        queries: vec![],
-        error: Some("Query profiling requires QoreDB Pro".into()),
-    })
-}
-
-#[cfg(feature = "pro")]
 #[tauri::command]
 pub async fn clear_slow_queries(
     state: State<'_, crate::SharedState>,
 ) -> Result<GenericResponse, String> {
+    if !license_allows_pro(&state).await {
+        return Ok(GenericResponse {
+            success: false,
+            error: Some("Query profiling requires QoreDB Pro".into()),
+        });
+    }
     let interceptor = {
         let state = state.lock().await;
         Arc::clone(&state.interceptor)
@@ -338,22 +368,16 @@ pub async fn clear_slow_queries(
     })
 }
 
-#[cfg(not(feature = "pro"))]
-#[tauri::command]
-pub async fn clear_slow_queries(
-    _state: State<'_, crate::SharedState>,
-) -> Result<GenericResponse, String> {
-    Ok(GenericResponse {
-        success: false,
-        error: Some("Query profiling requires QoreDB Pro".into()),
-    })
-}
-
-#[cfg(feature = "pro")]
 #[tauri::command]
 pub async fn reset_profiling(
     state: State<'_, crate::SharedState>,
 ) -> Result<GenericResponse, String> {
+    if !license_allows_pro(&state).await {
+        return Ok(GenericResponse {
+            success: false,
+            error: Some("Query profiling requires QoreDB Pro".into()),
+        });
+    }
     let interceptor = {
         let state = state.lock().await;
         Arc::clone(&state.interceptor)
@@ -365,22 +389,17 @@ pub async fn reset_profiling(
     })
 }
 
-#[cfg(not(feature = "pro"))]
-#[tauri::command]
-pub async fn reset_profiling(
-    _state: State<'_, crate::SharedState>,
-) -> Result<GenericResponse, String> {
-    Ok(GenericResponse {
-        success: false,
-        error: Some("Query profiling requires QoreDB Pro".into()),
-    })
-}
-
-#[cfg(feature = "pro")]
 #[tauri::command]
 pub async fn export_profiling(
     state: State<'_, crate::SharedState>,
 ) -> Result<ExportResponse, String> {
+    if !license_allows_pro(&state).await {
+        return Ok(ExportResponse {
+            success: false,
+            data: None,
+            error: Some("Query profiling requires QoreDB Pro".into()),
+        });
+    }
     let interceptor = {
         let state = state.lock().await;
         Arc::clone(&state.interceptor)
@@ -390,18 +409,6 @@ pub async fn export_profiling(
         success: true,
         data: Some(data),
         error: None,
-    })
-}
-
-#[cfg(not(feature = "pro"))]
-#[tauri::command]
-pub async fn export_profiling(
-    _state: State<'_, crate::SharedState>,
-) -> Result<ExportResponse, String> {
-    Ok(ExportResponse {
-        success: false,
-        data: None,
-        error: Some("Query profiling requires QoreDB Pro".into()),
     })
 }
 
@@ -425,12 +432,18 @@ pub async fn get_safety_rules(
 }
 
 /// Adds a custom safety rule (Pro only)
-#[cfg(feature = "pro")]
 #[tauri::command]
 pub async fn add_safety_rule(
     state: State<'_, crate::SharedState>,
     rule: SafetyRule,
 ) -> Result<SafetyRulesResponse, String> {
+    if !license_allows_pro(&state).await {
+        return Ok(SafetyRulesResponse {
+            success: false,
+            rules: vec![],
+            error: Some("Custom safety rules require QoreDB Pro".into()),
+        });
+    }
     let interceptor = {
         let state = state.lock().await;
         Arc::clone(&state.interceptor)
@@ -453,26 +466,19 @@ pub async fn add_safety_rule(
     }
 }
 
-#[cfg(not(feature = "pro"))]
-#[tauri::command]
-pub async fn add_safety_rule(
-    _state: State<'_, crate::SharedState>,
-    _rule: SafetyRule,
-) -> Result<SafetyRulesResponse, String> {
-    Ok(SafetyRulesResponse {
-        success: false,
-        rules: vec![],
-        error: Some("Custom safety rules require QoreDB Pro".into()),
-    })
-}
-
 /// Updates an existing safety rule (Pro only)
-#[cfg(feature = "pro")]
 #[tauri::command]
 pub async fn update_safety_rule(
     state: State<'_, crate::SharedState>,
     rule: SafetyRule,
 ) -> Result<SafetyRulesResponse, String> {
+    if !license_allows_pro(&state).await {
+        return Ok(SafetyRulesResponse {
+            success: false,
+            rules: vec![],
+            error: Some("Custom safety rules require QoreDB Pro".into()),
+        });
+    }
     let interceptor = {
         let state = state.lock().await;
         Arc::clone(&state.interceptor)
@@ -495,26 +501,19 @@ pub async fn update_safety_rule(
     }
 }
 
-#[cfg(not(feature = "pro"))]
-#[tauri::command]
-pub async fn update_safety_rule(
-    _state: State<'_, crate::SharedState>,
-    _rule: SafetyRule,
-) -> Result<SafetyRulesResponse, String> {
-    Ok(SafetyRulesResponse {
-        success: false,
-        rules: vec![],
-        error: Some("Custom safety rules require QoreDB Pro".into()),
-    })
-}
-
 /// Removes a custom safety rule (Pro only)
-#[cfg(feature = "pro")]
 #[tauri::command]
 pub async fn remove_safety_rule(
     state: State<'_, crate::SharedState>,
     rule_id: String,
 ) -> Result<SafetyRulesResponse, String> {
+    if !license_allows_pro(&state).await {
+        return Ok(SafetyRulesResponse {
+            success: false,
+            rules: vec![],
+            error: Some("Custom safety rules require QoreDB Pro".into()),
+        });
+    }
     let interceptor = {
         let state = state.lock().await;
         Arc::clone(&state.interceptor)
@@ -535,17 +534,4 @@ pub async fn remove_safety_rule(
             error: Some(e),
         }),
     }
-}
-
-#[cfg(not(feature = "pro"))]
-#[tauri::command]
-pub async fn remove_safety_rule(
-    _state: State<'_, crate::SharedState>,
-    _rule_id: String,
-) -> Result<SafetyRulesResponse, String> {
-    Ok(SafetyRulesResponse {
-        success: false,
-        rules: vec![],
-        error: Some("Custom safety rules require QoreDB Pro".into()),
-    })
 }

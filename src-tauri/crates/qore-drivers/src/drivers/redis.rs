@@ -6,10 +6,9 @@
 //! Redis is a key-value store; this driver maps keys as "collections" and
 //! displays their contents in type-specific tabular formats.
 //!
-//! Valkey is served by the same engine under a second identity: the fork is
-//! wire-compatible with Redis and still advertises `redis_version` in `INFO`,
-//! so there is nothing to detect and nothing to branch on. Only the driver id
-//! and the display name differ.
+//! Wire-compatible engines are served by the same implementation under their
+//! own identity. They still advertise Redis-compatible metadata, so only the
+//! driver id and display name differ.
 
 use std::collections::{BinaryHeap, HashMap};
 use std::sync::Arc;
@@ -47,6 +46,8 @@ pub enum RedisFlavor {
     Redis,
     Valkey,
     Dragonfly,
+    KeyDb,
+    Garnet,
 }
 
 impl RedisFlavor {
@@ -55,6 +56,8 @@ impl RedisFlavor {
             RedisFlavor::Redis => "redis",
             RedisFlavor::Valkey => "valkey",
             RedisFlavor::Dragonfly => "dragonfly",
+            RedisFlavor::KeyDb => "keydb",
+            RedisFlavor::Garnet => "garnet",
         }
     }
 
@@ -63,6 +66,8 @@ impl RedisFlavor {
             RedisFlavor::Redis => "Redis",
             RedisFlavor::Valkey => "Valkey",
             RedisFlavor::Dragonfly => "Dragonfly",
+            RedisFlavor::KeyDb => "KeyDB",
+            RedisFlavor::Garnet => "Garnet",
         }
     }
 }
@@ -84,6 +89,14 @@ impl RedisDriver {
 
     pub fn dragonfly() -> Self {
         Self::with_flavor(RedisFlavor::Dragonfly)
+    }
+
+    pub fn keydb() -> Self {
+        Self::with_flavor(RedisFlavor::KeyDb)
+    }
+
+    pub fn garnet() -> Self {
+        Self::with_flavor(RedisFlavor::Garnet)
     }
 
     fn with_flavor(flavor: RedisFlavor) -> Self {
@@ -336,6 +349,7 @@ impl RedisDriver {
             name: "value".into(),
             data_type: "string".into(),
             nullable: false,
+            masked: false,
         }];
 
         let val = Self::redis_value_to_value(&value);
@@ -418,11 +432,13 @@ impl RedisDriver {
                 name: "index".into(),
                 data_type: "integer".into(),
                 nullable: false,
+                masked: false,
             },
             ColumnInfo {
                 name: "value".into(),
                 data_type: "string".into(),
                 nullable: false,
+                masked: false,
             },
         ];
 
@@ -517,11 +533,13 @@ impl RedisDriver {
                 name: "member".into(),
                 data_type: "string".into(),
                 nullable: false,
+                masked: false,
             },
             ColumnInfo {
                 name: "score".into(),
                 data_type: "float".into(),
                 nullable: false,
+                masked: false,
             },
         ];
 
@@ -572,11 +590,13 @@ impl RedisDriver {
                         name: "id".into(),
                         data_type: "string".into(),
                         nullable: false,
+                        masked: false,
                     },
                     ColumnInfo {
                         name: "data".into(),
                         data_type: "json".into(),
                         nullable: false,
+                        masked: false,
                     },
                 ],
                 rows: Vec::new(),
@@ -604,11 +624,13 @@ impl RedisDriver {
                 name: "id".into(),
                 data_type: "string".into(),
                 nullable: false,
+                masked: false,
             },
             ColumnInfo {
                 name: "data".into(),
                 data_type: "json".into(),
                 nullable: false,
+                masked: false,
             },
         ];
 
@@ -767,6 +789,7 @@ impl RedisDriver {
                     name: "result".into(),
                     data_type: "string".into(),
                     nullable: true,
+                    masked: false,
                 }],
                 rows: vec![QRow {
                     values: vec![Value::Null],
@@ -785,6 +808,7 @@ impl RedisDriver {
                     name: "result".into(),
                     data_type: "integer".into(),
                     nullable: false,
+                    masked: false,
                 }],
                 rows: vec![QRow {
                     values: vec![Value::Int(*i)],
@@ -797,6 +821,7 @@ impl RedisDriver {
                     name: "value".into(),
                     data_type: "string".into(),
                     nullable: true,
+                    masked: false,
                 }];
                 let rows: Vec<QRow> = arr
                     .iter()
@@ -816,6 +841,7 @@ impl RedisDriver {
                     name: "result".into(),
                     data_type: "string".into(),
                     nullable: true,
+                    masked: false,
                 }];
                 let rows = vec![QRow {
                     values: vec![Self::redis_value_to_value(&value)],
@@ -1428,11 +1454,13 @@ impl DataEngine for RedisDriver {
                             name: "field".into(),
                             data_type: "string".into(),
                             nullable: false,
+                            masked: false,
                         },
                         ColumnInfo {
                             name: "value".into(),
                             data_type: "string".into(),
                             nullable: false,
+                            masked: false,
                         },
                     ],
                     rows,
@@ -1449,6 +1477,7 @@ impl DataEngine for RedisDriver {
                         name: "member".into(),
                         data_type: "string".into(),
                         nullable: false,
+                        masked: false,
                     }],
                     rows,
                     affected_rows: None,
@@ -1520,11 +1549,13 @@ impl DataEngine for RedisDriver {
                             name: "field".into(),
                             data_type: "string".into(),
                             nullable: false,
+                            masked: false,
                         },
                         ColumnInfo {
                             name: "value".into(),
                             data_type: "string".into(),
                             nullable: false,
+                            masked: false,
                         },
                     ],
                     rows,
@@ -1573,6 +1604,7 @@ impl DataEngine for RedisDriver {
                         name: "member".into(),
                         data_type: "string".into(),
                         nullable: false,
+                        masked: false,
                     }],
                     rows,
                     affected_rows: None,
@@ -2017,13 +2049,19 @@ mod tests {
         let redis = RedisDriver::new();
         let valkey = RedisDriver::valkey();
         let dragonfly = RedisDriver::dragonfly();
+        let keydb = RedisDriver::keydb();
+        let garnet = RedisDriver::garnet();
         assert_eq!(redis.driver_id(), "redis");
         assert_eq!(redis.driver_name(), "Redis");
         assert_eq!(valkey.driver_id(), "valkey");
         assert_eq!(valkey.driver_name(), "Valkey");
         assert_eq!(dragonfly.driver_id(), "dragonfly");
         assert_eq!(dragonfly.driver_name(), "Dragonfly");
-        for flavor in [&valkey, &dragonfly] {
+        assert_eq!(keydb.driver_id(), "keydb");
+        assert_eq!(keydb.driver_name(), "KeyDB");
+        assert_eq!(garnet.driver_id(), "garnet");
+        assert_eq!(garnet.driver_name(), "Garnet");
+        for flavor in [&valkey, &dragonfly, &keydb, &garnet] {
             assert_eq!(redis.cancel_support(), flavor.cancel_support());
             assert_eq!(redis.supports_mutations(), flavor.supports_mutations());
         }

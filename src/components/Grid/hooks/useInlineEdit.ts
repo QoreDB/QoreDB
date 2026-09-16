@@ -17,6 +17,7 @@ export interface UseInlineEditProps {
   mutationsSupported?: boolean;
   sandboxMode?: boolean;
   columnTypeMap: Map<string, string>;
+  maskedColumns?: Set<string>;
   onSandboxUpdate?: (
     pk: Record<string, Value>,
     oldValues: Record<string, Value>,
@@ -76,6 +77,7 @@ export function useInlineEdit({
   mutationsSupported = true,
   sandboxMode = false,
   columnTypeMap,
+  maskedColumns,
   onSandboxUpdate,
   onRowsUpdated,
 }: UseInlineEditProps): UseInlineEditReturn {
@@ -151,6 +153,11 @@ export function useInlineEdit({
         toast.error(t('grid.mutationsNotSupported'));
         return;
       }
+      // The cell holds the masked text: saving it would overwrite the real value.
+      if (maskedColumns?.has(columnId)) {
+        toast.error(t('grid.masking.readOnly'));
+        return;
+      }
 
       const displayValue = getEditableValue(currentValue);
       const cellRef = { rowId, columnId };
@@ -165,7 +172,15 @@ export function useInlineEdit({
       editingInitialValueRef.current = displayValue;
       editingOriginalValueRef.current = currentValue;
     },
-    [hasInlineEditContext, hasPrimaryKey, readOnly, mutationsSupported, t, getEditableValue]
+    [
+      hasInlineEditContext,
+      hasPrimaryKey,
+      readOnly,
+      mutationsSupported,
+      maskedColumns,
+      t,
+      getEditableValue,
+    ]
   );
 
   const performInlineUpdate = useCallback(

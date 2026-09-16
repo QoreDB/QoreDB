@@ -60,6 +60,7 @@ pub async fn execute_query(
     let is_mutation = pf.is_mutation;
     let connection_key = pf.connection_key;
     let safety_warning = pf.safety_warning;
+    let masking = pf.masking;
     let namespace = body.namespace;
     let query = body.query;
     let timeout = body.timeout_ms.unwrap_or(QUERY_TIMEOUT_MS);
@@ -84,6 +85,7 @@ pub async fn execute_query(
             bypass_limits,
             None,
             Some(tx),
+            masking,
             |_, _| {},
         )
         .await;

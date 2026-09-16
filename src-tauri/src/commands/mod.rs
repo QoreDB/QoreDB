@@ -3,6 +3,7 @@
 // Tauri Commands Module
 
 pub mod agent;
+pub mod agents;
 pub mod ai;
 pub mod backup;
 pub mod cache;

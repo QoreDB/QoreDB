@@ -471,6 +471,7 @@ fn column_info(stmt: &Statement<'_>) -> Vec<ColumnInfo> {
                 .unwrap_or_else(|_| format!("col_{idx}").into()),
             data_type: logical_type_name(&stmt.column_logical_type(idx)).into(),
             nullable: true,
+            masked: false,
         })
         .collect()
 }

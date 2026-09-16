@@ -5,6 +5,7 @@ import { AuthGate } from './components/Auth/AuthGate';
 import { ConfirmHost } from './components/Guard/ConfirmHost';
 import { useFrontendReady } from './hooks/useFrontendReady';
 import { AiPreferencesProvider } from './providers/AiPreferencesProvider';
+import { InterceptorAlertsProvider } from './providers/InterceptorAlertsProvider';
 import { LicenseProvider } from './providers/LicenseProvider';
 import { ModalProvider } from './providers/ModalProvider';
 import { PluginOutputProvider } from './providers/PluginOutputProvider';
@@ -30,8 +31,10 @@ function App() {
                   <ShortcutProvider>
                     <PluginProvider>
                       <PluginOutputProvider>
-                        <AppLayout />
-                        <ConfirmHost />
+                        <InterceptorAlertsProvider>
+                          <AppLayout />
+                          <ConfirmHost />
+                        </InterceptorAlertsProvider>
                       </PluginOutputProvider>
                     </PluginProvider>
                   </ShortcutProvider>

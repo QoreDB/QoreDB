@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
+import { Textarea } from '@/components/ui/textarea';
 import { isDocumentDatabase } from '@/lib/connection/driverCapabilities';
 import {
   DEFAULT_PORTS,
@@ -15,7 +16,7 @@ import {
   isKeyValueDriver,
 } from '@/lib/connection/drivers';
 import { ENVIRONMENT_CONFIG } from '@/lib/environment';
-import type { MssqlAuthMode, SearchAuthMode } from '@/lib/tauri';
+import type { MssqlAuthMode, SearchAuthMode, SnowflakeAuthMode } from '@/lib/tauri';
 import { cn } from '@/lib/utils';
 import { Field } from './Field';
 import { FileSection } from './FileSection';
@@ -38,12 +39,17 @@ export function BasicSection({
 
   const isFileBased = formData.driver === Driver.Sqlite || formData.driver === Driver.Duckdb;
   const usernameRequired =
-    !isDocumentDatabase(formData.driver) && !isKeyValueDriver(formData.driver);
-  const isSqlServer = formData.driver === Driver.SqlServer;
+    !isDocumentDatabase(formData.driver) &&
+    !isKeyValueDriver(formData.driver) &&
+    formData.driver !== Driver.Cassandra &&
+    formData.driver !== Driver.ScyllaDb;
+  const isSqlServer = [Driver.SqlServer, Driver.AzureSql, Driver.Synapse].includes(formData.driver);
   const isClickhouse = formData.driver === Driver.Clickhouse;
   const isRedis = isKeyValueDriver(formData.driver);
   const isSearch =
     formData.driver === Driver.Elasticsearch || formData.driver === Driver.OpenSearch;
+  const isSnowflake = formData.driver === Driver.Snowflake;
+  const isBigQuery = formData.driver === Driver.BigQuery;
   const driverMeta = getDriverMetadata(formData.driver);
   const isNtlm = isSqlServer && formData.mssqlAuthMode === 'windows_ntlm';
   const isIntegrated = isSqlServer && formData.mssqlAuthMode === 'windows_integrated';
@@ -57,6 +63,10 @@ export function BasicSection({
     { value: 'basic', label: t('connection.search.authBasic') },
     { value: 'api_key', label: t('connection.search.authApiKey') },
     { value: 'bearer', label: t('connection.search.authBearer') },
+  ];
+  const snowflakeAuthModes: { value: SnowflakeAuthMode; label: string }[] = [
+    { value: 'key_pair', label: t('connection.snowflake.authKeyPair') },
+    { value: 'token', label: t('connection.snowflake.authToken') },
   ];
   const searchSecretLabel =
     formData.searchAuthMode === 'api_key'
@@ -142,29 +152,88 @@ export function BasicSection({
         <FileSection formData={formData} onChange={onChange} />
       )}
 
+      {isBigQuery && !hideConnectionFields && (
+        <div className="space-y-4">
+          <Field label={t('connection.project')} hint={t('connection.bigquery.projectHint')}>
+            <Input
+              placeholder="my-gcp-project"
+              value={formData.database}
+              onChange={e => onChange('database', e.target.value)}
+              spellCheck={false}
+            />
+          </Field>
+          <Field
+            label={t('connection.bigquery.serviceAccount')}
+            hint={t('connection.bigquery.serviceAccountHint')}
+            required
+          >
+            <Textarea
+              placeholder={'{ "type": "service_account", "project_id": "…", … }'}
+              value={formData.password}
+              onChange={e => onChange('password', e.target.value)}
+              spellCheck={false}
+              rows={5}
+              className="font-mono text-xs"
+            />
+          </Field>
+          <div className="grid grid-cols-2 gap-4">
+            <Field
+              label={t('connection.bigquery.location')}
+              hint={t('connection.bigquery.locationHint')}
+            >
+              <Input
+                placeholder="EU"
+                value={formData.bigqueryLocation}
+                onChange={e => onChange('bigqueryLocation', e.target.value)}
+                spellCheck={false}
+              />
+            </Field>
+            <Field
+              label={t('connection.bigquery.billingProject')}
+              hint={t('connection.bigquery.billingProjectHint')}
+            >
+              <Input
+                placeholder="my-billing-project"
+                value={formData.bigqueryBillingProject}
+                onChange={e => onChange('bigqueryBillingProject', e.target.value)}
+                spellCheck={false}
+              />
+            </Field>
+          </div>
+        </div>
+      )}
+
       {/* Connection fields - hidden when URL mode provides them or for file-based drivers */}
-      {!hideConnectionFields && !isFileBased && (
+      {!hideConnectionFields && !isFileBased && !isBigQuery && (
         <>
           <div className="grid grid-cols-3 gap-4">
-            <Field label={t('connection.host')} required className="col-span-2">
+            <Field
+              label={isSnowflake ? t('connection.snowflake.account') : t('connection.host')}
+              hint={isSnowflake ? t('connection.snowflake.accountHint') : undefined}
+              required
+              className={isSnowflake ? 'col-span-3' : 'col-span-2'}
+            >
               <Input
-                placeholder="localhost"
+                placeholder={isSnowflake ? 'myorg-myaccount' : 'localhost'}
                 value={formData.host}
                 onChange={e => onChange('host', e.target.value)}
+                spellCheck={false}
               />
             </Field>
-            <Field label={t('connection.port')}>
-              <Input
-                type="number"
-                min={1}
-                max={65535}
-                placeholder={String(DEFAULT_PORTS[formData.driver])}
-                value={formData.port || ''}
-                onChange={e =>
-                  onChange('port', e.target.value === '' ? 0 : parseInt(e.target.value, 10) || 0)
-                }
-              />
-            </Field>
+            {!isSnowflake && (
+              <Field label={t('connection.port')}>
+                <Input
+                  type="number"
+                  min={1}
+                  max={65535}
+                  placeholder={String(DEFAULT_PORTS[formData.driver])}
+                  value={formData.port || ''}
+                  onChange={e =>
+                    onChange('port', e.target.value === '' ? 0 : parseInt(e.target.value, 10) || 0)
+                  }
+                />
+              </Field>
+            )}
           </div>
 
           <Field label={t(driverMeta.databaseFieldLabel)}>
@@ -177,6 +246,58 @@ export function BasicSection({
               onChange={e => onChange('database', e.target.value)}
             />
           </Field>
+
+          {isSnowflake && (
+            <div className="grid grid-cols-2 gap-4">
+              <Field
+                label={t('connection.snowflake.warehouse')}
+                hint={t('connection.snowflake.warehouseHint')}
+              >
+                <Input
+                  placeholder="COMPUTE_WH"
+                  value={formData.snowflakeWarehouse}
+                  onChange={e => onChange('snowflakeWarehouse', e.target.value)}
+                  spellCheck={false}
+                />
+              </Field>
+              <Field label={t('connection.snowflake.role')}>
+                <Input
+                  placeholder="SYSADMIN"
+                  value={formData.snowflakeRole}
+                  onChange={e => onChange('snowflakeRole', e.target.value)}
+                  spellCheck={false}
+                />
+              </Field>
+            </div>
+          )}
+
+          {isSnowflake && (
+            <div className="space-y-2">
+              <Label>{t('connection.snowflake.authMode')}</Label>
+              <div className="flex gap-2">
+                {snowflakeAuthModes.map(({ value, label }) => {
+                  const isSelected = formData.snowflakeAuthMode === value;
+                  return (
+                    <Button
+                      key={value}
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className={cn(
+                        'h-auto flex-1 px-3 py-2 rounded-md text-xs font-semibold border-2 transition-all',
+                        isSelected
+                          ? 'border-primary bg-primary/10 text-primary'
+                          : 'border-border bg-background hover:bg-muted text-muted-foreground'
+                      )}
+                      onClick={() => onChange('snowflakeAuthMode', value)}
+                    >
+                      {label}
+                    </Button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {isSqlServer && (
             <div className="space-y-2">
@@ -281,48 +402,88 @@ export function BasicSection({
             </Field>
           )}
 
-          {isSearch
-            ? formData.searchAuthMode !== 'none' && (
-                <div className="grid grid-cols-2 gap-4">
-                  {formData.searchAuthMode === 'basic' && (
-                    <Field label={t('connection.username')} required>
+          {isSnowflake && formData.snowflakeAuthMode === 'token' && (
+            <Field label={t('connection.snowflake.token')} required>
+              <PasswordInput
+                placeholder="••••••••"
+                value={formData.password}
+                onChange={e => onChange('password', e.target.value)}
+              />
+            </Field>
+          )}
+
+          {isSnowflake && formData.snowflakeAuthMode === 'key_pair' && (
+            <div className="space-y-4">
+              <Field label={t('connection.username')} required>
+                <Input
+                  placeholder="ALICE"
+                  value={formData.username}
+                  onChange={e => onChange('username', e.target.value)}
+                  spellCheck={false}
+                />
+              </Field>
+              <Field
+                label={t('connection.snowflake.privateKey')}
+                hint={t('connection.snowflake.privateKeyHint')}
+                required
+              >
+                <Textarea
+                  placeholder={'-----BEGIN PRIVATE KEY-----\n…\n-----END PRIVATE KEY-----'}
+                  value={formData.password}
+                  onChange={e => onChange('password', e.target.value)}
+                  spellCheck={false}
+                  rows={5}
+                  className="font-mono text-xs"
+                />
+              </Field>
+            </div>
+          )}
+
+          {!isSnowflake &&
+            (isSearch
+              ? formData.searchAuthMode !== 'none' && (
+                  <div className="grid grid-cols-2 gap-4">
+                    {formData.searchAuthMode === 'basic' && (
+                      <Field label={t('connection.username')} required>
+                        <Input
+                          placeholder="elastic"
+                          value={formData.username}
+                          onChange={e => onChange('username', e.target.value)}
+                        />
+                      </Field>
+                    )}
+                    <Field
+                      label={searchSecretLabel}
+                      className={formData.searchAuthMode === 'basic' ? undefined : 'col-span-2'}
+                    >
+                      <PasswordInput
+                        placeholder="••••••••"
+                        value={formData.password}
+                        onChange={e => onChange('password', e.target.value)}
+                      />
+                    </Field>
+                  </div>
+                )
+              : !isIntegrated && (
+                  <div className="grid grid-cols-2 gap-4">
+                    <Field label={t('connection.username')} required={usernameRequired}>
                       <Input
-                        placeholder="elastic"
+                        placeholder={
+                          isNtlm ? t('connection.mssql.ntlmUsernamePlaceholder') : 'user'
+                        }
                         value={formData.username}
                         onChange={e => onChange('username', e.target.value)}
                       />
                     </Field>
-                  )}
-                  <Field
-                    label={searchSecretLabel}
-                    className={formData.searchAuthMode === 'basic' ? undefined : 'col-span-2'}
-                  >
-                    <PasswordInput
-                      placeholder="••••••••"
-                      value={formData.password}
-                      onChange={e => onChange('password', e.target.value)}
-                    />
-                  </Field>
-                </div>
-              )
-            : !isIntegrated && (
-                <div className="grid grid-cols-2 gap-4">
-                  <Field label={t('connection.username')} required={usernameRequired}>
-                    <Input
-                      placeholder={isNtlm ? t('connection.mssql.ntlmUsernamePlaceholder') : 'user'}
-                      value={formData.username}
-                      onChange={e => onChange('username', e.target.value)}
-                    />
-                  </Field>
-                  <Field label={t('connection.password')}>
-                    <PasswordInput
-                      placeholder="••••••••"
-                      value={formData.password}
-                      onChange={e => onChange('password', e.target.value)}
-                    />
-                  </Field>
-                </div>
-              )}
+                    <Field label={t('connection.password')}>
+                      <PasswordInput
+                        placeholder="••••••••"
+                        value={formData.password}
+                        onChange={e => onChange('password', e.target.value)}
+                      />
+                    </Field>
+                  </div>
+                ))}
         </>
       )}
     </div>

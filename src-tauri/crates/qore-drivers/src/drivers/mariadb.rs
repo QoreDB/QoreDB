@@ -633,6 +633,7 @@ impl DataEngine for MariaDbDriver {
             schema: true,
             streaming: true,
             explain: true,
+            explain_prefix: self.explain_prefix().map(str::to_string),
             maintenance: true,
             pagination: self.pagination_capability(),
         }

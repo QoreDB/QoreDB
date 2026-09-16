@@ -2,6 +2,7 @@
 
 import { invoke } from '@/lib/transport';
 import type {
+  ConnectionMasking,
   Environment,
   MssqlAuthMode,
   SavedConnection,
@@ -74,6 +75,10 @@ export async function saveConnection(input: {
   driver: string;
   environment: Environment;
   read_only: boolean;
+  /** Omitted: the stored value is kept. */
+  expose_to_agents?: boolean;
+  /** Omitted: the stored rules are kept. */
+  masking?: ConnectionMasking;
   host: string;
   port: number;
   username: string;

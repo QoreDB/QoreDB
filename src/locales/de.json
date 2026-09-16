@@ -235,6 +235,7 @@
     "showPassword": "Passwort anzeigen",
     "hidePassword": "Passwort verbergen",
     "database": "Datenbank",
+    "project": "Projekt",
     "databaseInitial": "Anfangsdatenbank",
     "databaseIndex": "Datenbankindex (0-15)",
     "filePath": "Datenbankdatei",
@@ -363,7 +364,8 @@
       "keyValue": "Schlüssel-Wert",
       "timeSeries": "Zeitreihen",
       "search": "Suche",
-      "graph": "Graph"
+      "graph": "Graph",
+      "wideColumn": "Wide-Column"
     },
     "driverSearch": "Engine suchen…",
     "driverSearchEmpty": "Keine Engine passt zu „{{query}}“",
@@ -371,6 +373,28 @@
       "cluster": "Cluster-Name (optional)",
       "clusterPlaceholder": "z. B. shard_cluster",
       "clusterHint": "Wenn gesetzt, werden DDL-Befehle (CREATE/DROP DATABASE/TABLE) mit ON CLUSTER abgesetzt und auf alle Replikate propagiert. Bei Single-Node-Installationen leer lassen."
+    },
+    "snowflake": {
+      "account": "Kontokennung",
+      "accountHint": "Ihre Kontokennung (myorg-myaccount oder xy12345.eu-central-1) oder der vollständige Hostname.",
+      "authMode": "Authentifizierung",
+      "authKeyPair": "Schlüsselpaar",
+      "authToken": "Zugriffstoken",
+      "privateKey": "Privater Schlüssel (PEM)",
+      "privateKeyHint": "Unverschlüsselter privater RSA-Schlüssel, dessen öffentlicher Schlüssel beim Benutzer hinterlegt ist (ALTER USER … SET RSA_PUBLIC_KEY).",
+      "token": "Programmatisches Zugriffstoken",
+      "warehouse": "Warehouse",
+      "warehouseHint": "Rechenressource für jede Abfrage. SHOW und DESCRIBE laufen auch ohne.",
+      "role": "Rolle (optional)"
+    },
+    "bigquery": {
+      "projectHint": "Projekt mit den Datasets. Leer lassen, um das Projekt des Dienstkontos zu verwenden.",
+      "serviceAccount": "Dienstkonto-Schlüssel (JSON)",
+      "serviceAccountHint": "Die JSON-Schlüsseldatei eines Dienstkontos mit den Rollen BigQuery Job User und Data Viewer.",
+      "location": "Standort (optional)",
+      "locationHint": "Dataset-Standort wie EU oder us-central1, für neue Datasets und regionsübergreifende Abfragen.",
+      "billingProject": "Abrechnungsprojekt (optional)",
+      "billingProjectHint": "Projekt, dem die Abfragen berechnet werden, falls es sich von dem mit den Daten unterscheidet."
     },
     "search": {
       "authMode": "Authentifizierung",
@@ -386,6 +410,29 @@
     },
     "documentdb": {
       "caCertHint": "DocumentDB-Cluster sind von einer Amazon-CA signiert. Geben Sie hier die von Amazon veröffentlichte global-bundle.pem an; leer lassen, um den System-Zertifikatspeicher zu verwenden."
+    },
+    "keyspace": "Keyspace",
+    "masking": {
+      "title": "Spaltenmaskierung",
+      "description": "Ersetzt Werte in Ergebnissen, Exporten und Agentenantworten für alle Abfragen dieser Verbindung.",
+      "detected": "Erkannte sensible Spalten maskieren",
+      "detectedHint": "Teilweise Maskierung von Spalten, deren Name sensibel wirkt (E-Mail, Telefon, Passwort…).",
+      "table": "Tabelle",
+      "anyTable": "Alle Tabellen",
+      "column": "Spalte",
+      "mode": "Modus",
+      "modes": {
+        "hidden": "Verborgen",
+        "partial": "Teilweise",
+        "hash": "Hash"
+      },
+      "addRule": "Regel hinzufügen",
+      "removeRule": "Regel entfernen",
+      "empty": "Keine Regel: Werte werden wie gespeichert angezeigt.",
+      "proHint": "Das Hinzufügen von Regeln erfordert QoreDB Pro. Bestehende Regeln gelten weiter und können entfernt werden.",
+      "removeConfirmTitle": "Maskierung auf einer Produktionsverbindung entfernen",
+      "removeConfirmDescription": "Maskierte Werte werden in Ergebnissen, Exporten und Agentenantworten wieder sichtbar.",
+      "removeConfirmLabel": "Maskierung entfernen"
     }
   },
   "sidebar": {
@@ -672,15 +719,15 @@
     "setName": "Name des Sets",
     "setNamePlaceholder": "checkout-flow",
     "ignoredColumns": "Ignorierte Spalten",
-    "ignoredColumnsHint": "Durch Komma getrennt. Vom Vergleich ausgenommen, damit ein Zeitstempel nicht bei jedem Lauf einen Unterschied meldet.",
-    "queryTextWarning": "Das Set wird mit dem unveränderten Abfragetext in Ihr Repository übernommen. Ein Literal in einer Abfrage — Schlüssel, Passwort, Nutzdaten — wird mitversioniert. Ergebniszeilen niemals.",
+    "ignoredColumnsHint": "Vom Vergleich ausgeschlossen, z. B. updated_at.",
+    "queryTextWarning": "Abfragen werden unverändert versioniert — prüfen Sie, dass keine ein Geheimnis enthält.",
     "secretsDetected": "{{count}} Abfragen enthalten etwas, das wie ein Zugangsdatum aussieht. Entfernen Sie sie vor dem Teilen, oder wechseln Sie in den Einstellungen zur Redaktion.",
     "secretsRedacted": "{{count}} Abfragen enthielten etwas, das wie ein Zugangsdatum aussieht, und wurden redigiert.",
     "looksLikeSecret": "Sieht wie ein Zugangsdatum aus",
     "redactedCannotReplay": "Dieses Set wurde mit Redaktion aufgezeichnet: Seine Abfragen treffen auf nichts mehr zu und können nicht abgespielt werden. Als Inventar bleibt es lesbar.",
-    "captureValues": "Ergebniswerte erfassen",
-    "captureValuesOn": "Zeilen werden lokal gespeichert, Unterschiede können angezeigt werden.",
-    "captureValuesOff": "Nur Metadaten und Prüfsummen: Unterschiede werden gemeldet, nicht angezeigt.",
+    "captureValues": "Ergebnisse lokal behalten",
+    "captureValuesOn": "Ermöglicht, Unterschiede zeilenweise zu öffnen.",
+    "captureValuesOff": "Nur Metadaten und Prüfsummen: Unterschiede werden gemeldet, nicht gezeigt.",
     "productionCapture": "Werte aus der Produktion erfassen",
     "productionCaptureHint": "Standardmäßig aus. Produktionszeilen bleiben auf diesem Rechner.",
     "startRecording": "Aufzeichnung starten",
@@ -705,12 +752,11 @@
     "ignoring": "ignoriert {{columns}}",
     "ignoringNone": "keine ignorierten Spalten",
     "editIgnoredColumns": "Ignorierte Spalten bearbeiten",
-    "compareToBaseline": "vs. Aufzeichnung",
+    "compareToBaseline": "Ursprüngliche Aufzeichnung",
     "compareToRun": "vs. {{date}}",
     "compareToConnection": "vs. {{name}}",
     "sideA": "diese Verbindung",
     "sideB": "die andere Verbindung",
-    "allowMutations": "Mutationen abspielen",
     "run": "Abspielen",
     "progress": "{{completed}} / {{total}}",
     "partialComparison": "Vergleich auf die erfassten Zeilen beschränkt.",
@@ -719,18 +765,19 @@
     "currentRun": "Dieser Lauf",
     "verdict": {
       "match": "identisch",
-      "broken": "defekt",
+      "broken": "fehlgeschlagen",
       "row_count_diff": "Zeilenanzahl",
-      "digest_diff": "Inhalt",
+      "digest_diff": "Ergebnis geändert",
       "slower": "langsamer",
-      "skipped": "übersprungen"
+      "skipped": "nicht ausgeführt",
+      "not_compared": "Ergebnis nicht verglichen"
     },
     "column": {
       "query": "Abfrage",
       "verdict": "Ergebnis",
       "rows": "Zeilen",
       "duration": "Dauer",
-      "runVsExpected": "Lauf / aufgezeichnet"
+      "referenceToRun": "Aufzeichnung → Lauf"
     },
     "errors": {
       "listSets": "Replay-Sets konnten nicht aufgelistet werden",
@@ -743,7 +790,8 @@
       "deleteSet": "Replay-Set konnte nicht gelöscht werden",
       "ignoredColumns": "Ignorierte Spalten konnten nicht aktualisiert werden",
       "noBaseline": "Dieses Set hat keine Referenzerfassung zum Vergleich",
-      "loadCapture": "Erfasste Zeilen konnten nicht geladen werden"
+      "loadCapture": "Erfasste Zeilen konnten nicht geladen werden",
+      "acceptRun": "Lauf konnte nicht als Referenz übernommen werden"
     },
     "settings": {
       "title": "Replay-Sets und Zugangsdaten",
@@ -755,6 +803,59 @@
       "offHint": "Es wird nichts geprüft. Für Sets, die Ihren Rechner nie verlassen.",
       "warnHint": "Der Eintrag wird während der Aufzeichnung markiert, damit Sie ihn entfernen können. Das Set bleibt abspielbar.",
       "redactHint": "Literale werden beim Herausschreiben entfernt. Das Set wird bedenkenlos teilbar und lässt sich nicht mehr abspielen."
+    },
+    "newRecording": "Neue Aufzeichnung",
+    "selectSet": "Set auswählen",
+    "selectSetHint": "Wählen Sie ein Set zum Abspielen.",
+    "searchSets": "Sets durchsuchen",
+    "noMatchingSet": "Kein passendes Set",
+    "replayTarget": "Ziel: {{target}}",
+    "options": "Optionen",
+    "includeMutations_one": "{{count}} Mutation einbeziehen",
+    "includeMutations_other": "{{count}} Mutationen einbeziehen",
+    "recordMutations": "Mutationen aufzeichnen",
+    "recordMutationsHint": "Aus: Eine während der Aufzeichnung ausgeführte Migration bleibt außerhalb des Sets.",
+    "removeMutations": "Mutationen entfernen",
+    "cancelRecording": "Aufzeichnung verwerfen",
+    "clearFilter": "Alle anzeigen",
+    "expandQuery": "Vollständige Abfrage anzeigen",
+    "collapseQuery": "Abfrage einklappen",
+    "acceptEntry": "Dieses Ergebnis als Referenz übernehmen",
+    "acceptAll": "Diesen Lauf als Referenz übernehmen",
+    "acceptAllHint": "Nach einer bewussten Migration: Die Ergebnisse dieses Laufs werden zur Referenz des Sets.",
+    "referenceAcceptedAll": "Der Lauf ist jetzt die Referenz",
+    "referenceAcceptedEntries_one": "{{count}} Abfrage aktualisiert",
+    "referenceAcceptedEntries_other": "{{count}} Abfragen aktualisiert",
+    "queryTextWarningDetail": "Literale sind Teil des versionierten SQL. Ergebniszeilen bleiben lokal und gelangen nie ins Repository.",
+    "composition": {
+      "total_one": "{{count}} Abfrage",
+      "total_other": "{{count}} Abfragen",
+      "reads_one": "{{count}} Lesevorgang",
+      "reads_other": "{{count}} Lesevorgänge",
+      "mutations_one": "{{count}} Mutation",
+      "mutations_other": "{{count}} Mutationen",
+      "excludedMutations_one": "{{count}} Mutation ausgelassen",
+      "excludedMutations_other": "{{count}} Mutationen ausgelassen"
+    },
+    "coverage": {
+      "compared": "{{compared}}/{{total}} Ergebnisse verglichen",
+      "notCompared_one": "{{count}} nicht verglichen",
+      "notCompared_other": "{{count}} nicht verglichen",
+      "skipped_one": "{{count}} nicht ausgeführt",
+      "skipped_other": "{{count}} nicht ausgeführt",
+      "broken_one": "{{count}} fehlgeschlagen",
+      "broken_other": "{{count}} fehlgeschlagen"
+    },
+    "confirm": {
+      "deleteTitle": "„{{name}}“ löschen?",
+      "deleteBody": "Das Set und alle lokal erfassten Läufe werden gelöscht. Das lässt sich nicht rückgängig machen.",
+      "acceptEntryTitle": "Dieses Ergebnis als Referenz übernehmen?",
+      "acceptAllTitle": "Diesen Lauf als Referenz für {{count}} Abfragen übernehmen?",
+      "acceptBody": "Die Erwartungen des Sets werden durch das ersetzt, was dieser Lauf beobachtet hat. Spätere Läufe vergleichen damit."
+    },
+    "skipReason": {
+      "mutation_excluded": "Mutation vom Abspielen ausgeschlossen",
+      "mutation_production_blocked": "Mutationen werden nie gegen Produktion abgespielt"
     }
   },
   "settings": {
@@ -809,7 +910,8 @@
         "data_generator": "Datengenerator",
         "index_suggestions": "Indexvorschläge",
         "schema_diff": "Schema-Diff",
-        "query_replay": "Query-Replay"
+        "query_replay": "Query-Replay",
+        "column_masking": "Spaltenmaskierung"
       },
       "devOverrideTitle": "Entwickler-Lizenz-Override",
       "devOverrideDescription": "Lizenzstufe für Entwicklungstests überschreiben. Wird beim Neustart zurückgesetzt.",
@@ -861,7 +963,8 @@
       "plugins": "Plugins",
       "license": "Lizenz",
       "ai": "KI-Assistent",
-      "admin": "Administration"
+      "admin": "Administration",
+      "agents": "KI-Agenten"
     },
     "search": {
       "placeholder": "Einstellungen suchen…",
@@ -953,6 +1056,47 @@
       "passwordReset": "Passwort für {{email}} zurückgesetzt.",
       "resetFailed": "Passwort konnte nicht zurückgesetzt werden",
       "loadFailed": "Benutzer konnten nicht geladen werden"
+    },
+    "agents": {
+      "status": {
+        "title": "MCP-Server",
+        "description": "Die mit QoreDB ausgelieferte qore-mcp-Binärdatei, genutzt von Claude, Cursor und anderen MCP-Clients.",
+        "loading": "Erkennung…",
+        "found": "Erkannt",
+        "notFound": "Nicht gefunden",
+        "path": "Pfad",
+        "version": "Version",
+        "hint": "Installieren Sie qore-mcp aus den Release-Assets oder bauen Sie es mit cargo build -p qore-mcp und legen Sie es in Ihren PATH."
+      },
+      "config": {
+        "title": "Client-Konfiguration",
+        "description": "Kopieren Sie den Ausschnitt für Ihren Client. Der Pfad zeigt auf die erkannte Binärdatei.",
+        "claudeDesktop": "Claude Desktop (claude_desktop_config.json)",
+        "claudeCode": "Claude Code",
+        "cursor": "Cursor (.cursor/mcp.json)",
+        "copy": "Kopieren",
+        "copied": "Kopiert",
+        "copyFailed": "Kopieren in die Zwischenablage fehlgeschlagen"
+      },
+      "connections": {
+        "title": "Freigegebene Verbindungen",
+        "description": "Schalten Sie die Verbindungen frei, die KI-Agenten lesen dürfen. Standardmäßig aus, auch für Verbindungen, die vor dieser Version gespeichert wurden.",
+        "empty": "Noch keine gespeicherte Verbindung. Legen Sie eine in der Seitenleiste an und geben Sie sie hier frei.",
+        "toggle": "Zugriff auf diese Verbindung erlauben",
+        "storeDefault": "Verwendeter Speicher: Standard-Vault. Ein Agent, der aus einem Projektordner mit einem .qoredb-Workspace gestartet wird, liest stattdessen diesen Workspace.",
+        "storeWorkspace": "Verwendeter Speicher: Workspace {{path}}. Die Ausschnitte übergeben ihn an den Server; aus diesem Ordner gestartetes Claude Code erkennt ihn selbst."
+      },
+      "limits": {
+        "title": "Angewendete Grenzen",
+        "description": "Diese Schutzmaßnahmen gelten für jeden Agentenaufruf, unabhängig von den Verbindungseinstellungen.",
+        "readOnly": "Nur lesend: Schreibzugriffe werden auch bei Verbindungen ohne Nur-Lese-Modus abgelehnt.",
+        "timeout": "Zeitlimit pro Abfrage: {{seconds}} s",
+        "rows": "Maximale Zeilen pro Abfrage: {{count}}",
+        "rowsUnlimited": "Maximale Zeilen pro Abfrage: keine Grenze (unter Sicherheit festlegen).",
+        "rateLimit": "Ratenbegrenzung pro Sitzung: {{state}}",
+        "idle": "Sitzungen, die 10 Minuten inaktiv sind, werden geschlossen.",
+        "audit": "Jeder Aufruf wird mit der Quelle „mcp“ im Audit-Log festgehalten."
+      }
     }
   },
   "table": {
@@ -1042,6 +1186,12 @@
     "unknownConnection": "Unbekannte Verbindung"
   },
   "query": {
+    "bigqueryScan": {
+      "title": "BigQuery-Schätzung",
+      "bytes": "Geschätzte gelesene Daten: {{bytes}} Byte.",
+      "unknown": "Das Lesevolumen ist für diese Abfrage nicht verfügbar.",
+      "hint": "Diese Schätzung ist kein Abrechnungslimit. Skripte und externe Tabellen können mehr Daten lesen."
+    },
     "run": "Ausführen",
     "running": "Wird ausgeführt…",
     "stop": "Stopp",
@@ -1129,7 +1279,8 @@
       "indexComposite": "Indiziert (zusammengesetzt: {{name}})",
       "unique": "Eindeutige Einschränkung",
       "copySuccess": "Zeile in Zwischenablage kopiert",
-      "sortScansTable": "Das Sortieren dieser Spalte folgt keinem Index: Die Engine sortiert die gesamte Tabelle."
+      "sortScansTable": "Das Sortieren dieser Spalte folgt keinem Index: Die Engine sortiert die gesamte Tabelle.",
+      "masked": "Werte durch die Regeln der Verbindung maskiert"
     },
     "rowsSelected": "{{count}} Zeile(n) ausgewählt",
     "rowsTotal": "{{count}} Zeile(n)",
@@ -1252,6 +1403,15 @@
     "pagination": {
       "unstableOrder": "instabile Reihenfolge",
       "unstableOrderHint": "Diese Tabelle hat keinen eindeutigen Schlüssel zum Blättern: Eine Zeile kann doppelt erscheinen oder übersprungen werden, wenn sich die Daten beim Scrollen ändern."
+    },
+    "masking": {
+      "mask": "Diese Spalte maskieren",
+      "unmask": "Maskierung entfernen",
+      "byDetection": "Durch Erkennung sensibler Spalten maskiert",
+      "readOnly": "Diese Spalte ist maskiert: Ihre Werte können nicht bearbeitet werden.",
+      "applied": "Maskierung angewendet",
+      "appliedNextRun": "Maskierung gespeichert: Sie gilt ab der nächsten Ausführung.",
+      "removed": "Maskierung entfernt"
     }
   },
   "export": {
@@ -1584,7 +1744,7 @@
   },
   "paginationDiagnostics": {
     "title": "Paginierungsdiagnose",
-    "description": "Messungen pro Tab für die aktuelle Sitzung. Es werden weder Tabellennamen noch Zellwerte oder Cursor gespeichert.",
+    "description": "Sitzungszeiten pro Tab. Tabellennamen, Zellwerte und Cursor werden nie gespeichert.",
     "empty": "In dieser Sitzung wurde noch keine Tabelle durchsucht.",
     "scope": "Tab",
     "pages": "Seiten",
@@ -1631,7 +1791,13 @@
     "clusters": "Cluster",
     "index": "Index",
     "indexes": "Indizes",
-    "indexesHeader": "Indizes"
+    "indexesHeader": "Indizes",
+    "keyspace": "Keyspace",
+    "keyspaces": "Keyspaces",
+    "keyspacesHeader": "KEYSPACES",
+    "dataset": "Dataset",
+    "datasets": "Datasets",
+    "datasetsHeader": "DATASETS"
   },
   "createTable": {
     "title": "Tabelle erstellen",
@@ -1991,7 +2157,8 @@
         "fingerprint": "Fingerabdruck",
         "filterByFingerprint": "Nach diesem Fingerabdruck filtern",
         "blockedBy": "Blockiert durch Sicherheitsregel",
-        "error": "Fehler"
+        "error": "Fehler",
+        "flaggedBy": "Durch Regel markiert"
       },
       "stats": {
         "total": "Abfragen gesamt",
@@ -2000,6 +2167,22 @@
         "success": "Erfolgreich",
         "failed": "Fehlgeschlagen",
         "lastHour": "Letzte Stunde"
+      },
+      "tabs": {
+        "audit": "Audit-Log",
+        "profiling": "Profiling",
+        "trends": "Trends",
+        "slow": "Langsame Abfragen"
+      },
+      "flaggedBy": "Markiert durch: {{rule}}",
+      "columns": {
+        "time": "Zeit",
+        "environment": "Umg.",
+        "query": "Abfrage",
+        "database": "Datenbank",
+        "duration": "Dauer",
+        "rows": "Zeilen",
+        "operation": "Operation"
       }
     },
     "profiling": {
@@ -2051,7 +2234,11 @@
       "environments": {
         "title": "Nach Umgebung"
       },
-      "period": "Daten erfasst seit {{date}}"
+      "period": "Daten erfasst seit {{date}}",
+      "alertErrorRate": "Fehlerraten-Alarm",
+      "alertErrorRateDescription": "Benachrichtigen, wenn die Fehlerrate über 15 Minuten diesen Prozentsatz erreicht. 0 deaktiviert den Alarm.",
+      "alertSlowQueries": "Alarm für langsame Abfragen",
+      "alertSlowQueriesDescription": "Benachrichtigen, wenn so viele langsame Abfragen innerhalb von 15 Minuten liefen. 0 deaktiviert den Alarm."
     },
     "safety": {
       "title": "Sicherheitsnetz",
@@ -2079,7 +2266,10 @@
         "builtin-confirm-delete-production": "DELETE in Produktion bestätigen",
         "builtin-confirm-update-no-where": "UPDATE ohne WHERE bestätigen",
         "builtin-confirm-delete-no-where": "DELETE ohne WHERE bestätigen",
-        "builtin-warn-alter-production": "ALTER in Produktion warnen"
+        "builtin-warn-alter-production": "ALTER in Produktion warnen",
+        "n_plus_one": "N+1-Muster",
+        "alert_error_rate": "Fehlerraten-Alarm",
+        "alert_slow_queries": "Alarm für langsame Abfragen"
       },
       "builtinRuleDescriptions": {
         "builtin-no-drop-production": "Verhindert DROP-Anweisungen in Produktionsumgebungen",
@@ -2087,7 +2277,10 @@
         "builtin-confirm-delete-production": "Erfordert Bestätigung für DELETE-Anweisungen in der Produktion",
         "builtin-confirm-update-no-where": "Erfordert Bestätigung für UPDATE-Anweisungen ohne WHERE-Klausel",
         "builtin-confirm-delete-no-where": "Erfordert Bestätigung für DELETE-Anweisungen ohne WHERE-Klausel",
-        "builtin-warn-alter-production": "Warnt vor ALTER-Anweisungen in der Produktion"
+        "builtin-warn-alter-production": "Warnt vor ALTER-Anweisungen in der Produktion",
+        "n_plus_one": "Dieselbe Abfrage lief 20-mal oder öfter innerhalb von zwei Sekunden in einer Sitzung.",
+        "alert_error_rate": "Die Fehlerrate der letzten 15 Minuten hat den konfigurierten Schwellenwert erreicht.",
+        "alert_slow_queries": "Die Anzahl langsamer Abfragen der letzten 15 Minuten hat den konfigurierten Schwellenwert erreicht."
       },
       "action": {
         "block": "Blockieren",
@@ -2174,6 +2367,27 @@
       "maxConcurrentDescription": "Maximale Anzahl gleichzeitig laufender Abfragen",
       "maxConcurrentPlaceholder": "Kein Limit",
       "resultsTruncated": "Ergebnisse gekürzt: {{max}} von {{total}} Zeilen angezeigt"
+    },
+    "trends": {
+      "description": "Die häufigsten Abfragen im Audit-Log, nach Fingerabdruck gruppiert, mit ihrem täglichen P95.",
+      "days": "Letzte {{count}} Tage",
+      "empty": "Keine ausgeführte Abfrage in diesem Zeitraum.",
+      "loadError": "Trends konnten nicht geladen werden",
+      "columns": {
+        "query": "Abfrage",
+        "count": "Ausführungen",
+        "errorRate": "Fehler",
+        "sparkline": "P95 pro Tag"
+      },
+      "regression": "Regression",
+      "regressionDetail": "P95 {{recent}} in den letzten 24 h gegenüber {{baseline}} in den sieben Tagen davor ({{count}} Ausführungen)"
+    },
+    "alerts": {
+      "nPlusOne": "Mögliches N+1: dieselbe Abfrage lief {{count}}-mal innerhalb von zwei Sekunden",
+      "errorRate": "Fehlerrate bei {{percent}} % in den letzten 15 Minuten ({{total}} Abfragen)",
+      "slowQueries": "{{count}} langsame Abfragen in den letzten 15 Minuten",
+      "open": "Trends öffnen",
+      "badge": "{{count}} Leistungsalarm(e)"
     }
   },
   "titlebar": {
@@ -2493,6 +2707,13 @@
           "bullet1": "Defekte Abfragen, Zeilen- und Inhaltsunterschiede sowie Verlangsamungen in einem Bericht",
           "bullet2": "Replay-Sets liegen in .qoredb/ und werden über Git geteilt — nur Erwartungen, nie Ergebniszeilen",
           "bullet3": "Diff Referenz ↔ Lauf für jede Zeile direkt aus dem Bericht öffnen"
+        },
+        "column_masking": {
+          "title": "Sensible Werte bleiben verborgen",
+          "description": "Maskieren Sie Spalten pro Verbindung: Ergebnisse, Exporte, föderierte Abfragen und KI-Agenten sehen nur den maskierten Wert.",
+          "bullet1": "Verborgene, teilweise oder gehashte Werte, mit automatischer Erkennung sensibler Spaltennamen",
+          "bullet2": "Auf allen Wegen angewendet, die Zeilen liefern, einschließlich MCP und CLI",
+          "bullet3": "Agenten können eine maskierte Spalte weder filtern, sortieren noch umbenennen, um sie auszulesen"
         }
       }
     },
@@ -2509,7 +2730,8 @@
       "query_library_advanced": "Erweiterte Abfragebibliothek erfordert eine Pro-Lizenz.",
       "virtual_relations_auto_suggest": "Automatische Vorschläge für virtuelle Relationen erfordern eine Pro-Lizenz.",
       "federation": "Datenbankübergreifende Föderierung erfordert eine Pro-Lizenz.",
-      "query_replay": "Query-Replay erfordert eine Pro-Lizenz."
+      "query_replay": "Query-Replay erfordert eine Pro-Lizenz.",
+      "column_masking": "Die Spaltenmaskierung erfordert eine Pro-Lizenz."
     }
   },
   "proDiscovery": {

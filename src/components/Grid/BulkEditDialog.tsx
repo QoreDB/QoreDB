@@ -55,6 +55,8 @@ interface BulkEditDialogProps {
     oldValues: Record<string, Value>,
     newValues: Record<string, Value>
   ) => void;
+  /** Masked values are placeholders: editing them in bulk would overwrite real data. */
+  maskedColumns?: Set<string>;
   onApplied?: () => void;
 }
 
@@ -72,13 +74,17 @@ export function BulkEditDialog({
   dialect = Driver.Postgres,
   sandboxMode = false,
   onSandboxUpdate,
+  maskedColumns,
   onApplied,
 }: BulkEditDialogProps) {
   const { t } = useTranslation();
   const { isFeatureEnabled } = useLicense();
   const hasPro = isFeatureEnabled('bulk_edit_unlimited');
 
-  const eligibleColumns = useMemo(() => eligibleColumnsForBulkEdit(tableSchema), [tableSchema]);
+  const eligibleColumns = useMemo(
+    () => eligibleColumnsForBulkEdit(tableSchema).filter(name => !maskedColumns?.has(name)),
+    [tableSchema, maskedColumns]
+  );
 
   const [column, setColumn] = useState<string>('');
   const [operation, setOperation] = useState<BulkEditOperation>('set_value');

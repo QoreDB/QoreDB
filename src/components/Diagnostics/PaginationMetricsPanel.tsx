@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { Copy, Gauge, Trash2 } from 'lucide-react';
+import { Copy, Gauge, Info, Trash2 } from 'lucide-react';
 import { useSyncExternalStore } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Tooltip } from '@/components/ui/tooltip';
 import {
   getPaginationScopes,
   type PaginationScope,
@@ -24,6 +25,31 @@ function ms(value: number | null): string {
   return value === null ? '—' : `${Math.round(value)} ms`;
 }
 
+interface Column {
+  key: string;
+  align: 'left' | 'right';
+  render: (scope: PaginationScope) => string;
+}
+
+const COLUMNS: Column[] = [
+  { key: 'scope', align: 'left', render: scope => scope.label },
+  { key: 'pages', align: 'right', render: scope => scope.pages.toLocaleString() },
+  { key: 'rows', align: 'right', render: scope => scope.rows.toLocaleString() },
+  { key: 'firstPage', align: 'right', render: scope => ms(scope.firstPageMs) },
+  { key: 'p50', align: 'right', render: scope => ms(percentile(scope.pageMs, 50)) },
+  { key: 'p95', align: 'right', render: scope => ms(percentile(scope.pageMs, 95)) },
+  { key: 'firstSearch', align: 'right', render: scope => ms(scope.firstSearchMs) },
+  {
+    key: 'exactCounts',
+    align: 'right',
+    render: scope =>
+      scope.exactCountsCancelled > 0
+        ? `${scope.exactCounts} (${scope.exactCountsCancelled})`
+        : String(scope.exactCounts),
+  },
+  { key: 'errors', align: 'right', render: scope => String(scope.errors) },
+];
+
 export function PaginationMetricsPanel({ isOpen, onClose }: PaginationMetricsPanelProps) {
   const { t } = useTranslation();
   const scopes = useSyncExternalStore(subscribePaginationMetrics, getPaginationScopes);
@@ -39,52 +65,51 @@ export function PaginationMetricsPanel({ isOpen, onClose }: PaginationMetricsPan
     }
   }
 
-  const columns: Array<{ key: string; render: (scope: PaginationScope) => string }> = [
-    { key: 'scope', render: scope => scope.label },
-    { key: 'pages', render: scope => scope.pages.toLocaleString() },
-    { key: 'rows', render: scope => scope.rows.toLocaleString() },
-    { key: 'firstPage', render: scope => ms(scope.firstPageMs) },
-    { key: 'p50', render: scope => ms(percentile(scope.pageMs, 50)) },
-    { key: 'p95', render: scope => ms(percentile(scope.pageMs, 95)) },
-    { key: 'firstSearch', render: scope => ms(scope.firstSearchMs) },
-    {
-      key: 'exactCounts',
-      render: scope =>
-        scope.exactCountsCancelled > 0
-          ? `${scope.exactCounts} (${scope.exactCountsCancelled})`
-          : String(scope.exactCounts),
-    },
-    { key: 'errors', render: scope => String(scope.errors) },
-  ];
-
   return (
     <Dialog open={isOpen} onOpenChange={open => !open && onClose()}>
       <DialogContent
         disableExitAnimation
-        className="max-w-3xl max-h-[85vh] flex flex-col p-0 gap-0"
+        className="max-w-4xl max-h-[80vh] flex flex-col p-0 gap-0"
       >
-        <DialogHeader className="px-4 py-3 border-b border-border">
-          <DialogTitle className="flex items-center gap-2 text-base">
-            <Gauge size={18} className="text-accent" />
+        <DialogHeader className="flex-row items-center justify-between gap-3 space-y-0 px-4 py-2.5 border-b border-border pr-12">
+          <DialogTitle className="flex items-center gap-2 text-sm font-semibold">
+            <Gauge size={16} className="text-muted-foreground" />
             {t('paginationDiagnostics.title')}
+            <Tooltip content={t('paginationDiagnostics.description')}>
+              <Info size={13} className="text-muted-foreground/70" />
+            </Tooltip>
           </DialogTitle>
+          <div className="flex items-center gap-1">
+            <Button variant="ghost" size="sm" disabled={scopes.length === 0} onClick={handleCopy}>
+              <Copy size={14} className="mr-1.5" />
+              {t('paginationDiagnostics.copy')}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={scopes.length === 0}
+              onClick={resetPaginationMetrics}
+            >
+              <Trash2 size={14} className="mr-1.5" />
+              {t('paginationDiagnostics.reset')}
+            </Button>
+          </div>
         </DialogHeader>
 
-        <p className="px-4 py-2 text-xs text-muted-foreground border-b border-border bg-muted/20">
-          {t('paginationDiagnostics.description')}
-        </p>
-
-        <div className="flex-1 overflow-auto">
+        <div className="flex-1 min-h-0 overflow-auto">
           {scopes.length === 0 ? (
-            <p className="px-4 py-8 text-sm text-center text-muted-foreground">
+            <p className="px-4 py-12 text-sm text-center text-muted-foreground">
               {t('paginationDiagnostics.empty')}
             </p>
           ) : (
             <table className="w-full text-xs">
-              <thead className="sticky top-0 bg-background border-b border-border">
+              <thead className="sticky top-0 bg-muted/40 text-[11px] uppercase tracking-wider text-muted-foreground">
                 <tr>
-                  {columns.map(column => (
-                    <th key={column.key} className="px-3 py-2 text-left font-medium">
+                  {COLUMNS.map(column => (
+                    <th
+                      key={column.key}
+                      className={`px-3 py-2 font-medium ${column.align === 'right' ? 'text-right' : 'text-left'}`}
+                    >
                       {t(`paginationDiagnostics.${column.key}`)}
                     </th>
                   ))}
@@ -92,9 +117,14 @@ export function PaginationMetricsPanel({ isOpen, onClose }: PaginationMetricsPan
               </thead>
               <tbody>
                 {scopes.map(scope => (
-                  <tr key={scope.id} className="border-b border-border/50">
-                    {columns.map(column => (
-                      <td key={column.key} className="px-3 py-1.5 tabular-nums">
+                  <tr key={scope.id} className="border-t border-border hover:bg-muted/30">
+                    {COLUMNS.map(column => (
+                      <td
+                        key={column.key}
+                        className={`px-3 py-1.5 tabular-nums ${
+                          column.align === 'right' ? 'text-right' : 'text-left font-mono'
+                        } ${column.key === 'errors' && scope.errors > 0 ? 'text-error' : ''}`}
+                      >
                         {column.render(scope)}
                       </td>
                     ))}
@@ -103,22 +133,6 @@ export function PaginationMetricsPanel({ isOpen, onClose }: PaginationMetricsPan
               </tbody>
             </table>
           )}
-        </div>
-
-        <div className="flex items-center justify-end gap-2 px-4 py-2 border-t border-border">
-          <Button variant="ghost" size="sm" disabled={scopes.length === 0} onClick={handleCopy}>
-            <Copy size={14} className="mr-1.5" />
-            {t('paginationDiagnostics.copy')}
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            disabled={scopes.length === 0}
-            onClick={resetPaginationMetrics}
-          >
-            <Trash2 size={14} className="mr-1.5" />
-            {t('paginationDiagnostics.reset')}
-          </Button>
         </div>
       </DialogContent>
     </Dialog>

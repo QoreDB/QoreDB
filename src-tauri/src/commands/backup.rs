@@ -249,10 +249,14 @@ fn backup_tool_for_driver(driver: &str, format: BackupFormat) -> Result<BackupTo
     let driver_lower = driver.to_ascii_lowercase();
     match (driver_lower.as_str(), format) {
         // PostgreSQL family — supabase / neon / timescale all reuse pg_dump.
-        ("postgres" | "postgresql" | "supabase" | "neon" | "timescaledb" | "cockroachdb", _) => {
-            Ok(BackupTool::PgDump)
+        (
+            "postgres" | "postgresql" | "supabase" | "neon" | "timescaledb" | "cockroachdb"
+            | "yugabytedb",
+            _,
+        ) => Ok(BackupTool::PgDump),
+        ("mysql" | "planetscale" | "tidb" | "starrocks" | "doris" | "singlestore", _) => {
+            Ok(BackupTool::MysqlDump)
         }
-        ("mysql", _) => Ok(BackupTool::MysqlDump),
         ("mariadb", _) => Ok(BackupTool::MariaDbDump),
         ("mongodb" | "documentdb", _) => Ok(BackupTool::MongoDump),
         ("sqlite", _) => Ok(BackupTool::Sqlite3),
@@ -264,13 +268,19 @@ fn restore_tool_for_driver(driver: &str, format: BackupFormat) -> Result<BackupT
     let driver_lower = driver.to_ascii_lowercase();
     match (driver_lower.as_str(), format) {
         (
-            "postgres" | "postgresql" | "supabase" | "neon" | "timescaledb" | "cockroachdb",
+            "postgres" | "postgresql" | "supabase" | "neon" | "timescaledb" | "cockroachdb"
+            | "yugabytedb",
             BackupFormat::PostgresCustom,
         ) => Ok(BackupTool::PgRestore),
-        ("postgres" | "postgresql" | "supabase" | "neon" | "timescaledb" | "cockroachdb", _) => {
-            Ok(BackupTool::Psql)
-        }
-        ("mysql" | "mariadb" | "planetscale", _) => Ok(BackupTool::Mysql),
+        (
+            "postgres" | "postgresql" | "supabase" | "neon" | "timescaledb" | "cockroachdb"
+            | "yugabytedb",
+            _,
+        ) => Ok(BackupTool::Psql),
+        (
+            "mysql" | "mariadb" | "planetscale" | "tidb" | "starrocks" | "doris" | "singlestore",
+            _,
+        ) => Ok(BackupTool::Mysql),
         ("mongodb" | "documentdb", _) => Ok(BackupTool::MongoRestore),
         ("sqlite", _) => Ok(BackupTool::Sqlite3),
         (other, _) => Err(format!("Restore not supported for driver '{}'", other)),
@@ -290,5 +300,32 @@ impl EventSink for AppHandleSink {
             "event": event,
         });
         let _ = self.app.emit(BACKUP_EVENT, payload);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn wire_compatible_drivers_select_their_protocol_tools() {
+        for driver in ["tidb", "starrocks", "doris", "singlestore"] {
+            assert_eq!(
+                backup_tool_for_driver(driver, BackupFormat::Sql),
+                Ok(BackupTool::MysqlDump)
+            );
+            assert_eq!(
+                restore_tool_for_driver(driver, BackupFormat::Sql),
+                Ok(BackupTool::Mysql)
+            );
+        }
+        assert_eq!(
+            backup_tool_for_driver("yugabytedb", BackupFormat::Sql),
+            Ok(BackupTool::PgDump)
+        );
+        assert_eq!(
+            restore_tool_for_driver("yugabytedb", BackupFormat::PostgresCustom),
+            Ok(BackupTool::PgRestore)
+        );
     }
 }

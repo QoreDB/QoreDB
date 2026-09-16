@@ -61,7 +61,14 @@ impl ParquetExportWriter {
     fn build_schema(columns: &[ColumnInfo]) -> Arc<Schema> {
         let fields: Vec<Field> = columns
             .iter()
-            .map(|col| Field::new(col.name.as_str(), Self::map_data_type(&col.data_type), true))
+            .map(|col| {
+                let data_type = if col.masked {
+                    DataType::Utf8
+                } else {
+                    Self::map_data_type(&col.data_type)
+                };
+                Field::new(col.name.as_str(), data_type, true)
+            })
             .collect();
         Arc::new(Schema::new(fields))
     }
@@ -284,6 +291,7 @@ mod tests {
             name: name.into(),
             data_type: data_type.into(),
             nullable: true,
+            masked: false,
         }
     }
 
@@ -370,5 +378,72 @@ mod tests {
         assert!(ratio.is_null(1));
         assert!(payload.is_null(1));
         assert!(label.is_null(1));
+    }
+
+    #[tokio::test]
+    async fn masked_scalars_round_trip_as_text_with_nulls_preserved() {
+        use qore_core::masking::{ConnectionMasking, MaskMode, MaskingRule, SessionMasking};
+
+        for mode in [MaskMode::Hidden, MaskMode::Partial, MaskMode::Hash] {
+            let mut columns = vec![
+                column("number", "BIGINT"),
+                column("flag", "BOOLEAN"),
+                column("amount", "DECIMAL"),
+                column("bytes", "BLOB"),
+            ];
+            let config = ConnectionMasking {
+                rules: columns
+                    .iter()
+                    .map(|column| MaskingRule {
+                        table: String::new(),
+                        column: column.name.to_string(),
+                        mode,
+                    })
+                    .collect(),
+                mask_detected_columns: false,
+            };
+            let masking = SessionMasking::for_connection("test", &config).unwrap();
+            let mut row = Row {
+                values: vec![
+                    Value::Int(42),
+                    Value::Bool(true),
+                    Value::Float(3.5),
+                    Value::Bytes(vec![1, 2]),
+                ],
+            };
+            masking.plan(None, &mut columns).apply_row(&mut row);
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path().join("masked.parquet");
+            let mut writer = ParquetExportWriter::new(path.to_string_lossy().into_owned());
+            writer.write_header(&columns).await.unwrap();
+            writer.write_row(&columns, &row).await.unwrap();
+            writer
+                .write_row(
+                    &columns,
+                    &Row {
+                        values: vec![Value::Null; columns.len()],
+                    },
+                )
+                .await
+                .unwrap();
+            writer.finish().await.unwrap();
+            let batch =
+                ParquetRecordBatchReaderBuilder::try_new(std::fs::File::open(path).unwrap())
+                    .unwrap()
+                    .build()
+                    .unwrap()
+                    .next()
+                    .unwrap()
+                    .unwrap();
+            for (index, expected) in row.values.iter().enumerate() {
+                let values = batch
+                    .column(index)
+                    .as_any()
+                    .downcast_ref::<StringArray>()
+                    .unwrap();
+                assert_eq!(values.value(0), expected.as_text().unwrap());
+                assert!(values.is_null(1));
+            }
+        }
     }
 }

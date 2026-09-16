@@ -103,6 +103,10 @@ pub struct StartRecordingRequest {
     pub name: String,
     #[serde(default)]
     pub ignored_columns: Vec<String>,
+    /// Off by default: a migration run while the recording is live would
+    /// otherwise be captured as part of the set.
+    #[serde(default)]
+    pub record_mutations: bool,
     #[serde(default)]
     pub capture_mode: CaptureMode,
     /// Capturing values from a production connection is an explicit choice.
@@ -174,6 +178,7 @@ pub async fn replay_start_recording(
             project_id: project,
             workspace_path,
             ignored_columns: request.ignored_columns,
+            record_mutations: request.record_mutations,
             capture_mode: request.capture_mode,
             max_captured_rows: request
                 .max_captured_rows
@@ -228,6 +233,18 @@ pub async fn replay_discard_recorded(
         .captures_for_recording()
         .ok_or_else(|| "No recording in progress".to_string())?;
     replay.recorder.discard_preview(index, &captures)
+}
+
+/// Drops every mutation recorded so far, and the rows captured for them.
+#[tauri::command]
+pub async fn replay_discard_mutations(
+    state: State<'_, crate::SharedState>,
+) -> Result<usize, String> {
+    let replay = replay_state(&state).await;
+    let captures = replay
+        .captures_for_recording()
+        .ok_or_else(|| "No recording in progress".to_string())?;
+    replay.recorder.discard_mutations(&captures)
 }
 
 #[tauri::command]
@@ -395,6 +412,84 @@ pub async fn replay_set_ignored_columns(
     let path = store.path_for(&slug)?;
     write_registry.register_with_auto_unregister(path);
     store.save(&slug, &set)?;
+    Ok(set)
+}
+
+#[derive(Debug, Deserialize)]
+pub struct AcceptRunRequest {
+    pub slug: String,
+    pub run_id: String,
+    /// Entries to accept. `None` accepts every entry the run executed.
+    #[serde(default)]
+    pub entry_ids: Option<Vec<String>>,
+}
+
+/// Promotes what a run observed to the set's expectation, so a deliberate
+/// migration stops being reported as a regression on every later replay.
+///
+/// The rows captured by the run replace the baseline's for those entries: a
+/// report that says "identical" must not sit next to a diff of the old ones.
+#[tauri::command]
+#[instrument(skip(state, ws_manager, write_registry, request), fields(slug = %request.slug))]
+pub async fn replay_accept_run(
+    state: State<'_, crate::SharedState>,
+    ws_manager: State<'_, SharedWorkspaceManager>,
+    write_registry: State<'_, WriteRegistry>,
+    request: AcceptRunRequest,
+) -> Result<ReplaySet, String> {
+    if !license_allows_pro(&state).await {
+        return Err(REQUIRES_PRO.to_string());
+    }
+
+    let captures = captures(&state, &ws_manager).await?;
+    let report = captures.load_report(&request.run_id)?;
+    if report.run.set_slug != request.slug {
+        return Err("That run belongs to another replay set".to_string());
+    }
+
+    let store = set_store(&ws_manager).await;
+    let mut set = store.load(&request.slug)?;
+
+    let observed: std::collections::HashMap<&str, &crate::replay::types::ReplayEntryResult> =
+        report.results.iter().map(|r| (r.entry_id.as_str(), r)).collect();
+    let wanted = request.entry_ids.as_ref();
+    let baseline = captures
+        .list_runs(&request.slug)?
+        .into_iter()
+        .find(|run| run.is_baseline)
+        .map(|run| run.run_id);
+
+    let mut accepted = 0usize;
+    for entry in &mut set.entries {
+        if wanted.is_some_and(|ids| !ids.contains(&entry.id)) {
+            continue;
+        }
+        let Some(result) = observed.get(entry.id.as_str()) else {
+            continue;
+        };
+        // An entry the run never executed has nothing to promote.
+        if result.verdict == crate::replay::types::ReplayVerdict::Skipped {
+            continue;
+        }
+        entry.expected.execution_time_ms = result.execution_time_ms;
+        entry.expected.row_count = result.row_count;
+        entry.expected.success = result.success;
+        entry.expected.result_digest = result.digest.clone();
+        if let Some(baseline_run) = baseline.as_deref()
+            && baseline_run != request.run_id
+        {
+            let _ = captures.adopt_entry(&request.run_id, baseline_run, &entry.id);
+        }
+        accepted += 1;
+    }
+
+    if accepted == 0 {
+        return Err("That run has nothing to accept for this set".to_string());
+    }
+
+    let path = store.path_for(&request.slug)?;
+    write_registry.register_with_auto_unregister(path);
+    store.save(&request.slug, &set)?;
     Ok(set)
 }
 

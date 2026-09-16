@@ -213,6 +213,7 @@ pub async fn execute_query(
         is_sql_driver,
         connection_key,
         safety_warning,
+        masking,
     } = preflight;
     tracing::Span::current().record("driver", field::display(driver.driver_id()));
 
@@ -292,8 +293,25 @@ pub async fn execute_query(
         None
     };
 
-    let should_stream =
-        sql_statements.is_none() && stream.unwrap_or(false) && driver.capabilities().streaming;
+    // This command also serves DDL modals, browser statistics, the data
+    // generator and diff sources. Callers say whether their execution belongs
+    // in a recording; anything unmarked stays out.
+    #[cfg(feature = "pro")]
+    let recordable = recordable.unwrap_or(false);
+
+    // A streamed execution hands the recorder no result: the entry it produces
+    // carries neither a row count nor a digest, and every later replay of it
+    // comes back "identical" without anything having been compared. Recording
+    // the connection is the explicit choice; the streamed display is not.
+    #[cfg(feature = "pro")]
+    let recording_here = recordable && replay.recorder.records_session(&session_id);
+    #[cfg(not(feature = "pro"))]
+    let recording_here = false;
+
+    let should_stream = sql_statements.is_none()
+        && stream.unwrap_or(false)
+        && driver.capabilities().streaming
+        && !recording_here;
 
     // Absolute cap (1h) applied even when bypass_limits is granted, so a
     // misconfigured Team+ client cannot pin a query indefinitely.
@@ -342,11 +360,6 @@ pub async fn execute_query(
 
     let plugin_ctx = interceptor_context.clone();
     let plugin_host_for_complete = Arc::clone(&plugin_host);
-    // This command also serves DDL modals, browser statistics, the data
-    // generator and diff sources. Callers say whether their execution belongs
-    // in a recording; anything unmarked stays out.
-    #[cfg(feature = "pro")]
-    let recordable = recordable.unwrap_or(false);
     #[cfg(feature = "pro")]
     let replay_ctx = interceptor_context.clone();
     #[cfg(feature = "pro")]
@@ -387,6 +400,7 @@ pub async fn execute_query(
         bypass_limits,
         sql_statements,
         stream_sender,
+        masking,
         on_complete,
     )
     .await;
@@ -1015,6 +1029,19 @@ pub async fn peek_foreign_key(
         driver.peek_foreign_key(session, &namespace, &foreign_key, &value, limit),
     )
     .await;
+    let result = match result {
+        Ok(Ok(mut result)) => {
+            qore_service::query::apply_masking(
+                &session_manager,
+                session,
+                Some(&foreign_key.referenced_table),
+                &mut result,
+            )
+            .await;
+            Ok(Ok(result))
+        }
+        other => other,
+    };
 
     match result {
         Ok(Ok(result)) => Ok(QueryResponse {

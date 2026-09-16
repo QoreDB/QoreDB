@@ -92,25 +92,29 @@ fn dialect_for(driver_id: &str) -> SplitDialect {
         nested_block_comments: false,
     };
     match driver_id.to_ascii_lowercase().as_str() {
-        "postgres" | "cockroachdb" | "timescaledb" | "supabase" | "neon" => SplitDialect {
-            dollar_quoting: true,
-            e_strings: true,
-            nested_block_comments: true,
-            ..base
-        },
-        "mysql" | "mariadb" | "planetscale" => SplitDialect {
-            backtick_ident: true,
-            backslash_escape: true,
-            hash_comment: true,
-            dash_comment_needs_space: true,
-            ..base
-        },
+        "postgres" | "cockroachdb" | "timescaledb" | "supabase" | "neon" | "yugabytedb" => {
+            SplitDialect {
+                dollar_quoting: true,
+                e_strings: true,
+                nested_block_comments: true,
+                ..base
+            }
+        }
+        "mysql" | "mariadb" | "planetscale" | "tidb" | "starrocks" | "doris" | "singlestore" => {
+            SplitDialect {
+                backtick_ident: true,
+                backslash_escape: true,
+                hash_comment: true,
+                dash_comment_needs_space: true,
+                ..base
+            }
+        }
         "sqlite" => SplitDialect {
             backtick_ident: true,
             bracket_ident: true,
             ..base
         },
-        "sqlserver" | "mssql" => SplitDialect {
+        "sqlserver" | "mssql" | "azuresql" | "synapse" => SplitDialect {
             bracket_ident: true,
             go_batch: true,
             ..base
@@ -784,6 +788,26 @@ mod tests {
             split("mysql", "SELECT 1--2;\nSELECT 3;"),
             vec!["SELECT 1--2", "SELECT 3"]
         );
+    }
+
+    #[test]
+    fn wire_compatible_aliases_use_their_base_splitter_rules() {
+        for driver in ["tidb", "starrocks", "doris", "singlestore"] {
+            assert_eq!(
+                split(driver, "SELECT 1--2;\nSELECT 3;"),
+                vec!["SELECT 1--2", "SELECT 3"]
+            );
+        }
+        assert_eq!(
+            split("yugabytedb", "SELECT 1-- comment;\n;SELECT 2;"),
+            vec!["SELECT 1-- comment;", "SELECT 2"]
+        );
+        for driver in ["azuresql", "synapse"] {
+            assert_eq!(
+                split(driver, "SELECT 1;\nGO\nSELECT 2;"),
+                vec!["SELECT 1", "SELECT 2"]
+            );
+        }
     }
 
     #[test]

@@ -311,7 +311,7 @@ pub enum CancelSupport {
 }
 
 /// Reported capabilities for a driver.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DriverCapabilities {
     pub transactions: bool,
     pub mutations: bool,
@@ -320,6 +320,10 @@ pub struct DriverCapabilities {
     pub schema: bool,
     pub streaming: bool,
     pub explain: bool,
+    /// Statement prefix producing an execution plan in this engine's dialect;
+    /// `None` when `explain` is false or the engine has no EXPLAIN statement.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub explain_prefix: Option<String>,
     pub maintenance: bool,
     #[serde(default)]
     pub pagination: PaginationCapability,
@@ -900,6 +904,9 @@ pub struct ColumnInfo {
     pub name: CompactString,
     pub data_type: CompactString,
     pub nullable: bool,
+    /// Values were replaced by the connection's masking rules.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub masked: bool,
 }
 
 /// A single row of data (indexed by column order)

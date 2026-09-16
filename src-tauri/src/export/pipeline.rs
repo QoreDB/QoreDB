@@ -82,12 +82,14 @@ impl ExportPipeline {
 
         let pipeline = Arc::clone(&self);
         let driver_id = driver.driver_id().to_string();
+        let masking = session_manager.masking(session_id).await;
 
         let export_id_for_task = export_id.clone();
         tokio::spawn(async move {
             let result = run_export_task(
                 driver,
                 driver_id,
+                masking,
                 session_id,
                 config,
                 export_id_for_task.clone(),
@@ -130,6 +132,7 @@ impl Default for ExportPipeline {
 async fn run_export_task(
     driver: Arc<dyn DataEngine>,
     driver_id: String,
+    masking: Option<Arc<qore_core::masking::SessionMasking>>,
     session_id: SessionId,
     config: ExportConfig,
     export_id: String,
@@ -185,6 +188,10 @@ async fn run_export_task(
     };
 
     let (sender, mut receiver) = tokio::sync::mpsc::channel(100);
+    let sender = match masking {
+        Some(masking) => qore_core::masking::mask_stream(masking, None, sender),
+        None => sender,
+    };
     let query = config.query.clone();
     let namespace = config.namespace.clone();
     let query_id = QueryId::new();

@@ -27,9 +27,9 @@ rand = "0.8"
 dirs = "5"
 sqlx = { workspace = true, features = ["sqlite"] }
 argon2 = "0.5"
-jsonwebtoken = "9"
+jsonwebtoken = { workspace = true }
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
-sha2 = "0.10"
+sha2 = { workspace = true }
 
 [dev-dependencies]
 tempfile = "3"
@@ -37,10 +37,17 @@ tempfile = "3"
 [features]
 default = ["all-drivers"]
 all-drivers = ["qore-service/all-drivers"]
+driver-azuresql = ["qore-service/driver-azuresql"]
+driver-bigquery = ["qore-service/driver-bigquery"]
+driver-cassandra = ["qore-service/driver-cassandra"]
 driver-clickhouse = ["qore-service/driver-clickhouse"]
 driver-cockroachdb = ["qore-service/driver-cockroachdb"]
+driver-doris = ["qore-service/driver-doris"]
 driver-duckdb = ["qore-service/driver-duckdb"]
 driver-elasticsearch = ["qore-service/driver-elasticsearch"]
+driver-garnet = ["qore-service/driver-garnet"]
+driver-keydb = ["qore-service/driver-keydb"]
+driver-keyspaces = ["qore-service/driver-keyspaces"]
 driver-mariadb = ["qore-service/driver-mariadb"]
 driver-documentdb = ["qore-service/driver-documentdb"]
 driver-dragonfly = ["qore-service/driver-dragonfly"]
@@ -53,8 +60,15 @@ driver-planetscale = ["qore-service/driver-planetscale"]
 driver-postgres = ["qore-service/driver-postgres"]
 driver-redis = ["qore-service/driver-redis"]
 driver-sqlite = ["qore-service/driver-sqlite"]
+driver-scylladb = ["qore-service/driver-scylladb"]
+driver-snowflake = ["qore-service/driver-snowflake"]
 driver-sqlserver = ["qore-service/driver-sqlserver"]
+driver-singlestore = ["qore-service/driver-singlestore"]
+driver-starrocks = ["qore-service/driver-starrocks"]
 driver-supabase = ["qore-service/driver-supabase"]
+driver-synapse = ["qore-service/driver-synapse"]
+driver-tidb = ["qore-service/driver-tidb"]
 driver-timescaledb = ["qore-service/driver-timescaledb"]
 driver-valkey = ["qore-service/driver-valkey"]
+driver-yugabytedb = ["qore-service/driver-yugabytedb"]
 duckdb-bundled = ["driver-duckdb", "qore-service/duckdb-bundled"]

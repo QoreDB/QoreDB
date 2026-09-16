@@ -77,9 +77,9 @@ use crate::commands::stream_msg::StreamDispatcher;
 #[cfg(feature = "pro")]
 use crate::engine::traits::StreamEvent;
 #[cfg(feature = "pro")]
-use crate::federation::manager;
+use qore_service::federation::manager;
 #[cfg(feature = "pro")]
-use crate::federation::types::{
+use qore_service::federation::types::{
     AliasEntry, ConnectionAliasMap, FederationQueryOptions, FederationSource, normalize_alias,
 };
 
@@ -258,7 +258,7 @@ async fn resolve_alias_map(
 }
 
 #[cfg(feature = "pro")]
-fn convert_metadata(meta: &crate::federation::types::FederationMetadata) -> FederationMeta {
+fn convert_metadata(meta: &qore_service::federation::types::FederationMetadata) -> FederationMeta {
     FederationMeta {
         source_results: meta
             .source_results
@@ -279,7 +279,7 @@ fn convert_metadata(meta: &crate::federation::types::FederationMetadata) -> Fede
 
 #[cfg(all(test, feature = "pro"))]
 mod tests {
-    use crate::federation::types::normalize_alias;
+    use qore_service::federation::types::normalize_alias;
 
     #[test]
     fn normalizes_display_names() {

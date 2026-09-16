@@ -2,21 +2,15 @@
 
 //! Read/write the query library stored in `.qoredb/queries/library.json`.
 
-use serde::{Deserialize, Serialize};
 use std::fs;
 use tauri::State;
+
+use qore_service::workspace::query_library::{self, WorkspaceQueryLibrary};
 
 use crate::commands::workspace::SharedWorkspaceManager;
 use crate::engine::error::EngineError;
 use crate::workspace::types::WorkspaceSource;
 use crate::workspace::write_registry::WriteRegistry;
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct WorkspaceQueryLibrary {
-    pub version: u32,
-    pub folders: Vec<serde_json::Value>,
-    pub items: Vec<serde_json::Value>,
-}
 
 /// Gets the query library from the active workspace.
 /// Returns None if the workspace is the default (uses localStorage instead).
@@ -31,22 +25,9 @@ pub async fn ws_get_query_library(
         return Ok(None);
     }
 
-    let library_path = ws.path.join("queries").join("library.json");
-    if !library_path.exists() {
-        return Ok(Some(WorkspaceQueryLibrary {
-            version: 1,
-            folders: Vec::new(),
-            items: Vec::new(),
-        }));
-    }
-
-    let content = fs::read_to_string(&library_path)
-        .map_err(|e| EngineError::internal(format!("Failed to read library: {}", e)).to_string())?;
-
-    let library: WorkspaceQueryLibrary = serde_json::from_str(&content)
-        .map_err(|e| EngineError::internal(format!("Invalid library format: {}", e)).to_string())?;
-
-    Ok(Some(library))
+    query_library::read(&ws.path)
+        .map(Some)
+        .map_err(|e| EngineError::internal(e).to_string())
 }
 
 /// Saves the query library to the active workspace.

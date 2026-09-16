@@ -21,6 +21,7 @@ dist-ssr
 !.vscode/extensions.json
 .idea
 .claude/
+CLAUDE.local.md
 .DS_Store
 *.suo
 *.ntvs*
@@ -42,3 +43,6 @@ checksums-sbom.sha256
 contracts/*
 
 dev/
+
+# Sidecars built by the release workflow (qore-mcp, qore CLI)
+src-tauri/binaries/

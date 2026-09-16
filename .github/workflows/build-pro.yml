@@ -87,7 +87,7 @@ jobs:
       - name: Verify Pro build compiles
         env:
           PUBLIC_KEY_BASE64: ${{ vars.PUBLIC_KEY_BASE64 }}
-        run: cd src-tauri && cargo build --features pro
+        run: cd src-tauri && cargo build --features pro && cargo build -p qore-mcp -p qore-cli
 
       - name: Shutdown containers
         if: always()

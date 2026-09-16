@@ -62,6 +62,7 @@ import {
   isMySqlFamily,
 } from '@/lib/connection/driverCapabilities';
 import { buildDropTableSQL, buildTruncateTableSQL } from '@/lib/ddl';
+import { supportsVisualDdl } from '@/lib/ddl/typeDefinitions';
 import { emitTableChange, onTableChange } from '@/lib/events/tableEvents';
 import { notify } from '@/lib/notify';
 import {
@@ -828,7 +829,9 @@ export function DatabaseBrowser({
           error={error}
           namespace={stableNamespace}
           onCreateTable={
-            driverMeta.supportsSQL && !readOnly ? () => setCreateTableOpen(true) : undefined
+            driverMeta.supportsSQL && supportsVisualDdl(driver) && !readOnly
+              ? () => setCreateTableOpen(true)
+              : undefined
           }
           onOpenQuery={
             driverMeta.supportsSQL && onOpenQueryTab

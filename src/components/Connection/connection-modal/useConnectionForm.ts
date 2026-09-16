@@ -5,7 +5,8 @@ import { supportsConnectionUrl } from '@/lib/connection/connectionUrls';
 import { DEFAULT_PORTS, Driver } from '@/lib/connection/drivers';
 import { detectDriverFromDsn } from '@/lib/connection/dsnDetector';
 import { resolveMotherDuckHost } from '@/lib/connection/motherduck';
-import type { PartialConnectionConfig, SavedConnection } from '@/lib/tauri';
+import { EMPTY_MASKING } from '@/lib/masking';
+import type { ConnectionMasking, PartialConnectionConfig, SavedConnection } from '@/lib/tauri';
 import { isConnectionFormValid } from './mappers';
 import { type ConnectionFormData, initialConnectionFormData } from './types';
 
@@ -32,6 +33,18 @@ function mapDriverString(driver: string | undefined): Driver | undefined {
       return Driver.DocumentDb;
     case 'planetscale':
       return Driver.PlanetScale;
+    case 'tidb':
+      return Driver.TiDb;
+    case 'starrocks':
+      return Driver.StarRocks;
+    case 'doris':
+      return Driver.Doris;
+    case 'singlestore':
+      return Driver.SingleStore;
+    case 'keydb':
+      return Driver.KeyDb;
+    case 'garnet':
+      return Driver.Garnet;
     case 'sqlite':
     case 'sqlite3':
       return Driver.Sqlite;
@@ -42,9 +55,26 @@ function mapDriverString(driver: string | undefined): Driver | undefined {
     case 'sqlserver':
     case 'mssql':
       return Driver.SqlServer;
+    case 'azuresql':
+      return Driver.AzureSql;
+    case 'synapse':
+      return Driver.Synapse;
+    case 'cassandra':
+      return Driver.Cassandra;
+    case 'scylladb':
+    case 'scylla':
+      return Driver.ScyllaDb;
+    case 'keyspaces':
+      return Driver.Keyspaces;
+    case 'snowflake':
+      return Driver.Snowflake;
+    case 'bigquery':
+      return Driver.BigQuery;
     case 'cockroachdb':
     case 'cockroach':
       return Driver.Cockroachdb;
+    case 'yugabytedb':
+      return Driver.YugabyteDb;
     case 'timescaledb':
     case 'timescale':
       return Driver.Timescaledb;
@@ -89,12 +119,39 @@ function normalizeSslMode(options: Record<string, string> | undefined): string |
 function preserveCompatibleSelectedDriver(selected: Driver, parsed: Driver): Driver {
   if (
     parsed === Driver.Postgres &&
-    [Driver.Supabase, Driver.Neon, Driver.Timescaledb, Driver.Motherduck].includes(selected)
+    [
+      Driver.Supabase,
+      Driver.Neon,
+      Driver.Timescaledb,
+      Driver.Motherduck,
+      Driver.YugabyteDb,
+    ].includes(selected)
   ) {
     return selected;
   }
 
-  if (parsed === Driver.Mysql && selected === Driver.Mariadb) {
+  if (
+    parsed === Driver.Mysql &&
+    [
+      Driver.Mariadb,
+      Driver.PlanetScale,
+      Driver.TiDb,
+      Driver.StarRocks,
+      Driver.Doris,
+      Driver.SingleStore,
+    ].includes(selected)
+  ) {
+    return selected;
+  }
+
+  if (
+    parsed === Driver.Redis &&
+    [Driver.Dragonfly, Driver.KeyDb, Driver.Garnet].includes(selected)
+  ) {
+    return selected;
+  }
+
+  if (parsed === Driver.SqlServer && [Driver.AzureSql, Driver.Synapse].includes(selected)) {
     return selected;
   }
 
@@ -121,6 +178,7 @@ export function useConnectionForm(options: {
         driver,
         environment: editConnection.environment || 'development',
         readOnly: editConnection.read_only || false,
+        exposeToAgents: editConnection.expose_to_agents ?? false,
         host:
           driver === Driver.Motherduck
             ? resolveMotherDuckHost(editConnection.host, editPassword || '')
@@ -134,6 +192,11 @@ export function useConnectionForm(options: {
         mssqlAuthMode: editConnection.mssql_auth ?? 'sql_password',
         clickhouseCluster: editConnection.clickhouse_cluster ?? '',
         searchAuthMode: editConnection.search_auth_mode ?? 'none',
+        snowflakeAuthMode: editConnection.options?.auth === 'token' ? 'token' : 'key_pair',
+        snowflakeWarehouse: editConnection.options?.warehouse ?? '',
+        snowflakeRole: editConnection.options?.role ?? '',
+        bigqueryLocation: editConnection.options?.location ?? '',
+        bigqueryBillingProject: editConnection.options?.billing_project ?? '',
         sslCaCert: editConnection.ssl_ca_cert ?? '',
         poolMaxConnections: editConnection.pool_max_connections ?? 5,
         poolMinConnections: editConnection.pool_min_connections ?? 0,
@@ -160,6 +223,7 @@ export function useConnectionForm(options: {
         useUrl: false,
         connectionUrl: '',
         options: editConnection.options ?? {},
+        masking: editConnection.masking ?? EMPTY_MASKING,
       });
     } else {
       setFormData(initialConnectionFormData);
@@ -177,7 +241,9 @@ export function useConnectionForm(options: {
           : prev.host,
       username: driver === Driver.Motherduck && !prev.username ? 'postgres' : prev.username,
       database: driver === Driver.Motherduck && !prev.database ? 'md:' : prev.database,
-      ssl: driver === Driver.Motherduck ? true : prev.ssl,
+      ssl: [Driver.Motherduck, Driver.AzureSql, Driver.Synapse, Driver.Keyspaces].includes(driver)
+        ? true
+        : prev.ssl,
       sslMode: driver === Driver.Motherduck && !prev.sslMode ? 'verify-full' : prev.sslMode,
       // Cloud-managed Postgres providers are almost always configured via DSN —
       // pre-enable the URL toggle so the user can paste right away.
@@ -187,10 +253,21 @@ export function useConnectionForm(options: {
   }
 
   function driverPrefersUrl(driver: Driver): boolean {
-    return driver === Driver.Supabase || driver === Driver.Neon || driver === Driver.Motherduck;
+    return [
+      Driver.Supabase,
+      Driver.Neon,
+      Driver.Motherduck,
+      Driver.AzureSql,
+      Driver.Synapse,
+      Driver.SingleStore,
+      Driver.YugabyteDb,
+    ].includes(driver);
   }
 
-  function handleChange(field: keyof ConnectionFormData, value: string | number | boolean) {
+  function handleChange(
+    field: keyof ConnectionFormData,
+    value: string | number | boolean | ConnectionMasking
+  ) {
     setFormData(prev => {
       const next = { ...prev, [field]: value };
       if (prev.driver === Driver.Motherduck && field === 'password' && typeof value === 'string') {

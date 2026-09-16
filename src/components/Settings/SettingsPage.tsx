@@ -11,6 +11,7 @@ import { SettingsSearch } from './SettingsSearch';
 import { SettingsSidebar } from './SettingsSidebar';
 import {
   AdminSection,
+  AgentsSection,
   AiSection,
   DataSection,
   EditorSection,
@@ -131,6 +132,8 @@ export function SettingsPage({ onClose }: SettingsPageProps) {
         return <LicenseSection searchQuery={searchQuery} />;
       case 'ai':
         return <AiSection searchQuery={searchQuery} />;
+      case 'agents':
+        return <AgentsSection searchQuery={searchQuery} />;
       case 'admin':
         return <AdminSection searchQuery={searchQuery} />;
       default:

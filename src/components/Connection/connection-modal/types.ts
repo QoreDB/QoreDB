@@ -1,13 +1,21 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { Driver } from '@/lib/connection/drivers';
-import type { Environment, MssqlAuthMode, SearchAuthMode } from '@/lib/tauri';
+import { EMPTY_MASKING } from '@/lib/masking';
+import type {
+  ConnectionMasking,
+  Environment,
+  MssqlAuthMode,
+  SearchAuthMode,
+  SnowflakeAuthMode,
+} from '@/lib/tauri';
 
 export interface ConnectionFormData {
   name: string;
   driver: Driver;
   environment: Environment;
   readOnly: boolean;
+  exposeToAgents: boolean;
   host: string;
   port: number;
   username: string;
@@ -20,6 +28,13 @@ export interface ConnectionFormData {
   clickhouseCluster: string;
   /** Auth mode for Elasticsearch / OpenSearch. */
   searchAuthMode: SearchAuthMode;
+  /** Snowflake: key pair signs a JWT, token is a programmatic access token. */
+  snowflakeAuthMode: SnowflakeAuthMode;
+  snowflakeWarehouse: string;
+  snowflakeRole: string;
+  /** BigQuery: dataset location and the project billed for queries. */
+  bigqueryLocation: string;
+  bigqueryBillingProject: string;
   /** Path to a custom CA certificate (PEM) for TLS verification. */
   sslCaCert: string;
   poolMaxConnections: number;
@@ -44,8 +59,9 @@ export interface ConnectionFormData {
   proxyConnectTimeoutSecs: number;
   useUrl: boolean;
   connectionUrl: string;
-  /** Driver options carried over from a parsed URL; no field edits them. */
+  /** Driver options carried over from a parsed URL, plus the warehouse fields above. */
   options: Record<string, string>;
+  masking: ConnectionMasking;
 }
 
 export const initialConnectionFormData: ConnectionFormData = {
@@ -53,6 +69,7 @@ export const initialConnectionFormData: ConnectionFormData = {
   driver: Driver.Postgres,
   environment: 'development',
   readOnly: false,
+  exposeToAgents: false,
   host: 'localhost',
   port: 5432,
   username: '',
@@ -63,6 +80,11 @@ export const initialConnectionFormData: ConnectionFormData = {
   mssqlAuthMode: 'sql_password',
   clickhouseCluster: '',
   searchAuthMode: 'none',
+  snowflakeAuthMode: 'key_pair',
+  snowflakeWarehouse: '',
+  snowflakeRole: '',
+  bigqueryLocation: '',
+  bigqueryBillingProject: '',
   sslCaCert: '',
   poolMaxConnections: 5,
   poolMinConnections: 0,
@@ -87,4 +109,5 @@ export const initialConnectionFormData: ConnectionFormData = {
   useUrl: false,
   connectionUrl: '',
   options: {},
+  masking: EMPTY_MASKING,
 };

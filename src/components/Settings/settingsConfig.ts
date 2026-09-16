@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import {
+  Bot,
   Code2,
   Database,
   Globe,
@@ -23,6 +24,7 @@ export type SettingsSectionId =
   | 'plugins'
   | 'license'
   | 'ai'
+  | 'agents'
   | 'admin';
 
 export interface SettingsSection {
@@ -171,6 +173,24 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
     ],
   },
   {
+    id: 'agents',
+    labelKey: 'settings.sections.agents',
+    icon: Bot,
+    keywords: [
+      'agent',
+      'agents',
+      'mcp',
+      'claude',
+      'cursor',
+      'model context protocol',
+      'cli',
+      'expose',
+      'exposer',
+      'read-only',
+      'lecture seule',
+    ],
+  },
+  {
     id: 'admin',
     labelKey: 'settings.sections.admin',
     icon: ShieldCheck,
@@ -193,10 +213,15 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
 
 /**
  * Sections available in the current runtime. The `admin` section only exists in
- * the web server build and only for users with admin rights.
+ * the web server build and only for users with admin rights; `agents` needs the
+ * desktop app, which ships the qore-mcp binary.
  */
 export function availableSettingsSections(): SettingsSection[] {
-  return SETTINGS_SECTIONS.filter(section => section.id !== 'admin' || (isWeb && isWebAdmin()));
+  return SETTINGS_SECTIONS.filter(section => {
+    if (section.id === 'admin') return isWeb && isWebAdmin();
+    if (section.id === 'agents') return !isWeb;
+    return true;
+  });
 }
 
 export function getSectionById(id: SettingsSectionId): SettingsSection | undefined {

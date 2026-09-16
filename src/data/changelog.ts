@@ -20,6 +20,117 @@ export interface ChangelogEntry {
  */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.1.39',
+    date: '2026-09-16',
+    items: [
+      {
+        title: 'MCP server for AI agents',
+        description:
+          'qore-mcp now ships with the app and exposes eleven read-only tools (preview, schema search, explain, namespace-scoped queries, saved queries from the workspace library with their variables), qore:// table resources and three prompts to Claude Desktop, Claude Code, Cursor and any MCP client.',
+        type: 'feature',
+      },
+      {
+        title: 'Federated queries for agents',
+        description:
+          'MCP clients can join tables across exposed connections with run_federated_query. The call is audited, capped by the safety policy row limit and checked against the license each time.',
+        type: 'feature',
+        proOnly: true,
+      },
+      {
+        title: 'Column masking',
+        description:
+          'Mask columns per connection (hidden, partial or hashed), or let QoreDB detect sensitive names. Masked values replace the real ones in the grid, exports, federated queries, the Data API and agent answers; masked columns cannot be edited, and agents cannot filter, sort or alias them to read them back.',
+        type: 'feature',
+        proOnly: true,
+      },
+      {
+        title: 'Federation cannot reach local files',
+        description:
+          'Once the source rows are loaded, the DuckDB engine behind cross-database federation loses access to files, URLs and extensions, in the Federation panel as in agent calls.',
+        type: 'fix',
+      },
+      {
+        title: 'Connections reach agents only on opt-in',
+        description:
+          'Settings > AI agents and the connection form carry an "Expose to AI agents" switch that gates MCP and CLI access. Existing connections stay hidden until you enable it; exposed sessions are forced read-only, follow the safety policy and close after ten idle minutes.',
+        type: 'improvement',
+      },
+      {
+        title: 'Query trends',
+        description:
+          'The audit log gains a Trends tab: the most frequent queries over 7, 14 or 30 days with runs, P50, P95, error rate and a daily P95 sparkline, computed from the audit file so they survive restarts.',
+        type: 'feature',
+      },
+      {
+        title: 'Regressions, N+1 bursts and threshold alerts',
+        description:
+          'A query whose P95 doubles against the previous week is flagged in Trends and in the status bar. Twenty runs of the same query within two seconds raise an N+1 alert once per session. Error-rate and slow-query thresholds over 15 minutes notify in-app and land in the audit log.',
+        type: 'feature',
+        proOnly: true,
+      },
+      {
+        title: 'AI agents settings',
+        description:
+          'A Settings section detects the qore-mcp binary, offers copy-ready client snippets, lists the exposed connections and recalls the limits applied to agents.',
+        type: 'feature',
+      },
+      {
+        title: 'Nine wire-compatible databases',
+        description:
+          'TiDB, StarRocks, Apache Doris and SingleStore join the MySQL family; YugabyteDB joins PostgreSQL; KeyDB and Garnet join Redis; and Azure SQL plus Azure Synapse join SQL Server with TLS enforced.',
+        type: 'feature',
+      },
+      {
+        title: 'Capabilities that match each engine',
+        description:
+          'The connection picker, DSN detection, query tools, migrations and documentation now recognise every identity while hiding schema actions that the compatible protocol does not actually guarantee.',
+        type: 'improvement',
+      },
+      {
+        title: 'Cassandra and ScyllaDB',
+        description:
+          'Wide-column browsing on a CQL client written against the protocol: native cursor pagination, row editing that requires the full primary key, and refusals for the statements that would scan the whole ring.',
+        type: 'feature',
+      },
+      {
+        title: 'Amazon Keyspaces',
+        description:
+          'Connect to Amazon Keyspaces with service-specific credentials. TLS is forced on port 9142, the regional endpoint is recognised, and ALLOW FILTERING is refused because every scanned row is billed.',
+        type: 'feature',
+      },
+      {
+        title: 'Snowflake',
+        description:
+          'Browse and query Snowflake over its SQL API with key-pair or access-token authentication. Warehouse and role are set per connection, and cancelling a statement really stops it.',
+        type: 'feature',
+      },
+      {
+        title: 'BigQuery',
+        description:
+          'Browse every project a service account can see, preview tables for free through storage reads, and review an automatic scan estimate before running editor queries. Explain remains available for a manual dry run.',
+        type: 'feature',
+      },
+      {
+        title: 'Azure SQL and Synapse now verify the server certificate',
+        description:
+          'Forcing TLS on these endpoints no longer means trusting any certificate: connections default to full verification against the system trust store. An explicit SSL mode still wins.',
+        type: 'fix',
+      },
+      {
+        title: 'Schema diff fixes for MariaDB and PlanetScale',
+        description:
+          'Both now generate migrations through the MySQL builders instead of falling through to a driver with no builder, which left PlanetScale unable to produce ALTER TABLE statements.',
+        type: 'fix',
+      },
+      {
+        title: 'Connection templates reach the compatible drivers',
+        description:
+          'A template declared for postgresql, mysql, sqlserver or redis now applies to every driver that speaks that protocol — CockroachDB, Supabase, Neon and TimescaleDB included.',
+        type: 'improvement',
+      },
+    ],
+  },
+  {
     version: '0.1.38',
     date: '2026-08-21',
     items: [

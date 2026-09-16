@@ -84,6 +84,217 @@ differs, and what QoreDB does not model.
   introspection and paging all go through the real path — but PlanetScale's own
   gateway, branches and deploy requests are out of reach without an account.
 
+## TiDB, StarRocks, Apache Doris and SingleStore
+
+These identities use `MySqlDriver` and the MySQL wire protocol. They are not
+server fingerprints: a self-hosted URL has no reliable flavor marker, so the
+user must select the matching identity. DSN detection only selects TiDB Cloud
+(`*.tidbcloud.com`) and SingleStore Helios (`*.svc.singlestore.com`).
+
+- TiDB uses port 4000. Stored procedures/functions, triggers, events and the
+  MySQL maintenance actions are hidden because TiDB does not implement them.
+  The visual DDL editor remains available for its MySQL-compatible subset.
+- StarRocks and Apache Doris use port 9030. QoreDB exposes queries, catalog
+  browsing and manual migrations, but disables structured grid mutations,
+  transactions, maintenance and visual DDL. Their OLAP key, distribution and
+  index syntax cannot be generated safely by the MySQL table builder.
+- SingleStore uses port 3306. Its session `time_zone` variable is read-only, so
+  the shared pool initialization deliberately skips the UTC assignment for
+  this flavor. The visual DDL editor hides foreign keys, CHECK constraints and
+  uniqueness; stored-object editing is also hidden because SingleStore PSQL is
+  not MySQL's routine grammar.
+- `EXPLAIN` uses the common text form for these four identities rather than
+  assuming MySQL's JSON format.
+- `mysql_wire_compatible_a1_e2e` exercises all four identities against the
+  local MySQL service. It validates the shared connection/query path, not each
+  vendor's SQL extensions. `mysqldump` backup and live vendor endpoints remain
+  unverified.
+
+## YugabyteDB
+
+- Uses `PostgresDriver`, port 5433 and database `yugabyte` by default. The full
+  PostgreSQL catalog path, SQL dialect, migrations and schema tooling are
+  reused.
+- Hosted endpoints under `*.yugabyte.cloud` are detected from a pasted DSN.
+  Self-hosted PostgreSQL URLs require explicit driver selection.
+- `yugabytedb_wire_compatible_a1_e2e` runs against the local PostgreSQL
+  stand-in. Distributed transactions, topology and Yugabyte-specific catalog
+  extensions have not been verified against a live cluster.
+
+## Azure SQL and Azure Synapse
+
+- Both identities use `SqlServerDriver`, port 1433 and force TLS even when the
+  connection form leaves it disabled. Forcing TLS also pins the SSL mode to
+  `verify-full` when the user set none: unlike a LAN SQL Server, an Azure
+  endpoint is reached over the public internet and presents a publicly-signed
+  certificate, so accepting an unverified one would leave the connection open to
+  interception. An SSL mode chosen explicitly by the user is left untouched.
+  Azure SQL reuses the complete SQL Server capability set.
+- Azure SQL hosts under `*.database.windows.net` and Synapse hosts under
+  `*.sql.azuresynapse.net` are detected from DSNs. Synapse detection runs first
+  so its more specific suffix cannot be mistaken for Azure SQL.
+- The current authentication surface is SQL Server authentication; Microsoft
+  Entra access tokens are not implemented.
+- Synapse covers both dedicated and serverless SQL endpoints. Their DDL, DML
+  and transaction surfaces differ, so structured mutations, transactions,
+  maintenance, triggers and visual DDL are disabled conservatively. Manual
+  queries remain available.
+- `azure_sql_wire_compatible_a1_e2e` validates both identities and forced TLS
+  against the local SQL Server service. Azure firewall, Entra authentication
+  and Synapse-specific semantics require live cloud testing.
+
+## Cassandra and ScyllaDB
+
+Both identities run on the CQL v4 client in `qore-drivers/src/drivers/cql/`,
+written against the protocol rather than built on the `scylla` crate. ScyllaDB
+is a flavor of `CassandraDriver`: the wire protocol is identical, only the id
+and the display name differ, so a self-hosted URL carries no marker and the
+user picks the identity.
+
+- One connection, one statement at a time, on protocol stream id 0. There is no
+  request multiplexing, no token-aware routing and no topology discovery; a
+  desktop client exercises none of them, and the node it is pointed at serves
+  every request as coordinator.
+- No transactions. Lightweight transactions are a compare-and-set on a single
+  partition, not a multi-statement transaction, and nothing here opens one.
+- No cancel. The protocol has no cancel frame, so `cancel_support` is `None`
+  and a statement runs to completion or hits the 60-second I/O timeout.
+  An I/O error, timeout or dropped in-flight exchange closes the socket;
+  reconnect before retrying. Closing the socket does not guarantee that the
+  server stopped executing a mutation. Late responses are never reused by a
+  subsequent query.
+- Namespace selection and query execution (including result pages) share one
+  lock, so concurrent callers cannot switch each other's keyspace.
+- Credentials may be left empty for Cassandra and ScyllaDB clusters without
+  authentication. Amazon Keyspaces still requires a service username.
+- No routines, triggers, events or sequences: CQL has none.
+- No visual DDL. The type palette is empty on purpose, which is what hides
+  "create table" and schema export. Table structure stays viewable, and CQL DDL
+  runs from the editor.
+- Pagination uses the native paging state — the first driver here to declare
+  `keyset` without needing a unique key of ours, since the cursor is the
+  server's. It walks forward only: a jump to an arbitrary page number is
+  refused rather than served by silently re-reading every page before it.
+- No row count. `SELECT COUNT(*)` on a table is a ring-wide scan, so the table
+  browser is served `total_rows: None` and relies on `has_more`.
+- No sort and no cross-column search from the grid. CQL orders only by a
+  clustering column inside a single partition; both come back as an explicit
+  error pointing at the editor.
+- Grid filters are bound, never interpolated — there is no CQL literal escaping
+  in this driver. A predicate the ring cannot serve from the primary key is
+  rewritten from Cassandra's `ALLOW FILTERING` message into one that says the
+  query has no partition to start from.
+- Row editing requires the full primary key on insert, update and delete, and
+  refuses to change a key column in place. Binding a `tuple`, a UDT or a
+  `duration` returns `NotSupported` rather than guessing an encoding.
+- `ALLOW FILTERING`, `TRUNCATE`, `DROP KEYSPACE`, `DROP TABLE` and any `SELECT`
+  with neither `WHERE` nor `LIMIT` are refused on a production connection.
+- TLS has no permissive mode. A cluster with an internal CA points
+  `ssl_ca_cert` at its PEM bundle; there is no "trust anything" fallback.
+- Authentication covers `PasswordAuthenticator` (SASL PLAIN). A multi-step SASL
+  exchange, and therefore Kerberos or LDAP through GSSAPI, is not implemented.
+- SSH tunnelling works: unlike the HTTPS warehouses, CQL is a plain socket on
+  9042.
+- `docker-compose.yml` ships `cassandra:5` on 9042 without authentication and
+  `scylladb/scylla` on 9043 with `PasswordAuthenticator`, so the bare STARTUP
+  path and the SASL PLAIN exchange are both covered locally.
+
+The type codec is the one place where a mistake is silent: a misread value
+renders in the grid without raising anything. Its unit tests are built from the
+wire encoding rather than from a round-trip through our own writer, and cover
+NULL against an empty blob, signed widths, `decimal` without `f64`, `varint`
+beyond `i64`, the 2^31 bias on `date`, the zigzag vints of `duration`,
+truncated UDTs and non-string map keys. A round-trip of every scalar and
+collection type runs in `integration_databases.rs` against Cassandra 5 and
+ScyllaDB 6.2; it is what found that a v4 server sends `duration` as a custom
+type and that ScyllaDB sets the warning flag on `CREATE KEYSPACE`.
+
+## Amazon Keyspaces
+
+Amazon Keyspaces is a third flavor of `CassandraDriver`, on the same CQL v4
+client. Everything listed for Cassandra applies, with these differences:
+
+- TLS is forced whatever the saved connection says, and the default port is
+  9142. The endpoint certificate chains to a public root, so no CA bundle is
+  needed.
+- Authentication uses service-specific credentials through SASL PLAIN. The
+  SigV4 authenticator plugin, which signs with an IAM access key, is not
+  implemented: create service-specific credentials for the IAM user instead.
+- `ALLOW FILTERING` is refused in every environment, not only in production.
+  Keyspaces bills read capacity per row scanned, so a filtered scan costs as
+  much as the table it walks.
+- The identity is picked by the user or detected from a
+  `cassandra.<region>.amazonaws.com` endpoint. `keyspaces_e2e` in
+  `integration_databases.rs` runs only when `QOREDB_TEST_KEYSPACES_HOST`,
+  `_USER` and `_PASSWORD` are set; it is skipped otherwise.
+
+## Snowflake
+
+Snowflake is driven through the SQL API v2 in
+`qore-drivers/src/drivers/snowflake/`, not through a native driver. The
+account identifier is the host; the API lives on port 443 and nothing else.
+
+Authentication is key-pair by default: the private key (PEM, unencrypted
+PKCS#8 or PKCS#1) is stored as the password, and the driver mints an RS256 JWT
+per hour with the public-key fingerprint Snowflake expects in the issuer. A
+programmatic access token is the second mode, sent as a bearer. Encrypted keys
+are refused with the `openssl pkcs8 -nocrypt` command that converts them.
+
+Warehouse, role and default schema travel in the connection `options`
+(`warehouse`, `role`, `schema`, plus `auth`); the API keeps no session, so
+`USE` does not stick and every statement carries its context. Every statement
+is submitted asynchronously and polled, which is what makes `cancel` real
+rather than best-effort, at the price of one extra round-trip.
+
+Introspection uses `SHOW SCHEMAS`, `SHOW TERSE OBJECTS`, `DESCRIBE TABLE` and
+`SHOW IMPORTED KEYS`, none of which needs a running warehouse. The row-count
+estimate comes from `INFORMATION_SCHEMA.TABLES` and is skipped silently when
+no warehouse answers. Results are capped at 200 000 rows. Exceeding the cap,
+or reaching it while more pages remain, returns an error instead of a partial
+successful result.
+
+Not covered: transactions (no session), visual DDL, routines, streaming, SSH
+tunnels, and connection URLs. Result cells arrive as strings: `NUMBER` with a
+scale is kept as exact text, `TIMESTAMP_TZ` is rendered with its offset, and
+`VARIANT` is parsed back to JSON. The driver has been tested against a mock
+server only; no live account was available.
+
+## BigQuery
+
+BigQuery is driven through its REST API in `qore-drivers/src/drivers/bigquery/`,
+on the same `warehouse_compat` base as Snowflake. The password holds the
+service account's JSON key; its private key signs a JWT that Google trades for
+an hourly access token. There is no host to configure.
+
+`Namespace.database` is the project and `schema` the dataset. With no project
+on the connection the service account's own is used, and `list_namespaces`
+walks every project the account can list, up to fifty. The billing project
+and the location travel in the connection `options` (`billing_project`,
+`location`).
+
+Queries start with a two-second wait so that a job id exists early; longer
+ones are polled and their pages walked. `cancel` calls `jobs.cancel`.
+`preview_table`, and `query_table` without filter, search or sort, read
+through `tabledata.list`, which bills nothing and returns the row count.
+`EXPLAIN <query>` runs a dry run and answers with the bytes the query would
+scan and whether the cache would serve it. Results are capped at 200 000 rows.
+Exceeding the cap, or reaching it while more pages remain, returns an error
+instead of a partial successful result.
+
+The query editor requests a dry run through the existing query/interceptor path,
+shows the scan estimate and waits for confirmation before submitting the original
+query. A dry-run error stops that execution; missing byte counts are shown as
+unknown. This applies to editor queries, not notebooks, exports, grid operations
+or headless clients, which can request `EXPLAIN` explicitly. This is not a billing
+cap: [Google documents partial estimates for scripts](https://docs.cloud.google.com/bigquery/docs/multi-statement-queries)
+and [external sources](https://docs.cloud.google.com/bigquery/docs/running-queries).
+
+Not covered: transactions, visual DDL, routines, streaming, SSH tunnels, and
+connection URLs. `REPEATED` fields come back as arrays and `RECORD` fields as
+JSON objects; `TIMESTAMP` cells, which arrive as epoch seconds sometimes in
+exponent form, keep microsecond precision. The driver has been tested against
+a mock server only; no live project was available.
+
 ## MongoDB
 
 - Query execution supports `find` with simple JSON payloads and a dedicated
@@ -259,6 +470,11 @@ what differs.
   probed for its flavor either. Every limitation above applies unchanged, and
   `dragonfly_e2e` in `tests/integration_databases.rs` runs the shared code
   against a real Dragonfly from `docker-compose.yml`.
+- KeyDB and Garnet are served by the same driver under the `keydb` and `garnet`
+  ids. Both use Redis URL schemes and require explicit selection because their
+  DSNs carry no stable flavor marker. `redis_wire_compatible_a1_e2e` exercises
+  both identities against the local Redis stand-in; vendor-specific commands
+  are passed through but not modeled.
 - Authentication is optional — many development setups run without a password.
 
 ### Lua scripting

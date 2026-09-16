@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { useTranslation } from 'react-i18next';
 import { Input } from '@/components/ui/input';
 import type { TableColumn } from '../../lib/tauri';
 import { Checkbox } from '../ui/checkbox';
@@ -10,6 +11,7 @@ interface RowModalSchemaFieldsProps {
   formData: Record<string, string>;
   nulls: Record<string, boolean>;
   readOnly: boolean;
+  maskedColumns?: ReadonlySet<string>;
   onNullToggle: (col: string, isNull: boolean) => void;
   onInputChange: (col: string, value: string) => void;
 }
@@ -19,13 +21,19 @@ export function RowModalSchemaFields({
   formData,
   nulls,
   readOnly,
+  maskedColumns,
   onNullToggle,
   onInputChange,
 }: RowModalSchemaFieldsProps) {
+  const { t } = useTranslation();
   return (
     <div className="grid gap-4 py-4">
       {columns.map(col => (
-        <div key={col.name} className="grid gap-2">
+        <div
+          key={col.name}
+          className="grid gap-2"
+          title={maskedColumns?.has(col.name) ? t('grid.masking.readOnly') : undefined}
+        >
           <div className="flex items-center justify-between">
             <Label htmlFor={col.name} className="flex items-center gap-2">
               {col.name}
@@ -45,7 +53,7 @@ export function RowModalSchemaFields({
                   id={`${col.name}-null`}
                   checked={nulls[col.name] || false}
                   onCheckedChange={checked => onNullToggle(col.name, checked as boolean)}
-                  disabled={readOnly}
+                  disabled={readOnly || maskedColumns?.has(col.name)}
                 />
                 <label
                   htmlFor={`${col.name}-null`}
@@ -61,7 +69,7 @@ export function RowModalSchemaFields({
             id={col.name}
             value={formData[col.name] || ''}
             onChange={e => onInputChange(col.name, e.target.value)}
-            disabled={nulls[col.name] || readOnly}
+            disabled={nulls[col.name] || readOnly || maskedColumns?.has(col.name)}
             placeholder={col.default_value ? `Default: ${col.default_value}` : ''}
             className="font-mono text-sm"
           />

@@ -14,11 +14,20 @@
 - [x] **SQL Server** — Driver complet (connexion, requêtes, schémas, transactions, SSL, SSH)
 - [x] **SQLite** — Base locale, fichier unique
 - [x] **CockroachDB** — PostgreSQL-compatible, distribué
+- [x] **TiDB** — Compatible MySQL, distribué _(v0.1.39)_
+- [x] **YugabyteDB** — Compatible PostgreSQL, distribué _(v0.1.39)_
+- [x] **SingleStore** — Compatible MySQL, distribué _(v0.1.39)_
+- [x] **Azure SQL** — Compatible SQL Server, TLS forcé _(v0.1.39)_
 
 ### SQL Analytique
 
 - [x] **DuckDB** — Analytics embarqué (OLAP), fichier local
 - [x] **ClickHouse** — Analytics OLAP _(v0.1.28)_
+- [x] **StarRocks** — Analytics OLAP via le protocole MySQL _(v0.1.39)_
+- [x] **Apache Doris** — Analytics OLAP via le protocole MySQL _(v0.1.39)_
+- [x] **Azure Synapse** — Entrepôt T-SQL, TLS forcé _(v0.1.39)_
+- [x] **Snowflake** — Entrepôt cloud via la SQL API v2, auth par paire de clés _(v0.1.39)_
+- [x] **BigQuery** — Entrepôt Google via l'API REST, compte de service, estimation avant exécution dans l’éditeur _(v0.1.39)_
 
 ### Time-Series
 
@@ -40,6 +49,14 @@
 - [x] **Redis** — Cache / store in-memory
 - [x] **Valkey** — Fork open-source de Redis (driver Redis mutualisé, schémas `valkey://`)
 - [x] **Dragonfly** — Compatible fil-à-fil Redis (driver Redis mutualisé, URL `redis://`) _(v0.1.38)_
+- [x] **KeyDB** — Compatible fil-à-fil Redis (driver Redis mutualisé) _(v0.1.39)_
+- [x] **Garnet** — Compatible fil-à-fil Redis (driver Redis mutualisé) _(v0.1.39)_
+
+### NoSQL Colonnes
+
+- [x] **Cassandra** — Wide-column, client CQL v4 écrit à la main _(v0.1.39)_
+- [x] **ScyllaDB** — Compatible Cassandra (client CQL mutualisé) _(v0.1.39)_
+- [x] **Amazon Keyspaces** — Cassandra géré (client CQL mutualisé, TLS forcé, port 9142) _(v0.1.39)_
 
 ### Search
 
@@ -52,7 +69,9 @@
 
 ### Search / Analytics
 
+- [ ] **Quickwit** — Sous-ensemble de l’API Elasticsearch, capacités à restreindre
 - [ ] **Apache Druid** — Real-time analytics
+- [ ] **Amazon Redshift** — Protocole PostgreSQL, introspection divergente
 
 ### SQL Relationnel
 
@@ -69,8 +88,6 @@
 
 ### NoSQL Colonnes
 
-- [ ] **Cassandra** — Wide-column store
-- [ ] **ScyllaDB** — Cassandra-compatible, performance
 - [ ] **HBase** — Hadoop ecosystem
 
 ### NoSQL Graphe
@@ -114,15 +131,23 @@
 | PostgreSQL     | ✅           | ✅          | ✅  | ✅      | ✅    | ✅       | Support complet |
 | MySQL / MariaDB| ✅           | ✅          | ✅  | ✅      | ✅¹   | ✅       | ¹ CHECK respecté à partir de MySQL 8.0.16 / MariaDB 10.2 |
 | PlanetScale    | ✅           | ✅          | ⚠️  | ✅      | ✅    | ✅       | Wire-compatible MySQL. Les FK ne sont pas appliquées sur les branches sans foreign key constraints activées. |
+| TiDB           | ✅           | ✅          | ✅  | ✅      | ✅    | ✅       | Wire-compatible MySQL. Certaines variantes d'ALTER et méthodes d'index MySQL sont ignorées ou refusées. |
+| SingleStore    | ✅           | ✅          | ❌  | ✅      | ❌    | ✅       | Le générateur masque aussi les contraintes et index UNIQUE, non pris en charge par le moteur. |
+| StarRocks      | ❌           | ❌          | —   | —       | —     | —        | Le moteur possède son propre modèle de clés et de distribution ; le générateur MySQL générique est désactivé. |
+| Apache Doris   | ❌           | ❌          | —   | —       | —     | —        | Le moteur possède son propre modèle de clés et de distribution ; le générateur MySQL générique est désactivé. |
 | SQLite         | ✅           | ⚠️          | ✅  | ✅      | ✅    | ❌       | ALTER limité avant SQLite 3.35 (warning explicite, pas de DROP/ALTER COLUMN auto) |
 | DuckDB         | ✅           | ✅          | ⚠️  | ✅      | ✅    | ✅       | FK syntaxiques uniquement (non vérifiées au runtime) |
 | SQL Server     | ✅           | ✅          | ✅  | ✅      | ✅    | ⚠️       | Comments via `sp_addextendedproperty` |
+| Azure SQL      | ✅           | ✅          | ✅  | ✅      | ✅    | ⚠️       | Même générateur que SQL Server, avec TLS forcé à la connexion. |
+| Azure Synapse  | ❌           | ❌          | —   | —       | —     | —        | Désactivé : les capacités divergent entre les pools dédiés et serverless. |
 | CockroachDB    | ✅           | ✅          | ✅  | ✅      | ✅    | ✅       | Wire-compatible PostgreSQL |
+| YugabyteDB     | ✅           | ✅          | ✅  | ✅      | ✅    | ✅       | Wire-compatible PostgreSQL |
 | ClickHouse     | ✅           | ⚠️          | ❌  | ✅      | ✅    | ✅       | MergeTree-family subset. Pas de FK enforcement (laissée syntaxique uniquement). INDEX … TYPE bloom_filter\|minmax\|set. (v0.1.28) |
 | MongoDB        | ❌           | ❌          | —  | —       | —     | —        | Pas de schéma rigide. Voir `CreateCollectionModal` (v0.3.x). |
 | DocumentDB     | ❌           | ❌          | —  | —       | —     | —        | Idem MongoDB (driver mutualisé). |
 | Redis          | ❌           | ❌          | —  | —       | —     | —        | Pas applicable (KV store). |
 | Dragonfly      | ❌           | ❌          | —  | —       | —     | —        | Idem Redis (driver mutualisé). |
+| KeyDB / Garnet | ❌           | ❌          | —  | —       | —     | —        | Idem Redis (driver mutualisé). |
 | Elasticsearch  | ❌           | ❌          | —  | —       | —     | —        | DDL visuel non applicable. Création d'index via la console (`PUT /index`). |
 | OpenSearch     | ❌           | ❌          | —  | —       | —     | —        | Idem Elasticsearch (driver mutualisé). |
 

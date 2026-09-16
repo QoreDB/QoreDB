@@ -226,6 +226,7 @@ impl MongoDriver {
             name: "document".into(),
             data_type: "json".into(),
             nullable: true,
+            masked: false,
         }]
     }
 
@@ -1253,6 +1254,7 @@ impl DataEngine for MongoDriver {
                                     name: "index_name".into(),
                                     data_type: "string".into(),
                                     nullable: false,
+                                    masked: false,
                                 }];
                                 let rows = vec![QRow {
                                     values: vec![Value::Text(created.index_name)],
@@ -1539,26 +1541,31 @@ impl DataEngine for MongoDriver {
                                         name: "inserted_count".into(),
                                         data_type: "int".into(),
                                         nullable: false,
+                                        masked: false,
                                     },
                                     ColumnInfo {
                                         name: "matched_count".into(),
                                         data_type: "int".into(),
                                         nullable: false,
+                                        masked: false,
                                     },
                                     ColumnInfo {
                                         name: "modified_count".into(),
                                         data_type: "int".into(),
                                         nullable: false,
+                                        masked: false,
                                     },
                                     ColumnInfo {
                                         name: "deleted_count".into(),
                                         data_type: "int".into(),
                                         nullable: false,
+                                        masked: false,
                                     },
                                     ColumnInfo {
                                         name: "upserted_count".into(),
                                         data_type: "int".into(),
                                         nullable: false,
+                                        masked: false,
                                     },
                                 ];
                                 let rows = vec![QRow {
@@ -1846,6 +1853,7 @@ impl DataEngine for MongoDriver {
                                         name: "count".into(),
                                         data_type: "int".into(),
                                         nullable: false,
+                                        masked: false,
                                     }],
                                     rows: vec![QRow {
                                         values: vec![Value::Int(count as i64)],
@@ -1902,6 +1910,7 @@ impl DataEngine for MongoDriver {
                                         name: field.into(),
                                         data_type: "json".into(),
                                         nullable: true,
+                                        masked: false,
                                     }],
                                     rows,
                                     affected_rows: None,

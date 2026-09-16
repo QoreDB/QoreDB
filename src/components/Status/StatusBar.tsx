@@ -10,6 +10,7 @@ import {
   Lock,
   RefreshCw,
   Server,
+  TrendingUp,
   WifiOff,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -18,6 +19,7 @@ import { SandboxIndicator } from '@/components/Sandbox';
 import { Tooltip } from '@/components/ui/tooltip';
 import { getDriverMetadata } from '@/lib/connection/drivers';
 import { ENVIRONMENT_CONFIG } from '@/lib/environment';
+import { clearInterceptorAlerts, useInterceptorAlerts } from '@/lib/stores/interceptorAlertStore';
 import { setAuditLogOpen, setLogsOpen, setPaginationMetricsOpen } from '@/lib/stores/modalStore';
 import { useTransactionStore } from '@/lib/stores/transactionStore';
 import type { ConnectionHealth, SavedConnection } from '@/lib/tauri';
@@ -33,6 +35,8 @@ export function StatusBar({ sessionId, connection, connectionHealth = 'healthy' 
   const { t } = useTranslation();
   const isConnected = Boolean(sessionId && connection);
   const transactionState = useTransactionStore();
+  const { alerts, regressions } = useInterceptorAlerts();
+  const performanceAlerts = alerts.length + regressions;
 
   const environment = connection?.environment || 'development';
   const envConfig = ENVIRONMENT_CONFIG[environment];
@@ -168,6 +172,22 @@ export function StatusBar({ sessionId, connection, connectionHealth = 'healthy' 
             <Gauge size={12} />
           </button>
         </Tooltip>
+        {performanceAlerts > 0 && (
+          <Tooltip content={t('interceptor.alerts.badge', { count: performanceAlerts })}>
+            <button
+              type="button"
+              aria-label={t('interceptor.alerts.badge', { count: performanceAlerts })}
+              className="flex items-center gap-1 h-5 px-1.5 rounded text-[10px] font-semibold text-destructive bg-destructive/10 hover:bg-destructive/20 transition-colors"
+              onClick={() => {
+                clearInterceptorAlerts();
+                setAuditLogOpen(true, 'trends');
+              }}
+            >
+              <TrendingUp size={11} />
+              {performanceAlerts}
+            </button>
+          </Tooltip>
+        )}
         <Tooltip content={t('sidebar.auditLog')}>
           <button
             type="button"

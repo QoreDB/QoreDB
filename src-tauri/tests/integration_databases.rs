@@ -10,10 +10,11 @@
 
 use qoredb_lib::engine::{
     drivers::{
-        clickhouse::ClickHouseDriver, documentdb::DocumentDbDriver, duckdb::DuckDbDriver,
-        elasticsearch::ElasticsearchDriver, mongodb::MongoDriver, mysql::MySqlDriver,
-        planetscale::PlanetScaleDriver, postgres::PostgresDriver, redis::RedisDriver,
-        sqlite::SqliteDriver,
+        bigquery::BigQueryDriver, cassandra::CassandraDriver, clickhouse::ClickHouseDriver,
+        documentdb::DocumentDbDriver, duckdb::DuckDbDriver, elasticsearch::ElasticsearchDriver,
+        mongodb::MongoDriver, mysql::MySqlDriver, planetscale::PlanetScaleDriver,
+        postgres::PostgresDriver, redis::RedisDriver, snowflake::SnowflakeDriver,
+        sqlite::SqliteDriver, sqlserver::SqlServerDriver,
     },
     error::{EngineError, EngineResult},
     traits::DataEngine,
@@ -61,8 +62,14 @@ enum Service {
     Redis,
     Dragonfly,
     PlanetScale,
+    SqlServer,
+    Cassandra,
+    ScyllaDb,
+    Keyspaces,
     ClickHouse,
     Search,
+    Snowflake,
+    BigQuery,
 }
 
 impl Service {
@@ -75,8 +82,14 @@ impl Service {
             Service::Redis => "Redis",
             Service::Dragonfly => "Dragonfly",
             Service::PlanetScale => "MySQL (PlanetScale stand-in)",
+            Service::SqlServer => "SQL Server",
+            Service::Cassandra => "Cassandra",
+            Service::ScyllaDb => "ScyllaDB",
+            Service::Keyspaces => "Amazon Keyspaces",
             Service::ClickHouse => "ClickHouse",
             Service::Search => "Elasticsearch",
+            Service::Snowflake => "Snowflake",
+            Service::BigQuery => "BigQuery",
         }
     }
 
@@ -89,8 +102,14 @@ impl Service {
             Service::Redis => "QOREDB_TEST_REDIS_REQUIRED",
             Service::Dragonfly => "QOREDB_TEST_DRAGONFLY_REQUIRED",
             Service::PlanetScale => "QOREDB_TEST_PLANETSCALE_REQUIRED",
+            Service::SqlServer => "QOREDB_TEST_SQLSERVER_REQUIRED",
+            Service::Cassandra => "QOREDB_TEST_CASSANDRA_REQUIRED",
+            Service::ScyllaDb => "QOREDB_TEST_SCYLLADB_REQUIRED",
+            Service::Keyspaces => "QOREDB_TEST_KEYSPACES_REQUIRED",
             Service::ClickHouse => "QOREDB_TEST_CLICKHOUSE_REQUIRED",
             Service::Search => "QOREDB_TEST_SEARCH_REQUIRED",
+            Service::Snowflake => "QOREDB_TEST_SNOWFLAKE_REQUIRED",
+            Service::BigQuery => "QOREDB_TEST_BIGQUERY_REQUIRED",
         }
     }
 
@@ -261,6 +280,69 @@ fn redis_config() -> ConnectionConfig {
         clickhouse_cluster: None,
         search_auth_mode: None,
         ssl_ca_cert: None,
+    }
+}
+
+fn sqlserver_config() -> ConnectionConfig {
+    ConnectionConfig {
+        options: Default::default(),
+        driver: "sqlserver".to_string(),
+        host: env_or_default("QOREDB_TEST_SQLSERVER_HOST", "127.0.0.1"),
+        port: env_u16_or_default("QOREDB_TEST_SQLSERVER_PORT", 1433),
+        username: env_or_default("QOREDB_TEST_SQLSERVER_USER", "sa"),
+        password: env_or_default("QOREDB_TEST_SQLSERVER_PASSWORD", "QoreDB_Test123!"),
+        database: Some(env_or_default("QOREDB_TEST_SQLSERVER_DB", "master")),
+        ssl: false,
+        ssl_mode: None,
+        environment: "development".to_string(),
+        read_only: false,
+        ssh_tunnel: None,
+        pool_acquire_timeout_secs: None,
+        pool_max_connections: None,
+        pool_min_connections: None,
+        proxy: None,
+        mssql_auth: None,
+        clickhouse_cluster: None,
+        search_auth_mode: None,
+        ssl_ca_cert: None,
+    }
+}
+
+/// `docker-compose.yml` runs Cassandra without authentication and ScyllaDB with
+/// `PasswordAuthenticator`, so the two configs cover both handshake paths.
+fn cassandra_config() -> ConnectionConfig {
+    ConnectionConfig {
+        options: Default::default(),
+        driver: "cassandra".to_string(),
+        host: env_or_default("QOREDB_TEST_CASSANDRA_HOST", "127.0.0.1"),
+        port: env_u16_or_default("QOREDB_TEST_CASSANDRA_PORT", 9042),
+        username: env_or_default("QOREDB_TEST_CASSANDRA_USER", ""),
+        password: env_or_default("QOREDB_TEST_CASSANDRA_PASSWORD", ""),
+        database: None,
+        ssl: false,
+        ssl_mode: None,
+        environment: "development".to_string(),
+        read_only: false,
+        ssh_tunnel: None,
+        pool_acquire_timeout_secs: None,
+        pool_max_connections: None,
+        pool_min_connections: None,
+        proxy: None,
+        mssql_auth: None,
+        clickhouse_cluster: None,
+        search_auth_mode: None,
+        ssl_ca_cert: None,
+    }
+}
+
+fn scylladb_config() -> ConnectionConfig {
+    ConnectionConfig {
+        driver: "scylladb".to_string(),
+        host: env_or_default("QOREDB_TEST_SCYLLADB_HOST", "127.0.0.1"),
+        port: env_u16_or_default("QOREDB_TEST_SCYLLADB_PORT", 9043),
+        username: env_or_default("QOREDB_TEST_SCYLLADB_USER", "cassandra"),
+        password: env_or_default("QOREDB_TEST_SCYLLADB_PASSWORD", "cassandra"),
+        ..cassandra_config()
     }
 }
 
@@ -436,6 +518,30 @@ async fn connect_mongo() -> EngineResult<(Arc<MongoDriver>, SessionId, Connectio
 async fn connect_redis() -> EngineResult<(Arc<RedisDriver>, SessionId, ConnectionConfig)> {
     let config = redis_config();
     let driver = Arc::new(RedisDriver::new());
+    wait_for_connection(driver.as_ref(), &config).await?;
+    let session = driver.connect(&config).await?;
+    Ok((driver, session, config))
+}
+
+async fn connect_sqlserver() -> EngineResult<(Arc<SqlServerDriver>, SessionId, ConnectionConfig)> {
+    let config = sqlserver_config();
+    let driver = Arc::new(SqlServerDriver::new());
+    wait_for_connection(driver.as_ref(), &config).await?;
+    let session = driver.connect(&config).await?;
+    Ok((driver, session, config))
+}
+
+async fn connect_cassandra() -> EngineResult<(Arc<CassandraDriver>, SessionId, ConnectionConfig)> {
+    let config = cassandra_config();
+    let driver = Arc::new(CassandraDriver::new());
+    wait_for_connection(driver.as_ref(), &config).await?;
+    let session = driver.connect(&config).await?;
+    Ok((driver, session, config))
+}
+
+async fn connect_scylladb() -> EngineResult<(Arc<CassandraDriver>, SessionId, ConnectionConfig)> {
+    let config = scylladb_config();
+    let driver = Arc::new(CassandraDriver::scylladb());
     wait_for_connection(driver.as_ref(), &config).await?;
     let session = driver.connect(&config).await?;
     Ok((driver, session, config))
@@ -2215,6 +2321,126 @@ async fn planetscale_e2e() -> EngineResult<()> {
     Ok(())
 }
 
+#[tokio::test]
+async fn mysql_wire_compatible_a1_e2e() -> EngineResult<()> {
+    let Some((base_driver, base_session, config)) = connect_or_skip(
+        connect_mysql().await,
+        Service::MySql,
+        "mysql_wire_compatible_a1_e2e",
+    )?
+    else {
+        return Ok(());
+    };
+    base_driver.disconnect(base_session).await?;
+
+    for (driver, id) in [
+        (MySqlDriver::tidb(), "tidb"),
+        (MySqlDriver::starrocks(), "starrocks"),
+        (MySqlDriver::doris(), "doris"),
+        (MySqlDriver::singlestore(), "singlestore"),
+    ] {
+        let config = ConnectionConfig {
+            driver: id.to_string(),
+            ..config.clone()
+        };
+        let session = driver.connect(&config).await?;
+        let result = driver.execute(session, "SELECT 1", QueryId::new()).await?;
+        assert_eq!(driver.driver_id(), id);
+        assert_eq!(result.rows.len(), 1);
+        driver.disconnect(session).await?;
+    }
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn yugabytedb_wire_compatible_a1_e2e() -> EngineResult<()> {
+    let Some((base_driver, base_session, config)) = connect_or_skip(
+        connect_postgres().await,
+        Service::Postgres,
+        "yugabytedb_wire_compatible_a1_e2e",
+    )?
+    else {
+        return Ok(());
+    };
+    base_driver.disconnect(base_session).await?;
+
+    let driver = PostgresDriver::yugabytedb();
+    let config = ConnectionConfig {
+        driver: "yugabytedb".to_string(),
+        ..config
+    };
+    let session = driver.connect(&config).await?;
+    let result = driver.execute(session, "SELECT 1", QueryId::new()).await?;
+    assert_eq!(driver.driver_id(), "yugabytedb");
+    assert_eq!(result.rows.len(), 1);
+    driver.disconnect(session).await?;
+    Ok(())
+}
+
+#[tokio::test]
+async fn redis_wire_compatible_a1_e2e() -> EngineResult<()> {
+    let Some((base_driver, base_session, config)) = connect_or_skip(
+        connect_redis().await,
+        Service::Redis,
+        "redis_wire_compatible_a1_e2e",
+    )?
+    else {
+        return Ok(());
+    };
+    base_driver.disconnect(base_session).await?;
+
+    for (driver, id) in [
+        (RedisDriver::keydb(), "keydb"),
+        (RedisDriver::garnet(), "garnet"),
+    ] {
+        let config = ConnectionConfig {
+            driver: id.to_string(),
+            ..config.clone()
+        };
+        let session = driver.connect(&config).await?;
+        let result = driver.execute(session, "PING", QueryId::new()).await?;
+        assert_eq!(driver.driver_id(), id);
+        assert_eq!(result.rows.len(), 1);
+        driver.disconnect(session).await?;
+    }
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn azure_sql_wire_compatible_a1_e2e() -> EngineResult<()> {
+    let Some((base_driver, base_session, config)) = connect_or_skip(
+        connect_sqlserver().await,
+        Service::SqlServer,
+        "azure_sql_wire_compatible_a1_e2e",
+    )?
+    else {
+        return Ok(());
+    };
+    base_driver.disconnect(base_session).await?;
+
+    for (driver, id) in [
+        (SqlServerDriver::azure_sql(), "azuresql"),
+        (SqlServerDriver::synapse(), "synapse"),
+    ] {
+        let config = ConnectionConfig {
+            driver: id.to_string(),
+            // The local SQL Server stand-in has a self-signed certificate.
+            ssl: true,
+            ssl_mode: Some("require".to_string()),
+            ..config.clone()
+        };
+        let session = driver.connect(&config).await?;
+        let result = driver.execute(session, "SELECT 1", QueryId::new()).await?;
+        assert_eq!(driver.driver_id(), id);
+        assert_eq!(result.rows.len(), 1);
+        driver.disconnect(session).await?;
+    }
+
+    Ok(())
+}
+
 /// DocumentDB against the TLS MongoDB stand-in. The point is the TLS path:
 /// the driver forces TLS and verifies the server against the CA bundle the
 /// connection carries, exactly as it must against an Amazon-signed cluster.
@@ -2293,5 +2519,623 @@ async fn documentdb_refuses_an_unverifiable_certificate() -> EngineResult<()> {
         err.to_string().contains("CA certificate"),
         "a missing bundle is reported, not silently ignored: {err}"
     );
+    Ok(())
+}
+
+/// Exercises the hand-written CQL client end to end: handshake, keyspace DDL,
+/// introspection through `system_schema`, bound mutations and the native paging
+/// cursor. This is the pass the unit tests cannot make — they are built from the
+/// wire encoding, not from what a server actually sends.
+#[tokio::test]
+async fn cassandra_e2e() -> EngineResult<()> {
+    let Some((driver, session, _config)) = connect_or_skip(
+        connect_cassandra().await,
+        Service::Cassandra,
+        "cassandra_e2e",
+    )?
+    else {
+        return Ok(());
+    };
+
+    let keyspace = format!("qoredb_{}", Uuid::new_v4().simple());
+    driver
+        .create_database(session, &keyspace, None)
+        .await
+        .expect("keyspace creation");
+
+    let namespace = Namespace {
+        database: keyspace.clone(),
+        schema: None,
+    };
+    let table = "people";
+    driver
+        .execute(
+            session,
+            &format!(
+                "CREATE TABLE \"{keyspace}\".\"{table}\" \
+                 (id int, bucket int, name text, score double, tags set<text>, \
+                  PRIMARY KEY ((id), bucket))"
+            ),
+            QueryId::new(),
+        )
+        .await?;
+
+    // Namespaces and collections come back from the catalog, not from a cache.
+    let namespaces = driver.list_namespaces(session).await?;
+    assert!(
+        namespaces.iter().any(|ns| ns.database == keyspace),
+        "the new keyspace must be listed"
+    );
+    let collections = driver
+        .list_collections(session, &namespace, CollectionListOptions::default())
+        .await?;
+    assert!(collections.collections.iter().any(|c| c.name == table));
+
+    // The primary key must come back in ring order: partition key, then
+    // clustering column. Getting that order wrong breaks every bound mutation.
+    let schema = driver.describe_table(session, &namespace, table).await?;
+    assert_eq!(
+        schema.primary_key.as_deref(),
+        Some(&["id".to_string(), "bucket".to_string()][..])
+    );
+
+    // Values are bound, never interpolated.
+    for id in 0..3 {
+        let mut row = RowData::new();
+        row.columns.insert("id".to_string(), Value::Int(id));
+        row.columns.insert("bucket".to_string(), Value::Int(1));
+        row.columns
+            .insert("name".to_string(), Value::Text(format!("person-{id}")));
+        row.columns
+            .insert("score".to_string(), Value::Float(1.5 * id as f64));
+        driver.insert_row(session, &namespace, table, &row).await?;
+    }
+
+    let preview = driver.preview_table(session, &namespace, table, 10).await?;
+    assert_eq!(preview.rows.len(), 3);
+
+    // A mutation without the full primary key must be refused before the wire,
+    // not left for the server to reject.
+    let mut partial = RowData::new();
+    partial.columns.insert("id".to_string(), Value::Int(0));
+    assert!(
+        driver
+            .delete_row(session, &namespace, table, &partial)
+            .await
+            .is_err(),
+        "a partial primary key must be refused"
+    );
+
+    let mut key = RowData::new();
+    key.columns.insert("id".to_string(), Value::Int(0));
+    key.columns.insert("bucket".to_string(), Value::Int(1));
+    let mut update = RowData::new();
+    update
+        .columns
+        .insert("name".to_string(), Value::Text("renamed".to_string()));
+    driver
+        .update_row(session, &namespace, table, &key, &update)
+        .await?;
+    driver.delete_row(session, &namespace, table, &key).await?;
+
+    // The native paging state drives the cursor, one row at a time.
+    let first = driver
+        .query_table(
+            session,
+            &namespace,
+            table,
+            TableQueryOptions {
+                page_size: Some(1),
+                count_mode: Some(CountMode::None),
+                ..Default::default()
+            },
+        )
+        .await?;
+    assert_eq!(first.result.rows.len(), 1);
+    assert_eq!(first.pagination_strategy, PaginationStrategy::Keyset);
+    assert_eq!(first.ordering_guarantee, OrderingGuarantee::Stable);
+    assert!(first.has_more, "two rows are left after the delete");
+    let cursor = first
+        .next_cursor
+        .clone()
+        .expect("a cursor for the next page");
+
+    let second = driver
+        .query_table(
+            session,
+            &namespace,
+            table,
+            TableQueryOptions {
+                page_size: Some(1),
+                count_mode: Some(CountMode::None),
+                cursor: Some(cursor),
+                ..Default::default()
+            },
+        )
+        .await?;
+    assert_eq!(second.result.rows.len(), 1);
+
+    driver.drop_database(session, &keyspace).await?;
+    driver.disconnect(session).await?;
+    Ok(())
+}
+
+/// Needs a real Keyspaces endpoint and service-specific credentials, so it runs
+/// only when they are configured. The saved config leaves TLS off on purpose:
+/// the flavor must force it.
+#[tokio::test]
+async fn keyspaces_e2e() -> EngineResult<()> {
+    let var = |name: &str| std::env::var(format!("QOREDB_TEST_KEYSPACES_{name}")).ok();
+    let (Some(host), Some(user), Some(password)) = (var("HOST"), var("USER"), var("PASSWORD"))
+    else {
+        if Service::Keyspaces.required() {
+            panic!("QOREDB_TEST_KEYSPACES_* must be set when Keyspaces is required");
+        }
+        eprintln!("keyspaces_e2e skipped: no endpoint configured");
+        return Ok(());
+    };
+    let config = ConnectionConfig {
+        driver: "keyspaces".to_string(),
+        host,
+        port: env_u16_or_default("QOREDB_TEST_KEYSPACES_PORT", 9142),
+        username: user,
+        password,
+        ssl: false,
+        ..ConnectionConfig::default()
+    };
+
+    let driver = Arc::new(CassandraDriver::keyspaces());
+    let session = driver.connect(&config).await?;
+    assert!(
+        !driver.list_namespaces(session).await?.is_empty(),
+        "the system keyspaces are listed"
+    );
+    assert!(
+        driver
+            .execute(
+                session,
+                "SELECT keyspace_name FROM system_schema.keyspaces WHERE durable_writes = true \
+                 ALLOW FILTERING",
+                QueryId::new(),
+            )
+            .await
+            .is_err(),
+        "ALLOW FILTERING is refused before reaching the endpoint"
+    );
+    driver.disconnect(session).await?;
+    Ok(())
+}
+
+/// The type codec is the part of the CQL client a unit test cannot vouch for:
+/// every scalar and collection type goes in once as a CQL literal (encoded by
+/// the server) and once as a bound value (encoded by the client), and both rows
+/// must decode to the same thing.
+#[tokio::test]
+async fn cassandra_type_codec_round_trip() -> EngineResult<()> {
+    let Some((driver, session, _config)) = connect_or_skip(
+        connect_cassandra().await,
+        Service::Cassandra,
+        "cassandra_type_codec_round_trip",
+    )?
+    else {
+        return Ok(());
+    };
+    type_codec_round_trip(driver, session).await
+}
+
+#[tokio::test]
+async fn scylladb_type_codec_round_trip() -> EngineResult<()> {
+    let Some((driver, session, _config)) = connect_or_skip(
+        connect_scylladb().await,
+        Service::ScyllaDb,
+        "scylladb_type_codec_round_trip",
+    )?
+    else {
+        return Ok(());
+    };
+    type_codec_round_trip(driver, session).await
+}
+
+async fn type_codec_round_trip(
+    driver: Arc<CassandraDriver>,
+    session: SessionId,
+) -> EngineResult<()> {
+    let keyspace = format!("qoredb_{}", Uuid::new_v4().simple());
+    driver
+        .create_database(session, &keyspace, None)
+        .await
+        .expect("keyspace creation");
+    let namespace = Namespace {
+        database: keyspace.clone(),
+        schema: None,
+    };
+    let run = |cql: String| {
+        let driver = Arc::clone(&driver);
+        async move { driver.execute(session, &cql, QueryId::new()).await }
+    };
+
+    run(format!(
+        "CREATE TYPE \"{keyspace}\".address (street text, zip int)"
+    ))
+    .await?;
+    run(format!(
+        "CREATE TABLE \"{keyspace}\".kinds (id int PRIMARY KEY, \
+         c_ascii ascii, c_bigint bigint, c_blob blob, c_boolean boolean, \
+         c_decimal decimal, c_double double, c_float float, c_int int, \
+         c_timestamp timestamp, c_uuid uuid, c_text text, c_varint varint, \
+         c_timeuuid timeuuid, c_inet inet, c_date date, c_time time, \
+         c_smallint smallint, c_tinyint tinyint, c_duration duration, \
+         c_list list<int>, c_set set<text>, c_map map<text, int>, \
+         c_tuple tuple<int, text>, c_udt frozen<address>)"
+    ))
+    .await?;
+
+    let timeuuid = "5ba1c9a0-1f8b-11ee-be56-0242ac120002";
+    let uuid = "12345678-9abc-def0-1234-56789abcdef0";
+    run(format!(
+        "INSERT INTO \"{keyspace}\".kinds (id, c_ascii, c_bigint, c_blob, c_boolean, \
+         c_decimal, c_double, c_float, c_int, c_timestamp, c_uuid, c_text, c_varint, \
+         c_timeuuid, c_inet, c_date, c_time, c_smallint, c_tinyint, c_duration, \
+         c_list, c_set, c_map, c_tuple, c_udt) VALUES (1, 'plain', 9007199254740993, \
+         0xdeadbeef, true, 123.45, 1.5, -0.25, -7, '2023-11-14T22:13:20.123Z', {uuid}, \
+         'héllo', 1180591620717411303424, {timeuuid}, '10.0.0.1', '2024-02-29', \
+         '13:00:05.000000007', -2, -3, 1mo2d3ns, [1, 2], {{'a', 'b'}}, \
+         {{'k': 4}}, (5, 'five'), {{street: 'rue', zip: 75001}})"
+    ))
+    .await?;
+
+    let mut bound = RowData::new();
+    for (column, value) in [
+        ("id", Value::Int(2)),
+        ("c_ascii", Value::Text("plain".into())),
+        ("c_bigint", Value::Int(9007199254740993)),
+        ("c_blob", Value::Bytes(vec![0xde, 0xad, 0xbe, 0xef])),
+        ("c_boolean", Value::Bool(true)),
+        ("c_decimal", Value::Text("123.45".into())),
+        ("c_double", Value::Float(1.5)),
+        ("c_float", Value::Float(-0.25)),
+        ("c_int", Value::Int(-7)),
+        (
+            "c_timestamp",
+            Value::Text("2023-11-14T22:13:20.123Z".into()),
+        ),
+        ("c_uuid", Value::Text(uuid.into())),
+        ("c_text", Value::Text("héllo".into())),
+        ("c_varint", Value::Text("1180591620717411303424".into())),
+        ("c_timeuuid", Value::Text(timeuuid.into())),
+        ("c_inet", Value::Text("10.0.0.1".into())),
+        ("c_date", Value::Text("2024-02-29".into())),
+        ("c_time", Value::Text("13:00:05.000000007".into())),
+        ("c_smallint", Value::Int(-2)),
+        ("c_tinyint", Value::Int(-3)),
+        ("c_list", Value::Array(vec![Value::Int(1), Value::Int(2)])),
+        (
+            "c_set",
+            Value::Array(vec![Value::Text("a".into()), Value::Text("b".into())]),
+        ),
+        ("c_map", Value::Json(json!({ "k": 4 }))),
+    ] {
+        bound.columns.insert(column.to_string(), value);
+    }
+    driver
+        .insert_row(session, &namespace, "kinds", &bound)
+        .await?;
+
+    let result = run(format!(
+        "SELECT * FROM \"{keyspace}\".kinds WHERE id IN (1, 2)"
+    ))
+    .await?;
+    assert_eq!(result.rows.len(), 2);
+    let column = |name: &str| {
+        result
+            .columns
+            .iter()
+            .position(|c| c.name == name)
+            .unwrap_or_else(|| panic!("column {name}"))
+    };
+    let row = |id: i64| {
+        result
+            .rows
+            .iter()
+            .find(|r| matches!(r.values[column("id")], Value::Int(i) if i == id))
+            .unwrap_or_else(|| panic!("row {id}"))
+    };
+    let (literal, bound) = (row(1), row(2));
+
+    let expect = |name: &str, want: Value| {
+        let got = &literal.values[column(name)];
+        assert_eq!(
+            format!("{got:?}"),
+            format!("{want:?}"),
+            "{name} decoded from the server's encoding"
+        );
+    };
+    expect("c_ascii", Value::Text("plain".into()));
+    expect("c_bigint", Value::Int(9007199254740993));
+    expect("c_blob", Value::Bytes(vec![0xde, 0xad, 0xbe, 0xef]));
+    expect("c_boolean", Value::Bool(true));
+    expect("c_decimal", Value::Text("123.45".into()));
+    expect("c_double", Value::Float(1.5));
+    expect("c_float", Value::Float(-0.25));
+    expect("c_int", Value::Int(-7));
+    expect(
+        "c_timestamp",
+        Value::Text("2023-11-14T22:13:20.123Z".into()),
+    );
+    expect("c_uuid", Value::Text(uuid.into()));
+    expect("c_text", Value::Text("héllo".into()));
+    expect("c_varint", Value::Text("1180591620717411303424".into()));
+    expect("c_timeuuid", Value::Text(timeuuid.into()));
+    expect("c_inet", Value::Text("10.0.0.1".into()));
+    expect("c_date", Value::Text("2024-02-29".into()));
+    expect("c_time", Value::Text("13:00:05.000000007".into()));
+    expect("c_smallint", Value::Int(-2));
+    expect("c_tinyint", Value::Int(-3));
+    expect("c_duration", Value::Text("1mo2d3ns".into()));
+    expect("c_list", Value::Array(vec![Value::Int(1), Value::Int(2)]));
+    expect(
+        "c_set",
+        Value::Array(vec![Value::Text("a".into()), Value::Text("b".into())]),
+    );
+    expect("c_map", Value::Json(json!({ "k": 4 })));
+    expect(
+        "c_tuple",
+        Value::Array(vec![Value::Int(5), Value::Text("five".into())]),
+    );
+    expect(
+        "c_udt",
+        Value::Json(json!({ "street": "rue", "zip": 75001 })),
+    );
+
+    // Whatever the client encoded must read back exactly like the server's
+    // own encoding of the same literal.
+    for (i, info) in result.columns.iter().enumerate() {
+        if matches!(
+            info.name.as_str(),
+            "id" | "c_duration" | "c_tuple" | "c_udt"
+        ) {
+            continue;
+        }
+        assert_eq!(
+            format!("{:?}", bound.values[i]),
+            format!("{:?}", literal.values[i]),
+            "{} encoded by the client",
+            info.name
+        );
+    }
+
+    driver.drop_database(session, &keyspace).await?;
+    driver.disconnect(session).await?;
+    Ok(())
+}
+
+/// Snowflake has no container: the test runs only when an account is
+/// configured through `QOREDB_TEST_SNOWFLAKE_ACCOUNT`, `_USER`,
+/// `_PRIVATE_KEY_PATH`, `_DATABASE` and `_WAREHOUSE`.
+#[tokio::test]
+async fn snowflake_e2e() -> EngineResult<()> {
+    let var = |name: &str| std::env::var(format!("QOREDB_TEST_SNOWFLAKE_{name}")).ok();
+    let (Some(account), Some(user), Some(key_path), Some(database)) = (
+        var("ACCOUNT"),
+        var("USER"),
+        var("PRIVATE_KEY_PATH"),
+        var("DATABASE"),
+    ) else {
+        if Service::Snowflake.required() {
+            panic!("QOREDB_TEST_SNOWFLAKE_* must be set when Snowflake is required");
+        }
+        eprintln!("snowflake_e2e skipped: no account configured");
+        return Ok(());
+    };
+    let key = std::fs::read_to_string(&key_path).expect("private key file");
+    let mut options = std::collections::HashMap::new();
+    if let Some(warehouse) = var("WAREHOUSE") {
+        options.insert("warehouse".to_string(), warehouse);
+    }
+    let config = ConnectionConfig {
+        driver: "snowflake".to_string(),
+        host: account,
+        port: 443,
+        username: user,
+        password: key,
+        database: Some(database.clone()),
+        ssl: true,
+        options,
+        ..ConnectionConfig::default()
+    };
+
+    let driver = Arc::new(SnowflakeDriver::new());
+    let session = driver.connect(&config).await?;
+
+    let schema = format!("QOREDB_{}", Uuid::new_v4().simple()).to_uppercase();
+    driver.create_database(session, &schema, None).await?;
+    let namespace = Namespace::with_schema(database.clone(), schema.clone());
+    assert!(
+        driver
+            .list_namespaces(session)
+            .await?
+            .iter()
+            .any(|ns| ns.schema.as_deref() == Some(schema.as_str())),
+        "the new schema must be listed"
+    );
+
+    driver
+        .execute(
+            session,
+            &format!(
+                "CREATE TABLE \"{database}\".\"{schema}\".\"people\" \
+                 (id NUMBER PRIMARY KEY, name VARCHAR, score FLOAT, born DATE, tags VARIANT)"
+            ),
+            QueryId::new(),
+        )
+        .await?;
+    let described = driver.describe_table(session, &namespace, "people").await?;
+    assert_eq!(
+        described.primary_key.as_deref(),
+        Some(&["ID".to_string()][..])
+    );
+
+    let mut row = RowData::new();
+    row.columns.insert("ID".into(), Value::Int(1));
+    row.columns.insert("NAME".into(), Value::Text("Ada".into()));
+    row.columns.insert("SCORE".into(), Value::Float(9.5));
+    row.columns
+        .insert("BORN".into(), Value::Text("1815-12-10".into()));
+    driver
+        .insert_row(session, &namespace, "people", &row)
+        .await?;
+
+    let preview = driver
+        .preview_table(session, &namespace, "people", 10)
+        .await?;
+    assert_eq!(preview.rows.len(), 1);
+    assert!(matches!(preview.rows[0].values[0], Value::Int(1)));
+    assert!(matches!(preview.rows[0].values[3], Value::Text(ref d) if d == "1815-12-10"));
+
+    let mut key = RowData::new();
+    key.columns.insert("ID".into(), Value::Int(1));
+    let mut update = RowData::new();
+    update
+        .columns
+        .insert("NAME".into(), Value::Text("Ada Lovelace".into()));
+    let updated = driver
+        .update_row(session, &namespace, "people", &key, &update)
+        .await?;
+    assert_eq!(updated.affected_rows, Some(1));
+    driver
+        .delete_row(session, &namespace, "people", &key)
+        .await?;
+
+    driver.drop_database(session, &schema).await?;
+    driver.disconnect(session).await?;
+    Ok(())
+}
+
+/// BigQuery has no container either: the test runs when
+/// `QOREDB_TEST_BIGQUERY_SERVICE_ACCOUNT_PATH` points at a key file, with
+/// `_PROJECT` and `_LOCATION` as optional overrides.
+#[tokio::test]
+async fn bigquery_e2e() -> EngineResult<()> {
+    let var = |name: &str| std::env::var(format!("QOREDB_TEST_BIGQUERY_{name}")).ok();
+    let Some(key_path) = var("SERVICE_ACCOUNT_PATH") else {
+        if Service::BigQuery.required() {
+            panic!(
+                "QOREDB_TEST_BIGQUERY_SERVICE_ACCOUNT_PATH must be set when BigQuery is required"
+            );
+        }
+        eprintln!("bigquery_e2e skipped: no service account configured");
+        return Ok(());
+    };
+    let key = std::fs::read_to_string(&key_path).expect("service account file");
+    let project = var("PROJECT").unwrap_or_else(|| {
+        serde_json::from_str::<serde_json::Value>(&key)
+            .expect("valid service account JSON")["project_id"]
+            .as_str()
+            .expect("service account project_id")
+            .to_string()
+    });
+    let mut options = std::collections::HashMap::new();
+    if let Some(location) = var("LOCATION") {
+        options.insert("location".to_string(), location);
+    }
+    let config = ConnectionConfig {
+        driver: "bigquery".to_string(),
+        host: "bigquery.googleapis.com".to_string(),
+        port: 443,
+        password: key,
+        database: Some(project.clone()),
+        ssl: true,
+        options,
+        ..ConnectionConfig::default()
+    };
+
+    let driver = Arc::new(BigQueryDriver::new());
+    let session = driver.connect(&config).await?;
+    let dataset = format!("qoredb_{}", Uuid::new_v4().simple());
+    driver.create_database(session, &dataset, None).await?;
+    let namespace = Namespace::with_schema(project.clone(), dataset.clone());
+    assert!(driver.list_namespaces(session).await?.contains(&namespace));
+    driver
+        .execute(
+            session,
+            &format!(
+                "CREATE TABLE `{project}`.`{dataset}`.`people` \
+                 (id INT64 NOT NULL, name STRING, score FLOAT64, tags ARRAY<STRING>, \
+                  PRIMARY KEY (id) NOT ENFORCED)"
+            ),
+            QueryId::new(),
+        )
+        .await?;
+    let described = driver.describe_table(session, &namespace, "people").await?;
+    assert_eq!(
+        described.primary_key.as_deref(),
+        Some(&["id".to_string()][..])
+    );
+    assert_eq!(described.columns[3].data_type, "ARRAY<STRING>");
+
+    let mut row = RowData::new();
+    row.columns.insert("id".into(), Value::Int(1));
+    row.columns.insert("name".into(), Value::Text("Ada".into()));
+    row.columns.insert("score".into(), Value::Float(9.5));
+    let inserted = driver
+        .insert_row(session, &namespace, "people", &row)
+        .await?;
+    assert_eq!(inserted.affected_rows, Some(1));
+
+    // The dry run reports a scan without running anything.
+    let explained = driver
+        .execute(
+            session,
+            &format!("EXPLAIN SELECT name FROM `{project}`.`{dataset}`.`people`"),
+            QueryId::new(),
+        )
+        .await?;
+    assert_eq!(explained.columns[0].name.as_str(), "total_bytes_processed");
+
+    let preview = driver
+        .preview_table(session, &namespace, "people", 10)
+        .await?;
+    assert_eq!(preview.rows.len(), 1);
+    assert!(matches!(preview.rows[0].values[1], Value::Text(ref n) if n == "Ada"));
+
+    let mut key = RowData::new();
+    key.columns.insert("id".into(), Value::Int(1));
+    driver
+        .delete_row(session, &namespace, "people", &key)
+        .await?;
+
+    driver.drop_database(session, &dataset).await?;
+    driver.disconnect(session).await?;
+    Ok(())
+}
+
+/// ScyllaDB runs the same client against the same protocol, with authentication
+/// on. Only the handshake differs, so this asserts the identity and one query
+/// rather than repeating the Cassandra pass.
+#[tokio::test]
+async fn scylladb_e2e() -> EngineResult<()> {
+    let Some((driver, session, _config)) =
+        connect_or_skip(connect_scylladb().await, Service::ScyllaDb, "scylladb_e2e")?
+    else {
+        return Ok(());
+    };
+
+    assert_eq!(driver.driver_id(), "scylladb");
+    let result = driver
+        .execute(
+            session,
+            "SELECT release_version FROM system.local",
+            QueryId::new(),
+        )
+        .await?;
+    assert_eq!(result.rows.len(), 1);
+
+    let namespaces = driver.list_namespaces(session).await?;
+    assert!(
+        namespaces.iter().any(|ns| ns.database == "system_schema"),
+        "the system keyspaces must be visible"
+    );
+
+    driver.disconnect(session).await?;
     Ok(())
 }

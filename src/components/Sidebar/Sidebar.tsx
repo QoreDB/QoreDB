@@ -136,6 +136,7 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(function Sidebar(
   const logsOpen = useModalStore(s => s.logsOpen);
   const paginationMetricsOpen = useModalStore(s => s.paginationMetricsOpen);
   const auditLogOpen = useModalStore(s => s.auditLogOpen);
+  const auditLogTab = useModalStore(s => s.auditLogTab);
   const contractsOpen = useModalStore(s => s.contractsOpen);
   const instantApiOpen = useModalStore(s => s.instantApiOpen);
   const proDiscoveryOpen = useModalStore(s => s.proDiscoveryOpen);
@@ -473,7 +474,11 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(function Sidebar(
         isOpen={paginationMetricsOpen}
         onClose={() => setPaginationMetricsOpen(false)}
       />
-      <AuditLogModal isOpen={auditLogOpen} onClose={() => setAuditLogOpen(false)} />
+      <AuditLogModal
+        isOpen={auditLogOpen}
+        initialTab={auditLogTab}
+        onClose={() => setAuditLogOpen(false)}
+      />
       <ContractsPanel
         open={contractsOpen}
         onClose={() => setContractsOpen(false)}

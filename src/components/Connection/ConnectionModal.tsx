@@ -4,7 +4,7 @@ import { Check, Link2, Loader2, X } from 'lucide-react';
 import { type FormEvent, useCallback, useEffect, useId, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
-
+import { ProductionConfirmDialog } from '@/components/Guard/ProductionConfirmDialog';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -20,6 +20,7 @@ import { supportsConnectionUrl } from '@/lib/connection/connectionUrls';
 import { DRIVER_ICONS, DRIVER_LABELS } from '@/lib/connection/drivers';
 import { emitUiEvent, UI_EVENT_CONNECTIONS_CHANGED } from '@/lib/events/uiEvents';
 import { getDriverDocsPath } from '@/lib/externalLinks';
+import { EMPTY_MASKING, normalizeMasking, removesMasking } from '@/lib/masking';
 import {
   connectSavedConnection,
   type SavedConnection,
@@ -31,6 +32,7 @@ import { AdvancedSection } from './connection-modal/AdvancedSection';
 import { BasicSection } from './connection-modal/BasicSection';
 import { ConnectionTemplatePicker } from './connection-modal/ConnectionTemplatePicker';
 import { DriverPicker } from './connection-modal/DriverPicker';
+import { MaskingSection } from './connection-modal/MaskingSection';
 import {
   buildConnectionConfig,
   buildSaveConnectionInput,
@@ -70,6 +72,7 @@ export function ConnectionModal({
   const [testResult, setTestResult] = useState<'success' | 'error' | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [urlParsed, setUrlParsed] = useState(false);
+  const [maskingConfirmOpen, setMaskingConfirmOpen] = useState(false);
   const useUrlLabelId = useId();
 
   const [step, setStep] = useState<'driver' | 'form'>('driver');
@@ -125,6 +128,15 @@ export function ConnectionModal({
     e.preventDefault();
     if (!isValid || connecting || testing) return;
     if (isEditMode) {
+      const touchesProduction =
+        editConnection?.environment === 'production' || formData.environment === 'production';
+      if (
+        touchesProduction &&
+        removesMasking(editConnection?.masking ?? EMPTY_MASKING, normalizeMasking(formData.masking))
+      ) {
+        setMaskingConfirmOpen(true);
+        return;
+      }
       handleSaveOnly();
     } else {
       handleSaveAndConnect();
@@ -240,167 +252,187 @@ export function ConnectionModal({
   }
 
   return (
-    <Dialog open={isOpen} onOpenChange={handleOpenChange}>
-      <DialogContent
-        disableExitAnimation
-        className={cn('max-w-xl duration-200', step === 'driver' ? 'max-w-3xl' : 'max-w-xl')}
-      >
-        <DialogHeader>
-          <DialogTitle>
-            {isEditMode
-              ? t('connection.modalTitleEdit')
-              : step === 'driver'
-                ? t('connection.selectDriver')
-                : t('connection.configureConnection')}
-          </DialogTitle>
-        </DialogHeader>
+    <>
+      <Dialog open={isOpen} onOpenChange={handleOpenChange}>
+        <DialogContent
+          disableExitAnimation
+          className={cn('max-w-xl duration-200', step === 'driver' ? 'max-w-3xl' : 'max-w-xl')}
+        >
+          <DialogHeader>
+            <DialogTitle>
+              {isEditMode
+                ? t('connection.modalTitleEdit')
+                : step === 'driver'
+                  ? t('connection.selectDriver')
+                  : t('connection.configureConnection')}
+            </DialogTitle>
+          </DialogHeader>
 
-        {step === 'driver' ? (
-          <div className="py-6">
-            <DriverPicker
-              driver={formData.driver}
-              isEditMode={isEditMode}
-              onChange={handleDriverSelect}
-            />
-            <div className="mt-6 flex justify-end">
-              <Button variant="outline" onClick={requestClose}>
-                {t('connection.cancel')}
-              </Button>
-            </div>
-          </div>
-        ) : (
-          <form onSubmit={handleSubmit} className="contents">
-            <ScrollArea className="max-h-[75vh]" hideScrollbar>
-              <div className="grid gap-4 py-4">
-                {/* Driver Header with URL toggle */}
-                <div className="flex items-center justify-between p-3 rounded-md bg-muted/30 border border-border">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded p-1 bg-background border border-border flex items-center justify-center">
-                      <img
-                        src={`/databases/${DRIVER_ICONS[formData.driver]}`}
-                        alt={DRIVER_LABELS[formData.driver]}
-                        className="w-full h-full object-contain"
-                      />
-                    </div>
-                    <span className="text-sm font-semibold">{DRIVER_LABELS[formData.driver]}</span>
-                  </div>
-
-                  <div className="flex items-center gap-3">
-                    <DocumentationLink path={getDriverDocsPath(formData.driver)} />
-                    {/* URL Mode Toggle */}
-                    {!isEditMode && supportsConnectionUrl(formData.driver) && (
-                      <div className="flex items-center gap-2">
-                        <Link2
-                          size={14}
-                          className={cn(
-                            'transition-colors',
-                            formData.useUrl ? 'text-primary' : 'text-muted-foreground'
-                          )}
-                        />
-                        <span
-                          id={useUrlLabelId}
-                          className={cn(
-                            'text-xs transition-colors',
-                            formData.useUrl ? 'text-primary font-medium' : 'text-muted-foreground'
-                          )}
-                        >
-                          URL
-                        </span>
-                        <Switch
-                          checked={formData.useUrl}
-                          onCheckedChange={checked => handleChange('useUrl', checked)}
-                          aria-labelledby={useUrlLabelId}
-                          className="scale-90"
-                        />
-                      </div>
-                    )}
-
-                    {!isEditMode && supportsConnectionUrl(formData.driver) && (
-                      <div className="w-px h-6 bg-border" />
-                    )}
-
-                    {!isEditMode && (
-                      <Button variant="ghost" size="sm" onClick={handleBackToDriver}>
-                        {t('connection.changeDriver')}
-                      </Button>
-                    )}
-                  </div>
-                </div>
-
-                {/* URL Input */}
-                {formData.useUrl && !isEditMode && supportsConnectionUrl(formData.driver) && (
-                  <div className="rounded-md border border-border bg-background p-4">
-                    <UrlInput
-                      formData={formData}
-                      onChange={handleChange}
-                      onParsedConfig={applyParsedConfig}
-                      onParseStatusChange={handleParseStatusChange}
-                    />
-                  </div>
-                )}
-
-                {!isEditMode && (!formData.useUrl || !supportsConnectionUrl(formData.driver)) && (
-                  <ConnectionTemplatePicker driver={formData.driver} onApply={handleChange} />
-                )}
-
-                <BasicSection
-                  formData={formData}
-                  onChange={handleChange}
-                  hideConnectionFields={hideConnectionFields}
-                />
-                <AdvancedSection
-                  formData={formData}
-                  onChange={handleChange}
-                  hideUrlDerivedFields={hideConnectionFields}
-                />
-
-                {error && (
-                  <div className="p-3 rounded-md bg-error/10 border border-error/20 text-error text-sm flex items-center gap-2">
-                    <X size={14} />
-                    {error}
-                  </div>
-                )}
-                {testResult === 'success' && (
-                  <div className="p-3 rounded-md bg-success/10 border border-success/20 text-success text-sm flex items-center gap-2">
-                    <Check size={14} />
-                    {t('connection.testSuccess')}
-                  </div>
-                )}
-                {!error && missingRequirements.length > 0 && (
-                  <div className="p-3 rounded-md bg-muted/40 border border-border text-muted-foreground text-xs">
-                    {t('connection.missingRequired')}{' '}
-                    <span className="text-foreground">
-                      {missingRequirements.map(key => t(key)).join(', ')}
-                    </span>
-                  </div>
-                )}
-              </div>
-            </ScrollArea>
-
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={requestClose}>
-                {t('connection.cancel')}
-              </Button>
-              <Button
-                type="button"
-                variant="secondary"
-                className="transition-all"
-                onClick={handleTestConnection}
-                disabled={!isValid || testing}
-              >
-                {testing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {t('connection.test')}
-              </Button>
-              <div title={!isValid ? t('connection.validationError') : undefined}>
-                <Button type="submit" disabled={!isValid || connecting}>
-                  {connecting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  {isEditMode ? t('connection.saveChanges') : t('connection.saveConnect')}
+          {step === 'driver' ? (
+            <div className="py-6">
+              <DriverPicker
+                driver={formData.driver}
+                isEditMode={isEditMode}
+                onChange={handleDriverSelect}
+              />
+              <div className="mt-6 flex justify-end">
+                <Button variant="outline" onClick={requestClose}>
+                  {t('connection.cancel')}
                 </Button>
               </div>
-            </DialogFooter>
-          </form>
-        )}
-      </DialogContent>
-    </Dialog>
+            </div>
+          ) : (
+            <form onSubmit={handleSubmit} className="contents">
+              <ScrollArea className="max-h-[75vh]" hideScrollbar>
+                <div className="grid gap-4 py-4">
+                  {/* Driver Header with URL toggle */}
+                  <div className="flex items-center justify-between p-3 rounded-md bg-muted/30 border border-border">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded p-1 bg-background border border-border flex items-center justify-center">
+                        <img
+                          src={`/databases/${DRIVER_ICONS[formData.driver]}`}
+                          alt={DRIVER_LABELS[formData.driver]}
+                          className="w-full h-full object-contain"
+                        />
+                      </div>
+                      <span className="text-sm font-semibold">
+                        {DRIVER_LABELS[formData.driver]}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      <DocumentationLink path={getDriverDocsPath(formData.driver)} />
+                      {/* URL Mode Toggle */}
+                      {!isEditMode && supportsConnectionUrl(formData.driver) && (
+                        <div className="flex items-center gap-2">
+                          <Link2
+                            size={14}
+                            className={cn(
+                              'transition-colors',
+                              formData.useUrl ? 'text-primary' : 'text-muted-foreground'
+                            )}
+                          />
+                          <span
+                            id={useUrlLabelId}
+                            className={cn(
+                              'text-xs transition-colors',
+                              formData.useUrl ? 'text-primary font-medium' : 'text-muted-foreground'
+                            )}
+                          >
+                            URL
+                          </span>
+                          <Switch
+                            checked={formData.useUrl}
+                            onCheckedChange={checked => handleChange('useUrl', checked)}
+                            aria-labelledby={useUrlLabelId}
+                            className="scale-90"
+                          />
+                        </div>
+                      )}
+
+                      {!isEditMode && supportsConnectionUrl(formData.driver) && (
+                        <div className="w-px h-6 bg-border" />
+                      )}
+
+                      {!isEditMode && (
+                        <Button variant="ghost" size="sm" onClick={handleBackToDriver}>
+                          {t('connection.changeDriver')}
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* URL Input */}
+                  {formData.useUrl && !isEditMode && supportsConnectionUrl(formData.driver) && (
+                    <div className="rounded-md border border-border bg-background p-4">
+                      <UrlInput
+                        formData={formData}
+                        onChange={handleChange}
+                        onParsedConfig={applyParsedConfig}
+                        onParseStatusChange={handleParseStatusChange}
+                      />
+                    </div>
+                  )}
+
+                  {!isEditMode && (!formData.useUrl || !supportsConnectionUrl(formData.driver)) && (
+                    <ConnectionTemplatePicker driver={formData.driver} onApply={handleChange} />
+                  )}
+
+                  <BasicSection
+                    formData={formData}
+                    onChange={handleChange}
+                    hideConnectionFields={hideConnectionFields}
+                  />
+                  <AdvancedSection
+                    formData={formData}
+                    onChange={handleChange}
+                    hideUrlDerivedFields={hideConnectionFields}
+                  />
+                  <MaskingSection
+                    masking={formData.masking}
+                    onChange={next => handleChange('masking', next)}
+                  />
+
+                  {error && (
+                    <div className="p-3 rounded-md bg-error/10 border border-error/20 text-error text-sm flex items-center gap-2">
+                      <X size={14} />
+                      {error}
+                    </div>
+                  )}
+                  {testResult === 'success' && (
+                    <div className="p-3 rounded-md bg-success/10 border border-success/20 text-success text-sm flex items-center gap-2">
+                      <Check size={14} />
+                      {t('connection.testSuccess')}
+                    </div>
+                  )}
+                  {!error && missingRequirements.length > 0 && (
+                    <div className="p-3 rounded-md bg-muted/40 border border-border text-muted-foreground text-xs">
+                      {t('connection.missingRequired')}{' '}
+                      <span className="text-foreground">
+                        {missingRequirements.map(key => t(key)).join(', ')}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </ScrollArea>
+
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={requestClose}>
+                  {t('connection.cancel')}
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="transition-all"
+                  onClick={handleTestConnection}
+                  disabled={!isValid || testing}
+                >
+                  {testing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {t('connection.test')}
+                </Button>
+                <div title={!isValid ? t('connection.validationError') : undefined}>
+                  <Button type="submit" disabled={!isValid || connecting}>
+                    {connecting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    {isEditMode ? t('connection.saveChanges') : t('connection.saveConnect')}
+                  </Button>
+                </div>
+              </DialogFooter>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
+      <ProductionConfirmDialog
+        open={maskingConfirmOpen}
+        title={t('connection.masking.removeConfirmTitle')}
+        description={t('connection.masking.removeConfirmDescription')}
+        confirmationLabel={(formData.database || formData.name || 'PROD').trim() || 'PROD'}
+        confirmLabel={t('connection.masking.removeConfirmLabel')}
+        onConfirm={() => {
+          setMaskingConfirmOpen(false);
+          handleSaveOnly();
+        }}
+        onOpenChange={setMaskingConfirmOpen}
+      />
+    </>
   );
 }

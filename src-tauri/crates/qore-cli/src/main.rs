@@ -4,11 +4,14 @@ use std::process::ExitCode;
 
 use clap::{Parser, Subcommand};
 
-use qore_core::{CollectionListOptions, Namespace, SessionId};
+use std::path::PathBuf;
+
+use qore_core::{Namespace, SessionId};
 use qore_service::ServiceContext;
-use qore_service::paths::{PROJECT_ID, QUERY_TIMEOUT_MS, config_dir};
-use qore_service::vault::VaultStorage;
-use qore_service::vault::backend::KeyringProvider;
+use qore_service::agent_access::{self, AgentVault};
+use qore_service::agent_tools::{self, AgentToolContext};
+use qore_service::interceptor::QuerySource;
+use qore_service::paths::{QUERY_TIMEOUT_MS, config_dir};
 
 #[derive(Parser)]
 #[command(
@@ -16,13 +19,17 @@ use qore_service::vault::backend::KeyringProvider;
     about = "QoreDB CLI — query your saved connections from the terminal"
 )]
 struct Cli {
+    /// Use the .qoredb workspace at this directory (or its parent) instead of
+    /// the one detected from the working directory or the default vault
+    #[arg(long, global = true, value_name = "DIR")]
+    workspace: Option<PathBuf>,
     #[command(subcommand)]
     command: Command,
 }
 
 #[derive(Subcommand)]
 enum Command {
-    /// List saved connections
+    /// List the saved connections exposed to AI agents
     Connections,
     /// Run a query on a saved connection
     Query { connection_id: String, sql: String },
@@ -43,113 +50,59 @@ enum Command {
     },
 }
 
-fn storage() -> VaultStorage {
-    VaultStorage::new(PROJECT_ID, config_dir(), Box::new(KeyringProvider::new()))
+async fn connect(
+    ctx: &ServiceContext,
+    vault: &AgentVault,
+    connection_id: &str,
+) -> Result<SessionId, String> {
+    agent_access::open_session(vault, &ctx.session_manager, connection_id).await
 }
 
-async fn connect(ctx: &ServiceContext, connection_id: &str) -> Result<SessionId, String> {
-    let storage = storage();
-    let saved = storage
-        .get_connection(connection_id)
-        .map_err(|e| e.sanitized_message())?;
-    let creds = storage
-        .get_credentials(connection_id)
-        .map_err(|e| e.sanitized_message())?;
-    let config = saved
-        .to_connection_config(&creds)
-        .map_err(|e| e.sanitized_message())?;
-    qore_service::connection::connect(&ctx.session_manager, config)
-        .await
-        .map_err(|e| e.sanitized())
-}
-
-async fn run(command: Command) -> Result<String, String> {
+async fn run(cli: Cli) -> Result<String, String> {
     let ctx = ServiceContext::new();
+    let workspace = agent_access::detect_workspace(cli.workspace.as_deref());
+    if cli.workspace.is_some() && workspace.is_none() {
+        return Err("no .qoredb/workspace.json found at the given --workspace path".to_string());
+    }
+    let vault = AgentVault::open(config_dir(), workspace.as_deref());
 
-    match command {
+    match cli.command {
         Command::Connections => {
-            let connections = storage()
-                .list_connections_full()
-                .map_err(|e| e.sanitized_message())?;
-            let summary: Vec<_> = connections
-                .into_iter()
-                .map(|c| {
-                    serde_json::json!({
-                        "id": c.id,
-                        "name": c.name,
-                        "driver": c.driver,
-                        "host": c.host,
-                        "database": c.database,
-                        "environment": c.environment.as_str(),
-                        "read_only": c.read_only,
-                    })
-                })
+            let summary: Vec<_> = vault
+                .exposed()?
+                .iter()
+                .map(agent_access::connection_summary)
                 .collect();
             serde_json::to_string_pretty(&summary).map_err(|e| e.to_string())
         }
         Command::Query { connection_id, sql } => {
-            let session = connect(&ctx, &connection_id).await?;
-            let session_id = session.0.to_string();
-            let pf = qore_service::query::preflight(
-                &ctx.session_manager,
-                &ctx.query_rate_limiter,
-                &ctx.interceptor,
-                &ctx.policy,
+            let session = connect(&ctx, &vault, &connection_id).await?;
+            let result = agent_tools::run_query(
+                &AgentToolContext::from_service(&ctx),
                 session,
-                &session_id,
                 &sql,
                 None,
                 false,
+                Some(QUERY_TIMEOUT_MS),
+                QuerySource::Cli,
             )
             .await?;
-            let query_id = ctx.query_manager.register(session).await;
-            let outcome = qore_service::query::execute(
-                &ctx.query_manager,
-                &ctx.query_cache,
-                &ctx.interceptor,
-                &ctx.policy,
-                pf.driver,
-                &pf.context,
-                session,
-                None,
-                &sql,
-                query_id,
-                pf.is_mutation,
-                pf.connection_key.as_deref(),
-                pf.safety_warning.as_deref(),
-                Some(QUERY_TIMEOUT_MS),
-                false,
-                None,
-                None,
-                |_, _| {},
-            )
-            .await;
-            if let Some(err) = outcome.error {
-                return Err(err);
-            }
-            serde_json::to_string_pretty(&outcome.result).map_err(|e| e.to_string())
+            serde_json::to_string_pretty(&result).map_err(|e| e.to_string())
         }
         Command::Tables {
             connection_id,
             database,
             schema,
         } => {
-            let session = connect(&ctx, &connection_id).await?;
-            let driver = ctx
-                .session_manager
-                .get_driver(session)
-                .await
-                .map_err(|e| e.sanitized_message())?;
+            let session = connect(&ctx, &vault, &connection_id).await?;
             let namespace = Namespace { database, schema };
-            let options = CollectionListOptions {
-                search: None,
-                page: None,
-                page_size: None,
-            };
-            let list = driver
-                .list_collections(session, &namespace, options)
-                .await
-                .map_err(|e| e.sanitized_message())?;
+            let list = agent_tools::list_tables(
+                &AgentToolContext::from_service(&ctx),
+                session,
+                &namespace,
+                None,
+            )
+            .await?;
             serde_json::to_string_pretty(&list).map_err(|e| e.to_string())
         }
         Command::Describe {
@@ -158,18 +111,16 @@ async fn run(command: Command) -> Result<String, String> {
             table,
             schema,
         } => {
-            let session = connect(&ctx, &connection_id).await?;
+            let session = connect(&ctx, &vault, &connection_id).await?;
             let namespace = Namespace { database, schema };
-            let schema_info = qore_service::query::describe_table(
-                &ctx.session_manager,
-                &ctx.virtual_relations,
+            let schema_info = agent_tools::describe_table(
+                &AgentToolContext::from_service(&ctx),
                 session,
                 &namespace,
                 &table,
                 None,
             )
-            .await
-            .map_err(|e| e.sanitized())?;
+            .await?;
             serde_json::to_string_pretty(&schema_info).map_err(|e| e.to_string())
         }
     }
@@ -178,7 +129,7 @@ async fn run(command: Command) -> Result<String, String> {
 #[tokio::main]
 async fn main() -> ExitCode {
     let cli = Cli::parse();
-    match run(cli.command).await {
+    match run(cli).await {
         Ok(output) => {
             println!("{output}");
             ExitCode::SUCCESS

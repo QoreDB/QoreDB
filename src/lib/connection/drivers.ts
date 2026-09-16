@@ -15,9 +15,23 @@ export enum Driver {
   Cockroachdb = 'cockroachdb',
   Mariadb = 'mariadb',
   PlanetScale = 'planetscale',
+  TiDb = 'tidb',
+  StarRocks = 'starrocks',
+  Doris = 'doris',
+  SingleStore = 'singlestore',
   Supabase = 'supabase',
   Neon = 'neon',
   Timescaledb = 'timescaledb',
+  YugabyteDb = 'yugabytedb',
+  KeyDb = 'keydb',
+  Garnet = 'garnet',
+  AzureSql = 'azuresql',
+  Synapse = 'synapse',
+  Snowflake = 'snowflake',
+  BigQuery = 'bigquery',
+  Cassandra = 'cassandra',
+  ScyllaDb = 'scylladb',
+  Keyspaces = 'keyspaces',
   Clickhouse = 'clickhouse',
   Elasticsearch = 'elasticsearch',
   OpenSearch = 'opensearch',
@@ -65,7 +79,19 @@ export type DataModel =
   | 'key-value'
   | 'graph'
   | 'time-series'
-  | 'search';
+  | 'search'
+  | 'wide-column';
+
+// The picker shows the filter chips, and lists `DRIVERS`, in this order.
+export const DATA_MODEL_ORDER: readonly DataModel[] = [
+  'relational',
+  'document',
+  'key-value',
+  'time-series',
+  'search',
+  'wide-column',
+  'graph',
+];
 
 export interface DriverMetadata {
   id: Driver;
@@ -86,6 +112,140 @@ export interface DriverMetadata {
   identifier: IdentifierRules;
   queries: DriverQueryBuilders;
 }
+
+const MYSQL_COMPAT_METADATA = {
+  namespaceLabel: 'dbtree.database',
+  namespacePluralLabel: 'dbtree.databases',
+  collectionLabel: 'dbtree.table',
+  collectionPluralLabel: 'dbtree.tables',
+  treeRootLabel: 'dbtree.databasesHeader',
+  createAction: 'database',
+  databaseFieldLabel: 'connection.database',
+  supportsSchemas: false,
+  supportsSQL: true,
+  dataModel: 'relational',
+  isDocumentBased: false,
+  identifier: {
+    quoteStart: '`',
+    quoteEnd: '`',
+    namespaceStrategy: 'database',
+  },
+  queries: {
+    databaseSizeQuery: (db: string) => {
+      const d = assertSafeSqlIdent(db, 'database');
+      return `SELECT COALESCE(SUM(IFNULL(data_length, 0) + IFNULL(index_length, 0)), 0) as size
+       FROM information_schema.tables WHERE table_schema = '${d}'`;
+    },
+    tableSizeQuery: (db: string, table: string) => {
+      const d = assertSafeSqlIdent(db, 'database');
+      const t = assertSafeSqlIdent(table, 'table');
+      return `SELECT data_length + index_length as total_bytes, table_rows
+       FROM information_schema.tables
+       WHERE table_schema = '${d}' AND table_name = '${t}'`;
+    },
+    indexCountQuery: (db: string) => {
+      const d = assertSafeSqlIdent(db, 'database');
+      return `SELECT COUNT(DISTINCT index_name) as cnt
+       FROM information_schema.statistics WHERE table_schema = '${d}'`;
+    },
+    tableIndexesQuery: (table: string) => {
+      const t = assertSafeSqlIdent(table, 'table');
+      return `SHOW INDEX FROM \`${t}\``;
+    },
+  },
+} as const satisfies Omit<DriverMetadata, 'id' | 'label' | 'icon' | 'defaultPort'>;
+
+const REDIS_COMPAT_METADATA = {
+  defaultPort: 6379,
+  namespaceLabel: 'dbtree.database',
+  namespacePluralLabel: 'dbtree.databases',
+  collectionLabel: 'dbtree.key',
+  collectionPluralLabel: 'dbtree.keys',
+  treeRootLabel: 'dbtree.databasesHeader',
+  createAction: 'none',
+  databaseFieldLabel: 'connection.databaseIndex',
+  supportsSchemas: false,
+  supportsSQL: false,
+  dataModel: 'key-value',
+  isDocumentBased: false,
+  identifier: {
+    quoteStart: '',
+    quoteEnd: '',
+    namespaceStrategy: 'database',
+  },
+  queries: {},
+} as const satisfies Omit<DriverMetadata, 'id' | 'label' | 'icon'>;
+
+const SQLSERVER_COMPAT_METADATA = {
+  defaultPort: 1433,
+  namespaceLabel: 'dbtree.schema',
+  namespacePluralLabel: 'dbtree.schemas',
+  collectionLabel: 'dbtree.table',
+  collectionPluralLabel: 'dbtree.tables',
+  treeRootLabel: 'dbtree.schemasHeader',
+  createAction: 'schema',
+  databaseFieldLabel: 'connection.databaseInitial',
+  supportsSchemas: true,
+  supportsSQL: true,
+  dataModel: 'relational',
+  isDocumentBased: false,
+  identifier: {
+    quoteStart: '[',
+    quoteEnd: ']',
+    namespaceStrategy: 'schema',
+  },
+  queries: {
+    databaseSizeQuery: () =>
+      `SELECT CAST(SUM(size) * 8.0 / 1024 AS DECIMAL(18,2)) AS size_mb
+       FROM sys.database_files`,
+    tableSizeQuery: (schema: string, table: string) => {
+      const s = assertSafeSqlIdent(schema, 'schema');
+      const t = assertSafeSqlIdent(table, 'table');
+      return `SELECT SUM(ps.reserved_page_count) * 8192 AS total_bytes
+       FROM sys.dm_db_partition_stats ps
+       JOIN sys.tables t ON ps.object_id = t.object_id
+       JOIN sys.schemas s ON t.schema_id = s.schema_id
+       WHERE s.name = '${s}' AND t.name = '${t}'`;
+    },
+    indexCountQuery: (schema: string) => {
+      const s = assertSafeSqlIdent(schema, 'schema');
+      return `SELECT COUNT(*) AS cnt FROM sys.indexes i
+       JOIN sys.tables t ON i.object_id = t.object_id
+       JOIN sys.schemas s ON t.schema_id = s.schema_id
+       WHERE s.name = '${s}' AND i.type > 0`;
+    },
+    tableIndexesQuery: (table: string) => {
+      const t = assertSafeSqlIdent(table, 'table');
+      return `SELECT i.name AS index_name, i.type_desc
+       FROM sys.indexes i
+       JOIN sys.tables t ON i.object_id = t.object_id
+       WHERE t.name = '${t}' AND i.type > 0`;
+    },
+  },
+} as const satisfies Omit<DriverMetadata, 'id' | 'label' | 'icon'>;
+
+const CASSANDRA_COMPAT_METADATA = {
+  defaultPort: 9042,
+  namespaceLabel: 'dbtree.keyspace',
+  namespacePluralLabel: 'dbtree.keyspaces',
+  collectionLabel: 'dbtree.table',
+  collectionPluralLabel: 'dbtree.tables',
+  treeRootLabel: 'dbtree.keyspacesHeader',
+  createAction: 'database',
+  databaseFieldLabel: 'connection.keyspace',
+  supportsSchemas: false,
+  supportsSQL: true,
+  dataModel: 'wide-column',
+  isDocumentBased: false,
+  identifier: {
+    quoteStart: '"',
+    quoteEnd: '"',
+    namespaceStrategy: 'database',
+  },
+  // No size or index queries: CQL exposes neither cheaply, and the estimates
+  // that exist are per-node rather than per-table.
+  queries: {},
+} as const satisfies Omit<DriverMetadata, 'id' | 'label' | 'icon'>;
 
 export const DRIVERS: Record<Driver, DriverMetadata> = {
   [Driver.Postgres]: {
@@ -179,211 +339,6 @@ export const DRIVERS: Record<Driver, DriverMetadata> = {
       },
     },
   },
-  [Driver.Mariadb]: {
-    id: Driver.Mariadb,
-    label: 'MariaDB',
-    icon: 'mariadb.png',
-    defaultPort: 3306,
-    namespaceLabel: 'dbtree.database',
-    namespacePluralLabel: 'dbtree.databases',
-    collectionLabel: 'dbtree.table',
-    collectionPluralLabel: 'dbtree.tables',
-    treeRootLabel: 'dbtree.databasesHeader',
-    createAction: 'database',
-    databaseFieldLabel: 'connection.database',
-    supportsSchemas: false,
-    supportsSQL: true,
-    dataModel: 'relational',
-    isDocumentBased: false,
-    identifier: {
-      quoteStart: '`',
-      quoteEnd: '`',
-      namespaceStrategy: 'database',
-    },
-    queries: {
-      databaseSizeQuery: db => {
-        const d = assertSafeSqlIdent(db, 'database');
-        return `SELECT COALESCE(SUM(IFNULL(data_length, 0) + IFNULL(index_length, 0)), 0) as size
-          FROM information_schema.tables WHERE table_schema = '${d}'`;
-      },
-      tableSizeQuery: (db, table) => {
-        const d = assertSafeSqlIdent(db, 'database');
-        const t = assertSafeSqlIdent(table, 'table');
-        return `SELECT data_length + index_length as total_bytes, table_rows
-          FROM information_schema.tables
-          WHERE table_schema = '${d}' AND table_name = '${t}'`;
-      },
-      indexCountQuery: db => {
-        const d = assertSafeSqlIdent(db, 'database');
-        return `SELECT COUNT(DISTINCT index_name) as cnt
-          FROM information_schema.statistics WHERE table_schema = '${d}'`;
-      },
-      tableIndexesQuery: table => {
-        const t = assertSafeSqlIdent(table, 'table');
-        return `SHOW INDEX FROM \`${t}\``;
-      },
-    },
-  },
-  [Driver.PlanetScale]: {
-    id: Driver.PlanetScale,
-    label: 'PlanetScale',
-    icon: 'planetscale.png',
-    defaultPort: 3306,
-    namespaceLabel: 'dbtree.database',
-    namespacePluralLabel: 'dbtree.databases',
-    collectionLabel: 'dbtree.table',
-    collectionPluralLabel: 'dbtree.tables',
-    treeRootLabel: 'dbtree.databasesHeader',
-    createAction: 'database',
-    databaseFieldLabel: 'connection.database',
-    supportsSchemas: false,
-    supportsSQL: true,
-    dataModel: 'relational',
-    isDocumentBased: false,
-    identifier: {
-      quoteStart: '`',
-      quoteEnd: '`',
-      namespaceStrategy: 'database',
-    },
-    queries: {
-      databaseSizeQuery: db => {
-        const d = assertSafeSqlIdent(db, 'database');
-        return `SELECT COALESCE(SUM(IFNULL(data_length, 0) + IFNULL(index_length, 0)), 0) as size
-          FROM information_schema.tables WHERE table_schema = '${d}'`;
-      },
-      tableSizeQuery: (db, table) => {
-        const d = assertSafeSqlIdent(db, 'database');
-        const t = assertSafeSqlIdent(table, 'table');
-        return `SELECT data_length + index_length as total_bytes, table_rows
-          FROM information_schema.tables
-          WHERE table_schema = '${d}' AND table_name = '${t}'`;
-      },
-      indexCountQuery: db => {
-        const d = assertSafeSqlIdent(db, 'database');
-        return `SELECT COUNT(DISTINCT index_name) as cnt
-          FROM information_schema.statistics WHERE table_schema = '${d}'`;
-      },
-      tableIndexesQuery: table => {
-        const t = assertSafeSqlIdent(table, 'table');
-        return `SHOW INDEX FROM \`${t}\``;
-      },
-    },
-  },
-  [Driver.Mongodb]: {
-    id: Driver.Mongodb,
-    label: 'MongoDB',
-    icon: 'mongodb.png',
-    defaultPort: 27017,
-    namespaceLabel: 'dbtree.database',
-    namespacePluralLabel: 'dbtree.databases',
-    collectionLabel: 'dbtree.collection',
-    collectionPluralLabel: 'dbtree.collections',
-    treeRootLabel: 'dbtree.databasesHeader',
-    createAction: 'database',
-    databaseFieldLabel: 'connection.database',
-    supportsSchemas: false,
-    supportsSQL: false,
-    dataModel: 'document',
-    isDocumentBased: true,
-    identifier: {
-      quoteStart: '"',
-      quoteEnd: '"',
-      namespaceStrategy: 'database',
-    },
-    queries: {},
-  },
-  [Driver.DocumentDb]: {
-    id: Driver.DocumentDb,
-    label: 'Amazon DocumentDB',
-    icon: 'documentdb.png',
-    defaultPort: 27017,
-    namespaceLabel: 'dbtree.database',
-    namespacePluralLabel: 'dbtree.databases',
-    collectionLabel: 'dbtree.collection',
-    collectionPluralLabel: 'dbtree.collections',
-    treeRootLabel: 'dbtree.databasesHeader',
-    createAction: 'database',
-    databaseFieldLabel: 'connection.database',
-    supportsSchemas: false,
-    supportsSQL: false,
-    dataModel: 'document',
-    isDocumentBased: true,
-    identifier: {
-      quoteStart: '"',
-      quoteEnd: '"',
-      namespaceStrategy: 'database',
-    },
-    queries: {},
-  },
-  [Driver.Redis]: {
-    id: Driver.Redis,
-    label: 'Redis',
-    icon: 'redis.png',
-    defaultPort: 6379,
-    namespaceLabel: 'dbtree.database',
-    namespacePluralLabel: 'dbtree.databases',
-    collectionLabel: 'dbtree.key',
-    collectionPluralLabel: 'dbtree.keys',
-    treeRootLabel: 'dbtree.databasesHeader',
-    createAction: 'none',
-    databaseFieldLabel: 'connection.databaseIndex',
-    supportsSchemas: false,
-    supportsSQL: false,
-    dataModel: 'key-value',
-    isDocumentBased: false,
-    identifier: {
-      quoteStart: '',
-      quoteEnd: '',
-      namespaceStrategy: 'database',
-    },
-    queries: {},
-  },
-  [Driver.Valkey]: {
-    id: Driver.Valkey,
-    label: 'Valkey',
-    icon: 'valkey.png',
-    defaultPort: 6379,
-    namespaceLabel: 'dbtree.database',
-    namespacePluralLabel: 'dbtree.databases',
-    collectionLabel: 'dbtree.key',
-    collectionPluralLabel: 'dbtree.keys',
-    treeRootLabel: 'dbtree.databasesHeader',
-    createAction: 'none',
-    databaseFieldLabel: 'connection.databaseIndex',
-    supportsSchemas: false,
-    supportsSQL: false,
-    dataModel: 'key-value',
-    isDocumentBased: false,
-    identifier: {
-      quoteStart: '',
-      quoteEnd: '',
-      namespaceStrategy: 'database',
-    },
-    queries: {},
-  },
-  [Driver.Dragonfly]: {
-    id: Driver.Dragonfly,
-    label: 'Dragonfly',
-    icon: 'dragonfly.png',
-    defaultPort: 6379,
-    namespaceLabel: 'dbtree.database',
-    namespacePluralLabel: 'dbtree.databases',
-    collectionLabel: 'dbtree.key',
-    collectionPluralLabel: 'dbtree.keys',
-    treeRootLabel: 'dbtree.databasesHeader',
-    createAction: 'none',
-    databaseFieldLabel: 'connection.databaseIndex',
-    supportsSchemas: false,
-    supportsSQL: false,
-    dataModel: 'key-value',
-    isDocumentBased: false,
-    identifier: {
-      quoteStart: '',
-      quoteEnd: '',
-      namespaceStrategy: 'database',
-    },
-    queries: {},
-  },
   [Driver.Sqlite]: {
     id: Driver.Sqlite,
     label: 'SQLite',
@@ -409,76 +364,6 @@ export const DRIVERS: Record<Driver, DriverMetadata> = {
       tableSizeQuery: (_, table) => {
         const t = assertSafeSqlIdent(table, 'table');
         return `SELECT page_count * page_size as total_bytes FROM pragma_page_count('${t}'), pragma_page_size()`;
-      },
-    },
-  },
-  [Driver.Duckdb]: {
-    id: Driver.Duckdb,
-    label: 'DuckDB',
-    icon: 'duckdb.png',
-    defaultPort: 0,
-    namespaceLabel: 'dbtree.schema',
-    namespacePluralLabel: 'dbtree.schemas',
-    collectionLabel: 'dbtree.table',
-    collectionPluralLabel: 'dbtree.tables',
-    treeRootLabel: 'dbtree.schemasHeader',
-    createAction: 'schema',
-    databaseFieldLabel: 'connection.filePath',
-    supportsSchemas: true,
-    supportsSQL: true,
-    dataModel: 'relational',
-    isDocumentBased: false,
-    identifier: {
-      quoteStart: '"',
-      quoteEnd: '"',
-      namespaceStrategy: 'schema',
-    },
-    queries: {
-      databaseSizeQuery: () =>
-        'SELECT pg_size_pretty(database_size) as size FROM duckdb_databases() WHERE database_name = current_database()',
-      tableSizeQuery: (schema, table) => {
-        const s = assertSafeSqlIdent(schema, 'schema');
-        const t = assertSafeSqlIdent(table, 'table');
-        return `SELECT estimated_size as total_bytes FROM duckdb_tables() WHERE schema_name = '${s}' AND table_name = '${t}'`;
-      },
-      indexCountQuery: schema => {
-        const s = assertSafeSqlIdent(schema, 'schema');
-        return `SELECT COUNT(*) as cnt FROM duckdb_indexes() WHERE schema_name = '${s}'`;
-      },
-    },
-  },
-  [Driver.Motherduck]: {
-    id: Driver.Motherduck,
-    label: 'MotherDuck',
-    icon: 'motherduck.png',
-    defaultPort: 5432,
-    namespaceLabel: 'dbtree.schema',
-    namespacePluralLabel: 'dbtree.schemas',
-    collectionLabel: 'dbtree.table',
-    collectionPluralLabel: 'dbtree.tables',
-    treeRootLabel: 'dbtree.schemasHeader',
-    createAction: 'schema',
-    databaseFieldLabel: 'connection.databaseInitial',
-    supportsSchemas: true,
-    supportsSQL: true,
-    dataModel: 'relational',
-    isDocumentBased: false,
-    identifier: {
-      quoteStart: '"',
-      quoteEnd: '"',
-      namespaceStrategy: 'schema',
-    },
-    queries: {
-      databaseSizeQuery: () =>
-        'SELECT pg_size_pretty(database_size) as size FROM duckdb_databases() WHERE database_name = current_database()',
-      tableSizeQuery: (schema, table) => {
-        const s = assertSafeSqlIdent(schema, 'schema');
-        const t = assertSafeSqlIdent(table, 'table');
-        return `SELECT estimated_size as total_bytes FROM duckdb_tables() WHERE schema_name = '${s}' AND table_name = '${t}'`;
-      },
-      indexCountQuery: schema => {
-        const s = assertSafeSqlIdent(schema, 'schema');
-        return `SELECT COUNT(*) as cnt FROM duckdb_indexes() WHERE schema_name = '${s}'`;
       },
     },
   },
@@ -529,6 +414,86 @@ export const DRIVERS: Record<Driver, DriverMetadata> = {
          FROM sys.indexes i
          JOIN sys.tables t ON i.object_id = t.object_id
          WHERE t.name = '${t}' AND i.type > 0`;
+      },
+    },
+  },
+  [Driver.Mariadb]: {
+    id: Driver.Mariadb,
+    label: 'MariaDB',
+    icon: 'mariadb.png',
+    defaultPort: 3306,
+    namespaceLabel: 'dbtree.database',
+    namespacePluralLabel: 'dbtree.databases',
+    collectionLabel: 'dbtree.table',
+    collectionPluralLabel: 'dbtree.tables',
+    treeRootLabel: 'dbtree.databasesHeader',
+    createAction: 'database',
+    databaseFieldLabel: 'connection.database',
+    supportsSchemas: false,
+    supportsSQL: true,
+    dataModel: 'relational',
+    isDocumentBased: false,
+    identifier: {
+      quoteStart: '`',
+      quoteEnd: '`',
+      namespaceStrategy: 'database',
+    },
+    queries: {
+      databaseSizeQuery: db => {
+        const d = assertSafeSqlIdent(db, 'database');
+        return `SELECT COALESCE(SUM(IFNULL(data_length, 0) + IFNULL(index_length, 0)), 0) as size
+          FROM information_schema.tables WHERE table_schema = '${d}'`;
+      },
+      tableSizeQuery: (db, table) => {
+        const d = assertSafeSqlIdent(db, 'database');
+        const t = assertSafeSqlIdent(table, 'table');
+        return `SELECT data_length + index_length as total_bytes, table_rows
+          FROM information_schema.tables
+          WHERE table_schema = '${d}' AND table_name = '${t}'`;
+      },
+      indexCountQuery: db => {
+        const d = assertSafeSqlIdent(db, 'database');
+        return `SELECT COUNT(DISTINCT index_name) as cnt
+          FROM information_schema.statistics WHERE table_schema = '${d}'`;
+      },
+      tableIndexesQuery: table => {
+        const t = assertSafeSqlIdent(table, 'table');
+        return `SHOW INDEX FROM \`${t}\``;
+      },
+    },
+  },
+  [Driver.Duckdb]: {
+    id: Driver.Duckdb,
+    label: 'DuckDB',
+    icon: 'duckdb.png',
+    defaultPort: 0,
+    namespaceLabel: 'dbtree.schema',
+    namespacePluralLabel: 'dbtree.schemas',
+    collectionLabel: 'dbtree.table',
+    collectionPluralLabel: 'dbtree.tables',
+    treeRootLabel: 'dbtree.schemasHeader',
+    createAction: 'schema',
+    databaseFieldLabel: 'connection.filePath',
+    supportsSchemas: true,
+    supportsSQL: true,
+    dataModel: 'relational',
+    isDocumentBased: false,
+    identifier: {
+      quoteStart: '"',
+      quoteEnd: '"',
+      namespaceStrategy: 'schema',
+    },
+    queries: {
+      databaseSizeQuery: () =>
+        'SELECT pg_size_pretty(database_size) as size FROM duckdb_databases() WHERE database_name = current_database()',
+      tableSizeQuery: (schema, table) => {
+        const s = assertSafeSqlIdent(schema, 'schema');
+        const t = assertSafeSqlIdent(table, 'table');
+        return `SELECT estimated_size as total_bytes FROM duckdb_tables() WHERE schema_name = '${s}' AND table_name = '${t}'`;
+      },
+      indexCountQuery: schema => {
+        const s = assertSafeSqlIdent(schema, 'schema');
+        return `SELECT COUNT(*) as cnt FROM duckdb_indexes() WHERE schema_name = '${s}'`;
       },
     },
   },
@@ -664,6 +629,347 @@ export const DRIVERS: Record<Driver, DriverMetadata> = {
       },
     },
   },
+  [Driver.Snowflake]: {
+    id: Driver.Snowflake,
+    label: 'Snowflake',
+    icon: 'snowflake.png',
+    defaultPort: 443,
+    namespaceLabel: 'dbtree.schema',
+    namespacePluralLabel: 'dbtree.schemas',
+    collectionLabel: 'dbtree.table',
+    collectionPluralLabel: 'dbtree.tables',
+    treeRootLabel: 'dbtree.schemasHeader',
+    createAction: 'schema',
+    databaseFieldLabel: 'connection.database',
+    supportsSchemas: true,
+    supportsSQL: true,
+    dataModel: 'relational',
+    isDocumentBased: false,
+    identifier: {
+      quoteStart: '"',
+      quoteEnd: '"',
+      namespaceStrategy: 'schema',
+    },
+    queries: {},
+  },
+  [Driver.BigQuery]: {
+    id: Driver.BigQuery,
+    label: 'BigQuery',
+    icon: 'bigquery.png',
+    defaultPort: 443,
+    namespaceLabel: 'dbtree.dataset',
+    namespacePluralLabel: 'dbtree.datasets',
+    collectionLabel: 'dbtree.table',
+    collectionPluralLabel: 'dbtree.tables',
+    treeRootLabel: 'dbtree.datasetsHeader',
+    createAction: 'schema',
+    databaseFieldLabel: 'connection.project',
+    supportsSchemas: true,
+    supportsSQL: true,
+    dataModel: 'relational',
+    isDocumentBased: false,
+    identifier: {
+      quoteStart: '`',
+      quoteEnd: '`',
+      namespaceStrategy: 'schema',
+    },
+    queries: {},
+  },
+  [Driver.PlanetScale]: {
+    id: Driver.PlanetScale,
+    label: 'PlanetScale',
+    icon: 'planetscale.png',
+    defaultPort: 3306,
+    namespaceLabel: 'dbtree.database',
+    namespacePluralLabel: 'dbtree.databases',
+    collectionLabel: 'dbtree.table',
+    collectionPluralLabel: 'dbtree.tables',
+    treeRootLabel: 'dbtree.databasesHeader',
+    createAction: 'database',
+    databaseFieldLabel: 'connection.database',
+    supportsSchemas: false,
+    supportsSQL: true,
+    dataModel: 'relational',
+    isDocumentBased: false,
+    identifier: {
+      quoteStart: '`',
+      quoteEnd: '`',
+      namespaceStrategy: 'database',
+    },
+    queries: {
+      databaseSizeQuery: db => {
+        const d = assertSafeSqlIdent(db, 'database');
+        return `SELECT COALESCE(SUM(IFNULL(data_length, 0) + IFNULL(index_length, 0)), 0) as size
+          FROM information_schema.tables WHERE table_schema = '${d}'`;
+      },
+      tableSizeQuery: (db, table) => {
+        const d = assertSafeSqlIdent(db, 'database');
+        const t = assertSafeSqlIdent(table, 'table');
+        return `SELECT data_length + index_length as total_bytes, table_rows
+          FROM information_schema.tables
+          WHERE table_schema = '${d}' AND table_name = '${t}'`;
+      },
+      indexCountQuery: db => {
+        const d = assertSafeSqlIdent(db, 'database');
+        return `SELECT COUNT(DISTINCT index_name) as cnt
+          FROM information_schema.statistics WHERE table_schema = '${d}'`;
+      },
+      tableIndexesQuery: table => {
+        const t = assertSafeSqlIdent(table, 'table');
+        return `SHOW INDEX FROM \`${t}\``;
+      },
+    },
+  },
+  [Driver.TiDb]: {
+    id: Driver.TiDb,
+    label: 'TiDB',
+    icon: 'tidb.png',
+    defaultPort: 4000,
+    ...MYSQL_COMPAT_METADATA,
+  },
+  [Driver.YugabyteDb]: {
+    id: Driver.YugabyteDb,
+    label: 'YugabyteDB',
+    icon: 'yugabytedb.png',
+    defaultPort: 5433,
+    namespaceLabel: 'dbtree.schema',
+    namespacePluralLabel: 'dbtree.schemas',
+    collectionLabel: 'dbtree.table',
+    collectionPluralLabel: 'dbtree.tables',
+    treeRootLabel: 'dbtree.schemasHeader',
+    createAction: 'schema',
+    databaseFieldLabel: 'connection.databaseInitial',
+    supportsSchemas: true,
+    supportsSQL: true,
+    dataModel: 'relational',
+    isDocumentBased: false,
+    identifier: {
+      quoteStart: '"',
+      quoteEnd: '"',
+      namespaceStrategy: 'schema',
+    },
+    queries: {
+      databaseSizeQuery: () =>
+        'SELECT pg_size_pretty(pg_database_size(current_database())) as size',
+      tableSizeQuery: (schema, table) => {
+        const s = assertSafeSqlIdent(schema, 'schema');
+        const t = assertSafeSqlIdent(table, 'table');
+        return `SELECT pg_total_relation_size('"${s}"."${t}"') as total_bytes,
+                pg_size_pretty(pg_total_relation_size('"${s}"."${t}"')) as size_pretty`;
+      },
+      indexCountQuery: schema => {
+        const s = assertSafeSqlIdent(schema, 'schema');
+        return `SELECT COUNT(*) as cnt FROM pg_indexes WHERE schemaname = '${s}'`;
+      },
+      tableIndexesQuery: table => {
+        const t = assertSafeSqlIdent(table, 'table');
+        return `SELECT indexname, indexdef FROM pg_indexes WHERE tablename = '${t}'`;
+      },
+      maintenanceQuery: (schema, table) => {
+        const s = assertSafeSqlIdent(schema, 'schema');
+        const t = assertSafeSqlIdent(table, 'table');
+        return `SELECT last_vacuum, last_analyze FROM pg_stat_user_tables
+         WHERE schemaname = '${s}' AND relname = '${t}'`;
+      },
+    },
+  },
+  [Driver.SingleStore]: {
+    id: Driver.SingleStore,
+    label: 'SingleStore',
+    icon: 'singlestore.png',
+    defaultPort: 3306,
+    ...MYSQL_COMPAT_METADATA,
+  },
+  [Driver.AzureSql]: {
+    id: Driver.AzureSql,
+    label: 'Azure SQL',
+    icon: 'azuresql.png',
+    ...SQLSERVER_COMPAT_METADATA,
+  },
+  [Driver.Motherduck]: {
+    id: Driver.Motherduck,
+    label: 'MotherDuck',
+    icon: 'motherduck.png',
+    defaultPort: 5432,
+    namespaceLabel: 'dbtree.schema',
+    namespacePluralLabel: 'dbtree.schemas',
+    collectionLabel: 'dbtree.table',
+    collectionPluralLabel: 'dbtree.tables',
+    treeRootLabel: 'dbtree.schemasHeader',
+    createAction: 'schema',
+    databaseFieldLabel: 'connection.databaseInitial',
+    supportsSchemas: true,
+    supportsSQL: true,
+    dataModel: 'relational',
+    isDocumentBased: false,
+    identifier: {
+      quoteStart: '"',
+      quoteEnd: '"',
+      namespaceStrategy: 'schema',
+    },
+    queries: {
+      databaseSizeQuery: () =>
+        'SELECT pg_size_pretty(database_size) as size FROM duckdb_databases() WHERE database_name = current_database()',
+      tableSizeQuery: (schema, table) => {
+        const s = assertSafeSqlIdent(schema, 'schema');
+        const t = assertSafeSqlIdent(table, 'table');
+        return `SELECT estimated_size as total_bytes FROM duckdb_tables() WHERE schema_name = '${s}' AND table_name = '${t}'`;
+      },
+      indexCountQuery: schema => {
+        const s = assertSafeSqlIdent(schema, 'schema');
+        return `SELECT COUNT(*) as cnt FROM duckdb_indexes() WHERE schema_name = '${s}'`;
+      },
+    },
+  },
+  [Driver.StarRocks]: {
+    id: Driver.StarRocks,
+    label: 'StarRocks',
+    icon: 'starrocks.png',
+    defaultPort: 9030,
+    ...MYSQL_COMPAT_METADATA,
+  },
+  [Driver.Doris]: {
+    id: Driver.Doris,
+    label: 'Apache Doris',
+    icon: 'doris.png',
+    defaultPort: 9030,
+    ...MYSQL_COMPAT_METADATA,
+  },
+  [Driver.Synapse]: {
+    id: Driver.Synapse,
+    label: 'Azure Synapse',
+    icon: 'synapse.png',
+    ...SQLSERVER_COMPAT_METADATA,
+    createAction: 'none',
+    queries: {},
+  },
+  [Driver.Mongodb]: {
+    id: Driver.Mongodb,
+    label: 'MongoDB',
+    icon: 'mongodb.png',
+    defaultPort: 27017,
+    namespaceLabel: 'dbtree.database',
+    namespacePluralLabel: 'dbtree.databases',
+    collectionLabel: 'dbtree.collection',
+    collectionPluralLabel: 'dbtree.collections',
+    treeRootLabel: 'dbtree.databasesHeader',
+    createAction: 'database',
+    databaseFieldLabel: 'connection.database',
+    supportsSchemas: false,
+    supportsSQL: false,
+    dataModel: 'document',
+    isDocumentBased: true,
+    identifier: {
+      quoteStart: '"',
+      quoteEnd: '"',
+      namespaceStrategy: 'database',
+    },
+    queries: {},
+  },
+  [Driver.DocumentDb]: {
+    id: Driver.DocumentDb,
+    label: 'Amazon DocumentDB',
+    icon: 'documentdb.png',
+    defaultPort: 27017,
+    namespaceLabel: 'dbtree.database',
+    namespacePluralLabel: 'dbtree.databases',
+    collectionLabel: 'dbtree.collection',
+    collectionPluralLabel: 'dbtree.collections',
+    treeRootLabel: 'dbtree.databasesHeader',
+    createAction: 'database',
+    databaseFieldLabel: 'connection.database',
+    supportsSchemas: false,
+    supportsSQL: false,
+    dataModel: 'document',
+    isDocumentBased: true,
+    identifier: {
+      quoteStart: '"',
+      quoteEnd: '"',
+      namespaceStrategy: 'database',
+    },
+    queries: {},
+  },
+  [Driver.Redis]: {
+    id: Driver.Redis,
+    label: 'Redis',
+    icon: 'redis.png',
+    defaultPort: 6379,
+    namespaceLabel: 'dbtree.database',
+    namespacePluralLabel: 'dbtree.databases',
+    collectionLabel: 'dbtree.key',
+    collectionPluralLabel: 'dbtree.keys',
+    treeRootLabel: 'dbtree.databasesHeader',
+    createAction: 'none',
+    databaseFieldLabel: 'connection.databaseIndex',
+    supportsSchemas: false,
+    supportsSQL: false,
+    dataModel: 'key-value',
+    isDocumentBased: false,
+    identifier: {
+      quoteStart: '',
+      quoteEnd: '',
+      namespaceStrategy: 'database',
+    },
+    queries: {},
+  },
+  [Driver.Valkey]: {
+    id: Driver.Valkey,
+    label: 'Valkey',
+    icon: 'valkey.png',
+    defaultPort: 6379,
+    namespaceLabel: 'dbtree.database',
+    namespacePluralLabel: 'dbtree.databases',
+    collectionLabel: 'dbtree.key',
+    collectionPluralLabel: 'dbtree.keys',
+    treeRootLabel: 'dbtree.databasesHeader',
+    createAction: 'none',
+    databaseFieldLabel: 'connection.databaseIndex',
+    supportsSchemas: false,
+    supportsSQL: false,
+    dataModel: 'key-value',
+    isDocumentBased: false,
+    identifier: {
+      quoteStart: '',
+      quoteEnd: '',
+      namespaceStrategy: 'database',
+    },
+    queries: {},
+  },
+  [Driver.KeyDb]: {
+    id: Driver.KeyDb,
+    label: 'KeyDB',
+    icon: 'keydb.png',
+    ...REDIS_COMPAT_METADATA,
+  },
+  [Driver.Dragonfly]: {
+    id: Driver.Dragonfly,
+    label: 'Dragonfly',
+    icon: 'dragonfly.png',
+    defaultPort: 6379,
+    namespaceLabel: 'dbtree.database',
+    namespacePluralLabel: 'dbtree.databases',
+    collectionLabel: 'dbtree.key',
+    collectionPluralLabel: 'dbtree.keys',
+    treeRootLabel: 'dbtree.databasesHeader',
+    createAction: 'none',
+    databaseFieldLabel: 'connection.databaseIndex',
+    supportsSchemas: false,
+    supportsSQL: false,
+    dataModel: 'key-value',
+    isDocumentBased: false,
+    identifier: {
+      quoteStart: '',
+      quoteEnd: '',
+      namespaceStrategy: 'database',
+    },
+    queries: {},
+  },
+  [Driver.Garnet]: {
+    id: Driver.Garnet,
+    label: 'Garnet',
+    icon: 'garnet.png',
+    ...REDIS_COMPAT_METADATA,
+  },
   [Driver.Clickhouse]: {
     id: Driver.Clickhouse,
     label: 'ClickHouse',
@@ -798,6 +1104,25 @@ export const DRIVERS: Record<Driver, DriverMetadata> = {
       namespaceStrategy: 'database',
     },
     queries: {},
+  },
+  [Driver.Cassandra]: {
+    id: Driver.Cassandra,
+    label: 'Cassandra',
+    icon: 'cassandra.png',
+    ...CASSANDRA_COMPAT_METADATA,
+  },
+  [Driver.ScyllaDb]: {
+    id: Driver.ScyllaDb,
+    label: 'ScyllaDB',
+    icon: 'scylladb.png',
+    ...CASSANDRA_COMPAT_METADATA,
+  },
+  [Driver.Keyspaces]: {
+    id: Driver.Keyspaces,
+    label: 'Amazon Keyspaces',
+    icon: 'keyspaces.png',
+    ...CASSANDRA_COMPAT_METADATA,
+    defaultPort: 9142,
   },
 };
 

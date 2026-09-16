@@ -447,7 +447,7 @@ fn duckdb_supports_native_ilike() {
 }
 
 #[test]
-fn dialect_from_driver_id_aliases_cockroachdb_and_mariadb() {
+fn dialect_from_driver_id_maps_wire_compatible_families() {
     use qore_query::Dialect;
     assert_eq!(
         Dialect::from_driver_id("cockroachdb"),
@@ -458,12 +458,24 @@ fn dialect_from_driver_id_aliases_cockroachdb_and_mariadb() {
         Some(Dialect::Postgres)
     );
     assert_eq!(Dialect::from_driver_id("mariadb"), Some(Dialect::MySql));
+    for driver in ["tidb", "starrocks", "doris", "singlestore"] {
+        assert_eq!(Dialect::from_driver_id(driver), Some(Dialect::MySql));
+    }
+    assert_eq!(
+        Dialect::from_driver_id("yugabytedb"),
+        Some(Dialect::Postgres)
+    );
     assert_eq!(
         Dialect::from_driver_id("postgresql"),
         Some(Dialect::Postgres)
     );
     assert_eq!(Dialect::from_driver_id("duckdb"), Some(Dialect::DuckDb));
     assert_eq!(Dialect::from_driver_id("mssql"), Some(Dialect::SqlServer));
+    assert_eq!(
+        Dialect::from_driver_id("azuresql"),
+        Some(Dialect::SqlServer)
+    );
+    assert_eq!(Dialect::from_driver_id("synapse"), Some(Dialect::SqlServer));
     assert_eq!(Dialect::from_driver_id("MongoDB"), None);
     assert_eq!(Dialect::from_driver_id("redis"), None);
 }

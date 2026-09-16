@@ -10,13 +10,17 @@
 //! This module implements the interceptor in the Rust backend for maximum security.
 //! The frontend only displays and configures what the backend provides.
 
+pub mod alerts;
 pub mod audit;
 pub mod export;
 pub mod fingerprint;
+pub mod n_plus_one;
 pub mod pipeline;
 pub mod profiling;
 pub mod redaction;
+pub mod regression;
 pub mod safety;
+pub mod trends;
 pub mod types;
 
 pub use audit::{AuditStats, AuditStore};
@@ -26,4 +30,5 @@ pub use pipeline::InterceptorPipeline;
 pub use profiling::ProfilingStore;
 pub use redaction::redact_query_forced;
 pub use safety::SafetyEngine;
+pub use trends::{FingerprintTrend, Regression, TrendFilter, TrendPoint};
 pub use types::*;

@@ -10,6 +10,7 @@ export function getRoutineTemplate(
 ): string {
   switch (driver) {
     case Driver.Postgres:
+    case Driver.YugabyteDb:
       return routineType === 'Function'
         ? postgresCreateFunction(namespace)
         : postgresCreateProcedure(namespace);
@@ -20,6 +21,8 @@ export function getRoutineTemplate(
         ? mysqlCreateFunction(namespace)
         : mysqlCreateProcedure(namespace);
     case Driver.SqlServer:
+    case Driver.AzureSql:
+    case Driver.Synapse:
       return routineType === 'Function'
         ? sqlserverCreateFunction(namespace)
         : sqlserverCreateProcedure(namespace);

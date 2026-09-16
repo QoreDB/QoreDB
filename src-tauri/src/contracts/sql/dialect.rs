@@ -14,19 +14,23 @@ pub enum Dialect {
     DuckDb,
     SqlServer,
     ClickHouse,
+    Snowflake,
+    BigQuery,
 }
 
 impl Dialect {
     pub fn from_driver_id(id: &str) -> Option<Dialect> {
         match id.to_ascii_lowercase().as_str() {
-            "postgres" | "postgresql" | "cockroachdb" | "neon" | "supabase" | "timescaledb" => {
-                Some(Dialect::Postgres)
-            }
-            "mysql" | "mariadb" | "planetscale" => Some(Dialect::MySql),
+            "postgres" | "postgresql" | "cockroachdb" | "neon" | "supabase" | "timescaledb"
+            | "yugabytedb" => Some(Dialect::Postgres),
+            "mysql" | "mariadb" | "planetscale" | "tidb" | "starrocks" | "doris"
+            | "singlestore" => Some(Dialect::MySql),
             "sqlite" => Some(Dialect::Sqlite),
             "duckdb" => Some(Dialect::DuckDb),
-            "sqlserver" | "mssql" => Some(Dialect::SqlServer),
+            "sqlserver" | "mssql" | "azuresql" | "synapse" => Some(Dialect::SqlServer),
             "clickhouse" => Some(Dialect::ClickHouse),
+            "snowflake" => Some(Dialect::Snowflake),
+            "bigquery" => Some(Dialect::BigQuery),
             _ => None,
         }
     }
@@ -34,8 +38,9 @@ impl Dialect {
     pub fn quote_ident(&self, ident: &str) -> String {
         match self {
             Dialect::MySql | Dialect::ClickHouse => format!("`{}`", ident.replace('`', "``")),
+            Dialect::BigQuery => format!("`{}`", ident.replace('`', "\\`")),
             Dialect::SqlServer => format!("[{}]", ident.replace(']', "]]")),
-            Dialect::Postgres | Dialect::Sqlite | Dialect::DuckDb => {
+            Dialect::Postgres | Dialect::Sqlite | Dialect::DuckDb | Dialect::Snowflake => {
                 format!("\"{}\"", ident.replace('"', "\"\""))
             }
         }
@@ -63,6 +68,8 @@ impl Dialect {
             Dialect::DuckDb => "NOW()",
             Dialect::SqlServer => "GETDATE()",
             Dialect::ClickHouse => "now()",
+            Dialect::Snowflake => "CURRENT_TIMESTAMP()",
+            Dialect::BigQuery => "CURRENT_TIMESTAMP()",
         }
     }
 
@@ -95,6 +102,22 @@ impl Dialect {
                     format!("({body} = 0)")
                 } else {
                     format!("({body} = 1)")
+                }
+            }
+            Dialect::Snowflake => {
+                let body = format!("REGEXP_LIKE({col_sql}, {pat})");
+                if negate {
+                    format!("(NOT {body})")
+                } else {
+                    format!("({body})")
+                }
+            }
+            Dialect::BigQuery => {
+                let body = format!("REGEXP_CONTAINS({col_sql}, {pat})");
+                if negate {
+                    format!("(NOT {body})")
+                } else {
+                    format!("({body})")
                 }
             }
             // SQLite REGEXP requires loading an extension; SQL Server has no
@@ -145,6 +168,15 @@ impl Dialect {
                 };
                 format!("({now} - {ch_fn}({n}))")
             }
+            Dialect::Snowflake => {
+                format!("DATEADD({}, -{n}, {now})", unit_word.to_uppercase())
+            }
+            Dialect::BigQuery => {
+                format!(
+                    "TIMESTAMP_SUB({now}, INTERVAL {n} {})",
+                    unit_word.to_uppercase()
+                )
+            }
         })
     }
 
@@ -158,6 +190,8 @@ impl Dialect {
             Dialect::Sqlite => format!("datetime('now', '-{ms} seconds' || '/1000.0')"),
             Dialect::SqlServer => format!("DATEADD(MILLISECOND, -{ms}, {now})"),
             Dialect::ClickHouse => format!("({now} - toIntervalMillisecond({ms}))"),
+            Dialect::Snowflake => format!("DATEADD(MILLISECOND, -{ms}, {now})"),
+            Dialect::BigQuery => format!("TIMESTAMP_SUB({now}, INTERVAL {ms} MILLISECOND)"),
         })
     }
 
@@ -189,6 +223,15 @@ mod tests {
             Some(Dialect::Postgres)
         );
         assert_eq!(Dialect::from_driver_id("mariadb"), Some(Dialect::MySql));
+        assert_eq!(Dialect::from_driver_id("tidb"), Some(Dialect::MySql));
+        assert_eq!(
+            Dialect::from_driver_id("yugabytedb"),
+            Some(Dialect::Postgres)
+        );
+        assert_eq!(
+            Dialect::from_driver_id("azuresql"),
+            Some(Dialect::SqlServer)
+        );
         assert_eq!(
             Dialect::from_driver_id("clickhouse"),
             Some(Dialect::ClickHouse)

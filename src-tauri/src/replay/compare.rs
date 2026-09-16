@@ -26,6 +26,14 @@ fn is_slower(expected_ms: f64, observed_ms: f64, thresholds: &SlowerThresholds) 
         && observed_ms >= expected_ms * thresholds.ratio
 }
 
+/// Whether the run has anything to compare against. A set recorded through a
+/// streamed execution carries neither a row count nor a digest: classifying it
+/// as `Match` would mean "the query ran", not "nothing changed".
+fn is_comparable(expected: &ExpectedOutcome, observed: &Observed) -> bool {
+    (expected.row_count.is_some() && observed.row_count.is_some())
+        || (expected.result_digest.is_some() && observed.digest.is_some())
+}
+
 pub fn classify(
     expected: &ExpectedOutcome,
     observed: &Observed,
@@ -39,6 +47,12 @@ pub fn classify(
     // this run introduces nothing.
     if !observed.success {
         return ReplayVerdict::Match;
+    }
+
+    // Ahead of the slowdown check: a timing regression on an entry whose result
+    // was never compared would still read as a compared entry.
+    if !is_comparable(expected, observed) {
+        return ReplayVerdict::NotCompared;
     }
 
     if let (Some(expected_rows), Some(observed_rows)) = (expected.row_count, observed.row_count)
@@ -75,6 +89,7 @@ pub fn summarize(verdicts: impl IntoIterator<Item = ReplayVerdict>) -> ReplaySum
             ReplayVerdict::RowCountDiff => summary.row_count_diff += 1,
             ReplayVerdict::DigestDiff => summary.digest_diff += 1,
             ReplayVerdict::Slower => summary.slower += 1,
+            ReplayVerdict::NotCompared => summary.not_compared += 1,
             ReplayVerdict::Skipped => summary.skipped += 1,
         }
     }
@@ -133,6 +148,7 @@ pub fn compare_sides(
                 .skip_reason
                 .clone()
                 .or_else(|| right.skip_reason.clone()),
+            skip_code: left.skip_code.clone().or_else(|| right.skip_code.clone()),
             ..right.clone()
         };
     }
@@ -261,6 +277,42 @@ mod tests {
         assert_eq!(classify(&exp, &obs, &thresholds()), ReplayVerdict::Match);
     }
 
+    /// A set recorded through a streamed execution has no row count and no
+    /// digest. Saying "identical" there would mean "it ran".
+    #[test]
+    fn nothing_to_compare_is_not_a_match() {
+        let mut exp = expected(0, 5.0, "sha256:a");
+        exp.row_count = None;
+        exp.result_digest = None;
+        let obs = Observed {
+            success: true,
+            execution_time_ms: 6.0,
+            row_count: Some(42),
+            digest: Some("sha256:b".to_string()),
+        };
+        assert_eq!(
+            classify(&exp, &obs, &thresholds()),
+            ReplayVerdict::NotCompared
+        );
+    }
+
+    #[test]
+    fn an_uncomparable_entry_is_not_reported_as_slower() {
+        let mut exp = expected(0, 120.0, "sha256:a");
+        exp.row_count = None;
+        exp.result_digest = None;
+        let obs = Observed {
+            success: true,
+            execution_time_ms: 400.0,
+            row_count: None,
+            digest: None,
+        };
+        assert_eq!(
+            classify(&exp, &obs, &thresholds()),
+            ReplayVerdict::NotCompared
+        );
+    }
+
     #[test]
     fn small_absolute_slowdown_is_noise() {
         assert_eq!(
@@ -311,6 +363,7 @@ mod tests {
             success: true,
             error: None,
             skip_reason: None,
+            skip_code: None,
             execution_time_ms: ms,
             expected_execution_time_ms: 0.0,
             row_count: Some(rows),

@@ -5,17 +5,18 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Input } from '@/components/ui/input';
 import type { DataModel, Driver } from '@/lib/connection/drivers';
-import { DRIVERS } from '@/lib/connection/drivers';
+import { DATA_MODEL_ORDER, DRIVERS } from '@/lib/connection/drivers';
 import { cn } from '@/lib/utils';
 
-const MODEL_LABELS: { model: DataModel; labelKey: string }[] = [
-  { model: 'relational', labelKey: 'connection.driverGroups.relational' },
-  { model: 'document', labelKey: 'connection.driverGroups.document' },
-  { model: 'key-value', labelKey: 'connection.driverGroups.keyValue' },
-  { model: 'time-series', labelKey: 'connection.driverGroups.timeSeries' },
-  { model: 'search', labelKey: 'connection.driverGroups.search' },
-  { model: 'graph', labelKey: 'connection.driverGroups.graph' },
-];
+const MODEL_LABEL_KEYS: Record<DataModel, string> = {
+  relational: 'connection.driverGroups.relational',
+  document: 'connection.driverGroups.document',
+  'key-value': 'connection.driverGroups.keyValue',
+  'time-series': 'connection.driverGroups.timeSeries',
+  search: 'connection.driverGroups.search',
+  'wide-column': 'connection.driverGroups.wideColumn',
+  graph: 'connection.driverGroups.graph',
+};
 
 export function DriverPicker(props: {
   driver: Driver;
@@ -28,7 +29,10 @@ export function DriverPicker(props: {
   const [model, setModel] = useState<DataModel | null>(null);
 
   const all = Object.values(DRIVERS);
-  const filters = MODEL_LABELS.filter(f => all.some(meta => meta.dataModel === f.model));
+  const filters = DATA_MODEL_ORDER.filter(m => all.some(meta => meta.dataModel === m)).map(m => ({
+    model: m,
+    labelKey: MODEL_LABEL_KEYS[m],
+  }));
 
   const needle = query.trim().toLowerCase();
   const visible = all.filter(

@@ -19,6 +19,7 @@ use crate::proxy::ProxyTunnel;
 use crate::ssh_tunnel::SshTunnel;
 use qore_core::DriverRegistry;
 use qore_core::error::{EngineError, EngineResult};
+use qore_core::masking::{ConnectionMasking, SessionMasking};
 use qore_core::traits::DataEngine;
 use qore_core::types::{ConnectionConfig, SessionId, SshHostKeyPolicy};
 
@@ -103,6 +104,7 @@ pub struct ActiveSession {
     /// Stable id of the saved connection that opened this session. Direct
     /// debug connections leave this unset.
     pub saved_connection_id: Option<String>,
+    pub masking: Option<Arc<SessionMasking>>,
     pub tunnel: Option<SshTunnel>,
     pub proxy_tunnel: Option<ProxyTunnel>,
     pub health: ConnectionHealth,
@@ -258,6 +260,7 @@ impl SessionManager {
                 config,
                 display_name,
                 saved_connection_id: None,
+                masking: None,
                 tunnel,
                 proxy_tunnel,
                 health: ConnectionHealth::Healthy,
@@ -402,6 +405,34 @@ impl SessionManager {
         if let Some(session) = sessions.get_mut(&session_id) {
             session.saved_connection_id = Some(connection_id);
             session.display_name = display_name;
+        }
+    }
+
+    /// Masking every result of the session goes through; `None` when the
+    /// saved connection has no rules or the session is a direct connection.
+    pub async fn masking(&self, session_id: SessionId) -> Option<Arc<SessionMasking>> {
+        self.sessions.read().await.get(&session_id)?.masking.clone()
+    }
+
+    /// Binds a session opened from a saved connection to its masking rules.
+    pub async fn set_masking(&self, session_id: SessionId, config: &ConnectionMasking) {
+        let mut sessions = self.sessions.write().await;
+        if let Some(session) = sessions.get_mut(&session_id) {
+            session.masking = session
+                .saved_connection_id
+                .as_deref()
+                .and_then(|id| SessionMasking::for_connection(id, config));
+        }
+    }
+
+    /// Rules changed in the app apply to the sessions already open.
+    pub async fn update_connection_masking(&self, connection_id: &str, config: &ConnectionMasking) {
+        let masking = SessionMasking::for_connection(connection_id, config);
+        let mut sessions = self.sessions.write().await;
+        for session in sessions.values_mut() {
+            if session.saved_connection_id.as_deref() == Some(connection_id) {
+                session.masking = masking.clone();
+            }
         }
     }
 

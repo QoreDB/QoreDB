@@ -2112,7 +2112,7 @@ pub fn extract_query_from_response(response: &str, driver_id: &str) -> Option<St
 
     let is_sql = !matches!(
         driver_id,
-        "mongodb" | "documentdb" | "redis" | "valkey" | "dragonfly"
+        "mongodb" | "documentdb" | "redis" | "valkey" | "dragonfly" | "keydb" | "garnet"
     );
     if is_sql {
         if let Some(parsed) = blocks.iter().rev().find(|b| {

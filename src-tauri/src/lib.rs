@@ -14,8 +14,6 @@ pub mod contracts;
 pub mod emit_gate;
 pub mod engine;
 pub mod export;
-#[cfg(feature = "pro")]
-pub mod federation;
 pub mod observability;
 pub mod plugins;
 pub mod redaction;
@@ -202,6 +200,16 @@ pub fn run() {
                 });
             }
 
+            {
+                let state: tauri::State<SharedState> = app.state();
+                let guard = state.blocking_lock();
+                let alert_handle = app.handle().clone();
+                guard.interceptor.set_alert_sink(Arc::new(move |alert| {
+                    emit_gate::emit_gated(&alert_handle, "interceptor-alert", &alert);
+                }));
+                commands::license::sync_pro_detection(&guard);
+            }
+
             let wr: tauri::State<workspace::write_registry::WriteRegistry> = app.state();
             workspace::watcher::start_workspace_watcher(
                 app.handle().clone(),
@@ -307,6 +315,8 @@ pub fn run() {
             commands::schema_export::export_schema,
             // Metrics (dev-only)
             commands::metrics::get_metrics,
+            // AI agents (MCP)
+            commands::agents::agents_mcp_status,
             // Vault commands
             commands::vault::get_vault_status,
             commands::vault::setup_master_password,
@@ -314,6 +324,8 @@ pub fn run() {
             commands::vault::lock_vault,
             commands::vault::save_connection,
             commands::vault::list_saved_connections,
+            commands::vault::set_connection_exposed,
+            commands::vault::set_connection_masking,
             commands::vault::delete_saved_connection,
             commands::vault::duplicate_saved_connection,
             commands::vault::get_connection_credentials,
@@ -343,6 +355,7 @@ pub fn run() {
             commands::interceptor::clear_audit_log,
             commands::interceptor::export_audit_log,
             commands::interceptor::get_profiling_metrics,
+            commands::interceptor::get_query_trends,
             commands::interceptor::get_slow_queries,
             commands::interceptor::clear_slow_queries,
             commands::interceptor::reset_profiling,
@@ -450,6 +463,8 @@ pub fn run() {
             #[cfg(feature = "pro")]
             commands::replay::replay_discard_recorded,
             #[cfg(feature = "pro")]
+            commands::replay::replay_discard_mutations,
+            #[cfg(feature = "pro")]
             commands::replay::replay_list_sets,
             #[cfg(feature = "pro")]
             commands::replay::replay_load_set,
@@ -469,6 +484,8 @@ pub fn run() {
             commands::replay::replay_load_capture,
             #[cfg(feature = "pro")]
             commands::replay::replay_last_report,
+            #[cfg(feature = "pro")]
+            commands::replay::replay_accept_run,
             // Workspace commands
             commands::workspace::detect_workspace,
             commands::workspace::get_active_workspace,

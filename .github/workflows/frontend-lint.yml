@@ -25,5 +25,17 @@ jobs:
       - name: Install frontend dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Test repository checks
+        run: pnpm test:repo
+
+      - name: Check documentation and source headers
+        run: pnpm docs:check
+
+      - name: Check TypeScript types
+        run: pnpm typecheck
+
+      - name: Run frontend tests
+        run: pnpm test:ts
+
       - name: Run Biome check
         run: pnpm check

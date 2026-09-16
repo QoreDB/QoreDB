@@ -11,9 +11,7 @@ use qore_service::interceptor::QuerySource;
 use serde_json::{Value, json};
 
 use super::types::AgentTool;
-use crate::federation::types::{
-    AliasEntry, ConnectionAliasMap, FederationQueryOptions, normalize_alias,
-};
+use qore_service::federation::types::normalize_alias;
 
 /// Rows fed back to the model per query; the UI can show more.
 pub const MAX_ROWS_TO_MODEL: usize = 50;
@@ -299,38 +297,23 @@ async fn run_federated_query(
     query: &str,
     redact_sensitive: bool,
 ) -> Result<String, String> {
-    let mut alias_map = ConnectionAliasMap::new();
-    for (session_id, display_name) in ctx.session_manager.list_sessions().await {
-        if !scope.contains(&session_id.0.to_string()) {
-            continue;
-        }
-        let Ok(driver) = ctx.session_manager.get_driver(session_id).await else {
-            continue;
-        };
-        alias_map.insert(
-            normalize_alias(&display_name),
-            AliasEntry {
-                session_id,
-                driver_id: driver.driver_id().to_string(),
-                display_name,
-            },
-        );
-    }
+    let sources: Vec<(String, SessionId)> = ctx
+        .session_manager
+        .list_sessions()
+        .await
+        .into_iter()
+        .filter(|(session_id, _)| scope.contains(&session_id.0.to_string()))
+        .map(|(session_id, display_name)| (display_name, session_id))
+        .collect();
 
-    let options = FederationQueryOptions {
-        timeout_ms: Some(TOOL_TIMEOUT_MS),
-        stream: Some(false),
-        query_id: None,
-        row_limit_per_source: None,
-    };
-    let (result, meta) = crate::federation::manager::execute_federation(
+    let (result, meta) = agent_tools::run_federated_query(
+        ctx,
+        &sources,
         query,
-        &alias_map,
-        &ctx.session_manager,
-        &options,
+        Some(TOOL_TIMEOUT_MS),
+        QuerySource::Ai,
     )
-    .await
-    .map_err(|e| e.sanitized_message())?;
+    .await?;
 
     let mut payload = query_result_payload(&result, redact_sensitive);
     payload["sources"] = Value::Array(
@@ -444,11 +427,13 @@ mod tests {
                     name: "email".into(),
                     data_type: "text".into(),
                     nullable: false,
+                    masked: false,
                 },
                 ColumnInfo {
                     name: "city".into(),
                     data_type: "text".into(),
                     nullable: false,
+                    masked: false,
                 },
             ],
             rows: (0..60)

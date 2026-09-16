@@ -3,7 +3,7 @@
 /** biome-ignore-all lint/a11y/noStaticElementInteractions: header cells intentionally support mouse-only grid interactions */
 
 import { flexRender, type Header, type Table } from '@tanstack/react-table';
-import { Pin, PinOff, Zap } from 'lucide-react';
+import { Eye, EyeOff, Pin, PinOff, Zap } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import {
   ContextMenu,
@@ -21,6 +21,14 @@ export interface DataGridTableHeaderProps {
   /** Columns whose server-side sort has no index to follow. */
   sortScansTable?: (column: string) => boolean;
   onCreateIndex?: (column: string) => void;
+  columnMask?: ColumnMaskMenu;
+}
+
+export interface ColumnMaskMenu {
+  hasRule: (column: string) => boolean;
+  isMasked: (column: string) => boolean;
+  canAdd: boolean;
+  toggle: (column: string) => void;
 }
 
 /** Compute the left offset for a pinned column by summing widths of all pinned columns before it. */
@@ -43,6 +51,7 @@ export function DataGridTableHeader({
   showFilters,
   sortScansTable,
   onCreateIndex,
+  columnMask,
 }: DataGridTableHeaderProps) {
   return (
     <thead className="sticky top-0 z-10 bg-muted shadow-sm">
@@ -56,6 +65,7 @@ export function DataGridTableHeader({
               showFilters={showFilters}
               sortScansTable={sortScansTable}
               onCreateIndex={onCreateIndex}
+              columnMask={columnMask}
             />
           ))}
         </tr>
@@ -70,6 +80,7 @@ interface DataGridTableHeaderCellProps {
   showFilters: boolean;
   sortScansTable?: (column: string) => boolean;
   onCreateIndex?: (column: string) => void;
+  columnMask?: ColumnMaskMenu;
 }
 
 function DataGridTableHeaderCell({
@@ -78,6 +89,7 @@ function DataGridTableHeaderCell({
   showFilters,
   sortScansTable,
   onCreateIndex,
+  columnMask,
 }: DataGridTableHeaderCellProps) {
   const { t } = useTranslation();
   const isPinned = header.column.getIsPinned();
@@ -144,6 +156,29 @@ function DataGridTableHeaderCell({
             {t('grid.createIndexForSort')}
           </ContextMenuItem>
         )}
+        {columnMask &&
+          (columnMask.hasRule(header.column.id) ? (
+            <ContextMenuItem onClick={() => columnMask.toggle(header.column.id)}>
+              <Eye size={14} />
+              {t('grid.masking.unmask')}
+            </ContextMenuItem>
+          ) : columnMask.isMasked(header.column.id) ? (
+            <ContextMenuItem disabled>
+              <EyeOff size={14} />
+              {t('grid.masking.byDetection')}
+            </ContextMenuItem>
+          ) : (
+            <ContextMenuItem
+              disabled={!columnMask.canAdd}
+              onClick={() => columnMask.toggle(header.column.id)}
+            >
+              <EyeOff size={14} />
+              {t('grid.masking.mask')}
+              {!columnMask.canAdd && (
+                <span className="ml-auto text-xs text-muted-foreground">Pro</span>
+              )}
+            </ContextMenuItem>
+          ))}
       </ContextMenuContent>
     </ContextMenu>
   );

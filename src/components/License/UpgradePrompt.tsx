@@ -8,6 +8,7 @@ import {
   Bug,
   CheckCircle2,
   ExternalLink,
+  EyeOff,
   FileSpreadsheet,
   GitCompare,
   History,
@@ -60,6 +61,7 @@ const FEATURE_ICONS: Record<ProFeature, LucideIcon> = {
   index_suggestions: Lightbulb,
   schema_diff: GitCompare,
   query_replay: Repeat2,
+  column_masking: EyeOff,
 };
 
 const FEATURE_FALLBACK_ICON: LucideIcon = Bug;

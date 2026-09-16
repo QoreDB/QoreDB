@@ -168,6 +168,11 @@ const SQLSERVER_TYPES: ColumnType[] = [
 ];
 
 export const COLUMN_TYPES: Record<Driver, ColumnType[]> = {
+  [Driver.Cassandra]: [],
+  [Driver.ScyllaDb]: [],
+  [Driver.Keyspaces]: [],
+  [Driver.Snowflake]: [],
+  [Driver.BigQuery]: [],
   [Driver.Postgres]: POSTGRES_TYPES,
   [Driver.Mysql]: MYSQL_TYPES,
   [Driver.Mongodb]: [],
@@ -175,16 +180,25 @@ export const COLUMN_TYPES: Record<Driver, ColumnType[]> = {
   [Driver.Redis]: [],
   [Driver.Valkey]: [],
   [Driver.Dragonfly]: [],
+  [Driver.KeyDb]: [],
+  [Driver.Garnet]: [],
   [Driver.Sqlite]: SQLITE_TYPES,
   [Driver.Duckdb]: DUCKDB_TYPES,
   [Driver.Motherduck]: DUCKDB_TYPES,
   [Driver.SqlServer]: SQLSERVER_TYPES,
+  [Driver.AzureSql]: SQLSERVER_TYPES,
+  [Driver.Synapse]: SQLSERVER_TYPES,
   [Driver.Cockroachdb]: POSTGRES_TYPES,
   [Driver.Mariadb]: MYSQL_TYPES,
   [Driver.PlanetScale]: MYSQL_TYPES,
+  [Driver.TiDb]: MYSQL_TYPES,
+  [Driver.StarRocks]: MYSQL_TYPES,
+  [Driver.Doris]: MYSQL_TYPES,
+  [Driver.SingleStore]: MYSQL_TYPES,
   [Driver.Supabase]: POSTGRES_TYPES,
   [Driver.Neon]: POSTGRES_TYPES,
   [Driver.Timescaledb]: POSTGRES_TYPES,
+  [Driver.YugabyteDb]: POSTGRES_TYPES,
   [Driver.Clickhouse]: CLICKHOUSE_TYPES,
   [Driver.Elasticsearch]: [],
   [Driver.OpenSearch]: [],
@@ -192,4 +206,13 @@ export const COLUMN_TYPES: Record<Driver, ColumnType[]> = {
 
 export function getColumnTypes(driver: Driver): ColumnType[] {
   return COLUMN_TYPES[driver] || [];
+}
+
+/**
+ * Whether the visual table builder has a type palette for this driver. An empty
+ * palette means the engine's DDL is not modelled here, so offering "create
+ * table" would open a dialog with nothing to choose from.
+ */
+export function supportsVisualDdl(driver: Driver | string): boolean {
+  return (COLUMN_TYPES[driver as Driver]?.length ?? 0) > 0;
 }

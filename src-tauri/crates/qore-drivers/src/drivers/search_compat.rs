@@ -1411,6 +1411,7 @@ fn col(name: &str, data_type: &str) -> ColumnInfo {
         name: name.into(),
         data_type: data_type.into(),
         nullable: true,
+        masked: false,
     }
 }
 

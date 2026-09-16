@@ -604,9 +604,9 @@ checksum = "f2032f911046de80f0a198e0901378627c33f59ea0ac00e363d481118bd70a53"
 
 [[package]]
 name = "aws-lc-rs"
-version = "1.17.0"
+version = "1.18.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5ec2f1fc3ec205783a5da9a7e6c1509cc69dedf09a1949e412c1e18469326d00"
+checksum = "b281d307588d634de920874890732659e2e7672f72b5e10e81badc1a8a83621e"
 dependencies = [
  "aws-lc-sys",
  "zeroize",
@@ -614,14 +614,15 @@ dependencies = [
 
 [[package]]
 name = "aws-lc-sys"
-version = "0.41.0"
+version = "0.45.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1a2f9779ce85b93ab6170dd940ad0169b5766ff848247aff13bb788b832fe3f4"
+checksum = "9bff6c3b54fad79a2e60b8102caf565819711497c1f5f092f49508e2f5c31b27"
 dependencies = [
  "cc",
  "cmake",
  "dunce",
  "fs_extra",
+ "pkg-config",
 ]
 
 [[package]]
@@ -5262,7 +5263,7 @@ checksum = "e0c5ccf5294c6ccd63a74f1565028353830a9c2f5eb0c682c355c471726a6e3f"
 
 [[package]]
 name = "qore-cli"
-version = "0.1.0"
+version = "0.1.39"
 dependencies = [
  "clap 4.6.1",
  "dirs 5.0.1",
@@ -5283,6 +5284,7 @@ dependencies = [
  "regex",
  "serde",
  "serde_json",
+ "sha2",
  "thiserror 2.0.18",
  "tokio",
  "uuid",
@@ -5301,6 +5303,7 @@ dependencies = [
  "compact_str",
  "duckdb",
  "futures",
+ "jsonwebtoken",
  "mongodb",
  "percent-encoding",
  "qore-core",
@@ -5308,23 +5311,29 @@ dependencies = [
  "redis",
  "regex",
  "reqwest 0.12.28",
+ "rsa",
  "rust_decimal",
+ "rustls-native-certs",
+ "rustls-pemfile",
  "serde",
  "serde_json",
+ "sha2",
  "sqlx",
  "tauri",
  "tempfile",
  "tiberius",
  "tokio",
+ "tokio-rustls",
  "tokio-socks",
  "tokio-util",
  "tracing",
  "uuid",
+ "wiremock",
 ]
 
 [[package]]
 name = "qore-mcp"
-version = "0.1.0"
+version = "0.1.39"
 dependencies = [
  "dirs 5.0.1",
  "qore-core",
@@ -5388,6 +5397,7 @@ dependencies = [
  "csv",
  "dirs 5.0.1",
  "dotenvy",
+ "duckdb",
  "ed25519-dalek",
  "keyring",
  "parking_lot 0.12.5",
@@ -5400,6 +5410,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2",
+ "sqlparser",
  "tempfile",
  "thiserror 2.0.18",
  "tokio",
@@ -5422,7 +5433,7 @@ dependencies = [
 
 [[package]]
 name = "qoredb"
-version = "0.1.38"
+version = "0.1.39"
 dependencies = [
  "argon2",
  "arrow",
@@ -6203,9 +6214,9 @@ dependencies = [
 
 [[package]]
 name = "rustls"
-version = "0.23.40"
+version = "0.23.45"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ef86cd5876211988985292b91c96a8f2d298df24e75989a43a3c73f2d4d8168b"
+checksum = "0d41d731c7d2f962d1ccc364cec258de3c0e93b38c2fb3ba97ac74513048d634"
 dependencies = [
  "aws-lc-rs",
  "log",
@@ -6277,9 +6288,9 @@ checksum = "f87165f0995f63a9fbeea62b64d10b4d9d8e78ec6d7d51fb2125fda7bb36788f"
 
 [[package]]
 name = "rustls-webpki"
-version = "0.103.13"
+version = "0.103.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "61c429a8649f110dddef65e2a5ad240f747e85f7758a6bccc7e5777bd33f756e"
+checksum = "f3c3cf1d8b1e7d4927e2d154c3fcb02979afb9939629c62cd9048d4f07b60ac2"
 dependencies = [
  "aws-lc-rs",
  "ring",

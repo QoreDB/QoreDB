@@ -43,6 +43,8 @@ pub enum SqlDialect {
     MySql,
     Sqlite,
     SqlServer,
+    Snowflake,
+    BigQuery,
 }
 
 impl SqlDialect {
@@ -51,10 +53,13 @@ impl SqlDialect {
             // The managed Postgres drivers speak the same DML as Postgres; they
             // differ in connection handling, not in generated SQL.
             "postgres" | "postgresql" | "cockroachdb" | "cockroach" | "neon" | "supabase"
-            | "timescaledb" => Some(SqlDialect::Postgres),
-            "mysql" | "mariadb" | "planetscale" => Some(SqlDialect::MySql),
+            | "timescaledb" | "yugabytedb" => Some(SqlDialect::Postgres),
+            "mysql" | "mariadb" | "planetscale" | "tidb" | "starrocks" | "doris"
+            | "singlestore" => Some(SqlDialect::MySql),
             "sqlite" => Some(SqlDialect::Sqlite),
-            "sqlserver" | "mssql" => Some(SqlDialect::SqlServer),
+            "sqlserver" | "mssql" | "azuresql" | "synapse" => Some(SqlDialect::SqlServer),
+            "snowflake" => Some(SqlDialect::Snowflake),
+            "bigquery" => Some(SqlDialect::BigQuery),
             _ => None,
         }
     }
@@ -62,11 +67,14 @@ impl SqlDialect {
     /// Quote an identifier per the dialect's escaping rules.
     pub fn quote_ident(&self, name: &str) -> String {
         match self {
-            SqlDialect::Postgres | SqlDialect::Sqlite => {
+            SqlDialect::Postgres | SqlDialect::Sqlite | SqlDialect::Snowflake => {
                 format!("\"{}\"", name.replace('"', "\"\""))
             }
             SqlDialect::MySql => {
                 format!("`{}`", name.replace('`', "``"))
+            }
+            SqlDialect::BigQuery => {
+                format!("`{}`", name.replace('`', "\\`"))
             }
             SqlDialect::SqlServer => {
                 format!("[{}]", name.replace(']', "]]"))
@@ -101,6 +109,20 @@ impl SqlDialect {
                     self.quote_ident(table_name)
                 )
             }
+            // The SQL API keeps no session, so a script may run against any
+            // database: the name is fully qualified.
+            SqlDialect::Snowflake | SqlDialect::BigQuery => {
+                let schema = namespace.schema.as_deref().unwrap_or("PUBLIC");
+                let mut out = String::new();
+                if !namespace.database.is_empty() {
+                    out.push_str(&self.quote_ident(&namespace.database));
+                    out.push('.');
+                }
+                out.push_str(&self.quote_ident(schema));
+                out.push('.');
+                out.push_str(&self.quote_ident(table_name));
+                out
+            }
         }
     }
 
@@ -113,6 +135,9 @@ impl SqlDialect {
                 SqlDialect::MySql => if *b { "1" } else { "0" }.to_string(),
                 SqlDialect::Sqlite => if *b { "1" } else { "0" }.to_string(),
                 SqlDialect::SqlServer => if *b { "1" } else { "0" }.to_string(),
+                SqlDialect::Snowflake | SqlDialect::BigQuery => {
+                    if *b { "TRUE" } else { "FALSE" }.to_string()
+                }
             },
             Value::Int(i) => i.to_string(),
             Value::Float(f) => {
@@ -147,6 +172,15 @@ impl SqlDialect {
                     SqlDialect::MySql | SqlDialect::Sqlite | SqlDialect::SqlServer => {
                         let json = serde_json::to_string(arr).unwrap_or_else(|_| "[]".to_string());
                         self.escape_string(&json)
+                    }
+                    SqlDialect::Snowflake => {
+                        let json = serde_json::to_string(arr).unwrap_or_else(|_| "[]".to_string());
+                        format!("PARSE_JSON({})", self.escape_string(&json))
+                    }
+                    SqlDialect::BigQuery => {
+                        let elements: Vec<String> =
+                            arr.iter().map(|v| self.format_value(v)).collect();
+                        format!("[{}]", elements.join(", "))
                     }
                 }
             }
@@ -203,6 +237,17 @@ impl SqlDialect {
                 // N-prefix marks the literal as nvarchar (Unicode-safe).
                 format!("N'{}'", s.replace('\'', "''"))
             }
+            // Snowflake and BigQuery honour backslash escapes in every string literal.
+            SqlDialect::Snowflake | SqlDialect::BigQuery => {
+                let escaped = s
+                    .replace('\\', "\\\\")
+                    .replace('\'', "''")
+                    .replace('\n', "\\n")
+                    .replace('\r', "\\r")
+                    .replace('\t', "\\t")
+                    .replace('\0', "\\0");
+                format!("'{}'", escaped)
+            }
         }
     }
 
@@ -221,6 +266,12 @@ impl SqlDialect {
             }
             SqlDialect::SqlServer => {
                 format!("0x{}", hex_string)
+            }
+            SqlDialect::Snowflake => {
+                format!("TO_BINARY('{}', 'HEX')", hex_string)
+            }
+            SqlDialect::BigQuery => {
+                format!("FROM_HEX('{}')", hex_string)
             }
         }
     }
@@ -469,6 +520,10 @@ pub fn generate_migration_script(driver_id: &str, changes: &[SandboxChangeDto]) 
         SqlDialect::SqlServer => {
             "-- SQL Server Migration Script\n-- Generated by QoreDB Sandbox\n\n"
         }
+        SqlDialect::Snowflake => {
+            "-- Snowflake Migration Script\n-- Generated by QoreDB Sandbox\n\n"
+        }
+        SqlDialect::BigQuery => "-- BigQuery Migration Script\n-- Generated by QoreDB Sandbox\n\n",
     };
 
     let sql = if statements.is_empty() {
@@ -490,11 +545,30 @@ mod tests {
 
     #[test]
     fn managed_postgres_drivers_resolve_to_postgres() {
-        for driver in ["cockroachdb", "neon", "supabase", "timescaledb"] {
+        for driver in [
+            "cockroachdb",
+            "neon",
+            "supabase",
+            "timescaledb",
+            "yugabytedb",
+        ] {
             assert_eq!(
                 SqlDialect::from_driver_id(driver),
                 Some(SqlDialect::Postgres),
                 "{driver} must not fall through to the unknown-driver branch"
+            );
+        }
+    }
+
+    #[test]
+    fn wire_compatible_drivers_resolve_to_their_sql_dialect() {
+        for driver in ["tidb", "starrocks", "doris", "singlestore"] {
+            assert_eq!(SqlDialect::from_driver_id(driver), Some(SqlDialect::MySql));
+        }
+        for driver in ["azuresql", "synapse"] {
+            assert_eq!(
+                SqlDialect::from_driver_id(driver),
+                Some(SqlDialect::SqlServer)
             );
         }
     }

@@ -263,6 +263,7 @@
     "showPassword": "Afficher le mot de passe",
     "hidePassword": "Masquer le mot de passe",
     "database": "Base de données",
+    "project": "Projet",
     "databaseInitial": "Base de données initiale",
     "databaseIndex": "Index de base (0-15)",
     "filePath": "Fichier de base de données",
@@ -392,7 +393,8 @@
       "keyValue": "Clé-valeur",
       "timeSeries": "Séries temporelles",
       "search": "Recherche",
-      "graph": "Graphe"
+      "graph": "Graphe",
+      "wideColumn": "Colonnes larges"
     },
     "driverSearch": "Rechercher un moteur…",
     "driverSearchEmpty": "Aucun moteur ne correspond à « {{query}} »",
@@ -400,6 +402,28 @@
       "cluster": "Nom du cluster (optionnel)",
       "clusterPlaceholder": "ex. shard_cluster",
       "clusterHint": "Quand renseigné, les DDL (CREATE/DROP DATABASE/TABLE) utilisent ON CLUSTER pour se propager à toutes les répliques. Laisser vide pour une installation mono-nœud."
+    },
+    "snowflake": {
+      "account": "Identifiant de compte",
+      "accountHint": "Votre identifiant de compte (myorg-myaccount, ou xy12345.eu-central-1) ou le nom d'hôte complet.",
+      "authMode": "Authentification",
+      "authKeyPair": "Paire de clés",
+      "authToken": "Jeton d'accès",
+      "privateKey": "Clé privée (PEM)",
+      "privateKeyHint": "Clé privée RSA non chiffrée dont la clé publique est enregistrée sur l'utilisateur (ALTER USER … SET RSA_PUBLIC_KEY).",
+      "token": "Jeton d'accès programmatique",
+      "warehouse": "Warehouse",
+      "warehouseHint": "Calcul utilisé par chaque requête. SHOW et DESCRIBE fonctionnent sans.",
+      "role": "Rôle (optionnel)"
+    },
+    "bigquery": {
+      "projectHint": "Projet contenant les datasets. Laissez vide pour utiliser celui du compte de service.",
+      "serviceAccount": "Clé de compte de service (JSON)",
+      "serviceAccountHint": "Le fichier de clé JSON d'un compte de service avec les rôles BigQuery Job User et Data Viewer.",
+      "location": "Emplacement (optionnel)",
+      "locationHint": "Emplacement des datasets, par exemple EU ou us-central1, pour les nouveaux datasets et les requêtes multirégionales.",
+      "billingProject": "Projet facturé (optionnel)",
+      "billingProjectHint": "Projet débité pour les requêtes s'il diffère de celui qui contient les données."
     },
     "search": {
       "authMode": "Authentification",
@@ -415,6 +439,29 @@
     },
     "documentdb": {
       "caCertHint": "Les clusters DocumentDB sont signés par une CA Amazon. Indiquez ici le fichier global-bundle.pem publié par Amazon ; laissez vide pour utiliser le magasin de certificats du système."
+    },
+    "keyspace": "Keyspace",
+    "masking": {
+      "title": "Masquage des colonnes",
+      "description": "Remplace les valeurs dans les résultats, les exports et les réponses des agents, pour toutes les requêtes de cette connexion.",
+      "detected": "Masquer les colonnes sensibles détectées",
+      "detectedHint": "Masquage partiel des colonnes dont le nom semble sensible (email, téléphone, mot de passe…).",
+      "table": "Table",
+      "anyTable": "Toutes les tables",
+      "column": "Colonne",
+      "mode": "Mode",
+      "modes": {
+        "hidden": "Masqué",
+        "partial": "Partiel",
+        "hash": "Empreinte"
+      },
+      "addRule": "Ajouter une règle",
+      "removeRule": "Supprimer la règle",
+      "empty": "Aucune règle : les valeurs s’affichent telles qu’enregistrées.",
+      "proHint": "Ajouter des règles nécessite QoreDB Pro. Les règles existantes restent appliquées et peuvent être retirées.",
+      "removeConfirmTitle": "Retirer un masque sur une connexion de production",
+      "removeConfirmDescription": "Les valeurs masquées redeviendront visibles dans les résultats, les exports et les réponses des agents.",
+      "removeConfirmLabel": "Retirer le masque"
     }
   },
   "sidebar": {
@@ -701,14 +748,14 @@
     "setName": "Nom du jeu",
     "setNamePlaceholder": "parcours-commande",
     "ignoredColumns": "Colonnes ignorées",
-    "ignoredColumnsHint": "Séparées par des virgules. Exclues de la comparaison pour qu'un horodatage ne signale pas un écart à chaque rejeu.",
-    "queryTextWarning": "Le jeu est versionné dans votre dépôt avec le texte des requêtes tel quel. Un littéral présent dans une requête — clé, mot de passe, contenu — est versionné avec elle. Les lignes de résultat ne le sont jamais.",
+    "ignoredColumnsHint": "Exclues de la comparaison, par ex. updated_at.",
+    "queryTextWarning": "Requêtes versionnées telles quelles — vérifiez qu'elles ne contiennent aucun secret.",
     "secretsDetected": "{{count}} requêtes contiennent ce qui ressemble à un identifiant. Retirez-les avant de partager le jeu, ou passez en expurgation dans les réglages.",
     "secretsRedacted": "{{count}} requêtes contenaient ce qui ressemble à un identifiant et ont été expurgées.",
     "looksLikeSecret": "Ressemble à un identifiant",
     "redactedCannotReplay": "Ce jeu a été enregistré avec expurgation : ses requêtes ne correspondent plus à rien, il ne peut donc pas être rejoué. Il reste lisible comme inventaire.",
-    "captureValues": "Capturer les valeurs",
-    "captureValuesOn": "Les lignes sont stockées localement, les écarts peuvent être montrés.",
+    "captureValues": "Conserver les résultats localement",
+    "captureValuesOn": "Permet d'ouvrir les écarts ligne par ligne.",
     "captureValuesOff": "Métadonnées et empreintes seulement : les écarts sont signalés, pas montrés.",
     "productionCapture": "Capturer les valeurs en production",
     "productionCaptureHint": "Désactivé par défaut. Les lignes de production ne quittent pas cette machine.",
@@ -734,12 +781,11 @@
     "ignoring": "ignore {{columns}}",
     "ignoringNone": "aucune colonne ignorée",
     "editIgnoredColumns": "Modifier les colonnes ignorées",
-    "compareToBaseline": "vs. l'enregistrement",
+    "compareToBaseline": "Enregistrement initial",
     "compareToRun": "vs. {{date}}",
     "compareToConnection": "vs. {{name}}",
     "sideA": "cette connexion",
     "sideB": "l'autre connexion",
-    "allowMutations": "Rejouer les mutations",
     "run": "Rejouer",
     "progress": "{{completed}} / {{total}}",
     "partialComparison": "Comparaison limitée aux lignes capturées.",
@@ -748,18 +794,19 @@
     "currentRun": "Ce rejeu",
     "verdict": {
       "match": "identique",
-      "broken": "cassée",
+      "broken": "en erreur",
       "row_count_diff": "nombre de lignes",
-      "digest_diff": "contenu",
+      "digest_diff": "résultat modifié",
       "slower": "plus lente",
-      "skipped": "ignorée"
+      "skipped": "non exécutée",
+      "not_compared": "résultat non comparé"
     },
     "column": {
       "query": "Requête",
       "verdict": "Verdict",
       "rows": "Lignes",
       "duration": "Durée",
-      "runVsExpected": "rejeu / enregistré"
+      "referenceToRun": "enregistrement → rejeu"
     },
     "errors": {
       "listSets": "Impossible de lister les jeux de rejeu",
@@ -772,7 +819,8 @@
       "deleteSet": "Impossible de supprimer le jeu de rejeu",
       "ignoredColumns": "Impossible de mettre à jour les colonnes ignorées",
       "noBaseline": "Ce jeu n'a pas de capture de référence à comparer",
-      "loadCapture": "Impossible de charger les lignes capturées"
+      "loadCapture": "Impossible de charger les lignes capturées",
+      "acceptRun": "Impossible d'accepter ce rejeu comme référence"
     },
     "settings": {
       "title": "Jeux de rejeu et identifiants",
@@ -784,6 +832,59 @@
       "offHint": "Aucune vérification. Pour les jeux qui ne quittent pas votre machine.",
       "warnHint": "L'entrée est signalée pendant l'enregistrement pour que vous puissiez la retirer. Le jeu reste rejouable.",
       "redactHint": "Les littéraux sont retirés à la sortie. Le jeu devient partageable sans réserve et ne peut plus être rejoué."
+    },
+    "newRecording": "Nouvel enregistrement",
+    "selectSet": "Choisir un jeu",
+    "selectSetHint": "Choisissez un jeu à rejouer.",
+    "searchSets": "Rechercher un jeu",
+    "noMatchingSet": "Aucun jeu ne correspond",
+    "replayTarget": "Cible : {{target}}",
+    "options": "Options",
+    "includeMutations_one": "Inclure {{count}} mutation",
+    "includeMutations_other": "Inclure {{count}} mutations",
+    "recordMutations": "Enregistrer les mutations",
+    "recordMutationsHint": "Désactivé : une migration lancée pendant l'enregistrement reste hors du jeu.",
+    "removeMutations": "Retirer les mutations",
+    "cancelRecording": "Abandonner l'enregistrement",
+    "clearFilter": "Tout afficher",
+    "expandQuery": "Afficher la requête entière",
+    "collapseQuery": "Replier la requête",
+    "acceptEntry": "Accepter ce résultat comme référence",
+    "acceptAll": "Accepter ce rejeu comme référence",
+    "acceptAllHint": "Après une migration volontaire : les résultats de ce rejeu deviennent la référence du jeu.",
+    "referenceAcceptedAll": "Le rejeu devient la référence",
+    "referenceAcceptedEntries_one": "{{count}} requête mise à jour",
+    "referenceAcceptedEntries_other": "{{count}} requêtes mises à jour",
+    "queryTextWarningDetail": "Les littéraux font partie du SQL versionné. Les lignes de résultat restent locales et ne sont jamais ajoutées au dépôt.",
+    "composition": {
+      "total_one": "{{count}} requête",
+      "total_other": "{{count}} requêtes",
+      "reads_one": "{{count}} lecture",
+      "reads_other": "{{count}} lectures",
+      "mutations_one": "{{count}} mutation",
+      "mutations_other": "{{count}} mutations",
+      "excludedMutations_one": "{{count}} mutation écartée",
+      "excludedMutations_other": "{{count}} mutations écartées"
+    },
+    "coverage": {
+      "compared": "{{compared}}/{{total}} résultats comparés",
+      "notCompared_one": "{{count}} non comparé",
+      "notCompared_other": "{{count}} non comparés",
+      "skipped_one": "{{count}} non exécutée",
+      "skipped_other": "{{count}} non exécutées",
+      "broken_one": "{{count}} en erreur",
+      "broken_other": "{{count}} en erreur"
+    },
+    "confirm": {
+      "deleteTitle": "Supprimer « {{name}} » ?",
+      "deleteBody": "Le jeu et toutes les captures locales de ses rejeux sont supprimés. L'action est irréversible.",
+      "acceptEntryTitle": "Accepter ce résultat comme référence ?",
+      "acceptAllTitle": "Accepter ce rejeu comme référence pour {{count}} requêtes ?",
+      "acceptBody": "Les attentes du jeu sont remplacées par ce que ce rejeu a observé. Les rejeux suivants s'y compareront."
+    },
+    "skipReason": {
+      "mutation_excluded": "Mutation exclue du rejeu",
+      "mutation_production_blocked": "Les mutations ne sont jamais rejouées en production"
     }
   },
   "settings": {
@@ -838,7 +939,8 @@
         "data_generator": "Générateur de données",
         "index_suggestions": "Suggestions d'index",
         "schema_diff": "Diff de schéma",
-        "query_replay": "Rejeu de requêtes"
+        "query_replay": "Rejeu de requêtes",
+        "column_masking": "Masquage des colonnes"
       },
       "devOverrideTitle": "Override licence (dev)",
       "devOverrideDescription": "Changer le tier de licence pour le développement. Réinitialisé au redémarrage.",
@@ -890,7 +992,8 @@
       "plugins": "Extensions",
       "license": "Licence",
       "ai": "Assistant IA",
-      "admin": "Administration"
+      "admin": "Administration",
+      "agents": "Agents IA"
     },
     "search": {
       "placeholder": "Rechercher dans les paramètres...",
@@ -982,6 +1085,47 @@
       "passwordReset": "Mot de passe réinitialisé pour {{email}}.",
       "resetFailed": "Échec de la réinitialisation du mot de passe",
       "loadFailed": "Échec du chargement des utilisateurs"
+    },
+    "agents": {
+      "status": {
+        "title": "Serveur MCP",
+        "description": "Le binaire qore-mcp livré avec QoreDB, utilisé par Claude, Cursor et les autres clients MCP.",
+        "loading": "Détection…",
+        "found": "Détecté",
+        "notFound": "Introuvable",
+        "path": "Chemin",
+        "version": "Version",
+        "hint": "Installez qore-mcp depuis les assets de release ou compilez-le avec cargo build -p qore-mcp, puis placez-le dans votre PATH."
+      },
+      "config": {
+        "title": "Configuration des clients",
+        "description": "Copiez l’extrait pour votre client. Le chemin pointe vers le binaire détecté.",
+        "claudeDesktop": "Claude Desktop (claude_desktop_config.json)",
+        "claudeCode": "Claude Code",
+        "cursor": "Cursor (.cursor/mcp.json)",
+        "copy": "Copier",
+        "copied": "Copié",
+        "copyFailed": "Impossible de copier dans le presse-papiers"
+      },
+      "connections": {
+        "title": "Connexions exposées",
+        "description": "Activez les connexions que les agents IA peuvent lire. Désactivé par défaut, y compris pour les connexions enregistrées avant cette version.",
+        "empty": "Aucune connexion enregistrée. Créez-en une depuis la barre latérale, puis exposez-la ici.",
+        "toggle": "Autoriser l’accès à cette connexion",
+        "storeDefault": "Magasin utilisé : vault par défaut. Un agent lancé depuis un dossier de projet contenant un workspace .qoredb lit ce workspace à la place.",
+        "storeWorkspace": "Magasin utilisé : workspace {{path}}. Les extraits le transmettent au serveur ; Claude Code lancé depuis ce dossier le détecte seul."
+      },
+      "limits": {
+        "title": "Limites appliquées",
+        "description": "Ces garde-fous s’appliquent à chaque appel d’agent, quels que soient les réglages de la connexion.",
+        "readOnly": "Lecture seule : les écritures sont refusées même sur les connexions enregistrées sans mode lecture seule.",
+        "timeout": "Délai maximal par requête : {{seconds}} s",
+        "rows": "Lignes maximales par requête : {{count}}",
+        "rowsUnlimited": "Lignes maximales par requête : aucune limite (définissez-en une dans Sécurité).",
+        "rateLimit": "Limite de débit par session : {{state}}",
+        "idle": "Les sessions inactives depuis 10 minutes sont fermées.",
+        "audit": "Chaque appel est inscrit dans le journal d’audit avec la source « mcp »."
+      }
     }
   },
   "table": {
@@ -1077,6 +1221,12 @@
     "unknownConnection": "Connexion inconnue"
   },
   "query": {
+    "bigqueryScan": {
+      "title": "Estimation BigQuery",
+      "bytes": "Volume estimé à analyser : {{bytes}} octets.",
+      "unknown": "Le volume à analyser est indisponible pour cette requête.",
+      "hint": "Cette estimation ne plafonne pas la facturation. Les scripts et les tables externes peuvent analyser davantage de données."
+    },
     "run": "Exécuter",
     "running": "En cours...",
     "stop": "Arrêter",
@@ -1164,7 +1314,8 @@
       "indexComposite": "Indexé (composite: {{name}})",
       "unique": "Contrainte unique",
       "copySuccess": "Ligne copiée dans le presse-papiers",
-      "sortScansTable": "Trier sur cette colonne ne suit aucun index : le moteur trie toute la table."
+      "sortScansTable": "Trier sur cette colonne ne suit aucun index : le moteur trie toute la table.",
+      "masked": "Valeurs masquées par les règles de la connexion"
     },
     "rowsSelected": "{{count}} ligne(s) sélectionnée(s)",
     "rowsTotal": "{{count}} ligne(s)",
@@ -1287,6 +1438,15 @@
     "pagination": {
       "unstableOrder": "ordre instable",
       "unstableOrderHint": "Cette table n'a pas de clé unique sur laquelle paginer : une ligne peut apparaître deux fois ou être sautée si les données changent pendant le défilement."
+    },
+    "masking": {
+      "mask": "Masquer cette colonne",
+      "unmask": "Retirer le masque",
+      "byDetection": "Masquée par la détection des colonnes sensibles",
+      "readOnly": "Cette colonne est masquée : ses valeurs ne peuvent pas être modifiées.",
+      "applied": "Masque appliqué",
+      "appliedNextRun": "Masque enregistré : il s’applique dès la prochaine exécution.",
+      "removed": "Masque retiré"
     }
   },
   "export": {
@@ -1623,7 +1783,7 @@
   },
   "paginationDiagnostics": {
     "title": "Diagnostic de pagination",
-    "description": "Mesures par onglet pour la session en cours. Aucun nom de table, aucune valeur de cellule et aucun curseur n'est enregistré.",
+    "description": "Temps de pagination par onglet pour cette session. Ni nom de table, ni valeur, ni curseur n'est enregistré.",
     "empty": "Aucune table parcourue dans cette session.",
     "scope": "Onglet",
     "pages": "Pages",
@@ -1670,7 +1830,13 @@
     "clusters": "Clusters",
     "index": "Index",
     "indexes": "Index",
-    "indexesHeader": "Index"
+    "indexesHeader": "Index",
+    "keyspace": "Keyspace",
+    "keyspaces": "Keyspaces",
+    "keyspacesHeader": "KEYSPACES",
+    "dataset": "Dataset",
+    "datasets": "Datasets",
+    "datasetsHeader": "DATASETS"
   },
   "createTable": {
     "title": "Créer une table",
@@ -2030,7 +2196,8 @@
         "fingerprint": "Empreinte",
         "filterByFingerprint": "Filtrer par cette empreinte",
         "blockedBy": "Bloquée par une règle de sécurité",
-        "error": "Erreur"
+        "error": "Erreur",
+        "flaggedBy": "Signalé par la règle"
       },
       "stats": {
         "total": "Total des requêtes",
@@ -2039,6 +2206,22 @@
         "success": "Réussies",
         "failed": "Échouées",
         "lastHour": "Dernière heure"
+      },
+      "tabs": {
+        "audit": "Journal d'audit",
+        "profiling": "Profilage",
+        "trends": "Tendances",
+        "slow": "Requêtes lentes"
+      },
+      "flaggedBy": "Signalé par : {{rule}}",
+      "columns": {
+        "time": "Heure",
+        "environment": "Env",
+        "query": "Requête",
+        "database": "Base",
+        "duration": "Durée",
+        "rows": "Lignes",
+        "operation": "Opération"
       }
     },
     "profiling": {
@@ -2090,7 +2273,11 @@
       "environments": {
         "title": "Par environnement"
       },
-      "period": "Données collectées depuis {{date}}"
+      "period": "Données collectées depuis {{date}}",
+      "alertErrorRate": "Alerte de taux d'erreur",
+      "alertErrorRateDescription": "Notifier quand le taux d'erreur sur 15 minutes atteint ce pourcentage. 0 désactive l'alerte.",
+      "alertSlowQueries": "Alerte de requêtes lentes",
+      "alertSlowQueriesDescription": "Notifier quand autant de requêtes lentes ont été exécutées en 15 minutes. 0 désactive l'alerte."
     },
     "safety": {
       "title": "Filet de sécurité",
@@ -2118,7 +2305,10 @@
         "builtin-confirm-delete-production": "Confirmer DELETE en production",
         "builtin-confirm-update-no-where": "Confirmer UPDATE sans WHERE",
         "builtin-confirm-delete-no-where": "Confirmer DELETE sans WHERE",
-        "builtin-warn-alter-production": "Avertir ALTER en production"
+        "builtin-warn-alter-production": "Avertir ALTER en production",
+        "n_plus_one": "Motif N+1",
+        "alert_error_rate": "Alerte de taux d'erreur",
+        "alert_slow_queries": "Alerte de requêtes lentes"
       },
       "builtinRuleDescriptions": {
         "builtin-no-drop-production": "Empêche les instructions DROP en environnement de production",
@@ -2126,7 +2316,10 @@
         "builtin-confirm-delete-production": "Exige une confirmation pour les DELETE en production",
         "builtin-confirm-update-no-where": "Exige une confirmation pour les UPDATE sans clause WHERE",
         "builtin-confirm-delete-no-where": "Exige une confirmation pour les DELETE sans clause WHERE",
-        "builtin-warn-alter-production": "Avertit avant les instructions ALTER en production"
+        "builtin-warn-alter-production": "Avertit avant les instructions ALTER en production",
+        "n_plus_one": "La même requête a été exécutée 20 fois ou plus en deux secondes sur une session.",
+        "alert_error_rate": "Le taux d'erreur des 15 dernières minutes a atteint le seuil configuré.",
+        "alert_slow_queries": "Le nombre de requêtes lentes des 15 dernières minutes a atteint le seuil configuré."
       },
       "action": {
         "block": "Bloquer",
@@ -2213,6 +2406,27 @@
       "maxConcurrentDescription": "Nombre maximum de requêtes en cours d'exécution simultanément",
       "maxConcurrentPlaceholder": "Pas de limite",
       "resultsTruncated": "Résultats tronqués : {{max}} sur {{total}} lignes affichées"
+    },
+    "trends": {
+      "description": "Les requêtes les plus fréquentes du journal d'audit, regroupées par empreinte, avec leur P95 quotidien.",
+      "days": "{{count}} derniers jours",
+      "empty": "Aucune requête exécutée sur cette période.",
+      "loadError": "Impossible de charger les tendances",
+      "columns": {
+        "query": "Requête",
+        "count": "Exécutions",
+        "errorRate": "Erreurs",
+        "sparkline": "P95 par jour"
+      },
+      "regression": "Régression",
+      "regressionDetail": "P95 de {{recent}} sur les dernières 24 h contre {{baseline}} les sept jours précédents ({{count}} exécutions)"
+    },
+    "alerts": {
+      "nPlusOne": "N+1 probable : la même requête exécutée {{count}} fois en deux secondes",
+      "errorRate": "Taux d'erreur à {{percent}} % sur les 15 dernières minutes ({{total}} requêtes)",
+      "slowQueries": "{{count}} requêtes lentes dans les 15 dernières minutes",
+      "open": "Voir les tendances",
+      "badge": "{{count}} alerte(s) de performance"
     }
   },
   "titlebar": {
@@ -2532,6 +2746,13 @@
           "bullet1": "Requêtes cassées, écarts de lignes et de contenu, ralentissements : un seul rapport",
           "bullet2": "Les jeux vivent dans .qoredb/ et se partagent par Git — des attentes, jamais de lignes de résultat",
           "bullet3": "Ouvrez le diff référence ↔ rejeu sur n'importe quelle ligne, depuis le rapport"
+        },
+        "column_masking": {
+          "title": "Gardez les valeurs sensibles hors de vue",
+          "description": "Masquez des colonnes par connexion : résultats, exports, requêtes fédérées et agents IA ne voient que la valeur masquée.",
+          "bullet1": "Valeurs masquées, partielles ou en empreinte, avec détection automatique des colonnes sensibles",
+          "bullet2": "Appliqué sur tous les chemins qui renvoient des lignes, MCP et CLI compris",
+          "bullet3": "Un agent ne peut ni filtrer, ni trier, ni renommer une colonne masquée pour la relire"
         }
       }
     },
@@ -2548,7 +2769,8 @@
       "query_library_advanced": "La bibliothèque de requêtes avancée nécessite une licence Pro.",
       "virtual_relations_auto_suggest": "La suggestion automatique de relations virtuelles nécessite une licence Pro.",
       "federation": "La fédération inter-bases nécessite une licence Pro.",
-      "query_replay": "Le rejeu de requêtes nécessite une licence Pro."
+      "query_replay": "Le rejeu de requêtes nécessite une licence Pro.",
+      "column_masking": "Le masquage des colonnes nécessite une licence Pro."
     }
   },
   "proDiscovery": {

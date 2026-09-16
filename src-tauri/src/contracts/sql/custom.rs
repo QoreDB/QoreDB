@@ -13,8 +13,8 @@
 
 use sqlparser::ast::Statement;
 use sqlparser::dialect::{
-    ClickHouseDialect, Dialect as SqlparserDialect, DuckDbDialect, GenericDialect, MsSqlDialect,
-    MySqlDialect, PostgreSqlDialect, SQLiteDialect,
+    BigQueryDialect, ClickHouseDialect, Dialect as SqlparserDialect, DuckDbDialect, GenericDialect,
+    MsSqlDialect, MySqlDialect, PostgreSqlDialect, SQLiteDialect, SnowflakeDialect,
 };
 use sqlparser::parser::Parser;
 
@@ -74,6 +74,8 @@ fn parser_dialect_for(dialect: Dialect) -> Box<dyn SqlparserDialect> {
         Dialect::DuckDb => Box::new(DuckDbDialect {}),
         Dialect::SqlServer => Box::new(MsSqlDialect {}),
         Dialect::ClickHouse => Box::new(ClickHouseDialect {}),
+        Dialect::Snowflake => Box::new(SnowflakeDialect {}),
+        Dialect::BigQuery => Box::new(BigQueryDialect {}),
     }
 }
 

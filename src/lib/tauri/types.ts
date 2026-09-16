@@ -33,6 +33,8 @@ export interface ConnectionConfig {
 
 export type SearchAuthMode = 'none' | 'basic' | 'api_key' | 'bearer';
 
+export type SnowflakeAuthMode = 'key_pair' | 'token';
+
 export type ProxyType = 'http_connect' | 'socks5';
 
 export interface ProxyConfig {
@@ -81,6 +83,8 @@ export interface SavedConnection {
   driver: string;
   environment: Environment;
   read_only: boolean;
+  /** Opt-in: visible to AI agents through the MCP server and the CLI. */
+  expose_to_agents?: boolean;
   host: string;
   port: number;
   username: string;
@@ -100,6 +104,8 @@ export interface SavedConnection {
   ssl_ca_cert?: string;
   /** Driver options preserved from a parsed URL. */
   options?: Record<string, string>;
+  /** Omitted when the connection has no masking. */
+  masking?: ConnectionMasking;
   ssh_tunnel?: {
     host: string;
     port: number;
@@ -122,6 +128,20 @@ export interface SavedConnection {
   };
 }
 
+export type MaskMode = 'hidden' | 'partial' | 'hash';
+
+export interface MaskingRule {
+  /** Empty for any table. */
+  table: string;
+  column: string;
+  mode: MaskMode;
+}
+
+export interface ConnectionMasking {
+  rules: MaskingRule[];
+  mask_detected_columns: boolean;
+}
+
 export interface VaultStatus {
   is_locked: boolean;
   has_master_password: boolean;
@@ -136,6 +156,8 @@ export interface SafetyPolicy {
   prod_require_confirmation: boolean;
   prod_block_dangerous_sql: boolean;
   query_rate_limit_enabled?: boolean;
+  max_query_duration_ms?: number | null;
+  max_result_rows?: number | null;
 }
 
 export interface SafetyPolicyResponse {
@@ -178,6 +200,8 @@ export interface ColumnInfo {
   name: string;
   data_type: string;
   nullable: boolean;
+  /** Values were replaced by the connection's masking rules. */
+  masked?: boolean;
 }
 
 export type Row = { values: Value[] };

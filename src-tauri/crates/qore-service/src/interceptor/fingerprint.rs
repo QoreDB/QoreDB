@@ -35,7 +35,7 @@ fn normalize(query: &str, driver_id: &str) -> String {
     let driver = driver_id.to_ascii_lowercase();
     match driver.as_str() {
         "mongodb" | "documentdb" => normalize_mongo(query),
-        "redis" | "valkey" | "dragonfly" => normalize_redis(query),
+        "redis" | "valkey" | "dragonfly" | "keydb" | "garnet" => normalize_redis(query),
         _ => normalize_sql(query),
     }
 }

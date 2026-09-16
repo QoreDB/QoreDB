@@ -57,16 +57,26 @@ pub fn normalize_config(mut config: ConnectionConfig) -> Result<ConnectionConfig
     let is_mongodb = matches!(config.driver.as_str(), "mongodb" | "documentdb");
     let is_sqlite = config.driver == "sqlite";
     let is_duckdb = config.driver == "duckdb";
-    let is_redis = matches!(config.driver.as_str(), "redis" | "valkey" | "dragonfly");
+    let is_redis = matches!(
+        config.driver.as_str(),
+        "redis" | "valkey" | "dragonfly" | "keydb" | "garnet"
+    );
     let is_file_based = is_sqlite || is_duckdb;
     // SQL Server "Windows (Integrated)" uses the current OS/AD session — no username.
     let is_mssql_integrated =
-        config.driver == "sqlserver" && config.mssql_auth == Some(MssqlAuthMode::WindowsIntegrated);
+        matches!(config.driver.as_str(), "sqlserver" | "azuresql" | "synapse")
+            && config.mssql_auth == Some(MssqlAuthMode::WindowsIntegrated);
 
     // Search engines (Elasticsearch / OpenSearch) only need a username in
     // basic-auth mode. None / api_key / bearer carry no username.
     let is_search = config.driver == "elasticsearch" || config.driver == "opensearch";
     let search_without_username = is_search && config.search_auth_mode.as_deref() != Some("basic");
+    // A Snowflake programmatic access token identifies the user by itself,
+    // and a BigQuery service account carries its own email.
+    let snowflake_token = config.driver == "snowflake"
+        && config.options.get("auth").map(String::as_str) == Some("token");
+    let is_bigquery = config.driver == "bigquery";
+    let optional_cql_auth = matches!(config.driver.as_str(), "cassandra" | "scylladb");
 
     // Username is required for SQL databases but optional for MongoDB, file-based DBs, Redis,
     // SQL Server integrated authentication, and non-basic search auth.
@@ -77,6 +87,9 @@ pub fn normalize_config(mut config: ConnectionConfig) -> Result<ConnectionConfig
         && !is_redis
         && !is_mssql_integrated
         && !search_without_username
+        && !snowflake_token
+        && !is_bigquery
+        && !optional_cql_auth
     {
         return Err("Username is required".to_string());
     }
@@ -188,5 +201,28 @@ fn normalize_environment(env: &str) -> Result<String, String> {
     match normalized.as_str() {
         "development" | "staging" | "production" => Ok(normalized),
         _ => Err(format!("Invalid environment: {}", env)),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn cql_authentication_is_optional_except_for_keyspaces() {
+        for driver in ["cassandra", "scylladb", "keyspaces", "postgres"] {
+            let config: ConnectionConfig = serde_json::from_value(serde_json::json!({
+                "driver": driver, "host": "localhost", "port": 9042,
+                "username": "", "password": "", "ssl": false,
+                "environment": "development", "read_only": false
+            }))
+            .unwrap();
+            let result = normalize_config(config);
+            if matches!(driver, "cassandra" | "scylladb") {
+                assert!(result.is_ok(), "{driver}: {result:?}");
+            } else {
+                assert_eq!(result.unwrap_err(), "Username is required");
+            }
+        }
     }
 }

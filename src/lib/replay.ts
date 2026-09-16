@@ -14,6 +14,7 @@ export type ReplayVerdict =
   | 'row_count_diff'
   | 'digest_diff'
   | 'slower'
+  | 'not_compared'
   | 'skipped';
 
 export interface ExpectedOutcome {
@@ -80,6 +81,8 @@ export interface ReplayEntryResult {
   success: boolean;
   error?: string | null;
   skip_reason?: string | null;
+  /** Stable key for `skip_reason`, translated by the UI when present. */
+  skip_code?: string | null;
   execution_time_ms: number;
   expected_execution_time_ms: number;
   row_count?: number | null;
@@ -97,6 +100,7 @@ export interface ReplaySummary {
   row_count_diff: number;
   digest_diff: number;
   slower: number;
+  not_compared: number;
   skipped: number;
 }
 
@@ -135,6 +139,11 @@ export interface RecordingStatus {
   capture_stopped_reason?: CaptureStopReason | null;
   /** Executions seen from another connection and left out. */
   ignored_other_session: number;
+  record_mutations: boolean;
+  /** Mutations left out because `record_mutations` is off. */
+  excluded_mutations: number;
+  /** Recorded entries that write. Zero unless `record_mutations` is on. */
+  mutation_count: number;
   /** Recorded queries that look like they carry a credential. */
   secrets_detected: number;
   secret_policy: SecretPolicy;
@@ -156,6 +165,9 @@ export interface ReplayProgress {
 
 export const REPLAY_PROGRESS_EVENT = 'replay-progress';
 
+/** A recording can be stopped from the status bar, outside the Replay tab. */
+export const RECORDING_CHANGED_EVENT = 'qore:replay-recording-changed';
+
 export const DEFAULT_RUN_OPTIONS: ReplayRunOptions = {
   capture_mode: 'full',
   allow_mutations: false,
@@ -170,6 +182,7 @@ export interface StartRecordingRequest {
   session_id: string;
   name: string;
   ignored_columns: string[];
+  record_mutations: boolean;
   capture_mode: CaptureMode;
   allow_production_capture: boolean;
   secret_policy: SecretPolicy;
@@ -197,6 +210,10 @@ export async function getRecordedPreviews(): Promise<RecordedPreview[]> {
 
 export async function discardRecorded(index: number): Promise<void> {
   return invoke('replay_discard_recorded', { index });
+}
+
+export async function discardRecordedMutations(): Promise<number> {
+  return invoke('replay_discard_mutations');
 }
 
 export async function listReplaySets(): Promise<ReplaySetSummary[]> {
@@ -251,6 +268,15 @@ export async function listReplayRuns(slug: string): Promise<RunMeta[]> {
   return invoke('replay_list_runs', { slug });
 }
 
+/** Promotes what a run observed to the set's expectation. */
+export async function acceptReplayRun(request: {
+  slug: string;
+  run_id: string;
+  entry_ids?: string[] | null;
+}): Promise<ReplaySet> {
+  return invoke('replay_accept_run', { request });
+}
+
 export async function loadReplayCapture(runId: string, entryId: string): Promise<QueryResult> {
   return invoke('replay_load_capture', { runId, entryId });
 }
@@ -265,6 +291,39 @@ export const FAILING_VERDICTS: ReplayVerdict[] = [
 
 export function hasRegressions(summary: ReplaySummary): boolean {
   return summary.broken + summary.row_count_diff + summary.digest_diff + summary.slower > 0;
+}
+
+/** Entries whose result was actually held against a reference. */
+export function comparedCount(summary: ReplaySummary): number {
+  return summary.matched + summary.row_count_diff + summary.digest_diff + summary.slower;
+}
+
+export function summarizeVerdicts(results: ReplayEntryResult[]): ReplaySummary {
+  const summary: ReplaySummary = {
+    total: results.length,
+    matched: 0,
+    broken: 0,
+    row_count_diff: 0,
+    digest_diff: 0,
+    slower: 0,
+    not_compared: 0,
+    skipped: 0,
+  };
+  for (const result of results) {
+    if (result.verdict === 'match') summary.matched += 1;
+    else if (result.verdict === 'broken') summary.broken += 1;
+    else if (result.verdict === 'row_count_diff') summary.row_count_diff += 1;
+    else if (result.verdict === 'digest_diff') summary.digest_diff += 1;
+    else if (result.verdict === 'slower') summary.slower += 1;
+    else if (result.verdict === 'not_compared') summary.not_compared += 1;
+    else summary.skipped += 1;
+  }
+  return summary;
+}
+
+/** Only a verdict that names a result difference has a diff worth opening. */
+export function hasResultDiff(verdict: ReplayVerdict): boolean {
+  return verdict === 'row_count_diff' || verdict === 'digest_diff';
 }
 
 export function formatBytes(bytes: number): string {

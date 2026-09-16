@@ -117,6 +117,8 @@ export interface DriverCapabilities {
   schema: boolean;
   streaming: boolean;
   explain: boolean;
+  /** Prefix that yields an execution plan in the engine's dialect; absent when unsupported. */
+  explain_prefix?: string | null;
   maintenance: boolean;
   pagination: PaginationCapability;
 }

@@ -18,18 +18,6 @@ const MAX_RECENT_WORKSPACES: usize = 10;
 
 const GITIGNORE_CONTENT: &str = "# Secrets are never stored in .qoredb, but just in case:\n*.key\n*.pem\n\n# Local cache\n.cache/\n\n# Schema baselines are a local drift reference, not a shared artifact\nbaselines/\n";
 
-fn fnv1a_hash(data: &[u8]) -> u64 {
-    const FNV_OFFSET_BASIS: u64 = 0xcbf29ce484222325;
-    const FNV_PRIME: u64 = 0x100000001b3;
-
-    let mut hash = FNV_OFFSET_BASIS;
-    for &byte in data {
-        hash ^= byte as u64;
-        hash = hash.wrapping_mul(FNV_PRIME);
-    }
-    hash
-}
-
 /// Manages workspace lifecycle: detection, creation, loading, switching.
 pub struct WorkspaceManager {
     /// Global app config dir, used to persist recent workspaces and host the
@@ -57,11 +45,8 @@ impl WorkspaceManager {
     /// For file-based workspaces this is `"ws_<hash>"` using FNV-1a (stable across Rust versions).
     pub fn project_id(&self) -> String {
         match self.active.source {
-            WorkspaceSource::Default => "default".to_string(),
-            _ => {
-                let hash = fnv1a_hash(self.active.path.to_string_lossy().as_bytes());
-                format!("ws_{:016x}", hash)
-            }
+            WorkspaceSource::Default => qore_service::workspace::DEFAULT_PROJECT_ID.to_string(),
+            _ => qore_service::workspace::workspace_project_id(&self.active.path),
         }
     }
 
@@ -341,23 +326,6 @@ mod tests {
 
         mgr.switch_to_default();
         assert_eq!(mgr.project_id(), "default");
-    }
-
-    /// Ensures FNV-1a produces deterministic, stable values.
-    /// These golden values MUST NOT change — credentials are keyed by them.
-    /// If this test fails, users will lose access to their saved credentials.
-    #[test]
-    fn fnv1a_hash_stability() {
-        assert_eq!(fnv1a_hash(b""), 0xcbf29ce484222325);
-        assert_eq!(fnv1a_hash(b"a"), 0xaf63dc4c8601ec8c);
-        assert_eq!(
-            fnv1a_hash(b"/Users/dev/project/.qoredb"),
-            0x1c089eff0e6e433e
-        );
-        assert_eq!(fnv1a_hash(b"/home/user/app/.qoredb"), 0x49f7a110a4ef9f9b);
-
-        let input = b"/some/path/.qoredb";
-        assert_eq!(fnv1a_hash(input), fnv1a_hash(input));
     }
 
     /// The project_id for the same workspace path must be identical across calls.

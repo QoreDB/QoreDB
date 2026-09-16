@@ -146,10 +146,11 @@ pub async fn handle_endpoint(
         ));
     }
 
-    let result = driver
+    let mut result = driver
         .execute(session_id, &final_sql, QueryId::new())
         .await
         .map_err(|e| ApiError::Internal(e.sanitized_message()))?;
+    qore_service::query::apply_masking(&state.session_manager, session_id, None, &mut result).await;
 
     let rows = rows_to_json(&result.columns, &result.rows);
     Ok(build_response(&endpoint, rows))
@@ -306,19 +307,23 @@ enum ParamDialect {
     DuckDb,
     SqlServer,
     ClickHouse,
+    Snowflake,
+    BigQuery,
 }
 
 impl ParamDialect {
     fn from_driver_id(driver_id: &str) -> Option<Self> {
         match driver_id.to_ascii_lowercase().as_str() {
-            "postgres" | "postgresql" | "cockroachdb" | "neon" | "supabase" | "timescaledb" => {
-                Some(Self::Postgres)
-            }
-            "mysql" | "mariadb" | "planetscale" => Some(Self::MySql),
+            "postgres" | "postgresql" | "cockroachdb" | "neon" | "supabase" | "timescaledb"
+            | "yugabytedb" => Some(Self::Postgres),
+            "mysql" | "mariadb" | "planetscale" | "tidb" | "starrocks" | "doris"
+            | "singlestore" => Some(Self::MySql),
             "sqlite" => Some(Self::Sqlite),
             "duckdb" | "motherduck" => Some(Self::DuckDb),
-            "sqlserver" | "mssql" => Some(Self::SqlServer),
+            "sqlserver" | "mssql" | "azuresql" | "synapse" => Some(Self::SqlServer),
             "clickhouse" => Some(Self::ClickHouse),
+            "snowflake" => Some(Self::Snowflake),
+            "bigquery" => Some(Self::BigQuery),
             _ => None,
         }
     }
@@ -331,6 +336,8 @@ impl ParamDialect {
             Self::DuckDb => "duckdb",
             Self::SqlServer => "sqlserver",
             Self::ClickHouse => "clickhouse",
+            Self::Snowflake => "snowflake",
+            Self::BigQuery => "bigquery",
         }
     }
 }
@@ -390,7 +397,8 @@ fn string_literal(raw: &str, dialect: ParamDialect) -> Result<String, ApiError> 
                 .collect::<String>();
             format!("CONVERT(X'{hex}' USING utf8mb4)")
         }
-        ParamDialect::ClickHouse => {
+        // All three honour backslash escapes inside a literal.
+        ParamDialect::ClickHouse | ParamDialect::Snowflake | ParamDialect::BigQuery => {
             let escaped = raw.replace('\\', "\\\\").replace('\'', "\\'");
             format!("'{escaped}'")
         }
@@ -430,7 +438,7 @@ async fn resolve_session(state: &ApiState, connection_id: &str) -> Result<Sessio
         state.sessions.lock().await.remove(connection_id);
     }
 
-    let config = load_saved_config(
+    let (config, masking) = load_saved_config(
         &state.project_id,
         state.workspace_connections_dir.as_deref(),
         connection_id,
@@ -451,6 +459,10 @@ async fn resolve_session(state: &ApiState, connection_id: &str) -> Result<Sessio
             connection_id.to_string(),
         )
         .await;
+    state
+        .session_manager
+        .set_masking(session_id, &masking)
+        .await;
 
     state
         .sessions
@@ -465,7 +477,13 @@ fn load_saved_config(
     workspace_connections_dir: Option<&std::path::Path>,
     connection_id: &str,
     storage_dir: &PathBuf,
-) -> Result<qore_core::types::ConnectionConfig, String> {
+) -> Result<
+    (
+        qore_core::types::ConnectionConfig,
+        qore_core::masking::ConnectionMasking,
+    ),
+    String,
+> {
     use crate::vault::backend::KeyringProvider;
 
     // File-based workspaces keep connections in their own directory; isolation
@@ -475,7 +493,7 @@ fn load_saved_config(
 
         let store = WorkspaceConnectionStore::new(
             dir.to_path_buf(),
-            format!("qoredb_{}", project_id),
+            qore_service::workspace::keyring_service(&project_id),
             Box::new(KeyringProvider::new()),
         );
         let saved = store
@@ -486,6 +504,7 @@ fn load_saved_config(
             .map_err(|e| e.sanitized_message())?;
         return saved
             .to_connection_config(&creds)
+            .map(|config| (config, saved.masking.clone()))
             .map_err(|e| e.sanitized_message());
     }
 
@@ -507,6 +526,7 @@ fn load_saved_config(
         .map_err(|e| e.sanitized_message())?;
     saved
         .to_connection_config(&creds)
+        .map(|config| (config, saved.masking.clone()))
         .map_err(|e| e.sanitized_message())
 }
 
@@ -807,11 +827,23 @@ mod tests {
             Some(ParamDialect::MySql)
         );
         assert_eq!(
+            ParamDialect::from_driver_id("tidb"),
+            Some(ParamDialect::MySql)
+        );
+        assert_eq!(
+            ParamDialect::from_driver_id("yugabytedb"),
+            Some(ParamDialect::Postgres)
+        );
+        assert_eq!(
             ParamDialect::from_driver_id("sqlserver")
                 .unwrap()
                 .safety_driver_id(),
             "sqlserver"
         );
         assert_eq!(ParamDialect::from_driver_id("mongodb"), None);
+        assert_eq!(
+            ParamDialect::from_driver_id("synapse"),
+            Some(ParamDialect::SqlServer)
+        );
     }
 }

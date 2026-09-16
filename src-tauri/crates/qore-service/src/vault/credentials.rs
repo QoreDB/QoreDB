@@ -7,6 +7,7 @@
 use serde::{Deserialize, Serialize};
 
 use qore_core::error::{EngineError, EngineResult};
+use qore_core::masking::ConnectionMasking;
 use qore_core::types::{ConnectionConfig, MssqlAuthMode, SshTunnelConfig};
 
 /// Environment classification for connections
@@ -37,6 +38,9 @@ pub struct SavedConnection {
     pub driver: String,
     pub environment: Environment,
     pub read_only: bool,
+    /// Opt-in: visible to AI agents through the MCP server and the CLI.
+    #[serde(default)]
+    pub expose_to_agents: bool,
     pub host: String,
     pub port: u16,
     pub username: String,
@@ -73,6 +77,8 @@ pub struct SavedConnection {
     /// Driver options preserved from a parsed connection URL.
     #[serde(default)]
     pub options: std::collections::HashMap<String, String>,
+    #[serde(default, skip_serializing_if = "ConnectionMasking::is_empty")]
+    pub masking: ConnectionMasking,
     pub project_id: String,
 }
 
@@ -259,6 +265,7 @@ mod tests {
             driver: "postgres".to_string(),
             environment: Environment::Development,
             read_only: false,
+            expose_to_agents: false,
             host: "localhost".to_string(),
             port: 5432,
             username: "qoredb".to_string(),
@@ -285,6 +292,7 @@ mod tests {
             clickhouse_cluster: None,
             search_auth_mode: None,
             ssl_ca_cert: None,
+            masking: Default::default(),
             project_id: "proj".to_string(),
         }
     }

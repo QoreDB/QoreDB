@@ -921,6 +921,7 @@ export function TableBrowser({
             result={data}
             driver={driver}
             sessionId={sessionId}
+            connectionId={connectionId}
             environment={environment}
             readOnly={readOnly}
             connectionName={connectionName}
@@ -1003,6 +1004,9 @@ export function TableBrowser({
           connectionDatabase={connectionDatabase}
           readOnly={readOnly}
           initialData={selectedRow}
+          maskedColumns={
+            new Set(data?.columns.filter(column => column.masked).map(column => column.name))
+          }
           onSuccess={reload}
           sandboxMode={sandboxActive}
           onSandboxInsert={handleSandboxInsert}
@@ -1240,7 +1244,7 @@ function TableInfoPanel({
 
       if (driverMeta.supportsSQL) {
         // PostgreSQL stats query
-        if (driver === Driver.Postgres) {
+        if (driver === Driver.Postgres || driver === Driver.YugabyteDb) {
           //TODO : à passer en backend ?
           const sizeQuery = `
             SELECT pg_total_relation_size('"${schemaName}"."${tableName}"') as total_bytes,

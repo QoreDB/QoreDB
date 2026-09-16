@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
+export * from './tauri/agents';
 export * from './tauri/connection';
 export * from './tauri/data-io';
 export * from './tauri/logs';

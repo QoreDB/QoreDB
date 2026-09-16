@@ -25,6 +25,12 @@ and which code baseline was checked.
 it is not indexed here. If it is restored, add it to this table and give it the
 same review metadata block as the other audits.
 
+## Contributor workflow review
+
+[Agent and contributor readiness](AGENT_READINESS.md) records the 2026-09-16
+instruction/documentation audit, its verification boundaries, and remaining work.
+It is separate from the security/compliance snapshot above.
+
 ## Review statuses
 
 - **Reviewed, spot-checked**: metadata and narrow evidence checks were updated,

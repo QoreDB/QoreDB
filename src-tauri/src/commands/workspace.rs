@@ -219,7 +219,7 @@ pub async fn import_default_connections(
     let project_id = mgr.project_id();
     let ws_store = WorkspaceConnectionStore::new(
         ws.path.join("connections"),
-        format!("qoredb_{}", project_id),
+        qore_service::workspace::keyring_service(&project_id),
         Box::new(KeyringProvider::new()),
     );
 

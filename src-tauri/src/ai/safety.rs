@@ -15,7 +15,7 @@ use crate::engine::sql_safety;
 pub fn validate_generated_query(driver_id: &str, query: &str) -> SafetyInfo {
     match driver_id {
         "mongodb" | "documentdb" => validate_mongo_query(query),
-        "redis" | "valkey" | "dragonfly" => validate_redis_query(query),
+        "redis" | "valkey" | "dragonfly" | "keydb" | "garnet" => validate_redis_query(query),
         _ => validate_sql_query(driver_id, query),
     }
 }

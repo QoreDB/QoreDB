@@ -271,7 +271,7 @@ yay -S qoredb-bin
 
 ### Build from source
 
-**Prerequisites:** Node.js 18+, pnpm, Rust 1.70+, [Tauri system dependencies](https://tauri.app/start/prerequisites/).
+**Prerequisites:** Node.js 22.12+ (22.x as in CI), the pnpm version pinned in `package.json`, Rust stable, and [Tauri system dependencies](https://v2.tauri.app/start/prerequisites/). See [contributor setup](CONTRIBUTING.md).
 
 ```bash
 git clone https://github.com/QoreDB/QoreDB.git
@@ -340,16 +340,20 @@ Tools: `list_connections`, `list_namespaces`, `list_tables`, `describe_table`, `
 
 ## Development
 
-**Frontend:** React 19 · TypeScript 5.9 · Vite 8 · Tailwind CSS 4 · Radix UI · CodeMirror 6 · TanStack Table · i18next
-**Backend:** Rust 2024 · Tauri 2.10 · Tokio · SQLx (PostgreSQL, MySQL, SQLite) · Tiberius + bb8 (SQL Server) · MongoDB &amp; Redis native drivers · DuckDB (embedded analytics + federation)
+See the [documentation index](doc/README.md), [architecture map](doc/development/ARCHITECTURE.md),
+and [testing matrix](doc/development/TESTING.md) for contributor workflows.
+
+**Frontend:** React 19 · TypeScript 6 · Vite 8 · Tailwind CSS 4 · Radix UI · CodeMirror 6 · TanStack Table · i18next
+**Backend:** Rust 2024 · Tauri 2 · Tokio · SQLx (PostgreSQL, MySQL, SQLite) · Tiberius + bb8 (SQL Server) · MongoDB &amp; Redis native drivers · DuckDB (embedded analytics + federation)
 
 ```bash
 pnpm tauri dev              # run app in dev mode (hot reload)
 pnpm tauri build            # build production app
-pnpm lint:fix               # lint + auto-fix
-pnpm format:write           # format code
-pnpm test                   # run Rust tests
-docker-compose up -d        # start dev databases
+pnpm check                  # Biome checks (no file writes)
+pnpm typecheck              # TypeScript validation
+pnpm docs:check             # documentation and repository conventions
+pnpm test                   # TypeScript tests, then desktop Rust tests
+docker compose up -d postgres # start the selected test database
 ```
 
 For project structure, architecture notes and contribution workflow, see [CONTRIBUTING.md](CONTRIBUTING.md) and [`doc/`](doc/).
@@ -371,7 +375,7 @@ For project structure, architecture notes and contribution workflow, see [CONTRI
 Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a PR. In short:
 
 1. Fork the repo and create a feature branch
-2. Run `pnpm lint:fix` and `pnpm test` before pushing
+2. Run the [checks for the affected surface](doc/development/TESTING.md) before pushing
 3. Add the SPDX license header to new files (`Apache-2.0` for core, `BUSL-1.1` for premium)
 4. Open a PR — we'll review, suggest changes, and ship it
 

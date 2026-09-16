@@ -25,7 +25,10 @@
     "sbom": "bash scripts/generate-sbom.sh",
     "supply-chain:check": "cd src-tauri && cargo deny check",
     "changelog": "git cliff --output CHANGELOG.md",
-    "changelog:latest": "git cliff --latest --strip header"
+    "changelog:latest": "git cliff --latest --strip header",
+    "typecheck": "tsc --noEmit",
+    "docs:check": "node scripts/check-repository.mjs",
+    "test:repo": "node --test scripts/check-repository.test.mjs"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.3",

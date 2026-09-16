@@ -21,7 +21,7 @@ export interface ChangelogEntry {
 export const CHANGELOG: ChangelogEntry[] = [
   {
     version: '0.1.39',
-    date: '2026-08-30',
+    date: '2026-09-16',
     items: [
       {
         title: 'MCP server for AI agents',

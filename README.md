@@ -5,7 +5,7 @@
 
 **One app for all your databases.**
 
-The fast, open-source database client built with Rust. Connect to **33 supported databases** from a single, beautiful interface. Local-first: your data stays yours.
+The fast, open-source database client built with Rust. Connect to **34 supported databases** from a single, beautiful interface. Local-first: your data stays yours.
 
 [![License](https://img.shields.io/badge/license-Apache--2.0%20%2F%20BUSL--1.1-blue?style=flat-square)](LICENSE)
 [![Release](https://img.shields.io/github/v/release/QoreDB/QoreDB?include_prereleases&style=flat-square&color=8b5cf6&cacheSeconds=86400)](https://github.com/QoreDB/QoreDB/releases)
@@ -17,7 +17,7 @@ The fast, open-source database client built with Rust. Connect to **33 supported
 
 [**Website**](https://qoredb.com) · [**Download**](https://qoredb.com/download) · [**Docs**](https://qoredb.com/docs) · [**Roadmap**](https://qoredb.com/roadmap) · [**Discord**](https://discord.gg/Yr6P3wuZDt)
 
-<sub>10,000+ downloads · 33 supported databases · Two releases a month · Used in production by indie devs and startups.</sub>
+<sub>10,000+ downloads · 34 supported databases · Two releases a month · Used in production by indie devs and startups.</sub>
 
   <img src="doc/screenshots/query-screen.png" alt="QoreDB SQL editor and result grid" width="100%" />
 
@@ -69,6 +69,7 @@ DBeaver, pgAdmin, phpMyAdmin do the job — but they feel slow, dated, and full 
   <img src="public/databases/garnet.png" alt="Garnet" height="40" />&nbsp;&nbsp;
   <img src="public/databases/cassandra.png" alt="Cassandra" height="40" />&nbsp;&nbsp;
   <img src="public/databases/scylladb.png" alt="ScyllaDB" height="40" />&nbsp;&nbsp;
+  <img src="public/databases/keyspaces.png" alt="Amazon Keyspaces" height="40" />&nbsp;&nbsp;
   <img src="public/databases/snowflake.png" alt="Snowflake" height="40" />&nbsp;&nbsp;
   <img src="public/databases/bigquery.png" alt="BigQuery" height="40" />&nbsp;&nbsp;
   <img src="public/databases/supabase.png" alt="Supabase" height="40" />&nbsp;&nbsp;

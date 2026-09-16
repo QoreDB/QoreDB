@@ -13,6 +13,8 @@ function fixture(t, overrides = {}) {
   const files = {
     'AGENTS.md': '# Shared instructions\n',
     'CLAUDE.md': '@AGENTS.md\n',
+    'aur/qoredb-bin/.SRCINFO': 'pkgbase = qoredb-bin\n',
+    'aur/qoredb-bin/PKGBUILD': 'pkgname=qoredb-bin\n',
     'doc/README.md': '[Audits](audits/README.md)\n[Guide](development/guide.md)\n',
     'doc/audits/README.md': '# Audits\n',
     'doc/development/guide.md': '[Source](../../src/example.ts)\n',
@@ -82,4 +84,13 @@ test('rejects missing scoped imports and invalid SPDX identifiers without relice
 test('does not require deleted working-tree files to exist', t => {
   const repo = fixture(t);
   assert.deepEqual(checkRepository(repo.root, [...repo.files, 'deleted.ts']).errors, []);
+});
+
+test('requires the AUR package files used by the release workflow', t => {
+  const repo = fixture(t);
+  const files = repo.files.filter(file => !file.startsWith('aur/qoredb-bin/'));
+  assert.deepEqual(checkRepository(repo.root, files).errors, [
+    'Missing entry point: aur/qoredb-bin/.SRCINFO',
+    'Missing entry point: aur/qoredb-bin/PKGBUILD',
+  ]);
 });

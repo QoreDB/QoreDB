@@ -65,7 +65,14 @@ export function checkRepository(root, candidates) {
       if (!files.includes(sibling)) errors.push(`${file}: missing Claude import ${sibling}`);
     }
   }
-  for (const required of ['AGENTS.md', 'CLAUDE.md', 'doc/README.md', 'doc/audits/README.md']) {
+  for (const required of [
+    'AGENTS.md',
+    'CLAUDE.md',
+    'aur/qoredb-bin/.SRCINFO',
+    'aur/qoredb-bin/PKGBUILD',
+    'doc/README.md',
+    'doc/audits/README.md',
+  ]) {
     if (!files.includes(required)) errors.push(`Missing entry point: ${required}`);
   }
 

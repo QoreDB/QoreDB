@@ -88,10 +88,13 @@ pub struct SshTunnelInfo {
     pub host: String,
     pub port: u16,
     pub username: String,
-    /// "password" or "key"
+    /// "password", "key" or "agent"
     pub auth_type: String,
     /// Path to private key (if key auth)
     pub key_path: Option<String>,
+    /// Agent socket override (if agent auth). `None` uses `SSH_AUTH_SOCK`.
+    #[serde(default)]
+    pub identity_agent: Option<String>,
 
     /// Host key policy (e.g. "accept_new", "strict", "insecure_no_check")
     pub host_key_policy: String,
@@ -155,6 +158,9 @@ impl SavedConnection {
                                 .map(|s| s.expose().clone()),
                         }
                     }
+                    "agent" => SshAuth::Agent {
+                        identity_agent: ssh.identity_agent.clone(),
+                    },
                     "password" => SshAuth::Password {
                         password: creds
                             .ssh_password
@@ -280,6 +286,7 @@ mod tests {
                 port: 22,
                 username: "sshuser".to_string(),
                 auth_type: auth_type.to_string(),
+                identity_agent: None,
                 key_path: Some("id_ed25519".to_string()),
                 host_key_policy: host_key_policy.to_string(),
                 proxy_jump: None,
@@ -347,6 +354,32 @@ mod tests {
             other => panic!("unexpected auth: {other:?}"),
         }
         assert_eq!(ssh.host_key_policy, SshHostKeyPolicy::Strict);
+
+        Ok(())
+    }
+
+    #[test]
+    fn ssh_agent_config_is_built() -> EngineResult<()> {
+        let mut connection = base_connection("agent", "strict");
+        if let Some(ssh) = connection.ssh_tunnel.as_mut() {
+            ssh.identity_agent = Some("/tmp/agent.sock".to_string());
+        }
+        let creds = StoredCredentials {
+            db_password: Sensitive::new("db".to_string()),
+            ssh_password: None,
+            ssh_key_passphrase: None,
+            proxy_password: None,
+        };
+
+        let config = connection.to_connection_config(&creds)?;
+        let ssh = config.ssh_tunnel.expect("ssh config missing");
+
+        match ssh.auth {
+            SshAuth::Agent { identity_agent } => {
+                assert_eq!(identity_agent.as_deref(), Some("/tmp/agent.sock"));
+            }
+            other => panic!("unexpected auth: {other:?}"),
+        }
 
         Ok(())
     }

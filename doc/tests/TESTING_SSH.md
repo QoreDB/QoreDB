@@ -50,9 +50,23 @@ Tunnel SSH :
 - Hôte SSH : `127.0.0.1`
 - Port SSH : `2222`
 - Utilisateur SSH : `qoredb`
+- Authentification : `Fichier de clé privée`
 - Chemin de clé privée : par ex. `C:\\Users\\<vous>\\.ssh\\qoredb_dev`
 - Politique de host key : commencer avec `accept_new`
 - ProxyJump : laisser vide (inutile en local)
+
+### 2.1 Variante agent SSH
+
+Pour une clé détenue par un agent (ssh-agent, KeeAgent/KeePass, 1Password, gpg-agent),
+aucun fichier de clé n'est lu par QoreDB :
+
+- Charger la clé dans l'agent puis vérifier : `ssh-add -l`
+- Dans le formulaire, Authentification : `Agent SSH`
+- Socket de l'agent : laisser vide pour utiliser `SSH_AUTH_SOCK`
+
+Renseigner le socket seulement si l'application ne l'hérite pas de l'environnement
+(cas courant d'un agent tiers) : par ex. `\\.\pipe\openssh-ssh-agent` sur Windows ou
+le chemin de socket affiché par l'agent sur macOS/Linux.
 
 Pourquoi l'hôte DB est `postgres` (et pas `localhost`) :
 
@@ -63,6 +77,8 @@ Pourquoi l'hôte DB est `postgres` (et pas `localhost`) :
 
 - Mettre `strict` dès la première connexion : doit échouer tant que l'hôte n'est pas “trusted”.
 - Mettre un mauvais chemin de clé : doit échouer vite, avec le stderr SSH dans l'erreur.
+- Mode agent avec l'agent arrêté (ou la clé non chargée) : doit échouer sur un refus
+  d'authentification, sans invite interactive (`BatchMode=yes`).
 - Stopper le conteneur `postgres` : le tunnel peut monter, mais la connexion DB doit échouer.
 
 ## 4) Option VPS (plus réaliste)

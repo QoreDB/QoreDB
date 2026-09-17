@@ -322,6 +322,13 @@
       "keyPathPlaceholder": "~/.ssh/id_rsa",
       "sshAgentInfo": "암호로 보호된 키는 연결 전에 ssh-agent에 로드해야 합니다.",
       "sshAgentHint": "실행: ssh-add ~/.ssh/your_key",
+      "authMethod": "인증 방식",
+      "authMethodKey": "개인 키 파일",
+      "authMethodAgent": "SSH 에이전트",
+      "identityAgent": "에이전트 소켓(선택)",
+      "identityAgentPlaceholder": "비워 두면 SSH_AUTH_SOCK를 사용합니다",
+      "agentModeInfo": "QoreDB는 실행 중인 SSH 에이전트에 인증을 위임하며 키 파일을 읽지 않습니다.",
+      "agentModeHint": "불러온 키 확인: ssh-add -l",
       "advancedOptions": "고급 옵션",
       "hostKeyPolicy": "호스트 키 정책",
       "hostKeyPolicyAcceptNew": "새 키 허용 (TOFU)",
@@ -333,6 +340,7 @@
       "keepaliveCountMax": "Keepalive 최대값",
       "summaryMissingHost": "(호스트?)",
       "summaryKey": "키:",
+      "summaryAgent": "SSH 에이전트",
       "summaryMissingKey": "키:?"
     },
     "proxy": {

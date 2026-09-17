@@ -101,6 +101,8 @@ export async function saveConnection(input: {
     password?: string;
     key_path?: string;
     key_passphrase?: string;
+    /** Agent socket override when `auth_type` is `agent`. */
+    identity_agent?: string;
 
     host_key_policy: string;
     proxy_jump?: string;

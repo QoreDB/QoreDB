@@ -183,6 +183,7 @@ export async function importProjectExportV1(
           const username = asString(sshTunnelRaw.username)?.trim();
           const auth_type = asString(sshTunnelRaw.auth_type)?.trim();
           const key_path = asString(sshTunnelRaw.key_path);
+          const identity_agent = asString(sshTunnelRaw.identity_agent)?.trim();
           const host_key_policy = asString(sshTunnelRaw.host_key_policy)?.trim();
           const proxy_jump = asString(sshTunnelRaw.proxy_jump)?.trim();
           const connect_timeout_secs = asNumber(sshTunnelRaw.connect_timeout_secs) ?? 10;
@@ -203,6 +204,7 @@ export async function importProjectExportV1(
             username,
             auth_type,
             key_path: key_path || undefined,
+            identity_agent: identity_agent || undefined,
             host_key_policy: resolvedHostKeyPolicy,
             proxy_jump: proxy_jump || undefined,
             connect_timeout_secs,

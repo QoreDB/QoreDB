@@ -43,6 +43,9 @@ export function SshTunnelSection(props: {
   const [showAdvanced, setShowAdvanced] = useState(false);
   const hostKeyPolicyId = useId();
 
+  const authMethodId = useId();
+  const isAgent = formData.sshAuthMethod === 'agent';
+
   const summary = useMemo(() => {
     if (!formData.useSshTunnel) return '';
     const policyLabel =
@@ -56,9 +59,12 @@ export function SshTunnelSection(props: {
       ? `${formData.sshHost}:${formData.sshPort || 22}`
       : t('connection.ssh.summaryMissingHost');
     const userPrefix = formData.sshUsername ? `${formData.sshUsername}@` : '';
-    const keyPart = formData.sshKeyPath
-      ? `${t('connection.ssh.summaryKey')} ${getPathBasename(formData.sshKeyPath)}`
-      : t('connection.ssh.summaryMissingKey');
+    const keyPart =
+      formData.sshAuthMethod === 'agent'
+        ? t('connection.ssh.summaryAgent')
+        : formData.sshKeyPath
+          ? `${t('connection.ssh.summaryKey')} ${getPathBasename(formData.sshKeyPath)}`
+          : t('connection.ssh.summaryMissingKey');
 
     return `${userPrefix}${hostPart} · ${keyPart} · ${policyLabel}`;
   }, [formData, t]);
@@ -125,22 +131,52 @@ export function SshTunnelSection(props: {
                 />
               </Field>
 
-              <Field label={t('connection.ssh.keyPath')} labelClassName={SMALL_LABEL}>
-                <Input
-                  placeholder={t('connection.ssh.keyPathPlaceholder')}
-                  value={formData.sshKeyPath}
-                  onChange={e => onChange('sshKeyPath', e.target.value)}
-                />
-              </Field>
+              <div className="space-y-2">
+                <Label htmlFor={authMethodId} className={SMALL_LABEL}>
+                  {t('connection.ssh.authMethod')}
+                </Label>
+                <Select
+                  value={formData.sshAuthMethod}
+                  onValueChange={value =>
+                    onChange('sshAuthMethod', value as ConnectionFormData['sshAuthMethod'])
+                  }
+                >
+                  <SelectTrigger id={authMethodId} className="h-9 w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="key">{t('connection.ssh.authMethodKey')}</SelectItem>
+                    <SelectItem value="agent">{t('connection.ssh.authMethodAgent')}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {isAgent ? (
+                <Field label={t('connection.ssh.identityAgent')} labelClassName={SMALL_LABEL}>
+                  <Input
+                    placeholder={t('connection.ssh.identityAgentPlaceholder')}
+                    value={formData.sshIdentityAgent}
+                    onChange={e => onChange('sshIdentityAgent', e.target.value)}
+                  />
+                </Field>
+              ) : (
+                <Field label={t('connection.ssh.keyPath')} labelClassName={SMALL_LABEL}>
+                  <Input
+                    placeholder={t('connection.ssh.keyPathPlaceholder')}
+                    value={formData.sshKeyPath}
+                    onChange={e => onChange('sshKeyPath', e.target.value)}
+                  />
+                </Field>
+              )}
 
               <div className="flex items-start gap-2 rounded-md border border-border bg-muted/30 p-2">
                 <Info size={14} className="mt-0.5 shrink-0 text-muted-foreground" />
                 <div className="space-y-1">
                   <p className="text-xs font-medium text-foreground">
-                    {t('connection.ssh.sshAgentInfo')}
+                    {isAgent ? t('connection.ssh.agentModeInfo') : t('connection.ssh.sshAgentInfo')}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    {t('connection.ssh.sshAgentHint')}
+                    {isAgent ? t('connection.ssh.agentModeHint') : t('connection.ssh.sshAgentHint')}
                   </p>
                 </div>
               </div>

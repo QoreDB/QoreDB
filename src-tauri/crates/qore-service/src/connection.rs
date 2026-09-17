@@ -138,6 +138,14 @@ pub fn normalize_config(mut config: ConnectionConfig) -> Result<ConnectionConfig
                     return Err("SSH key path is required".to_string());
                 }
             }
+            SshAuth::Agent { identity_agent } => {
+                let trimmed = identity_agent.as_deref().map(str::trim).unwrap_or("");
+                *identity_agent = if trimmed.is_empty() {
+                    None
+                } else {
+                    Some(trimmed.to_string())
+                };
+            }
         }
     }
 

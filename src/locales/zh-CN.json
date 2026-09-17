@@ -322,6 +322,13 @@
       "keyPathPlaceholder": "~/.ssh/id_rsa",
       "sshAgentInfo": "受口令保护的密钥必须在连接前加载到 ssh-agent。",
       "sshAgentHint": "运行：ssh-add ~/.ssh/your_key",
+      "authMethod": "认证方式",
+      "authMethodKey": "私钥文件",
+      "authMethodAgent": "SSH 代理",
+      "identityAgent": "代理套接字（可选）",
+      "identityAgentPlaceholder": "留空则使用 SSH_AUTH_SOCK",
+      "agentModeInfo": "QoreDB 将认证委托给正在运行的 SSH 代理，不读取任何密钥文件。",
+      "agentModeHint": "查看已加载的密钥：ssh-add -l",
       "advancedOptions": "高级选项",
       "hostKeyPolicy": "主机密钥策略",
       "hostKeyPolicyAcceptNew": "接受新密钥（TOFU）",
@@ -333,6 +340,7 @@
       "keepaliveCountMax": "最大心跳次数",
       "summaryMissingHost": "（主机？）",
       "summaryKey": "密钥：",
+      "summaryAgent": "SSH 代理",
       "summaryMissingKey": "密钥：？"
     },
     "proxy": {

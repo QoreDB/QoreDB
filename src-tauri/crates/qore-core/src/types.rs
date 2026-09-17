@@ -275,6 +275,12 @@ pub enum SshAuth {
         #[serde(skip_serializing)]
         passphrase: Option<String>,
     },
+    /// Delegate to a running SSH agent (ssh-agent, KeePass/KeeAgent, 1Password,
+    /// gpg-agent...). No key material ever reaches QoreDB.
+    Agent {
+        /// Optional agent socket. `None` falls back to `SSH_AUTH_SOCK`.
+        identity_agent: Option<String>,
+    },
 }
 
 impl std::fmt::Debug for SshAuth {
@@ -297,6 +303,10 @@ impl std::fmt::Debug for SshAuth {
                     .field("passphrase", &passphrase)
                     .finish()
             }
+            SshAuth::Agent { identity_agent } => f
+                .debug_struct("SshAuth::Agent")
+                .field("identity_agent", identity_agent)
+                .finish(),
         }
     }
 }

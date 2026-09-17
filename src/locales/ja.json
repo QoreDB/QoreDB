@@ -322,6 +322,13 @@
       "keyPathPlaceholder": "~/.ssh/id_rsa",
       "sshAgentInfo": "パスフレーズで保護された鍵は、接続前に ssh-agent にロードする必要があります。",
       "sshAgentHint": "実行: ssh-add ~/.ssh/your_key",
+      "authMethod": "認証方式",
+      "authMethodKey": "秘密鍵ファイル",
+      "authMethodAgent": "SSH エージェント",
+      "identityAgent": "エージェントソケット（任意）",
+      "identityAgentPlaceholder": "空にすると SSH_AUTH_SOCK を使用します",
+      "agentModeInfo": "QoreDB は実行中の SSH エージェントに認証を委任します。鍵ファイルは読み込みません。",
+      "agentModeHint": "読み込み済みの鍵を確認: ssh-add -l",
       "advancedOptions": "詳細オプション",
       "hostKeyPolicy": "ホスト鍵ポリシー",
       "hostKeyPolicyAcceptNew": "新規受入（TOFU）",
@@ -333,6 +340,7 @@
       "keepaliveCountMax": "キープアライブ最大回数",
       "summaryMissingHost": "(ホスト?)",
       "summaryKey": "鍵:",
+      "summaryAgent": "SSH エージェント",
       "summaryMissingKey": "鍵:?"
     },
     "proxy": {

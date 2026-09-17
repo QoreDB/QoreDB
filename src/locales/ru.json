@@ -322,6 +322,13 @@
       "keyPathPlaceholder": "~/.ssh/id_rsa",
       "sshAgentInfo": "Ключи, защищённые парольной фразой, должны быть загружены в ssh-agent перед подключением.",
       "sshAgentHint": "Выполните: ssh-add ~/.ssh/ваш_ключ",
+      "authMethod": "Аутентификация",
+      "authMethodKey": "Файл закрытого ключа",
+      "authMethodAgent": "SSH-агент",
+      "identityAgent": "Сокет агента (необязательно)",
+      "identityAgentPlaceholder": "Оставьте пустым, чтобы использовать SSH_AUTH_SOCK",
+      "agentModeInfo": "QoreDB передаёт аутентификацию запущенному SSH-агенту; файл ключа не читается.",
+      "agentModeHint": "Показать загруженные ключи: ssh-add -l",
       "advancedOptions": "Дополнительные параметры",
       "hostKeyPolicy": "Политика ключей хоста",
       "hostKeyPolicyAcceptNew": "Принимать новые (TOFU)",
@@ -333,6 +340,7 @@
       "keepaliveCountMax": "Макс. keepalive",
       "summaryMissingHost": "(хост?)",
       "summaryKey": "ключ:",
+      "summaryAgent": "SSH-агент",
       "summaryMissingKey": "ключ:?"
     },
     "proxy": {

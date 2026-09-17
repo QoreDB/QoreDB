@@ -288,6 +288,7 @@ mod tests {
                 username: "sshuser".to_string(),
                 auth_type: "password".to_string(),
                 key_path: None,
+                identity_agent: None,
                 host_key_policy: "accept_new".to_string(),
                 proxy_jump: None,
                 connect_timeout_secs: 10,

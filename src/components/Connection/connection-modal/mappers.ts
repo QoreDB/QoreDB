@@ -3,7 +3,7 @@
 import { isDocumentDatabase } from '@/lib/connection/driverCapabilities';
 import { Driver, isKeyValueDriver } from '@/lib/connection/drivers';
 import { normalizeMasking } from '@/lib/masking';
-import type { ConnectionConfig, Environment, SavedConnection } from '@/lib/tauri';
+import type { ConnectionConfig, Environment, SavedConnection, SshAuth } from '@/lib/tauri';
 import type { ConnectionFormData } from './types';
 
 /** Search engines (Elasticsearch / OpenSearch) that carry a `search_auth_mode`. */
@@ -43,6 +43,30 @@ function hostFor(formData: ConnectionFormData): string {
   return formData.driver === Driver.BigQuery ? 'bigquery.googleapis.com' : formData.host;
 }
 
+function sshAuth(formData: ConnectionFormData): SshAuth {
+  return formData.sshAuthMethod === 'agent'
+    ? { Agent: { identity_agent: formData.sshIdentityAgent.trim() || undefined } }
+    : { Key: { private_key_path: formData.sshKeyPath, passphrase: undefined } };
+}
+
+/** Shape shared by the saved-connection payloads: the secret-free SSH fields. */
+function savedSshTunnel(formData: ConnectionFormData) {
+  const isAgent = formData.sshAuthMethod === 'agent';
+  return {
+    host: formData.sshHost,
+    port: formData.sshPort,
+    username: formData.sshUsername,
+    auth_type: formData.sshAuthMethod,
+    key_path: isAgent ? undefined : formData.sshKeyPath,
+    identity_agent: isAgent ? formData.sshIdentityAgent.trim() || undefined : undefined,
+    host_key_policy: formData.sshHostKeyPolicy,
+    proxy_jump: formData.sshProxyJump || undefined,
+    connect_timeout_secs: formData.sshConnectTimeoutSecs,
+    keepalive_interval_secs: formData.sshKeepaliveIntervalSecs,
+    keepalive_count_max: formData.sshKeepaliveCountMax,
+  };
+}
+
 export function buildConnectionConfig(formData: ConnectionFormData): ConnectionConfig {
   return {
     driver: formData.driver,
@@ -71,12 +95,7 @@ export function buildConnectionConfig(formData: ConnectionFormData): ConnectionC
           host: formData.sshHost,
           port: formData.sshPort,
           username: formData.sshUsername,
-          auth: {
-            Key: {
-              private_key_path: formData.sshKeyPath,
-              passphrase: undefined,
-            },
-          },
+          auth: sshAuth(formData),
           host_key_policy: formData.sshHostKeyPolicy,
           proxy_jump: formData.sshProxyJump || undefined,
           connect_timeout_secs: formData.sshConnectTimeoutSecs,
@@ -128,20 +147,7 @@ export function buildSavedConnection(
     pool_min_connections: formData.poolMinConnections,
     pool_acquire_timeout_secs: formData.poolAcquireTimeoutSecs,
     project_id: projectId,
-    ssh_tunnel: formData.useSshTunnel
-      ? {
-          host: formData.sshHost,
-          port: formData.sshPort,
-          username: formData.sshUsername,
-          auth_type: 'key',
-          key_path: formData.sshKeyPath,
-          host_key_policy: formData.sshHostKeyPolicy,
-          proxy_jump: formData.sshProxyJump || undefined,
-          connect_timeout_secs: formData.sshConnectTimeoutSecs,
-          keepalive_interval_secs: formData.sshKeepaliveIntervalSecs,
-          keepalive_count_max: formData.sshKeepaliveCountMax,
-        }
-      : undefined,
+    ssh_tunnel: formData.useSshTunnel ? savedSshTunnel(formData) : undefined,
     proxy: formData.useProxy
       ? {
           proxy_type: formData.proxyType,
@@ -165,19 +171,7 @@ export function buildSaveConnectionInput(
     ...savedConnection,
     password: formData.password,
     ssh_tunnel: formData.useSshTunnel
-      ? {
-          host: formData.sshHost,
-          port: formData.sshPort,
-          username: formData.sshUsername,
-          auth_type: 'key',
-          key_path: formData.sshKeyPath,
-          key_passphrase: undefined,
-          host_key_policy: formData.sshHostKeyPolicy,
-          proxy_jump: formData.sshProxyJump || undefined,
-          connect_timeout_secs: formData.sshConnectTimeoutSecs,
-          keepalive_interval_secs: formData.sshKeepaliveIntervalSecs,
-          keepalive_count_max: formData.sshKeepaliveCountMax,
-        }
+      ? { ...savedSshTunnel(formData), key_passphrase: undefined }
       : undefined,
     proxy: formData.useProxy
       ? {
@@ -254,7 +248,10 @@ export function getMissingRequirements(formData: ConnectionFormData): string[] {
   if (formData.useSshTunnel) {
     if (!formData.sshHost) missing.push('connection.ssh.host');
     if (!formData.sshUsername) missing.push('connection.ssh.username');
-    if (!formData.sshKeyPath) missing.push('connection.ssh.keyPath');
+    // The agent holds the key material, so no path is required in that mode.
+    if (formData.sshAuthMethod === 'key' && !formData.sshKeyPath) {
+      missing.push('connection.ssh.keyPath');
+    }
   }
 
   return missing;

@@ -6,7 +6,7 @@ Data Engine Kernel,Driver MongoDB,Backend / Core,Implémentation complète du dr
 Data Engine Kernel,Driver Redis,Backend / Core,Implémentation du driver Redis key-value avec navigation et inspection des types.,Terminé,P1,V2,4,Supporte SCAN et aperçu par type de clé.
 Data Engine Kernel,Mapping Universel,Backend / Core,Abstraction des concepts (Namespace / Collection / Record).,Terminé,P0,POC,4,Permet une UI unifiée.
 Sécurité,Vault / Chiffrement,Backend / Security,Stockage sécurisé des credentials via keyring système + Argon2.,Terminé,P0,POC,5,Indispensable pour la sécurité locale.
-Sécurité,SSH Tunneling,Backend / Network,Support natif des tunnels SSH pour accès bases distantes.,Terminé,P1,POC,3,Utilise le binaire OpenSSH système.
+Sécurité,SSH Tunneling,Backend / Network,Support natif des tunnels SSH pour accès bases distantes.,Terminé,P1,POC,3,"Utilise le binaire OpenSSH système. Authentification par fichier de clé privée ou par agent SSH (ssh-agent, KeeAgent/KeePass, 1Password) avec socket personnalisable."
 Sécurité,App Lock,Backend / Security,Verrouillage de l'application au démarrage.,Terminé,P1,POC,2,Protection physique.
 Sécurité,Safety Policy,Backend / Security,Middleware de sécurité pour appliquer les règles d'environnement (blocage mutations).,Terminé,P0,V1,4,Vérification systématique regex côté backend.
 Sécurité,Redaction / Privacy,App / Privacy,Nettoyage automatique des données sensibles (mots de passe) dans les logs et exports.,Terminé,P1,V1,3,Implémenté dans `redaction.ts` et history.

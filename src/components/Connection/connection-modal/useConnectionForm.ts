@@ -205,7 +205,9 @@ export function useConnectionForm(options: {
         sshHost: sshTunnel ? sshTunnel.host : '',
         sshPort: sshTunnel ? sshTunnel.port : 22,
         sshUsername: sshTunnel ? sshTunnel.username : '',
+        sshAuthMethod: sshTunnel?.auth_type === 'agent' ? 'agent' : 'key',
         sshKeyPath: sshTunnel ? sshTunnel.key_path || '' : '',
+        sshIdentityAgent: sshTunnel ? sshTunnel.identity_agent || '' : '',
         sshHostKeyPolicy: sshTunnel
           ? (sshTunnel.host_key_policy as ConnectionFormData['sshHostKeyPolicy'])
           : 'accept_new',

@@ -64,7 +64,9 @@ export interface SshTunnelConfig {
 
 export type SshAuth =
   | { Password: { password: string } }
-  | { Key: { private_key_path: string; passphrase?: string } };
+  | { Key: { private_key_path: string; passphrase?: string } }
+  /** Delegates to a running SSH agent; `identity_agent` overrides SSH_AUTH_SOCK. */
+  | { Agent: { identity_agent?: string } };
 
 export interface ConnectionResponse {
   success: boolean;
@@ -112,6 +114,8 @@ export interface SavedConnection {
     username: string;
     auth_type: string;
     key_path?: string;
+    /** Agent socket override when `auth_type` is `agent`. */
+    identity_agent?: string;
 
     host_key_policy: string;
     proxy_jump?: string;

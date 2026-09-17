@@ -322,6 +322,13 @@
       "keyPathPlaceholder": "~/.ssh/id_rsa",
       "sshAgentInfo": "Passphrase-geschützte Schlüssel müssen vor der Verbindung in ssh-agent geladen werden.",
       "sshAgentHint": "Ausführen: ssh-add ~/.ssh/ihr_schlüssel",
+      "authMethod": "Authentifizierung",
+      "authMethodKey": "Datei mit privatem Schlüssel",
+      "authMethodAgent": "SSH-Agent",
+      "identityAgent": "Agent-Socket (optional)",
+      "identityAgentPlaceholder": "Leer lassen, um SSH_AUTH_SOCK zu verwenden",
+      "agentModeInfo": "QoreDB überlässt die Authentifizierung dem laufenden SSH-Agent; es wird keine Schlüsseldatei gelesen.",
+      "agentModeHint": "Geladene Schlüssel auflisten mit: ssh-add -l",
       "advancedOptions": "Erweiterte Optionen",
       "hostKeyPolicy": "Host-Key-Richtlinie",
       "hostKeyPolicyAcceptNew": "Neue akzeptieren (TOFU)",
@@ -333,6 +340,7 @@
       "keepaliveCountMax": "Keepalive Max",
       "summaryMissingHost": "(Host?)",
       "summaryKey": "Schlüssel:",
+      "summaryAgent": "SSH-Agent",
       "summaryMissingKey": "Schlüssel:?"
     },
     "proxy": {

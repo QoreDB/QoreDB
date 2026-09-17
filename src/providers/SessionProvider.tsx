@@ -81,6 +81,7 @@ function getConnectionSignature(connection: SavedConnection): string {
           username: connection.ssh_tunnel.username,
           auth_type: connection.ssh_tunnel.auth_type,
           key_path: connection.ssh_tunnel.key_path ?? null,
+          identity_agent: connection.ssh_tunnel.identity_agent ?? null,
           host_key_policy: connection.ssh_tunnel.host_key_policy,
           proxy_jump: connection.ssh_tunnel.proxy_jump ?? null,
           connect_timeout_secs: connection.ssh_tunnel.connect_timeout_secs,

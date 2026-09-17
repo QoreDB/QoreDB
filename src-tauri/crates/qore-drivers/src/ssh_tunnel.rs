@@ -109,6 +109,7 @@ fn select_backend(config: &SshTunnelConfig) -> EngineResult<Box<dyn SshTunnelBac
     let auth_label = match config.auth {
         SshAuth::Password { .. } => "password",
         SshAuth::Key { .. } => "key",
+        SshAuth::Agent { .. } => "agent",
     };
 
     Err(EngineError::SshError {
@@ -133,7 +134,7 @@ impl SshTunnelBackend for OpenSshBackend {
     }
 
     fn supports_auth(&self, auth: &SshAuth) -> bool {
-        matches!(auth, SshAuth::Key { .. })
+        matches!(auth, SshAuth::Key { .. } | SshAuth::Agent { .. })
     }
 
     async fn open(
@@ -321,8 +322,6 @@ fn build_ssh_command(
         .arg("-o")
         .arg(format!("GlobalKnownHostsFile={}", null_device))
         .arg("-o")
-        .arg("IdentitiesOnly=yes")
-        .arg("-o")
         .arg("PreferredAuthentications=publickey")
         .arg("-L")
         .arg(format!(
@@ -354,7 +353,19 @@ fn build_ssh_command(
                     message: "Key passphrase was provided but is not supported by the native OpenSSH tunnel backend. Load the key into ssh-agent (recommended) or use an unencrypted key.".into(),
                 });
             }
-            cmd.arg("-i").arg(private_key_path);
+            // Pin the offered identity to the configured key so the agent does
+            // not shadow it with an unrelated one.
+            cmd.arg("-o")
+                .arg("IdentitiesOnly=yes")
+                .arg("-i")
+                .arg(private_key_path);
+        }
+        SshAuth::Agent { identity_agent } => {
+            let socket = identity_agent.as_deref().map(str::trim).unwrap_or("");
+            if !socket.is_empty() {
+                validate_identity_agent(socket)?;
+                cmd.arg("-o").arg(format!("IdentityAgent={}", socket));
+            }
         }
     }
 
@@ -411,6 +422,17 @@ fn validate_private_key_path(path: &str) -> EngineResult<()> {
                 "SSH private key file not found: '{}'. Check the path and permissions.",
                 path
             ),
+        });
+    }
+    Ok(())
+}
+
+/// Validate an explicit agent socket: a single-line path, so it cannot smuggle
+/// extra `-o` directives into the OpenSSH command line.
+fn validate_identity_agent(path: &str) -> EngineResult<()> {
+    if path.chars().any(|c| c.is_control()) {
+        return Err(EngineError::SshError {
+            message: "Invalid SSH agent socket: control characters are not allowed.".into(),
         });
     }
     Ok(())
@@ -555,6 +577,86 @@ mod tests {
         let stderr = "user@internal-host: Permission denied\nsome other info";
         let sanitized = sanitize_ssh_stderr(stderr);
         assert!(sanitized.contains("Permission denied"));
+    }
+
+    fn agent_config(identity_agent: Option<&str>) -> SshTunnelConfig {
+        SshTunnelConfig {
+            host: "ssh.example.com".to_string(),
+            port: 22,
+            username: "user".to_string(),
+            auth: SshAuth::Agent {
+                identity_agent: identity_agent.map(str::to_string),
+            },
+            host_key_policy: SshHostKeyPolicy::AcceptNew,
+            known_hosts_path: Some("/tmp/qoredb_known_hosts".to_string()),
+            proxy_jump: None,
+            connect_timeout_secs: 10,
+            keepalive_interval_secs: 30,
+            keepalive_count_max: 3,
+        }
+    }
+
+    #[test]
+    fn builds_agent_command_without_identity_file() {
+        let cfg = agent_config(None);
+        let cmd = build_ssh_command(&cfg, "/tmp/qoredb_known_hosts", 50000, "postgres", 5432)
+            .expect("agent auth should build a command");
+        let args = cmd_args(&cmd);
+
+        assert!(!args.iter().any(|a| a == "-i"));
+        // IdentitiesOnly=yes would hide the agent identities from ssh.
+        assert!(!args.iter().any(|a| a == "IdentitiesOnly=yes"));
+        assert!(!args.iter().any(|a| a.starts_with("IdentityAgent=")));
+        assert!(args.iter().any(|a| a == "PreferredAuthentications=publickey"));
+        assert!(args.iter().any(|a| a == "user@ssh.example.com"));
+    }
+
+    #[test]
+    fn builds_agent_command_with_explicit_socket() {
+        let cfg = agent_config(Some("  /tmp/keepass-agent.sock  "));
+        let cmd = build_ssh_command(&cfg, "/tmp/qoredb_known_hosts", 50000, "postgres", 5432)
+            .expect("agent auth should build a command");
+        let args = cmd_args(&cmd);
+
+        assert!(
+            args.iter()
+                .any(|a| a == "IdentityAgent=/tmp/keepass-agent.sock")
+        );
+    }
+
+    #[test]
+    fn rejects_identity_agent_with_control_characters() {
+        let cfg = agent_config(Some("/tmp/sock\nProxyCommand=evil"));
+        let err = build_ssh_command(&cfg, "/tmp/qoredb_known_hosts", 50000, "postgres", 5432)
+            .expect_err("control characters should be rejected");
+        match err {
+            EngineError::SshError { message } => assert!(message.contains("agent socket")),
+            other => panic!("unexpected error: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn key_auth_keeps_identities_only() {
+        let cfg = SshTunnelConfig {
+            auth: SshAuth::Key {
+                private_key_path: "id_ed25519".to_string(),
+                passphrase: None,
+            },
+            ..agent_config(None)
+        };
+        let cmd = build_ssh_command(&cfg, "/tmp/qoredb_known_hosts", 50000, "postgres", 5432)
+            .expect("key auth should build a command");
+        let args = cmd_args(&cmd);
+
+        assert!(args.iter().any(|a| a == "IdentitiesOnly=yes"));
+        assert!(args.iter().any(|a| a == "id_ed25519"));
+    }
+
+    #[test]
+    fn openssh_backend_supports_agent_auth() {
+        assert!(OpenSshBackend.supports_auth(&SshAuth::Agent {
+            identity_agent: None
+        }));
     }
 
     #[test]

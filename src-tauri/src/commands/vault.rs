@@ -132,6 +132,9 @@ pub struct SshTunnelInput {
     pub password: Option<String>,
     pub key_path: Option<String>,
     pub key_passphrase: Option<String>,
+    /// Agent socket override when `auth_type` is `"agent"`.
+    #[serde(default)]
+    pub identity_agent: Option<String>,
 
     pub host_key_policy: String,
 
@@ -305,6 +308,7 @@ pub async fn save_connection(
         username: ssh.username.clone(),
         auth_type: ssh.auth_type.clone(),
         key_path: ssh.key_path.clone(),
+        identity_agent: ssh.identity_agent.clone(),
         host_key_policy: ssh.host_key_policy.clone(),
         proxy_jump: ssh.proxy_jump.clone(),
         connect_timeout_secs: ssh.connect_timeout_secs,

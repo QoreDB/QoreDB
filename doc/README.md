@@ -49,6 +49,7 @@ completed spec to `archive/` when delivery is established and update its links.
 
 | Plan | Topic |
 | --- | --- |
+| [v0.1.40](todo/V0_1_40.md) | Data editing and stabilization of existing Pro features |
 | [Databases](todo/DATABASES.md) | Driver roadmap and investigation notes |
 | [v2](todo/v2.md) | Product roadmap |
 | [v3](todo/v3.md) | Subsequent product roadmap |

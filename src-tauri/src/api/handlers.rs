@@ -168,12 +168,14 @@ fn authenticate(endpoint: &Endpoint, headers: &HeaderMap) -> Result<(), ApiError
 /// Substitutes `{{name}}` placeholders with typed-and-escaped SQL literals.
 ///
 /// Unknown query-string keys are ignored. Missing required params return 400.
+/// The query is scanned once so that text inserted by one parameter is never
+/// re-interpreted as another placeholder.
 fn substitute_params(
     endpoint: &Endpoint,
     values: &HashMap<String, String>,
     dialect: ParamDialect,
 ) -> Result<String, ApiError> {
-    let mut out = endpoint.query_source.clone();
+    let mut literals = HashMap::with_capacity(endpoint.params.len());
     for p in &endpoint.params {
         let literal = match values.get(&p.name) {
             Some(value) => type_param(p, value, dialect)?,
@@ -190,9 +192,25 @@ fn substitute_params(
                 }
             },
         };
-        let placeholder = format!("{{{{{}}}}}", p.name);
-        out = out.replace(&placeholder, &literal);
+        literals.insert(p.name.as_str(), literal);
     }
+
+    let source = endpoint.query_source.as_str();
+    let mut out = String::with_capacity(source.len());
+    let mut rest = source;
+    while let Some(start) = rest.find("{{") {
+        let after_start = &rest[start + 2..];
+        let Some(end) = after_start.find("}}") else {
+            break;
+        };
+        out.push_str(&rest[..start]);
+        match literals.get(&after_start[..end]) {
+            Some(literal) => out.push_str(literal),
+            None => out.push_str(&rest[start..start + 2 + end + 2]),
+        }
+        rest = &after_start[end + 2..];
+    }
+    out.push_str(rest);
     Ok(out)
 }
 
@@ -626,6 +644,66 @@ mod tests {
         assert!(!sql.contains("OR 1=1 --"));
         let analysis = sql_safety::analyze_sql("mysql", &sql).expect("valid MySQL query");
         assert!(!analysis.is_mutation);
+    }
+
+    #[test]
+    fn param_value_naming_another_placeholder_is_not_substituted_again() {
+        let string_param = |name: &str| EndpointParam {
+            name: name.into(),
+            kind: EndpointParamType::String,
+            required: true,
+            default: None,
+        };
+        let e = ep(
+            "SELECT * FROM users WHERE a = {{a}} AND b = {{b}}",
+            vec![string_param("a"), string_param("b")],
+        );
+        let mut vals = HashMap::new();
+        vals.insert("a".into(), "{{b}}".into());
+        vals.insert("b".into(), "OR 1=1 --".into());
+
+        let sql = substitute_params(&e, &vals, ParamDialect::Postgres).unwrap();
+        assert_eq!(
+            sql,
+            "SELECT * FROM users WHERE a = E'{{b}}' AND b = E'OR 1=1 --'"
+        );
+
+        for dialect in [
+            ParamDialect::Postgres,
+            ParamDialect::MySql,
+            ParamDialect::Sqlite,
+            ParamDialect::DuckDb,
+            ParamDialect::SqlServer,
+            ParamDialect::ClickHouse,
+            ParamDialect::Snowflake,
+            ParamDialect::BigQuery,
+        ] {
+            let sql = substitute_params(&e, &vals, dialect).unwrap();
+            let expected = format!(
+                "SELECT * FROM users WHERE a = {} AND b = {}",
+                string_literal("{{b}}", dialect).unwrap(),
+                string_literal("OR 1=1 --", dialect).unwrap()
+            );
+            assert_eq!(sql, expected, "{dialect:?}");
+        }
+    }
+
+    #[test]
+    fn repeated_and_undeclared_placeholders_are_handled_in_one_pass() {
+        let p = EndpointParam {
+            name: "id".into(),
+            kind: EndpointParamType::Integer,
+            required: true,
+            default: None,
+        };
+        let e = ep(
+            "SELECT {{id}}, {{other}} WHERE x = {{id}} AND y = '{{",
+            vec![p],
+        );
+        let mut vals = HashMap::new();
+        vals.insert("id".into(), "7".into());
+        let sql = substitute_params(&e, &vals, ParamDialect::Postgres).unwrap();
+        assert_eq!(sql, "SELECT 7, {{other}} WHERE x = 7 AND y = '{{");
     }
 
     #[test]

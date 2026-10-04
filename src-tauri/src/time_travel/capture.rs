@@ -79,7 +79,9 @@ pub async fn fetch_row_by_pk(
         Ok(Err(e)) => {
             warn!(
                 "Time-travel: failed to fetch before-image for {}.{}: {}",
-                namespace.database, table, e
+                namespace.database,
+                table,
+                e.sanitized_message()
             );
             None
         }
@@ -97,6 +99,7 @@ pub async fn fetch_row_by_pk(
 pub fn build_changelog_entry(
     session_id: &str,
     driver_id: &str,
+    connection_id: Option<&str>,
     namespace: &Namespace,
     table: &str,
     operation: ChangeOperation,
@@ -112,6 +115,7 @@ pub fn build_changelog_entry(
         id: Uuid::new_v4(),
         timestamp: Utc::now(),
         session_id: session_id.to_string(),
+        connection_id: connection_id.map(String::from),
         driver_id: driver_id.to_string(),
         namespace: namespace.clone(),
         table_name: table.to_string(),
@@ -122,6 +126,66 @@ pub fn build_changelog_entry(
         changed_columns,
         connection_name: connection_name.map(String::from),
         environment: environment.to_string(),
+    }
+}
+
+/// Record only confirmed writes after the service has resolved the transaction.
+pub fn capture_confirmed_batch(
+    store: &super::store::ChangelogStore,
+    session_id: &str,
+    driver_id: &str,
+    connection_id: Option<&str>,
+    connection_name: Option<&str>,
+    environment: &str,
+    changes: &[qore_sql::generator::SandboxChangeDto],
+    result: &qore_service::mutation::batch::ApplyBatchResult,
+    masking: Option<&qore_core::masking::ConnectionMasking>,
+) {
+    use qore_sql::generator::SandboxChangeType;
+
+    for &index in &result.applied_indices {
+        let Some(change) = changes.get(index) else {
+            continue;
+        };
+        if !store.should_capture(&change.table_name, environment) {
+            continue;
+        }
+        let operation = match change.change_type {
+            SandboxChangeType::Insert => ChangeOperation::Insert,
+            SandboxChangeType::Update => ChangeOperation::Update,
+            SandboxChangeType::Delete => ChangeOperation::Delete,
+        };
+        let data = RowData {
+            columns: change.new_values.clone().unwrap_or_default(),
+        };
+        let pk = change.primary_key.as_ref().unwrap_or(&data);
+        let before = change.old_values.as_ref().map(|values| {
+            rowdata_to_json_map(&RowData {
+                columns: values.clone(),
+            })
+        });
+        let after = change.new_values.as_ref().map(|_| match &before {
+            Some(before) if matches!(change.change_type, SandboxChangeType::Update) => {
+                merge_before_with_data(before, &data)
+            }
+            _ => rowdata_to_json_map(&data),
+        });
+        store.record_with_masking(
+            build_changelog_entry(
+                session_id,
+                driver_id,
+                connection_id,
+                &change.namespace,
+                &change.table_name,
+                operation,
+                pk,
+                before,
+                after,
+                connection_name,
+                environment,
+            ),
+            masking,
+        );
     }
 }
 
@@ -146,11 +210,6 @@ pub fn rowdata_to_json_map(data: &RowData) -> HashMap<String, serde_json::Value>
         .iter()
         .map(|(k, v)| (k.clone(), value_to_json(v)))
         .collect()
-}
-
-/// Convert a Value enum to serde_json::Value (public for sandbox integration).
-pub fn value_to_json_pub(value: &Value) -> serde_json::Value {
-    value_to_json(value)
 }
 
 fn value_to_json(value: &Value) -> serde_json::Value {
@@ -250,5 +309,138 @@ mod tests {
         let map = rowdata_to_json_map(&data);
         assert_eq!(map.get("id"), Some(&serde_json::json!(42)));
         assert_eq!(map.get("name"), Some(&serde_json::json!("Alice")));
+    }
+}
+
+#[cfg(test)]
+mod batch_tests {
+    use super::*;
+    use crate::time_travel::{ChangelogFilter, ChangelogScope, ChangelogStore};
+    use qore_service::mutation::batch::ApplyBatchResult;
+    use qore_sql::generator::{SandboxChangeDto, SandboxChangeType};
+
+    #[test]
+    fn privacy_batch_capture_passes_session_rules_before_persistence() {
+        use qore_core::masking::{ConnectionMasking, MaskMode, MaskingRule};
+        let dir = tempfile::tempdir().unwrap();
+        let store = ChangelogStore::new(dir.path().into());
+        let changes = vec![SandboxChangeDto {
+            change_type: SandboxChangeType::Delete,
+            namespace: Namespace {
+                database: "fixture".into(),
+                schema: None,
+            },
+            table_name: "items".into(),
+            primary_key: Some(RowData::new().with_column("id", Value::Int(1))),
+            old_values: Some(
+                RowData::new()
+                    .with_column("alias", Value::Text("captured-secret-fixture".into()))
+                    .columns,
+            ),
+            new_values: None,
+        }];
+        let masking = ConnectionMasking {
+            rules: vec![MaskingRule {
+                table: "items".into(),
+                column: "alias".into(),
+                mode: MaskMode::Hash,
+            }],
+            mask_detected_columns: false,
+        };
+        let mut result = ApplyBatchResult::default();
+        result.success = true;
+        result.applied_count = 1;
+        result.applied_indices = vec![0];
+        capture_confirmed_batch(
+            &store,
+            "session",
+            "sqlite",
+            Some("saved"),
+            None,
+            "development",
+            &changes,
+            &result,
+            Some(&masking),
+        );
+        let content = std::fs::read_to_string(dir.path().join("changelog.jsonl")).unwrap();
+        assert!(!content.contains("captured-secret-fixture"));
+        assert!(content.contains("[REDACTED]"));
+    }
+
+    #[test]
+    fn batch_capture_excludes_unconfirmed_writes_and_merges_update_images() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = ChangelogStore::new(dir.path().into());
+        let changes = vec![SandboxChangeDto {
+            change_type: SandboxChangeType::Update,
+            namespace: Namespace {
+                database: "fixture".into(),
+                schema: None,
+            },
+            table_name: "items".into(),
+            primary_key: Some(RowData::new().with_column("id", Value::Int(1))),
+            old_values: Some(
+                RowData::new()
+                    .with_column("id", Value::Int(1))
+                    .with_column("name", Value::Text("before".into()))
+                    .columns,
+            ),
+            new_values: Some(
+                RowData::new()
+                    .with_column("name", Value::Text("after".into()))
+                    .columns,
+            ),
+        }];
+        let scope = ChangelogScope {
+            masking: None,
+            session_id: "session".into(),
+            connection_id: Some("saved".into()),
+            driver_id: "sqlite".into(),
+        };
+        let mut result = ApplyBatchResult::default();
+        for unknown in [false, true] {
+            result.outcome_unknown = unknown;
+            capture_confirmed_batch(
+                &store,
+                "session",
+                "sqlite",
+                Some("saved"),
+                None,
+                "development",
+                &changes,
+                &result,
+                None,
+            );
+            assert!(
+                store
+                    .get_entries(&scope, &ChangelogFilter::default())
+                    .is_empty()
+            );
+        }
+        // An explicit nontransactional batch may have confirmed writes before its failure.
+        result.applied_count = 1;
+        result.applied_indices = vec![0];
+        capture_confirmed_batch(
+            &store,
+            "session",
+            "sqlite",
+            Some("saved"),
+            None,
+            "development",
+            &changes,
+            &result,
+            None,
+        );
+        let entries = store.get_entries(&scope, &ChangelogFilter::default());
+        assert_eq!(entries.len(), 1);
+        assert_eq!(
+            entries[0].after.as_ref().unwrap()["id"],
+            serde_json::json!(1)
+        );
+        assert_eq!(
+            entries[0].after.as_ref().unwrap()["name"],
+            serde_json::json!("after")
+        );
+        assert_eq!(entries[0].changed_columns, vec!["name"]);
     }
 }

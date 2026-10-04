@@ -2095,6 +2095,8 @@
     },
     "generateSQL": "Générer SQL",
     "migration": {
+      "outcomeUnknown": "Le résultat n’a pas pu être confirmé. Ne relancez pas ce lot. Reconnectez-vous et vérifiez les lignes concernées avant de préparer un nouveau lot.",
+      "previewChanged": "Les modifications en attente ont changé. Fermez cet aperçu et générez-le à nouveau avant d’appliquer.",
       "title": "Script de migration",
       "generating": "Génération du script...",
       "statements": "{{count}} instruction(s)",
@@ -3391,9 +3393,14 @@
     "leave": "Quitter l'espace"
   },
   "timeTravel": {
+    "retry": "Rafraîchir",
+    "requestFailed": "Impossible de traiter cette demande d’historique. Réessayez.",
+    "scopeHint": "Historique limité à cette connexion. Les anciennes entrées sans connexion identifiable sont conservées mais masquées.",
     "viewHistory": "Historique des données",
     "title": "Time-Travel",
     "timeline": {
+      "events": "{{count}} événement",
+      "events_other": "{{count}} événements",
       "title": "Chronologie",
       "noEvents": "Aucune mutation enregistrée pour cette table",
       "loadMore": "Charger plus",

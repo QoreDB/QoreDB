@@ -10,6 +10,7 @@ script definitions live in [package.json](../../package.json).
 | --- | --- | --- |
 | Documentation or instructions | `pnpm docs:check` | Manually verify changed technical claims against source |
 | Repository checker | `pnpm test:repo` and `pnpm docs:check` | Verify failure fixtures and clean-checkout behavior |
+| Frontend bundle size | `pnpm test:perf`, `pnpm perf:bundle --baseline <reference.json>` | Native startup, process memory/CPU and distribution checks in the release plan |
 | TypeScript utility | `pnpm test:ts path/to/file.test.ts`, `pnpm typecheck` | `pnpm test:ts` for shared behavior |
 | React UI | `pnpm typecheck`, Biome on changed files | Affected tests plus manual Tauri UI flow |
 | Engine types/errors | `cargo test --manifest-path src-tauri/Cargo.toml -p qore-core --lib` | Dependent crates and serialization consumers |
@@ -30,6 +31,47 @@ Vitest uses the Node environment and discovers `src/**/*.test.ts` through
 in `src-tauri`, whose root is also the `qoredb` package. It does not run all
 workspace members' unit tests. Use explicit `-p` for changed crates. A workspace
 run includes the vendored SQLx package and a much broader dependency/feature set.
+
+## Frontend bundle measurements
+
+Create a reference before changing frontend sources, then compare the candidate:
+
+```bash
+pnpm perf:bundle --output .perf/baseline.json
+pnpm perf:bundle --baseline .perf/baseline.json --output .perf/candidate.json
+pnpm test:perf
+```
+
+The [measurement script](../../scripts/measure-bundle.mjs) runs production Vite
+directly with a manifest, replacing only `.perf/dist/`. It does not run TypeScript,
+version synchronization or the native build. Reports and build outputs live under
+the ignored `.perf/` directory by default. Keep the reference outside `.perf/dist/`
+and explicitly pass it for comparison; without `--baseline`, the report says
+`not-requested`, not that a budget passed. Archive dated evidence under `doc/tests/`
+when using these results for release decisions.
+
+Initial JS/CSS is the deduplicated static import closure of every manifest entry.
+Total JS/CSS includes all emitted JS/CSS files, including those absent from the
+manifest. Other resources and source maps are separate, and unreferenced files
+are listed. Gzip is calculated per file at level 9 and then summed; it differs
+from Vite's displayed gzip sizes and from compressing an installer or directory.
+
+The provisional budgets are zero growth for each initial JS/CSS metric and at
+most 2% growth for each total JS/CSS metric, separately in raw and gzip bytes.
+The comparison exits nonzero on an exceeded budget, invalid reference or manifest,
+missing emitted files, or incompatible build metadata. A zero baseline accepts
+only zero; a new nonzero cost has no defined percentage and fails the budget.
+Commit and dirty status identify the source context; record the actual changes
+in the accompanying evidence. Toolchain, OS/architecture, Vite config, lockfile,
+compression and build-environment fingerprints must match for comparison. The
+JSON stores only hashes of local environment values/files, never their contents.
+
+This is a static frontend weight check. Dynamic imports can execute immediately
+at startup, and the static manifest does not establish WebView traffic, native
+binary/install size, startup latency, RAM or CPU. Complete those scenarios using
+the [v0.1.40 performance protocol](../todo/V0_1_40.md) before claiming release-wide
+performance coverage. The frontend measurement is shared across license states
+only when the frontend build is identical.
 
 ## Focused Rust features
 

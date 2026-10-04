@@ -36,9 +36,9 @@ import { UI_EVENT_REFRESH_TABLE } from '@/lib/events/uiEvents';
 import { type SearchMode, searchCost } from '@/lib/query/indexCost';
 import { defaultSearchColumns } from '@/lib/query/searchScope';
 import {
+  acknowledgeSandboxChanges,
   activateSandbox,
   clearSandboxBackup,
-  clearSandboxChanges,
   createDeleteChange,
   createInsertChange,
   createUpdateChange,
@@ -287,6 +287,7 @@ export function TableBrowser({
   const [sandboxChanges, setSandboxChanges] = useState<SandboxChange[]>([]);
   const [changesPanelOpen, setChangesPanelOpen] = useState(false);
   const [migrationPreviewOpen, setMigrationPreviewOpen] = useState(false);
+  const [migrationChanges, setMigrationChanges] = useState<SandboxChange[]>([]);
   const [migrationScript, setMigrationScript] = useState<MigrationScript | null>(null);
   const [migrationLoading, setMigrationLoading] = useState(false);
   const [migrationError, setMigrationError] = useState<string | null>(null);
@@ -650,6 +651,7 @@ export function TableBrowser({
           ...result.script,
           warnings: mergedWarnings,
         });
+        setMigrationChanges(session.changes);
         setMigrationPreviewOpen(true);
       } else {
         setMigrationError(result.error || 'Failed to generate SQL');
@@ -661,41 +663,53 @@ export function TableBrowser({
     }
   }, [sessionId, validateSandboxChanges]);
 
-  const handleApplySandbox = useCallback(async () => {
-    const session = getSandboxSession(sessionId);
-    const validation = await validateSandboxChanges(session.changes);
-    if (validation.errors.length > 0) {
-      const error = validation.errors.join('\n');
-      return {
-        success: false,
-        applied_count: 0,
-        error,
-        failed_changes: [],
-      };
-    }
-
-    const changes: SandboxChangeDto[] = session.changes.map(c => ({
-      change_type: c.type,
-      namespace: c.namespace,
-      table_name: c.tableName,
-      primary_key: c.primaryKey,
-      old_values: c.oldValues,
-      new_values: c.newValues,
-    }));
-
-    const result = await applySandboxChanges(sessionId, changes, true);
-
-    if (result.success) {
-      clearSandboxChanges(sessionId);
-      deactivateSandbox(sessionId, true);
-      reload();
-      if (sandboxPrefs.autoCollapsePanel) {
-        setChangesPanelOpen(false);
+  const handleApplySandbox = useCallback(
+    async (acknowledged: boolean) => {
+      const session = getSandboxSession(sessionId);
+      if (JSON.stringify(session.changes) !== JSON.stringify(migrationChanges)) {
+        return {
+          success: false,
+          applied_count: 0,
+          applied_indices: [],
+          outcome_unknown: false,
+          error: t('sandbox.migration.previewChanged'),
+          failed_changes: [],
+        };
       }
-    }
+      const validation = await validateSandboxChanges(migrationChanges);
+      if (validation.errors.length > 0) {
+        const error = validation.errors.join('\n');
+        return {
+          success: false,
+          applied_count: 0,
+          applied_indices: [],
+          outcome_unknown: false,
+          error,
+          failed_changes: [],
+        };
+      }
 
-    return result;
-  }, [sessionId, reload, sandboxPrefs.autoCollapsePanel, validateSandboxChanges]);
+      const changes: SandboxChangeDto[] = session.changes.map(c => ({
+        change_type: c.type,
+        namespace: c.namespace,
+        table_name: c.tableName,
+        primary_key: c.primaryKey,
+        old_values: c.oldValues,
+        new_values: c.newValues,
+      }));
+
+      const result = await applySandboxChanges(sessionId, changes, true, acknowledged);
+      acknowledgeSandboxChanges(sessionId, session.changes, result.applied_indices);
+      if (result.success && getSandboxSession(sessionId).changes.length === 0) {
+        deactivateSandbox(sessionId);
+        if (sandboxPrefs.autoCollapsePanel) setChangesPanelOpen(false);
+      }
+      if (result.applied_count > 0 || result.outcome_unknown) reload();
+
+      return result;
+    },
+    [sessionId, migrationChanges, reload, sandboxPrefs.autoCollapsePanel, validateSandboxChanges, t]
+  );
 
   const displayName = namespace.schema ? `${namespace.schema}.${tableName}` : tableName;
 

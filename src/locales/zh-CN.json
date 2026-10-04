@@ -2047,6 +2047,8 @@
     },
     "generateSQL": "生成 SQL",
     "migration": {
+      "outcomeUnknown": "无法确认执行结果。请勿立即重试此批次。请重新连接并检查受影响的行，再准备新的批次。",
+      "previewChanged": "待处理的更改已发生变化。请关闭此预览并重新生成后再应用。",
       "title": "迁移脚本",
       "generating": "正在生成脚本…",
       "statements": "{{count}} 条语句",
@@ -3342,9 +3344,13 @@
     "leave": "离开"
   },
   "timeTravel": {
+    "retry": "刷新",
+    "requestFailed": "无法完成此历史记录请求，请重试。",
+    "scopeHint": "仅显示此连接的历史记录。无法识别连接的旧记录会保留，但不会显示。",
     "viewHistory": "View data history",
     "title": "Data Time-Travel",
     "timeline": {
+      "events": "{{count}} 个事件",
       "title": "Timeline",
       "noEvents": "No mutations recorded for this table",
       "loadMore": "Load more events",

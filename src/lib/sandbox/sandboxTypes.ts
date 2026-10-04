@@ -80,16 +80,7 @@ export interface MigrationScript {
   warnings: string[];
 }
 
-/** Response from applying sandbox changes. */
-export interface ApplySandboxResult {
-  success: boolean;
-  applied_count: number;
-  error?: string;
-  failed_changes?: Array<{
-    index: number;
-    error: string;
-  }>;
-}
+export type { ApplySandboxResult } from '../tauri/sandbox';
 
 /** Metadata for visual row highlighting in the grid. */
 export interface SandboxRowMetadata {

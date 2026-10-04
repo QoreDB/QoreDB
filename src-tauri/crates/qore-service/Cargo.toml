@@ -41,6 +41,7 @@ security-framework = "3"
 dotenvy = "0.15"
 
 [dev-dependencies]
+async-trait = { workspace = true }
 tempfile = "3.24.0"
 
 [features]

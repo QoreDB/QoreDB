@@ -38,6 +38,16 @@ that every check passes on the current checkout.
 - [Audit index](audits/README.md): security, privacy, dependency/build size,
   product claims, plugin capability checks, and agent readiness.
 - [Driver validation, 2026-09-05](tests/DRIVERS_VALIDATION_2026-09-05.md): dated run.
+- [v0.1.40 frontend weight, 2026-09-28](tests/V0_1_40_PERFORMANCE_2026-09-28.md):
+  initial measurement and first reduction; native performance remains unmeasured.
+- [v0.1.40 bulk edit precision, 2026-10-01](tests/V0_1_40_BULK_EDIT_2026-10-01.md):
+  numeric rounding regression, DTO/SQL checks and remaining live validation.
+- [v0.1.40 Time Travel, 2026-10-03](tests/V0_1_40_TIME_TRAVEL_2026-10-03.md):
+  connection isolation, rollback/diff regressions, Core/Pro checks and bundle budget overrun.
+- [v0.1.40 Sandbox batches, 2026-10-03](tests/V0_1_40_SANDBOX_2026-10-03.md):
+  commit/rollback fidelity, mutation guards, live SQLite tests and deferred Bulk Edit loading.
+- [v0.1.40 Time Travel masking, 2026-10-03](tests/V0_1_40_TIME_TRAVEL_PRIVACY_2026-10-03.md):
+  key/JSON redaction, current connection rules on historical reads and safe rollback limits.
 - [Driver limitations](tests/DRIVER_LIMITATIONS.md): coverage boundaries,
   unsupported operations, and mock/live distinctions.
 
@@ -49,7 +59,7 @@ completed spec to `archive/` when delivery is established and update its links.
 
 | Plan | Topic |
 | --- | --- |
-| [v0.1.40](todo/V0_1_40.md) | Data editing and stabilization of existing Pro features |
+| [v0.1.40](todo/V0_1_40.md) | Weight/performance baseline, data editing and stabilization of existing Pro features |
 | [Databases](todo/DATABASES.md) | Driver roadmap and investigation notes |
 | [v2](todo/v2.md) | Product roadmap |
 | [v3](todo/v3.md) | Subsequent product roadmap |

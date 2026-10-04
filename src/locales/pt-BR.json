@@ -2056,6 +2056,8 @@
     },
     "generateSQL": "Gerar SQL",
     "migration": {
+      "outcomeUnknown": "Não foi possível confirmar o resultado. Não execute este lote novamente por enquanto. Reconecte e verifique as linhas afetadas antes de preparar outro lote.",
+      "previewChanged": "As alterações pendentes mudaram. Feche esta prévia e gere uma nova antes de aplicar.",
       "title": "Script de Migração",
       "generating": "Gerando script...",
       "statements": "{{count}} instrução(ões)",
@@ -3352,9 +3354,14 @@
     "leave": "Sair"
   },
   "timeTravel": {
+    "retry": "Atualizar",
+    "requestFailed": "Não foi possível concluir esta solicitação de histórico. Tente novamente.",
+    "scopeHint": "O histórico é limitado a esta conexão. Registros antigos sem conexão identificável são preservados, mas ficam ocultos.",
     "viewHistory": "View data history",
     "title": "Data Time-Travel",
     "timeline": {
+      "events": "{{count}} evento",
+      "events_other": "{{count}} eventos",
       "title": "Timeline",
       "noEvents": "No mutations recorded for this table",
       "loadMore": "Load more events",

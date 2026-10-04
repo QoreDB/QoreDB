@@ -17,6 +17,7 @@ export interface ChangelogEntry {
   id: string;
   timestamp: string;
   session_id: string;
+  connection_id: string | null;
   driver_id: string;
   namespace: Namespace;
   table_name: string;
@@ -33,6 +34,8 @@ export interface TemporalDiff {
   columns: string[];
   rows: TemporalDiffRow[];
   stats: TemporalDiffStats;
+  truncated: boolean;
+  incomplete: boolean;
 }
 
 export interface TemporalDiffRow {
@@ -105,6 +108,7 @@ export async function getTableTimeline(
 }
 
 export async function getRowHistory(
+  sessionId: string,
   database: string,
   schema: string | null,
   tableName: string,
@@ -115,10 +119,11 @@ export async function getRowHistory(
   entries: ChangelogEntry[];
   error: string | null;
 }> {
-  return invoke('get_row_history', { database, schema, tableName, primaryKey, limit });
+  return invoke('get_row_history', { sessionId, database, schema, tableName, primaryKey, limit });
 }
 
 export async function computeTemporalDiff(
+  sessionId: string,
   database: string,
   schema: string | null,
   tableName: string,
@@ -131,6 +136,7 @@ export async function computeTemporalDiff(
   error: string | null;
 }> {
   return invoke('compute_temporal_diff', {
+    sessionId,
     database,
     schema,
     tableName,
@@ -141,6 +147,7 @@ export async function computeTemporalDiff(
 }
 
 export async function getRowStateAt(
+  sessionId: string,
   database: string,
   schema: string | null,
   tableName: string,
@@ -152,30 +159,37 @@ export async function getRowStateAt(
   exists: boolean;
   error: string | null;
 }> {
-  return invoke('get_row_state_at', { database, schema, tableName, primaryKey, timestamp });
+  return invoke('get_row_state_at', {
+    sessionId,
+    database,
+    schema,
+    tableName,
+    primaryKey,
+    timestamp,
+  });
 }
 
 export async function generateRollbackSql(
+  sessionId: string,
   database: string,
   schema: string | null,
   tableName: string,
-  targetTimestamp: string,
-  driverId: string
+  targetTimestamp: string
 ): Promise<RollbackSqlResponse> {
   return invoke('generate_rollback_sql', {
+    sessionId,
     database,
     schema,
     tableName,
     targetTimestamp,
-    driverId,
   });
 }
 
 export async function generateEntryRollbackSql(
-  entryId: string,
-  driverId: string
+  sessionId: string,
+  entryId: string
 ): Promise<RollbackSqlResponse> {
-  return invoke('generate_entry_rollback_sql', { entryId, driverId });
+  return invoke('generate_entry_rollback_sql', { sessionId, entryId });
 }
 
 export async function getTimeTravelConfig(): Promise<{
@@ -203,12 +217,14 @@ async function requestConfirmationToken(action: string): Promise<string> {
 }
 
 export async function clearTableChangelog(
+  sessionId: string,
   database: string,
   schema: string | null,
   tableName: string
 ): Promise<{ success: boolean; error: string | null }> {
   const confirmationToken = await requestConfirmationToken('clear_table_changelog');
   return invoke('clear_table_changelog', {
+    sessionId,
     database,
     schema,
     tableName,
@@ -221,13 +237,28 @@ export async function clearAllChangelog(): Promise<{ success: boolean; error: st
   return invoke('clear_all_changelog', { confirmationToken });
 }
 
-export async function exportChangelog(filter: {
-  tableName?: string;
-  namespace?: Namespace;
-  operation?: string;
-  fromTimestamp?: string;
-  toTimestamp?: string;
-  limit?: number;
-}): Promise<string> {
-  return invoke('export_changelog', { filter });
+export async function exportChangelog(
+  sessionId: string,
+  filter: {
+    tableName?: string;
+    namespace?: Namespace;
+    operation?: string;
+    fromTimestamp?: string;
+    toTimestamp?: string;
+    primaryKeySearch?: string;
+    limit?: number;
+  }
+): Promise<string> {
+  return invoke('export_changelog', {
+    sessionId,
+    filter: {
+      table_name: filter.tableName,
+      namespace: filter.namespace,
+      operation: filter.operation,
+      from_timestamp: filter.fromTimestamp,
+      to_timestamp: filter.toTimestamp,
+      primary_key_search: filter.primaryKeySearch,
+      limit: filter.limit,
+    },
+  });
 }

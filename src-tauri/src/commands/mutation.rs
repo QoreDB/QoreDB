@@ -53,6 +53,7 @@ pub async fn insert_row(
     drop(state_guard);
 
     let session = parse_session_id(&session_id)?;
+    let connection_identity = session_manager.get_saved_connection_identity(session).await;
 
     let query_preview = format!(
         "INSERT INTO {} VALUES (...)",
@@ -117,16 +118,24 @@ pub async fn insert_row(
                 let entry = build_changelog_entry(
                     &session_id,
                     driver.driver_id(),
+                    connection_identity.as_ref().map(|(id, _)| id.as_str()),
                     &namespace,
                     &table,
                     ChangeOperation::Insert,
                     &data,
                     None,
                     Some(after_image),
-                    None,
+                    connection_identity.as_ref().map(|(_, name)| name.as_str()),
                     &environment,
                 );
-                changelog_store.record(entry);
+                changelog_store.record_with_masking(
+                    entry,
+                    session_manager
+                        .masking(session)
+                        .await
+                        .as_ref()
+                        .map(|masking| &masking.config),
+                );
             }
 
             #[cfg(feature = "pro")]
@@ -191,6 +200,7 @@ pub async fn update_row(
     let query_cache = Arc::clone(&state_guard.query_cache);
     drop(state_guard);
     let session = parse_session_id(&session_id)?;
+    let connection_identity = session_manager.get_saved_connection_identity(session).await;
 
     let query_preview = format!(
         "UPDATE {} SET ... WHERE ...",
@@ -282,16 +292,24 @@ pub async fn update_row(
                 let entry = build_changelog_entry(
                     &session_id,
                     driver.driver_id(),
+                    connection_identity.as_ref().map(|(id, _)| id.as_str()),
                     &namespace,
                     &table,
                     ChangeOperation::Update,
                     &primary_key,
                     before_image,
                     after_image,
-                    None,
+                    connection_identity.as_ref().map(|(_, name)| name.as_str()),
                     &environment,
                 );
-                changelog_store.record(entry);
+                changelog_store.record_with_masking(
+                    entry,
+                    session_manager
+                        .masking(session)
+                        .await
+                        .as_ref()
+                        .map(|masking| &masking.config),
+                );
             }
 
             #[cfg(feature = "pro")]
@@ -355,6 +373,7 @@ pub async fn delete_row(
     let query_cache = Arc::clone(&state_guard.query_cache);
     drop(state_guard);
     let session = parse_session_id(&session_id)?;
+    let connection_identity = session_manager.get_saved_connection_identity(session).await;
 
     let query_preview = format!(
         "DELETE FROM {} WHERE ...",
@@ -427,16 +446,24 @@ pub async fn delete_row(
                 let entry = build_changelog_entry(
                     &session_id,
                     driver.driver_id(),
+                    connection_identity.as_ref().map(|(id, _)| id.as_str()),
                     &namespace,
                     &table,
                     ChangeOperation::Delete,
                     &primary_key,
                     before_image,
                     None,
-                    None,
+                    connection_identity.as_ref().map(|(_, name)| name.as_str()),
                     &environment,
                 );
-                changelog_store.record(entry);
+                changelog_store.record_with_masking(
+                    entry,
+                    session_manager
+                        .masking(session)
+                        .await
+                        .as_ref()
+                        .map(|masking| &masking.config),
+                );
             }
 
             #[cfg(feature = "pro")]

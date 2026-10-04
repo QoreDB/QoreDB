@@ -18,7 +18,16 @@ import {
 } from '@tanstack/react-table';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { CheckCircle2, Pencil } from 'lucide-react';
-import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  lazy,
+  Suspense,
+  useCallback,
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { useTranslation } from 'react-i18next';
 import { StreamingExportDialog } from '@/components/Export/StreamingExportDialog';
 import { DangerConfirmDialog } from '@/components/Guard/DangerConfirmDialog';
@@ -54,7 +63,6 @@ import type {
 } from '@/lib/tauri';
 import { useAiPreferences } from '@/providers/AiPreferencesProvider';
 import { useLicense } from '@/providers/LicenseProvider';
-import { BulkEditDialog } from './BulkEditDialog';
 import { DataGeneratorDialog } from './DataGeneratorDialog';
 import { DataGridColumnHeader } from './DataGridColumnHeader';
 import { DataGridHeader } from './DataGridHeader';
@@ -80,6 +88,10 @@ import {
   type RowData,
   type RowDataCache,
 } from './utils/dataGridUtils';
+
+const BulkEditDialog = lazy(() =>
+  import('./BulkEditDialog').then(module => ({ default: module.BulkEditDialog }))
+);
 
 const EMPTY_OVERLAY_RESULT: OverlayResult = {
   result: {
@@ -1131,24 +1143,29 @@ export function DataGrid({
         isDeleting={isDeleting}
       />
 
-      <BulkEditDialog
-        open={bulkEditDialogOpen}
-        onOpenChange={setBulkEditDialogOpen}
-        selectedRows={selectedRows.map(r => r.original)}
-        tableSchema={tableSchema ?? null}
-        primaryKey={primaryKey}
-        namespace={namespace}
-        tableName={tableName}
-        sessionId={sessionId}
-        dialect={driver}
-        sandboxMode={sandboxMode}
-        onSandboxUpdate={onSandboxUpdate}
-        maskedColumns={maskedColumns}
-        onApplied={() => {
-          table.resetRowSelection();
-          onRowsUpdated?.();
-        }}
-      />
+      {bulkEditDialogOpen && (
+        <Suspense fallback={null}>
+          <BulkEditDialog
+            open={bulkEditDialogOpen}
+            onOpenChange={setBulkEditDialogOpen}
+            selectedRows={selectedRows.map(r => r.original)}
+            tableSchema={tableSchema ?? null}
+            primaryKey={primaryKey}
+            namespace={namespace}
+            tableName={tableName}
+            sessionId={sessionId}
+            dialect={driver}
+            environment={environment}
+            sandboxMode={sandboxMode}
+            onSandboxUpdate={onSandboxUpdate}
+            maskedColumns={maskedColumns}
+            onApplied={() => {
+              table.resetRowSelection();
+              onRowsUpdated?.();
+            }}
+          />
+        </Suspense>
+      )}
 
       {canGenerateData && sessionId && tableName && namespace && (
         <DataGeneratorDialog

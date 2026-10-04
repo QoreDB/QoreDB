@@ -2074,6 +2074,8 @@
     },
     "generateSQL": "Сгенерировать SQL",
     "migration": {
+      "outcomeUnknown": "Не удалось подтвердить результат. Пока не запускайте этот пакет повторно. Подключитесь заново и проверьте затронутые строки, прежде чем готовить новый пакет.",
+      "previewChanged": "Ожидающие изменения обновились. Закройте предпросмотр и создайте его заново перед применением.",
       "title": "Скрипт миграции",
       "generating": "Генерация скрипта…",
       "statements": "{{count}} запрос(ов)",
@@ -3372,9 +3374,17 @@
     "leave": "Покинуть"
   },
   "timeTravel": {
+    "retry": "Обновить",
+    "requestFailed": "Не удалось выполнить запрос истории. Повторите попытку.",
+    "scopeHint": "История ограничена этим подключением. Старые записи с неизвестным подключением сохранены, но скрыты.",
     "viewHistory": "View data history",
     "title": "Data Time-Travel",
     "timeline": {
+      "events": "{{count}} событие",
+      "events_one": "{{count}} событие",
+      "events_few": "{{count}} события",
+      "events_many": "{{count}} событий",
+      "events_other": "{{count}} события",
       "title": "Timeline",
       "noEvents": "No mutations recorded for this table",
       "loadMore": "Load more events",

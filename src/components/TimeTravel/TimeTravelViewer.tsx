@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: BUSL-1.1
 
 import { ChevronDown, Clock, Download, History, RotateCcw, Trash2 } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -39,14 +40,37 @@ interface TimeTravelViewerProps {
   onOpenTab?: (tab: ReturnType<typeof createQueryTab>) => void;
 }
 
-export function TimeTravelViewer({
+export function TimeTravelViewer(props: TimeTravelViewerProps) {
+  return (
+    <ScopedTimeTravelViewer
+      key={JSON.stringify([props.sessionId, props.namespace, props.tableName])}
+      {...props}
+    />
+  );
+}
+
+function ScopedTimeTravelViewer({
   sessionId,
   namespace,
   tableName,
-  driverId,
   onOpenTab,
 }: TimeTravelViewerProps) {
   const { t } = useTranslation();
+  const active = useRef(true);
+  const timelineRequest = useRef(0);
+  const historyRequest = useRef(0);
+  const rollbackRequest = useRef(0);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    active.current = true;
+    return () => {
+      active.current = false;
+      timelineRequest.current += 1;
+      historyRequest.current += 1;
+      rollbackRequest.current += 1;
+    };
+  }, []);
   const [events, setEvents] = useState<TimelineEvent[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -63,7 +87,9 @@ export function TimeTravelViewer({
   const fetchTimeline = useCallback(
     async (newOffset = 0) => {
       if (!namespace || !tableName) return;
+      const request = ++timelineRequest.current;
       setLoading(true);
+      setError(false);
       try {
         const res = await getTableTimeline(
           sessionId,
@@ -77,14 +103,15 @@ export function TimeTravelViewer({
             offset: newOffset,
           }
         );
-        if (res.success) {
-          setEvents(newOffset === 0 ? res.events : prev => [...prev, ...res.events]);
-          setTotalCount(res.total_count);
-        }
+        if (!active.current || request !== timelineRequest.current) return;
+        if (!res.success) throw new Error(res.error ?? 'Timeline unavailable');
+        setEvents(newOffset === 0 ? res.events : prev => [...prev, ...res.events]);
+        setTotalCount(res.total_count);
+        setOffset(newOffset);
       } catch {
-        /* best-effort */
+        if (active.current && request === timelineRequest.current) setError(true);
       } finally {
-        setLoading(false);
+        if (active.current && request === timelineRequest.current) setLoading(false);
       }
     },
     [sessionId, namespace, tableName, operationFilter, pkSearch]
@@ -92,6 +119,8 @@ export function TimeTravelViewer({
 
   useEffect(() => {
     setOffset(0);
+    setEvents([]);
+    setTotalCount(0);
     fetchTimeline(0);
   }, [fetchTimeline]);
 
@@ -103,49 +132,82 @@ export function TimeTravelViewer({
 
   const handleViewRowHistory = async (event: TimelineEvent) => {
     if (!namespace || !tableName || !event.primary_key) return;
+    const request = ++historyRequest.current;
     const res = await getRowHistory(
+      sessionId,
       namespace.database,
       namespace.schema ?? null,
       tableName,
       event.primary_key,
       50
     ).catch(() => null);
+    if (!active.current || request !== historyRequest.current) return;
     if (res?.success) {
       setRowHistoryEntries(res.entries);
       setShowRowHistory(true);
+    } else {
+      toast.error(t('timeTravel.requestFailed'));
     }
   };
 
-  const handleRollbackEntry = async (entry: ChangelogEntry) => {
-    const res = await generateEntryRollbackSql(entry.id, driverId || entry.driver_id).catch(
-      () => null
-    );
+  const handleRollbackEntry = async (entryId: string) => {
+    const request = ++rollbackRequest.current;
+    const res = await generateEntryRollbackSql(sessionId, entryId).catch(() => null);
+    if (!active.current || request !== rollbackRequest.current) return;
     if (res?.success) {
       setRollbackResult(res);
       setRollbackOpen(true);
+    } else {
+      toast.error(t('timeTravel.requestFailed'));
     }
   };
 
   const handleExport = async () => {
     if (!namespace || !tableName) return;
-    const json = await exportChangelog({ tableName, namespace, limit: 10_000 }).catch(() => '[]');
-    const blob = new Blob([json], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${tableName}-changelog.json`;
-    a.click();
-    URL.revokeObjectURL(url);
+    try {
+      const json = await exportChangelog(sessionId, {
+        tableName,
+        namespace,
+        limit: 10_000,
+        operation: operationFilter === 'all' ? undefined : operationFilter,
+        primaryKeySearch: pkSearch || undefined,
+      });
+      if (!active.current) return;
+      const blob = new Blob([json], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${tableName}-changelog.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      if (active.current) toast.error(t('timeTravel.requestFailed'));
+    }
   };
 
   const handleClear = async () => {
     if (!namespace || !tableName) return;
     if (!(await confirmDialog({ description: t('timeTravel.toolbar.clearConfirm') }))) return;
-    await clearTableChangelog(namespace.database, namespace.schema ?? null, tableName).catch(
-      () => {}
-    );
-    setEvents([]);
-    setTotalCount(0);
+    if (!active.current) return;
+    try {
+      const res = await clearTableChangelog(
+        sessionId,
+        namespace.database,
+        namespace.schema ?? null,
+        tableName
+      );
+      if (!active.current) return;
+      if (!res.success) throw new Error(res.error ?? 'Clear failed');
+      historyRequest.current += 1;
+      rollbackRequest.current += 1;
+      setShowRowHistory(false);
+      setRowHistoryEntries([]);
+      setRollbackOpen(false);
+      setRollbackResult(null);
+      await fetchTimeline(0);
+    } catch {
+      if (active.current) toast.error(t('timeTravel.requestFailed'));
+    }
   };
 
   // Disabled state
@@ -160,13 +222,21 @@ export function TimeTravelViewer({
   }
 
   // Empty state
-  if (!loading && events.length === 0 && offset === 0 && operationFilter === 'all' && !pkSearch) {
+  if (
+    !error &&
+    !loading &&
+    events.length === 0 &&
+    offset === 0 &&
+    operationFilter === 'all' &&
+    !pkSearch
+  ) {
     return (
       <div className="flex flex-col items-center justify-center h-full gap-3 text-muted-foreground mt-12">
         <History size={48} className="opacity-30" />
         <h2 className="text-lg font-medium">{t('timeTravel.empty.title')}</h2>
         <p className="text-sm max-w-md text-center">{t('timeTravel.empty.description')}</p>
         <p className="text-xs opacity-60">{t('timeTravel.empty.hint')}</p>
+        <p className="text-xs opacity-60">{t('timeTravel.scopeHint')}</p>
       </div>
     );
   }
@@ -180,7 +250,7 @@ export function TimeTravelViewer({
           {t('timeTravel.title')} — {tableName}
         </h2>
         <span className="text-xs text-muted-foreground">
-          {totalCount} {totalCount === 1 ? 'event' : 'events'}
+          {t('timeTravel.timeline.events', { count: totalCount })}
         </span>
         <Button variant="ghost" size="sm" onClick={handleExport}>
           <Download size={14} className="mr-1" />
@@ -191,6 +261,16 @@ export function TimeTravelViewer({
           {t('timeTravel.toolbar.clear')}
         </Button>
       </div>
+
+      <p className="px-3 py-1 text-xs text-muted-foreground">{t('timeTravel.scopeHint')}</p>
+      {error && (
+        <div role="alert" className="px-3 py-2 text-sm text-destructive">
+          {t('timeTravel.requestFailed')}
+          <Button variant="ghost" size="sm" onClick={() => fetchTimeline(0)}>
+            {t('timeTravel.retry')}
+          </Button>
+        </div>
+      )}
 
       {/* Filters */}
       <div className="flex items-center gap-2 px-3 py-1.5 border-b border-border">
@@ -221,8 +301,6 @@ export function TimeTravelViewer({
               <TimelineEventRow
                 key={event.entry_id}
                 event={event}
-                namespace={namespace}
-                tableName={tableName}
                 onViewHistory={handleViewRowHistory}
                 onRollback={handleRollbackEntry}
                 t={t}
@@ -237,7 +315,6 @@ export function TimeTravelViewer({
                 size="sm"
                 onClick={() => {
                   const next = offset + PAGE_SIZE;
-                  setOffset(next);
                   fetchTimeline(next);
                 }}
                 disabled={loading}
@@ -254,7 +331,7 @@ export function TimeTravelViewer({
             <RowHistoryPanel
               entries={rowHistoryEntries}
               onClose={() => setShowRowHistory(false)}
-              onRollback={handleRollbackEntry}
+              onRollback={entry => handleRollbackEntry(entry.id)}
             />
           </div>
         )}
@@ -280,17 +357,13 @@ export function TimeTravelViewer({
 
 function TimelineEventRow({
   event,
-  namespace,
-  tableName,
   onViewHistory,
   onRollback,
   t,
 }: {
   event: TimelineEvent;
-  namespace?: Namespace;
-  tableName?: string;
   onViewHistory: (e: TimelineEvent) => void;
-  onRollback: (entry: ChangelogEntry) => void;
+  onRollback: (entryId: string) => void;
   t: (key: string) => string;
 }) {
   return (
@@ -304,7 +377,7 @@ function TimelineEventRow({
       {event.connection_name && (
         <span className="text-muted-foreground ml-auto">{event.connection_name}</span>
       )}
-      <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity ml-auto shrink-0">
+      <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity ml-auto shrink-0">
         {event.primary_key && (
           <Button
             variant="ghost"
@@ -320,20 +393,7 @@ function TimelineEventRow({
           variant="ghost"
           size="icon"
           className="h-6 w-6"
-          onClick={async () => {
-            if (namespace && tableName && event.primary_key) {
-              const res = await getRowHistory(
-                namespace.database,
-                namespace.schema ?? null,
-                tableName,
-                event.primary_key,
-                1
-              ).catch(() => null);
-              if (res?.success && res.entries.length > 0) {
-                onRollback(res.entries[0]);
-              }
-            }
-          }}
+          onClick={() => onRollback(event.entry_id)}
           title={t('timeTravel.rollback.rollbackToPoint')}
         >
           <RotateCcw size={12} />

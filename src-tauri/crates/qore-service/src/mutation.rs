@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
+pub mod batch;
+
 use std::sync::Arc;
 
 use qore_core::{DataEngine, SessionId};

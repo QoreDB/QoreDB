@@ -12,12 +12,13 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use chrono::{DateTime, Duration, Utc};
-use parking_lot::RwLock;
+use parking_lot::{Mutex, RwLock};
 use tracing::{debug, error, info, warn};
 
+use super::privacy::{HistoryPrivacy, key_is_available, value_is_unavailable};
 use super::types::{
-    ChangeOperation, ChangelogEntry, ChangelogFilter, DiffRowStatus, TemporalDiff, TemporalDiffRow,
-    TemporalDiffStats, TimeTravelConfig, TimelineEvent,
+    ChangeOperation, ChangelogEntry, ChangelogFilter, ChangelogScope, DiffRowStatus, TemporalDiff,
+    TemporalDiffRow, TemporalDiffStats, TimeTravelConfig, TimelineEvent,
 };
 use crate::engine::types::Namespace;
 
@@ -26,6 +27,8 @@ const MAX_CACHE_ENTRIES: usize = 5_000;
 
 /// Persistent changelog store with JSONL file backend.
 pub struct ChangelogStore {
+    /// Serializes append/rotation/clear so a rewrite cannot lose a new capture.
+    file_lock: Mutex<()>,
     /// In-memory cache of recent entries
     entries: RwLock<VecDeque<ChangelogEntry>>,
     /// Path to the changelog JSONL file
@@ -48,6 +51,7 @@ impl ChangelogStore {
         }
 
         let store = Self {
+            file_lock: Mutex::new(()),
             entries: RwLock::new(VecDeque::with_capacity(MAX_CACHE_ENTRIES)),
             log_path,
             config_path,
@@ -129,25 +133,20 @@ impl ChangelogStore {
     }
 
     /// Record a changelog entry. Best-effort: never blocks the caller on failure.
-    pub fn record(&self, mut entry: ChangelogEntry) {
+    pub fn record(&self, entry: ChangelogEntry) {
+        self.record_with_masking(entry, None);
+    }
+
+    pub fn record_with_masking(
+        &self,
+        mut entry: ChangelogEntry,
+        masking: Option<&qore_core::masking::ConnectionMasking>,
+    ) {
+        let _file_guard = self.file_lock.lock();
         if !self.is_enabled() {
             return;
         }
-
-        // Redact sensitive column values before the entry is stored — both
-        // in-memory and on disk. The changelog is a plain-text JSONL file, so
-        // a column named `password_hash` or `api_key` would otherwise sit on
-        // the user's filesystem until manual purge (cf. audit B7-C3).
-        let sensitive: Vec<String> = self
-            .config
-            .read()
-            .sensitive_columns
-            .iter()
-            .map(|s| s.to_ascii_lowercase())
-            .collect();
-        if !sensitive.is_empty() {
-            redact_entry(&mut entry, &sensitive);
-        }
+        HistoryPrivacy::new(&self.config.read().sensitive_columns, masking).protect(&mut entry);
 
         {
             let mut entries = self.entries.write();
@@ -251,85 +250,146 @@ impl ChangelogStore {
         Ok(skip)
     }
 
+    pub fn can_identify_row(
+        &self,
+        scope: &ChangelogScope,
+        table: &str,
+        key: &std::collections::HashMap<String, serde_json::Value>,
+    ) -> bool {
+        HistoryPrivacy::new(
+            &self.config.read().sensitive_columns,
+            scope.masking.as_ref(),
+        )
+        .can_identify(table, key)
+    }
+
     /// Get timeline events for a table, ordered by timestamp DESC.
     pub fn get_timeline(
         &self,
+        scope: &ChangelogScope,
         namespace: &Namespace,
         table_name: &str,
         filter: &ChangelogFilter,
     ) -> Vec<TimelineEvent> {
         let entries = self.entries.read();
+        let privacy = HistoryPrivacy::new(
+            &self.config.read().sensitive_columns,
+            scope.masking.as_ref(),
+        );
         let limit = filter.limit.unwrap_or(100);
         let offset = filter.offset.unwrap_or(0);
 
         entries
             .iter()
             .rev()
-            .filter(|e| self.matches_table(e, namespace, table_name))
-            .filter(|e| self.matches_filter(e, filter))
+            .filter(|e| scope.contains(e) && self.matches_table(e, namespace, table_name))
+            .filter(|e| self.matches_filter(e, filter, &privacy))
             .skip(offset)
             .take(limit)
-            .map(|e| TimelineEvent {
-                timestamp: e.timestamp,
-                operation: e.operation,
-                row_count: 1,
-                session_id: e.session_id.clone(),
-                connection_name: e.connection_name.clone(),
-                primary_key: Some(e.primary_key.clone()),
-                entry_id: e.id,
+            .map(|e| {
+                let mut primary_key = e.primary_key.clone();
+                privacy.protect_map(&e.table_name, &mut primary_key);
+                TimelineEvent {
+                    timestamp: e.timestamp,
+                    operation: e.operation,
+                    row_count: 1,
+                    session_id: e.session_id.clone(),
+                    connection_name: e.connection_name.clone(),
+                    primary_key: key_is_available(&primary_key).then_some(primary_key),
+                    entry_id: e.id,
+                }
             })
             .collect()
     }
 
     /// Get the total count of events for a table (for pagination).
-    pub fn get_timeline_count(&self, namespace: &Namespace, table_name: &str) -> usize {
+    pub fn get_timeline_count(
+        &self,
+        scope: &ChangelogScope,
+        namespace: &Namespace,
+        table_name: &str,
+        filter: &ChangelogFilter,
+    ) -> usize {
         let entries = self.entries.read();
+        let privacy = HistoryPrivacy::new(
+            &self.config.read().sensitive_columns,
+            scope.masking.as_ref(),
+        );
         entries
             .iter()
-            .filter(|e| self.matches_table(e, namespace, table_name))
+            .filter(|e| scope.contains(e) && self.matches_table(e, namespace, table_name))
+            .filter(|e| self.matches_filter(e, filter, &privacy))
             .count()
     }
 
     /// Get filtered changelog entries.
-    pub fn get_entries(&self, filter: &ChangelogFilter) -> Vec<ChangelogEntry> {
+    pub fn get_entries(
+        &self,
+        scope: &ChangelogScope,
+        filter: &ChangelogFilter,
+    ) -> Vec<ChangelogEntry> {
         let entries = self.entries.read();
+        let privacy = HistoryPrivacy::new(
+            &self.config.read().sensitive_columns,
+            scope.masking.as_ref(),
+        );
         let limit = filter.limit.unwrap_or(100);
         let offset = filter.offset.unwrap_or(0);
 
         entries
             .iter()
             .rev()
-            .filter(|e| self.matches_filter(e, filter))
+            .filter(|e| scope.contains(e))
+            .filter(|e| self.matches_filter(e, filter, &privacy))
             .skip(offset)
             .take(limit)
-            .cloned()
+            .map(|e| privacy.project(e))
             .collect()
     }
 
     /// Get the full history of a specific row, ordered by timestamp DESC.
     pub fn get_row_history(
         &self,
+        scope: &ChangelogScope,
         namespace: &Namespace,
         table_name: &str,
         primary_key: &std::collections::HashMap<String, serde_json::Value>,
         limit: Option<usize>,
     ) -> Vec<ChangelogEntry> {
         let entries = self.entries.read();
+        let privacy = HistoryPrivacy::new(
+            &self.config.read().sensitive_columns,
+            scope.masking.as_ref(),
+        );
+        if !privacy.can_identify(table_name, primary_key) {
+            return Vec::new();
+        }
         let limit = limit.unwrap_or(50);
 
         entries
             .iter()
             .rev()
-            .filter(|e| self.matches_table(e, namespace, table_name))
-            .filter(|e| pk_matches(&e.primary_key, primary_key))
+            .filter(|e| scope.contains(e) && self.matches_table(e, namespace, table_name))
+            .filter(|e| key_is_available(&e.primary_key) && pk_matches(&e.primary_key, primary_key))
             .take(limit)
-            .cloned()
+            .map(|e| privacy.project(e))
             .collect()
     }
 
-    pub fn get_entry(&self, entry_id: &uuid::Uuid) -> Option<ChangelogEntry> {
+    pub fn get_entry(
+        &self,
+        scope: &ChangelogScope,
+        entry_id: &uuid::Uuid,
+    ) -> Option<ChangelogEntry> {
         let entries = self.entries.read();
-        entries.iter().find(|e| e.id == *entry_id).cloned()
+        let privacy = HistoryPrivacy::new(
+            &self.config.read().sensitive_columns,
+            scope.masking.as_ref(),
+        );
+        entries
+            .iter()
+            .find(|e| scope.contains(e) && e.id == *entry_id)
+            .map(|e| privacy.project(e))
     }
 
     /// Compute a temporal diff between two timestamps for a table.
@@ -338,6 +398,7 @@ impl ChangelogStore {
     /// modified, or removed.
     pub fn compute_temporal_diff(
         &self,
+        scope: &ChangelogScope,
         namespace: &Namespace,
         table_name: &str,
         t1: DateTime<Utc>,
@@ -345,11 +406,15 @@ impl ChangelogStore {
         limit: Option<usize>,
     ) -> TemporalDiff {
         let entries = self.entries.read();
+        let privacy = HistoryPrivacy::new(
+            &self.config.read().sensitive_columns,
+            scope.masking.as_ref(),
+        );
         let limit = limit.unwrap_or(10_000);
 
         let mut relevant: Vec<&ChangelogEntry> = entries
             .iter()
-            .filter(|e| self.matches_table(e, namespace, table_name))
+            .filter(|e| scope.contains(e) && self.matches_table(e, namespace, table_name))
             .filter(|e| e.timestamp > t1 && e.timestamp <= t2)
             .collect();
         relevant.sort_by_key(|e| e.timestamp);
@@ -358,9 +423,26 @@ impl ChangelogStore {
         let mut diff_rows: std::collections::HashMap<String, TemporalDiffRow> =
             std::collections::HashMap::new();
         let mut all_columns: std::collections::HashSet<String> = std::collections::HashSet::new();
+        let mut incomplete_keys = std::collections::HashSet::new();
 
-        for entry in &relevant {
+        let mut protected_values = false;
+        // Project one entry at a time; large row images must not be copied into a second cache.
+        for raw_entry in relevant {
+            let entry = privacy.project(raw_entry);
+            if !key_is_available(&entry.primary_key) {
+                protected_values = true;
+                continue;
+            }
+            protected_values |= [&entry.before, &entry.after]
+                .into_iter()
+                .flatten()
+                .any(|image| image.values().any(value_is_unavailable));
             let pk_key = serialize_pk(&entry.primary_key);
+            if (entry.operation != ChangeOperation::Insert && entry.before.is_none())
+                || (entry.operation != ChangeOperation::Delete && entry.after.is_none())
+            {
+                incomplete_keys.insert(pk_key.clone());
+            }
 
             if let Some(before) = &entry.before {
                 all_columns.extend(before.keys().cloned());
@@ -369,77 +451,47 @@ impl ChangelogStore {
                 all_columns.extend(after.keys().cloned());
             }
 
-            let existing = diff_rows.get(&pk_key);
+            // Preserve the first before-image, including None for a row that
+            // did not exist at t1. Later mutations only advance the final state.
+            diff_rows
+                .entry(pk_key)
+                .and_modify(|row| row.state_at_t2 = entry.after.clone())
+                .or_insert_with(|| TemporalDiffRow {
+                    primary_key: entry.primary_key.clone(),
+                    state_at_t1: entry.before.clone(),
+                    state_at_t2: entry.after.clone(),
+                    changed_columns: vec![],
+                    status: DiffRowStatus::Modified,
+                });
+        }
 
-            match entry.operation {
-                ChangeOperation::Insert => {
-                    diff_rows.insert(
-                        pk_key,
-                        TemporalDiffRow {
-                            primary_key: entry.primary_key.clone(),
-                            state_at_t1: existing.and_then(|e| e.state_at_t1.clone()),
-                            state_at_t2: entry.after.clone(),
-                            changed_columns: vec![],
-                            status: if existing.is_some() {
-                                DiffRowStatus::Modified
-                            } else {
-                                DiffRowStatus::Added
-                            },
-                        },
-                    );
-                }
-                ChangeOperation::Update => {
-                    let t1_state = existing
-                        .and_then(|e| e.state_at_t1.clone())
-                        .or_else(|| entry.before.clone());
-                    diff_rows.insert(
-                        pk_key,
-                        TemporalDiffRow {
-                            primary_key: entry.primary_key.clone(),
-                            state_at_t1: t1_state,
-                            state_at_t2: entry.after.clone(),
-                            changed_columns: entry.changed_columns.clone(),
-                            status: DiffRowStatus::Modified,
-                        },
-                    );
-                }
-                ChangeOperation::Delete => {
-                    let t1_state = existing
-                        .and_then(|e| e.state_at_t1.clone())
-                        .or_else(|| entry.before.clone());
-
-                    if existing.is_some_and(|e| e.status == DiffRowStatus::Added) {
-                        // Added then deleted within the window — net effect is nothing.
-                        diff_rows.remove(&pk_key);
-                    } else {
-                        diff_rows.insert(
-                            pk_key,
-                            TemporalDiffRow {
-                                primary_key: entry.primary_key.clone(),
-                                state_at_t1: t1_state,
-                                state_at_t2: None,
-                                changed_columns: vec![],
-                                status: DiffRowStatus::Removed,
-                            },
-                        );
+        let incomplete = protected_values || !incomplete_keys.is_empty();
+        let mut rows: Vec<TemporalDiffRow> = diff_rows
+            .into_iter()
+            .filter(|(key, _)| !incomplete_keys.contains(key))
+            .map(|(_, row)| row)
+            .filter_map(|mut row| {
+                row.status = match (&row.state_at_t1, &row.state_at_t2) {
+                    (None, None) => return None,
+                    (None, Some(_)) => DiffRowStatus::Added,
+                    (Some(_), None) => DiffRowStatus::Removed,
+                    (Some(before), Some(after)) => {
+                        if before == after {
+                            return None;
+                        }
+                        let columns: std::collections::BTreeSet<_> =
+                            before.keys().chain(after.keys()).collect();
+                        row.changed_columns = columns
+                            .into_iter()
+                            .filter(|column| before.get(*column) != after.get(*column))
+                            .cloned()
+                            .collect();
+                        DiffRowStatus::Modified
                     }
-                }
-            }
-        }
-
-        for row in diff_rows.values_mut() {
-            if row.status == DiffRowStatus::Modified {
-                if let (Some(t1), Some(t2)) = (&row.state_at_t1, &row.state_at_t2) {
-                    row.changed_columns = t2
-                        .iter()
-                        .filter(|(k, v)| t1.get(*k) != Some(v))
-                        .map(|(k, _)| k.clone())
-                        .collect();
-                }
-            }
-        }
-
-        let mut rows: Vec<TemporalDiffRow> = diff_rows.into_values().take(limit).collect();
+                };
+                Some(row)
+            })
+            .collect();
         rows.sort_by(|a, b| serialize_pk(&a.primary_key).cmp(&serialize_pk(&b.primary_key)));
 
         let stats = TemporalDiffStats {
@@ -458,6 +510,8 @@ impl ChangelogStore {
             total_changes: rows.len(),
         };
 
+        let truncated = rows.len() > limit;
+        rows.truncate(limit);
         let mut columns: Vec<String> = all_columns.into_iter().collect();
         columns.sort();
 
@@ -465,6 +519,8 @@ impl ChangelogStore {
             columns,
             rows,
             stats,
+            truncated,
+            incomplete,
         }
     }
 
@@ -474,19 +530,28 @@ impl ChangelogStore {
     /// and returns the resulting state.
     pub fn get_row_state_at(
         &self,
+        scope: &ChangelogScope,
         namespace: &Namespace,
         table_name: &str,
         primary_key: &std::collections::HashMap<String, serde_json::Value>,
         timestamp: DateTime<Utc>,
     ) -> Option<std::collections::HashMap<String, serde_json::Value>> {
         let entries = self.entries.read();
+        let privacy = HistoryPrivacy::new(
+            &self.config.read().sensitive_columns,
+            scope.masking.as_ref(),
+        );
 
+        if !privacy.can_identify(table_name, primary_key) {
+            return None;
+        }
         let last_entry = entries
             .iter()
-            .filter(|e| self.matches_table(e, namespace, table_name))
-            .filter(|e| pk_matches(&e.primary_key, primary_key))
+            .filter(|e| scope.contains(e) && self.matches_table(e, namespace, table_name))
+            .filter(|e| key_is_available(&e.primary_key) && pk_matches(&e.primary_key, primary_key))
             .filter(|e| e.timestamp <= timestamp)
-            .last();
+            .last()
+            .map(|e| privacy.project(e));
 
         match last_entry {
             Some(entry) => match entry.operation {
@@ -498,19 +563,49 @@ impl ChangelogStore {
     }
 
     /// Clear all changelog entries for a specific table.
-    pub fn clear_table(&self, namespace: &Namespace, table_name: &str) {
-        {
-            let mut entries = self.entries.write();
-            entries.retain(|e| !self.matches_table(e, namespace, table_name));
+    pub fn clear_table(
+        &self,
+        scope: &ChangelogScope,
+        namespace: &Namespace,
+        table_name: &str,
+    ) -> Result<(), String> {
+        let _file_guard = self.file_lock.lock();
+        // The file may contain older entries absent from the bounded cache.
+        // Preserve those records, including legacy/unparseable lines.
+        let mut retained = Vec::new();
+        let mut count = 0;
+        match File::open(&self.log_path) {
+            Ok(file) => {
+                for line in BufReader::new(file).lines() {
+                    let line = line.map_err(|e| format!("Failed to read changelog: {e}"))?;
+                    let remove = serde_json::from_str::<ChangelogEntry>(&line).is_ok_and(|e| {
+                        scope.contains(&e) && self.matches_table(&e, namespace, table_name)
+                    });
+                    if !remove {
+                        retained.extend_from_slice(line.as_bytes());
+                        retained.push(b'\n');
+                        count += 1;
+                    }
+                }
+            }
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+            Err(e) => return Err(format!("Failed to read changelog: {e}")),
         }
-        self.rewrite_file_from_cache();
+        crate::atomic_write::write_atomic(&self.log_path, &retained)
+            .map_err(|e| format!("Failed to clear changelog: {e}"))?;
+        self.entries
+            .write()
+            .retain(|e| !(scope.contains(e) && self.matches_table(e, namespace, table_name)));
+        self.file_line_count.store(count, Ordering::Relaxed);
         info!(
             "Cleared changelog for {}.{}",
             namespace.database, table_name
         );
+        Ok(())
     }
 
     pub fn clear_all(&self) {
+        let _file_guard = self.file_lock.lock();
         {
             let mut entries = self.entries.write();
             entries.clear();
@@ -524,6 +619,7 @@ impl ChangelogStore {
 
     /// Purge entries older than retention_days.
     pub fn purge_expired(&self) {
+        let _file_guard = self.file_lock.lock();
         let retention_days = self.config.read().retention_days;
         if retention_days == 0 {
             return; // 0 = unlimited retention
@@ -548,8 +644,8 @@ impl ChangelogStore {
     }
 
     /// Export filtered changelog entries as JSON.
-    pub fn export(&self, filter: &ChangelogFilter) -> String {
-        let entries = self.get_entries(filter);
+    pub fn export(&self, scope: &ChangelogScope, filter: &ChangelogFilter) -> String {
+        let entries = self.get_entries(scope, filter);
         serde_json::to_string_pretty(&entries).unwrap_or_else(|_| "[]".to_string())
     }
 
@@ -564,7 +660,12 @@ impl ChangelogStore {
             && entry.table_name == table_name
     }
 
-    fn matches_filter(&self, entry: &ChangelogEntry, filter: &ChangelogFilter) -> bool {
+    fn matches_filter(
+        &self,
+        entry: &ChangelogEntry,
+        filter: &ChangelogFilter,
+        privacy: &HistoryPrivacy<'_>,
+    ) -> bool {
         if let Some(ref table) = filter.table_name {
             if entry.table_name != *table {
                 return false;
@@ -606,7 +707,9 @@ impl ChangelogStore {
             }
         }
         if let Some(ref pk_search) = filter.primary_key_search {
-            let pk_str = serialize_pk(&entry.primary_key);
+            let mut protected_key = entry.primary_key.clone();
+            privacy.protect_map(&entry.table_name, &mut protected_key);
+            let pk_str = serialize_pk(&protected_key);
             if !pk_str.to_lowercase().contains(&pk_search.to_lowercase()) {
                 return false;
             }
@@ -646,31 +749,6 @@ fn pk_matches(
     a.iter().all(|(k, v)| b.get(k) == Some(v))
 }
 
-/// Redact sensitive column values in `before` / `after` maps. `sensitive`
-/// must be pre-lowercased so the match is O(1) per column. `changed_columns`
-/// is left untouched — knowing *which* column changed (by name) is not the
-/// leak; the value is.
-fn redact_entry(entry: &mut ChangelogEntry, sensitive: &[String]) {
-    if let Some(before) = entry.before.as_mut() {
-        redact_map(before, sensitive);
-    }
-    if let Some(after) = entry.after.as_mut() {
-        redact_map(after, sensitive);
-    }
-}
-
-fn redact_map(
-    map: &mut std::collections::HashMap<String, serde_json::Value>,
-    sensitive: &[String],
-) {
-    for (key, value) in map.iter_mut() {
-        let lower = key.to_ascii_lowercase();
-        if sensitive.iter().any(|s| lower.contains(s.as_str())) {
-            *value = serde_json::Value::String("[REDACTED]".to_string());
-        }
-    }
-}
-
 /// Serialize a PK map into a deterministic string for hashing.
 fn serialize_pk(pk: &std::collections::HashMap<String, serde_json::Value>) -> String {
     let mut pairs: Vec<_> = pk.iter().collect();
@@ -699,6 +777,7 @@ mod tests {
             id: uuid::Uuid::new_v4(),
             timestamp: Utc::now(),
             session_id: "test-session".to_string(),
+            connection_id: None,
             driver_id: "postgres".to_string(),
             namespace: Namespace {
                 database: "testdb".to_string(),
@@ -712,6 +791,15 @@ mod tests {
             changed_columns: vec![],
             connection_name: Some("TestConn".to_string()),
             environment: "development".to_string(),
+        }
+    }
+
+    fn scope() -> ChangelogScope {
+        ChangelogScope {
+            masking: None,
+            session_id: "test-session".to_string(),
+            connection_id: None,
+            driver_id: "postgres".to_string(),
         }
     }
 
@@ -740,7 +828,7 @@ mod tests {
             .into_iter()
             .map(|s| s.to_ascii_lowercase())
             .collect();
-        redact_map(&mut m, &sensitive);
+        HistoryPrivacy::new(&sensitive, None).protect_map("users", &mut m);
         assert_eq!(m["id"], serde_json::json!(1));
         assert_eq!(m["name"], serde_json::json!("Alice"));
         assert_eq!(m["email"], serde_json::json!("[REDACTED]"));
@@ -764,6 +852,277 @@ mod tests {
     }
 
     #[test]
+    fn privacy_redacts_primary_keys_nested_documents_and_identifier_variants_on_disk() {
+        let tmp = TempDir::new().unwrap();
+        let store = ChangelogStore::new(tmp.path().into());
+        let key = HashMap::from([("email".into(), serde_json::json!("pk-secret-fixture"))]);
+        let image = HashMap::from([
+            (
+                "profile".into(),
+                serde_json::json!({"contacts": [{"apiKey": "nested-secret-fixture"}], "city": "Lyon"}),
+            ),
+            (
+                "postalCode".into(),
+                serde_json::json!("postal-secret-fixture"),
+            ),
+        ]);
+        store.record(make_entry(
+            "users",
+            ChangeOperation::Insert,
+            key,
+            None,
+            Some(image),
+        ));
+        let content = fs::read_to_string(tmp.path().join("changelog.jsonl")).unwrap();
+        for value in [
+            "pk-secret-fixture",
+            "nested-secret-fixture",
+            "postal-secret-fixture",
+        ] {
+            assert!(
+                !content.contains(value),
+                "persisted sensitive fixture: {value}"
+            );
+        }
+        assert!(content.contains("Lyon"));
+    }
+
+    #[test]
+    fn privacy_current_config_protects_old_captures_and_search_counts() {
+        let tmp = TempDir::new().unwrap();
+        let store = ChangelogStore::new(tmp.path().into());
+        let key = HashMap::from([("lookup".into(), serde_json::json!("lookup-secret-fixture"))]);
+        let entry = make_entry(
+            "users",
+            ChangeOperation::Insert,
+            key.clone(),
+            None,
+            Some(key),
+        );
+        let ns = entry.namespace.clone();
+        store.record(entry.clone());
+        let mut config = store.get_config();
+        config.sensitive_columns.push("lookup".into());
+        store.update_config(config);
+        let search = ChangelogFilter {
+            primary_key_search: Some("lookup-secret-fixture".into()),
+            ..Default::default()
+        };
+        assert_eq!(store.get_timeline_count(&scope(), &ns, "users", &search), 0);
+        assert!(
+            store
+                .get_timeline(&scope(), &ns, "users", &search)
+                .is_empty()
+        );
+        assert!(
+            !store
+                .export(&scope(), &ChangelogFilter::default())
+                .contains("lookup-secret-fixture")
+        );
+        assert_eq!(
+            store.get_entry(&scope(), &entry.id).unwrap().primary_key["lookup"],
+            serde_json::json!("[REDACTED]")
+        );
+    }
+
+    #[test]
+    fn privacy_redacted_keys_never_merge_unrelated_rows_in_diffs_or_histories() {
+        let tmp = TempDir::new().unwrap();
+        let store = ChangelogStore::new(tmp.path().into());
+        let key = HashMap::from([("id".into(), serde_json::json!("[REDACTED]"))]);
+        let first = make_entry(
+            "users",
+            ChangeOperation::Insert,
+            key.clone(),
+            None,
+            Some(row(1, "First")),
+        );
+        let ns = first.namespace.clone();
+        let t1 = first.timestamp - Duration::seconds(1);
+        store.record(first);
+        store.record(make_entry(
+            "users",
+            ChangeOperation::Insert,
+            key.clone(),
+            None,
+            Some(row(2, "Second")),
+        ));
+        let diff = store.compute_temporal_diff(&scope(), &ns, "users", t1, Utc::now(), None);
+        assert!(diff.rows.is_empty());
+        assert!(diff.incomplete);
+        assert!(
+            store
+                .get_row_history(&scope(), &ns, "users", &key, None)
+                .is_empty()
+        );
+        assert!(
+            store
+                .get_row_state_at(&scope(), &ns, "users", &key, Utc::now())
+                .is_none()
+        );
+    }
+
+    #[test]
+    fn privacy_current_connection_rules_cover_every_read_after_restart() {
+        use qore_core::masking::{ConnectionMasking, MaskMode, MaskingRule};
+        let tmp = TempDir::new().unwrap();
+        let store = ChangelogStore::new(tmp.path().into());
+        let mut before = row(1, "Before");
+        before.insert("alias".into(), serde_json::json!("old-secret-fixture"));
+        let mut after = row(1, "After");
+        after.insert("alias".into(), serde_json::json!("new-secret-fixture"));
+        let mut entry = make_entry(
+            "users",
+            ChangeOperation::Update,
+            pk(1),
+            Some(before),
+            Some(after),
+        );
+        entry.changed_columns = vec!["alias".into()];
+        let ns = entry.namespace.clone();
+        let t1 = entry.timestamp - Duration::seconds(1);
+        let t2 = entry.timestamp + Duration::seconds(1);
+        store.record(entry.clone());
+        drop(store);
+        let store = ChangelogStore::new(tmp.path().into());
+        let mut scope = scope();
+        for mode in [MaskMode::Hidden, MaskMode::Partial, MaskMode::Hash] {
+            scope.masking = Some(ConnectionMasking {
+                rules: vec![MaskingRule {
+                    table: "public.users".into(),
+                    column: "ALIAS".into(),
+                    mode,
+                }],
+                mask_detected_columns: false,
+            });
+            let selected = store.get_entry(&scope, &entry.id).unwrap();
+            let history = store.get_row_history(&scope, &ns, "users", &pk(1), None);
+            let state = store
+                .get_row_state_at(&scope, &ns, "users", &pk(1), t2)
+                .unwrap();
+            let diff = store.compute_temporal_diff(&scope, &ns, "users", t1, t2, None);
+            assert_eq!(diff.rows.len(), 1);
+            assert!(diff.incomplete);
+            assert_eq!(state["name"], serde_json::json!("After"));
+            let exposed = serde_json::json!([selected, history, state, diff]).to_string();
+            assert!(!exposed.contains("secret-fixture"));
+            assert!(
+                !store
+                    .export(&scope, &ChangelogFilter::default())
+                    .contains("secret-fixture")
+            );
+            let rollback =
+                crate::time_travel::rollback::generate_rollback_statements(&[selected], "postgres");
+            assert_eq!(rollback.statements_count, 0);
+            assert!(!rollback.sql.contains("secret-fixture"));
+        }
+        // Read-time masking is a projection; an unrelated table rule must not hide this column.
+        scope.masking.as_mut().unwrap().rules[0].table = "products".into();
+        assert_eq!(
+            store.get_entry(&scope, &entry.id).unwrap().before.unwrap()["alias"],
+            serde_json::json!("old-secret-fixture")
+        );
+    }
+
+    #[test]
+    fn privacy_current_masking_prevents_primary_key_search_and_lookup_probes() {
+        use qore_core::masking::{ConnectionMasking, MaskMode, MaskingRule};
+        let tmp = TempDir::new().unwrap();
+        let store = ChangelogStore::new(tmp.path().into());
+        let key = HashMap::from([("alias".into(), serde_json::json!("key-secret-fixture"))]);
+        let entry = make_entry(
+            "users",
+            ChangeOperation::Insert,
+            key.clone(),
+            None,
+            Some(row(1, "Safe")),
+        );
+        let ns = entry.namespace.clone();
+        store.record(entry.clone());
+        let mut scope = scope();
+        scope.masking = Some(ConnectionMasking {
+            rules: vec![MaskingRule {
+                table: "users".into(),
+                column: "alias".into(),
+                mode: MaskMode::Partial,
+            }],
+            mask_detected_columns: false,
+        });
+        let filter = ChangelogFilter {
+            primary_key_search: Some("key-secret".into()),
+            ..Default::default()
+        };
+        assert!(store.get_entries(&scope, &filter).is_empty());
+        assert_eq!(store.get_timeline_count(&scope, &ns, "users", &filter), 0);
+        assert!(store.get_timeline(&scope, &ns, "users", &filter).is_empty());
+        assert!(!store.can_identify_row(&scope, "users", &key));
+        assert!(
+            store
+                .get_row_history(&scope, &ns, "users", &key, None)
+                .is_empty()
+        );
+        assert!(
+            store
+                .get_row_state_at(&scope, &ns, "users", &key, Utc::now())
+                .is_none()
+        );
+        let timeline = store.get_timeline(&scope, &ns, "users", &ChangelogFilter::default());
+        assert_eq!(timeline.len(), 1);
+        assert!(timeline[0].primary_key.is_none());
+        let selected = store.get_entry(&scope, &entry.id).unwrap();
+        assert_eq!(
+            crate::time_travel::rollback::generate_rollback_statements(&[selected], "postgres")
+                .statements_count,
+            0
+        );
+    }
+
+    #[test]
+    fn privacy_capture_applies_custom_rules_to_keys_and_nested_json_before_disk() {
+        use qore_core::masking::{ConnectionMasking, MaskMode, MaskingRule};
+        let tmp = TempDir::new().unwrap();
+        let store = ChangelogStore::new(tmp.path().into());
+        let rules = ConnectionMasking {
+            rules: vec![
+                MaskingRule {
+                    table: "users".into(),
+                    column: "alias".into(),
+                    mode: MaskMode::Hash,
+                },
+                MaskingRule {
+                    table: "users".into(),
+                    column: "profile.note".into(),
+                    mode: MaskMode::Partial,
+                },
+            ],
+            mask_detected_columns: false,
+        };
+        let key = HashMap::from([("alias".into(), serde_json::json!("key-secret-fixture"))]);
+        let image = HashMap::from([
+            (
+                "profile".into(),
+                serde_json::json!([{"note": "nested-secret-fixture", "city": "Lyon"}]),
+            ),
+            (
+                "profile.note".into(),
+                serde_json::json!("flat-secret-fixture"),
+            ),
+        ]);
+        let entry = make_entry("users", ChangeOperation::Delete, key, Some(image), None);
+        store.record_with_masking(entry, Some(&rules));
+        let content = fs::read_to_string(tmp.path().join("changelog.jsonl")).unwrap();
+        assert!(!content.contains("secret-fixture"));
+        assert!(content.contains("Lyon"));
+        drop(store);
+        let reloaded = ChangelogStore::new(tmp.path().into());
+        assert!(
+            !reloaded
+                .export(&scope(), &ChangelogFilter::default())
+                .contains("secret-fixture")
+        );
+    }
+
+    #[test]
     fn test_record_and_retrieve() {
         let tmp = TempDir::new().unwrap();
         let store = ChangelogStore::new(tmp.path().to_path_buf());
@@ -781,7 +1140,7 @@ mod tests {
             database: "testdb".to_string(),
             schema: Some("public".to_string()),
         };
-        let events = store.get_timeline(&ns, "users", &ChangelogFilter::default());
+        let events = store.get_timeline(&scope(), &ns, "users", &ChangelogFilter::default());
         assert_eq!(events.len(), 1);
         assert_eq!(events[0].operation, ChangeOperation::Insert);
     }
@@ -810,7 +1169,7 @@ mod tests {
             operation: Some(ChangeOperation::Update),
             ..Default::default()
         };
-        let entries = store.get_entries(&filter);
+        let entries = store.get_entries(&scope(), &filter);
         assert_eq!(entries.len(), 1);
         assert_eq!(entries[0].operation, ChangeOperation::Update);
     }
@@ -848,7 +1207,7 @@ mod tests {
             Some(row(2, "Eve")),
         ));
 
-        let history = store.get_row_history(&ns, "users", &pk(1), None);
+        let history = store.get_row_history(&scope(), &ns, "users", &pk(1), None);
         assert_eq!(history.len(), 2);
     }
 
@@ -877,12 +1236,12 @@ mod tests {
             Some(row(100, "Order1")),
         ));
 
-        store.clear_table(&ns, "users");
+        store.clear_table(&scope(), &ns, "users").unwrap();
 
-        let users = store.get_timeline(&ns, "users", &ChangelogFilter::default());
+        let users = store.get_timeline(&scope(), &ns, "users", &ChangelogFilter::default());
         assert_eq!(users.len(), 0);
 
-        let orders = store.get_timeline(&ns, "orders", &ChangelogFilter::default());
+        let orders = store.get_timeline(&scope(), &ns, "orders", &ChangelogFilter::default());
         assert_eq!(orders.len(), 1);
     }
 
@@ -969,10 +1328,10 @@ mod tests {
 
         let t1 = Utc::now() + Duration::seconds(1);
 
-        let diff = store.compute_temporal_diff(&ns, "users", t0, t1, None);
+        let diff = store.compute_temporal_diff(&scope(), &ns, "users", t0, t1, None);
 
-        assert_eq!(diff.stats.total_changes, 2); // id=1 modified (insert+update), id=2 added
-        assert_eq!(diff.stats.added, 1);
+        assert_eq!(diff.stats.total_changes, 2);
+        assert_eq!(diff.stats.added, 2);
     }
 
     #[test]
@@ -982,5 +1341,295 @@ mod tests {
         let c = pk(2);
         assert!(pk_matches(&a, &b));
         assert!(!pk_matches(&a, &c));
+    }
+
+    #[test]
+    fn connection_scope_isolates_all_history_reads_after_restart() {
+        let tmp = TempDir::new().unwrap();
+        let store = ChangelogStore::new(tmp.path().to_path_buf());
+        let mut own = make_entry(
+            "users",
+            ChangeOperation::Update,
+            pk(1),
+            Some(row(1, "Before A")),
+            Some(row(1, "After A")),
+        );
+        own.connection_id = Some("connection-a".into());
+        let mut other = own.clone();
+        other.id = uuid::Uuid::new_v4();
+        other.connection_id = Some("connection-b".into());
+        other.session_id = "other-session".into();
+        other.before = Some(row(1, "Before B"));
+        other.after = Some(row(1, "After B"));
+        let mut legacy = other.clone();
+        legacy.id = uuid::Uuid::new_v4();
+        legacy.connection_id = None;
+        let ns = own.namespace.clone();
+        let start = own.timestamp - Duration::seconds(1);
+        let end = own.timestamp + Duration::seconds(1);
+        for entry in [&own, &other, &legacy] {
+            store.record(entry.clone());
+        }
+        drop(store);
+
+        let store = ChangelogStore::new(tmp.path().to_path_buf());
+        let scope = ChangelogScope {
+            masking: None,
+            session_id: "reconnected-session".into(),
+            connection_id: Some("connection-a".into()),
+            driver_id: "postgres".into(),
+        };
+        let filter = ChangelogFilter::default();
+        let timeline = store.get_timeline(&scope, &ns, "users", &filter);
+        assert_eq!(timeline.len(), 1);
+        assert_eq!(timeline[0].entry_id, own.id);
+        assert_eq!(store.get_timeline_count(&scope, &ns, "users", &filter), 1);
+        assert_eq!(
+            store.get_row_history(&scope, &ns, "users", &pk(1), None)[0].id,
+            own.id
+        );
+        assert_eq!(
+            store
+                .get_row_history(&scope, &ns, "users", &pk(1), None)
+                .len(),
+            1
+        );
+        assert_eq!(
+            store.get_row_state_at(&scope, &ns, "users", &pk(1), end),
+            own.after
+        );
+        let diff = store.compute_temporal_diff(&scope, &ns, "users", start, end, None);
+        assert_eq!(diff.rows.len(), 1);
+        assert_eq!(diff.rows[0].state_at_t1, own.before);
+        assert_eq!(diff.rows[0].state_at_t2, own.after);
+        assert!(store.get_entry(&scope, &other.id).is_none());
+        assert!(store.get_entry(&scope, &legacy.id).is_none());
+        assert_eq!(store.get_entry(&scope, &own.id).unwrap().id, own.id);
+        let exported: Vec<ChangelogEntry> =
+            serde_json::from_str(&store.export(&scope, &filter)).unwrap();
+        assert_eq!(exported.len(), 1);
+        assert_eq!(exported[0].id, own.id);
+        let sql = crate::time_travel::rollback::generate_rollback_statements(
+            &store.get_entries(&scope, &filter),
+            &scope.driver_id,
+        );
+        assert!(sql.sql.contains("Before A"));
+        assert!(!sql.sql.contains("Before B"));
+    }
+
+    #[test]
+    fn legacy_records_are_readable_only_in_their_original_session() {
+        let entry = make_entry(
+            "users",
+            ChangeOperation::Insert,
+            pk(1),
+            None,
+            Some(row(1, "Legacy")),
+        );
+        let mut json = serde_json::to_value(&entry).unwrap();
+        json.as_object_mut().unwrap().remove("connection_id");
+        let legacy: ChangelogEntry = serde_json::from_value(json).unwrap();
+        assert!(legacy.connection_id.is_none());
+        assert!(scope().contains(&legacy));
+        let mut reconnected = scope();
+        reconnected.session_id = "new-session".into();
+        reconnected.connection_id = Some("saved-id".into());
+        assert!(!reconnected.contains(&legacy));
+        let mut wrong_driver = scope();
+        wrong_driver.driver_id = "mysql".into();
+        assert!(!wrong_driver.contains(&legacy));
+    }
+
+    #[test]
+    fn filtered_count_matches_timeline_before_pagination() {
+        let tmp = TempDir::new().unwrap();
+        let store = ChangelogStore::new(tmp.path().to_path_buf());
+        let mut entry = make_entry(
+            "users",
+            ChangeOperation::Update,
+            pk(1),
+            Some(row(1, "A")),
+            Some(row(1, "B")),
+        );
+        let ns = entry.namespace.clone();
+        for operation in [
+            ChangeOperation::Update,
+            ChangeOperation::Insert,
+            ChangeOperation::Update,
+        ] {
+            entry.id = uuid::Uuid::new_v4();
+            entry.operation = operation;
+            store.record(entry.clone());
+        }
+        let filter = ChangelogFilter {
+            operation: Some(ChangeOperation::Update),
+            primary_key_search: Some("id=1".into()),
+            connection_name: Some("TestConn".into()),
+            environment: Some("development".into()),
+            from_timestamp: Some(entry.timestamp),
+            to_timestamp: Some(entry.timestamp),
+            offset: Some(1),
+            limit: Some(1),
+            ..Default::default()
+        };
+        assert_eq!(store.get_timeline_count(&scope(), &ns, "users", &filter), 2);
+        assert_eq!(store.get_timeline(&scope(), &ns, "users", &filter).len(), 1);
+        let missing = ChangelogFilter {
+            primary_key_search: Some("id=2".into()),
+            ..filter
+        };
+        assert_eq!(
+            store.get_timeline_count(&scope(), &ns, "users", &missing),
+            0
+        );
+    }
+
+    #[test]
+    fn clear_table_preserves_other_connections_beyond_cache_and_legacy_lines() {
+        let tmp = TempDir::new().unwrap();
+        let log_path = tmp.path().join("changelog.jsonl");
+        let own = make_entry(
+            "users",
+            ChangeOperation::Insert,
+            pk(1),
+            None,
+            Some(row(1, "A")),
+        );
+        let mut other = own.clone();
+        other.id = uuid::Uuid::new_v4();
+        other.session_id = "other-session".into();
+        let mut file = File::create(&log_path).unwrap();
+        writeln!(file, "{}", serde_json::to_string(&other).unwrap()).unwrap();
+        writeln!(file, "legacy-unparseable-line").unwrap();
+        for _ in 0..MAX_CACHE_ENTRIES {
+            writeln!(file, "{}", serde_json::to_string(&own).unwrap()).unwrap();
+        }
+        drop(file);
+        let store = ChangelogStore::new(tmp.path().to_path_buf());
+        assert_eq!(store.entries.read().len(), MAX_CACHE_ENTRIES);
+        store
+            .clear_table(&scope(), &own.namespace, "users")
+            .unwrap();
+        let retained = fs::read_to_string(&log_path).unwrap();
+        assert_eq!(retained.lines().count(), 2);
+        assert!(retained.contains(&other.id.to_string()));
+        assert!(retained.contains("legacy-unparseable-line"));
+        assert!(
+            store
+                .get_entries(&scope(), &ChangelogFilter::default())
+                .is_empty()
+        );
+        drop(store);
+        let reloaded = ChangelogStore::new(tmp.path().to_path_buf());
+        let other_scope = ChangelogScope {
+            masking: None,
+            session_id: other.session_id.clone(),
+            ..scope()
+        };
+        assert_eq!(
+            reloaded.get_entry(&other_scope, &other.id).unwrap().id,
+            other.id
+        );
+    }
+
+    #[test]
+    fn failed_clear_keeps_cached_history() {
+        let tmp = TempDir::new().unwrap();
+        let store = ChangelogStore::new(tmp.path().to_path_buf());
+        let entry = make_entry(
+            "users",
+            ChangeOperation::Insert,
+            pk(1),
+            None,
+            Some(row(1, "A")),
+        );
+        store.record(entry.clone());
+        fs::remove_file(&store.log_path).unwrap();
+        fs::create_dir(&store.log_path).unwrap();
+        assert!(
+            store
+                .clear_table(&scope(), &entry.namespace, "users")
+                .is_err()
+        );
+        assert!(store.get_entry(&scope(), &entry.id).is_some());
+    }
+
+    #[test]
+    fn temporal_diff_reports_net_changes_without_inventing_initial_rows() {
+        let tmp = TempDir::new().unwrap();
+        let store = ChangelogStore::new(tmp.path().to_path_buf());
+        let start = Utc::now() - Duration::seconds(1);
+        // An inserted row stays "added" through updates; insertion followed by
+        // update and deletion has no net effect. Returning to the initial value
+        // (including delete/reinsert) has no net effect either.
+        for (id, op, before, after) in [
+            (1, ChangeOperation::Insert, None, Some("A")),
+            (1, ChangeOperation::Update, Some("A"), Some("B")),
+            (2, ChangeOperation::Insert, None, Some("A")),
+            (2, ChangeOperation::Update, Some("A"), Some("B")),
+            (2, ChangeOperation::Delete, Some("B"), None),
+            (3, ChangeOperation::Update, Some("A"), Some("B")),
+            (3, ChangeOperation::Update, Some("B"), Some("A")),
+            (4, ChangeOperation::Delete, Some("A"), None),
+            (4, ChangeOperation::Insert, None, Some("A")),
+            (5, ChangeOperation::Delete, Some("A"), None),
+            (5, ChangeOperation::Insert, None, Some("B")),
+        ] {
+            store.record(make_entry(
+                "users",
+                op,
+                pk(id),
+                before.map(|v| row(id, v)),
+                after.map(|v| row(id, v)),
+            ));
+        }
+        let ns = Namespace {
+            database: "testdb".into(),
+            schema: Some("public".into()),
+        };
+        let diff = store.compute_temporal_diff(&scope(), &ns, "users", start, Utc::now(), None);
+        assert_eq!(diff.stats.total_changes, 2);
+        assert_eq!(diff.stats.added, 1);
+        assert_eq!(diff.stats.modified, 1);
+        assert_eq!(diff.stats.removed, 0);
+        let added = diff.rows.iter().find(|r| r.primary_key == pk(1)).unwrap();
+        assert!(added.state_at_t1.is_none());
+        assert_eq!(added.state_at_t2, Some(row(1, "B")));
+        let modified = diff.rows.iter().find(|r| r.primary_key == pk(5)).unwrap();
+        assert_eq!(modified.changed_columns, vec!["name"]);
+        assert!(!diff.truncated);
+        let limited =
+            store.compute_temporal_diff(&scope(), &ns, "users", start, Utc::now(), Some(1));
+        assert!(limited.truncated);
+        assert_eq!(limited.stats.total_changes, 2);
+        assert_eq!(limited.rows.len(), 1);
+        assert_eq!(limited.rows[0].primary_key, diff.rows[0].primary_key);
+    }
+
+    #[test]
+    fn temporal_diff_marks_missing_images_instead_of_claiming_an_insert() {
+        let tmp = TempDir::new().unwrap();
+        let store = ChangelogStore::new(tmp.path().to_path_buf());
+        let entry = make_entry(
+            "users",
+            ChangeOperation::Update,
+            pk(1),
+            None,
+            Some(row(1, "B")),
+        );
+        let start = entry.timestamp - Duration::seconds(1);
+        store.record(entry.clone());
+        let diff = store.compute_temporal_diff(
+            &scope(),
+            &entry.namespace,
+            "users",
+            start,
+            Utc::now(),
+            None,
+        );
+        assert!(diff.incomplete);
+        assert!(!diff.truncated);
+        assert_eq!(diff.stats.total_changes, 0);
+        assert!(diff.rows.is_empty());
     }
 }

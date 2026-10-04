@@ -2047,6 +2047,8 @@
     },
     "generateSQL": "SQL を生成",
     "migration": {
+      "outcomeUnknown": "結果を確認できませんでした。このバッチを再実行しないでください。再接続して対象の行を確認してから、新しいバッチを準備してください。",
+      "previewChanged": "保留中の変更が更新されました。このプレビューを閉じ、適用する前に再生成してください。",
       "title": "マイグレーションスクリプト",
       "generating": "スクリプトを生成中...",
       "statements": "{{count}} ステートメント",
@@ -3342,9 +3344,13 @@
     "leave": "離れる"
   },
   "timeTravel": {
+    "retry": "更新",
+    "requestFailed": "履歴のリクエストを完了できませんでした。再試行してください。",
+    "scopeHint": "この接続の履歴のみを表示します。接続を特定できない古い記録は保持されますが、表示されません。",
     "viewHistory": "View data history",
     "title": "Data Time-Travel",
     "timeline": {
+      "events": "{{count}} 件のイベント",
       "title": "Timeline",
       "noEvents": "No mutations recorded for this table",
       "loadMore": "Load more events",

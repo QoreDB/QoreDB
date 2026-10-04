@@ -2056,6 +2056,8 @@
     },
     "generateSQL": "SQL generieren",
     "migration": {
+      "outcomeUnknown": "Das Ergebnis konnte nicht bestätigt werden. Führen Sie diesen Stapel noch nicht erneut aus. Verbinden Sie sich neu und prüfen Sie die betroffenen Zeilen, bevor Sie einen neuen Stapel vorbereiten.",
+      "previewChanged": "Die ausstehenden Änderungen wurden geändert. Schließen Sie diese Vorschau und erstellen Sie sie vor dem Anwenden erneut.",
       "title": "Migrationsskript",
       "generating": "Skript wird generiert…",
       "statements": "{{count}} Anweisung(en)",
@@ -3352,9 +3354,14 @@
     "leave": "Arbeitsbereich verlassen"
   },
   "timeTravel": {
+    "retry": "Aktualisieren",
+    "requestFailed": "Die Verlaufsanfrage konnte nicht abgeschlossen werden. Bitte erneut versuchen.",
+    "scopeHint": "Der Verlauf ist auf diese Verbindung beschränkt. Ältere Einträge mit unbekannter Verbindung bleiben gespeichert, werden aber ausgeblendet.",
     "viewHistory": "View data history",
     "title": "Data Time-Travel",
     "timeline": {
+      "events": "{{count}} Ereignis",
+      "events_other": "{{count}} Ereignisse",
       "title": "Timeline",
       "noEvents": "No mutations recorded for this table",
       "loadMore": "Load more events",

@@ -2095,6 +2095,8 @@
     },
     "generateSQL": "Generate SQL",
     "migration": {
+      "outcomeUnknown": "The result could not be confirmed. Do not retry this batch yet. Reconnect and check the affected rows before preparing a new batch.",
+      "previewChanged": "Pending changes have changed. Close this preview and generate it again before applying.",
       "title": "Migration Script",
       "generating": "Generating script...",
       "statements": "{{count}} statement(s)",
@@ -3391,9 +3393,14 @@
     "leave": "Leave workspace"
   },
   "timeTravel": {
+    "retry": "Refresh",
+    "requestFailed": "Unable to complete this history request. Please retry.",
+    "scopeHint": "History is limited to this connection. Older records with an unknown connection are preserved but hidden.",
     "viewHistory": "View data history",
     "title": "Data Time-Travel",
     "timeline": {
+      "events": "{{count}} event",
+      "events_other": "{{count}} events",
       "title": "Timeline",
       "noEvents": "No mutations recorded for this table",
       "loadMore": "Load more events",

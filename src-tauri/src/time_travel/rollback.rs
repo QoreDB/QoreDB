@@ -8,6 +8,7 @@
 
 use std::collections::HashMap;
 
+use super::privacy::value_is_unavailable;
 use super::types::{ChangeOperation, ChangelogEntry};
 
 /// Result of rollback SQL generation.
@@ -34,6 +35,33 @@ pub fn generate_rollback_statements(entries: &[ChangelogEntry], driver_id: &str)
     let mut warnings = Vec::new();
 
     for entry in &sorted {
+        // A lossy snapshot cannot be used to restore data or narrow a mutation.
+        // Skip the whole entry rather than silently dropping part of a key/row.
+        let unavailable_key = entry.primary_key.values().any(value_is_unavailable);
+        let unavailable_restore = entry.before.as_ref().is_some_and(|before| {
+            before.iter().any(|(column, value)| {
+                let restored = match entry.operation {
+                    ChangeOperation::Insert => false,
+                    ChangeOperation::Delete => true,
+                    ChangeOperation::Update => {
+                        if entry.changed_columns.is_empty() {
+                            !entry.primary_key.contains_key(column)
+                        } else {
+                            entry.changed_columns.contains(column)
+                        }
+                    }
+                };
+                restored && value_is_unavailable(value)
+            })
+        });
+        if unavailable_key || unavailable_restore {
+            warnings.push(format!(
+                "Entry {}: redacted or binary data prevents a safe rollback (skipped)",
+                &entry.id.to_string()[..8]
+            ));
+            continue;
+        }
+
         let table_ref = format_table_ref(
             &entry.namespace.database,
             &entry.namespace.schema,
@@ -204,7 +232,12 @@ struct Quoter {
 
 impl Quoter {
     fn quote_ident(&self, ident: &str) -> String {
-        format!("{}{}{}", self.left, ident, self.right)
+        format!(
+            "{}{}{}",
+            self.left,
+            ident.replace(self.right, &self.right.repeat(2)),
+            self.right
+        )
     }
 }
 
@@ -253,7 +286,11 @@ fn build_pk_where(pk: &HashMap<String, serde_json::Value>, quoter: &Quoter) -> S
     let clauses: Vec<String> = pk
         .iter()
         .filter_map(|(k, v)| {
-            format_literal(v).map(|lit| format!("{} = {}", quoter.quote_ident(k), lit))
+            if v.is_null() {
+                Some(format!("{} IS NULL", quoter.quote_ident(k)))
+            } else {
+                format_literal(v).map(|lit| format!("{} = {}", quoter.quote_ident(k), lit))
+            }
         })
         .collect();
     clauses.join(" AND ")
@@ -272,6 +309,8 @@ fn format_pk_summary(pk: &HashMap<String, serde_json::Value>) -> String {
         .map(|(k, v)| format!("{}={}", k, format_value_short(v)))
         .collect::<Vec<_>>()
         .join(", ")
+        .replace('\r', "\\r")
+        .replace('\n', "\\n")
 }
 
 /// Format a JSON value as a SQL literal.
@@ -329,6 +368,7 @@ mod tests {
             id: Uuid::new_v4(),
             timestamp: Utc::now(),
             session_id: "s1".to_string(),
+            connection_id: None,
             driver_id: "postgres".to_string(),
             namespace: Namespace {
                 database: "mydb".to_string(),
@@ -342,6 +382,32 @@ mod tests {
             changed_columns: vec!["name".to_string()],
             connection_name: None,
             environment: "development".to_string(),
+        }
+    }
+
+    #[test]
+    fn privacy_nested_redaction_or_display_placeholders_prevent_rollback() {
+        for unavailable in [
+            serde_json::json!({"contacts": [{"secret": "[REDACTED]"}]}),
+            serde_json::json!("••••••"),
+        ] {
+            let mut entry = make_entry(
+                ChangeOperation::Update,
+                HashMap::from([("id".into(), serde_json::json!(1))]),
+                Some(HashMap::from([("profile".into(), unavailable.clone())])),
+                None,
+            );
+            entry.changed_columns = vec!["profile".into()];
+            assert_eq!(
+                generate_rollback_statements(&[entry.clone()], "postgres").statements_count,
+                0
+            );
+            entry.primary_key.insert("id".into(), unavailable);
+            entry.operation = ChangeOperation::Insert;
+            assert_eq!(
+                generate_rollback_statements(&[entry], "postgres").statements_count,
+                0
+            );
         }
     }
 
@@ -485,5 +551,71 @@ mod tests {
         // id=2 should come before id=1 in the output
         let first_section = &result.sql[delete_positions[0]..delete_positions[1]];
         assert!(first_section.contains("id=2") || first_section.contains("\"id\" = 2"));
+    }
+
+    #[test]
+    fn unavailable_values_never_become_restored_data_or_partial_keys() {
+        for unavailable in ["[REDACTED]", "<binary 1024 bytes>"] {
+            for operation in [ChangeOperation::Update, ChangeOperation::Delete] {
+                let pk = HashMap::from([("id".into(), serde_json::json!(1))]);
+                let before = HashMap::from([
+                    ("id".into(), serde_json::json!(1)),
+                    ("name".into(), serde_json::json!(unavailable)),
+                ]);
+                let entry = make_entry(operation, pk, Some(before), None);
+                let result = generate_rollback_statements(&[entry], "postgres");
+                assert_eq!(result.statements_count, 0, "{operation}: {unavailable}");
+                assert!(!result.warnings.is_empty());
+            }
+            let pk = HashMap::from([
+                ("tenant".into(), serde_json::json!(unavailable)),
+                ("id".into(), serde_json::json!(1)),
+            ]);
+            let entry = make_entry(ChangeOperation::Insert, pk, None, None);
+            let result = generate_rollback_statements(&[entry], "postgres");
+            assert_eq!(result.statements_count, 0);
+            assert!(!result.warnings.is_empty());
+        }
+    }
+
+    #[test]
+    fn rollback_escapes_identifiers_and_preserves_null_key_predicates() {
+        for (driver, column, quoted) in [
+            ("postgres", "tenant\"key", "\"tenant\"\"key\""),
+            ("mysql", "tenant`key", "`tenant``key`"),
+            ("sqlserver", "tenant]key", "[tenant]]key]"),
+        ] {
+            let pk = HashMap::from([
+                (column.into(), serde_json::Value::Null),
+                ("id".into(), serde_json::json!(1)),
+            ]);
+            let entry = make_entry(ChangeOperation::Insert, pk, None, None);
+            let result = generate_rollback_statements(&[entry], driver);
+            assert!(
+                result.sql.contains(&format!("{quoted} IS NULL")),
+                "{}",
+                result.sql
+            );
+            assert!(!result.sql.contains("= NULL"));
+        }
+    }
+
+    #[test]
+    fn rollback_comments_cannot_contain_new_sql_lines_from_keys() {
+        let pk = HashMap::from([(
+            "id\nDELETE FROM other;--".into(),
+            serde_json::json!("a\r\nCOMMIT;"),
+        )]);
+        let entry = make_entry(ChangeOperation::Insert, pk, None, None);
+        let result = generate_rollback_statements(&[entry], "postgres");
+        let comment = result
+            .sql
+            .split("-- Undo INSERT (")
+            .nth(1)
+            .unwrap()
+            .split(")\nDELETE")
+            .next()
+            .unwrap();
+        assert!(!comment.contains(['\n', '\r']));
     }
 }

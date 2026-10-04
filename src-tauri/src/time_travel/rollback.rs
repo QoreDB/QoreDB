@@ -35,6 +35,10 @@ pub fn generate_rollback_statements(entries: &[ChangelogEntry], driver_id: &str)
     let mut warnings = Vec::new();
 
     for entry in &sorted {
+        if entry.primary_key.is_empty() {
+            warnings.push("timeTravel.rollbackIncompleteCapture".to_string());
+            continue;
+        }
         // A lossy snapshot cannot be used to restore data or narrow a mutation.
         // Skip the whole entry rather than silently dropping part of a key/row.
         let unavailable_key = entry.primary_key.values().any(value_is_unavailable);
@@ -90,6 +94,10 @@ pub fn generate_rollback_statements(entries: &[ChangelogEntry], driver_id: &str)
             ChangeOperation::Update => {
                 match &entry.before {
                     Some(before) => {
+                        if entry.after.is_none() {
+                            warnings.push("timeTravel.rollbackIncompleteCapture".to_string());
+                            continue;
+                        }
                         let pk_clause = build_pk_where(&entry.primary_key, &quoter);
                         if pk_clause.is_empty() {
                             warnings.push(format!(
@@ -358,6 +366,35 @@ mod tests {
     use chrono::Utc;
     use uuid::Uuid;
 
+    #[test]
+    fn rollback_refuses_missing_keys_and_unread_after_images() {
+        for operation in [
+            ChangeOperation::Insert,
+            ChangeOperation::Update,
+            ChangeOperation::Delete,
+        ] {
+            let image =
+                HashMap::from([("name".into(), serde_json::json!("not a unique identity"))]);
+            let entry = make_entry(operation, HashMap::new(), Some(image.clone()), Some(image));
+            assert_eq!(
+                generate_rollback_statements(&[entry], "sqlite").statements_count,
+                0
+            );
+        }
+        let entry = make_entry(
+            ChangeOperation::Update,
+            HashMap::from([("id".into(), serde_json::json!(1))]),
+            Some(HashMap::from([(
+                "name".into(),
+                serde_json::json!("before"),
+            )])),
+            None,
+        );
+        assert_eq!(
+            generate_rollback_statements(&[entry], "sqlite").statements_count,
+            0
+        );
+    }
     fn make_entry(
         op: ChangeOperation,
         pk: HashMap<String, serde_json::Value>,
@@ -368,6 +405,7 @@ mod tests {
             id: Uuid::new_v4(),
             timestamp: Utc::now(),
             session_id: "s1".to_string(),
+            workspace_id: Some("test-workspace".into()),
             connection_id: None,
             driver_id: "postgres".to_string(),
             namespace: Namespace {

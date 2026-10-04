@@ -1375,6 +1375,7 @@
     "updateConfirmDescription": "Sie sind dabei, {{column}} in {{table}} zu aktualisieren.",
     "updateConfirmLabel": "Wert aktualisieren",
     "updateSuccess": "Zeile erfolgreich aktualisiert",
+    "updateReloaded": "Änderung gespeichert. Die Tabelle wird für eine konsistente Ansicht neu geladen.",
     "updateError": "Zeile konnte nicht aktualisiert werden",
     "updateNoPrimaryKey": "Inline-Bearbeitung erfordert einen Primärschlüssel",
     "pinColumnLeft": "Links anheften",
@@ -3354,6 +3355,7 @@
     "leave": "Arbeitsbereich verlassen"
   },
   "timeTravel": {
+    "rollbackIncompleteCapture": "Unvollständige Erfassung: Die Zeile oder ihr Primärschlüssel konnte nicht geprüft werden. Rücknahme übersprungen.",
     "retry": "Aktualisieren",
     "requestFailed": "Die Verlaufsanfrage konnte nicht abgeschlossen werden. Bitte erneut versuchen.",
     "scopeHint": "Der Verlauf ist auf diese Verbindung beschränkt. Ältere Einträge mit unbekannter Verbindung bleiben gespeichert, werden aber ausgeblendet.",

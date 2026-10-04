@@ -1375,6 +1375,7 @@
     "updateConfirmDescription": "Estás a punto de actualizar {{column}} en {{table}}.",
     "updateConfirmLabel": "Actualizar valor",
     "updateSuccess": "Fila actualizada exitosamente",
+    "updateReloaded": "Cambio guardado. Se vuelve a cargar la tabla para mantener una vista coherente.",
     "updateError": "Error al actualizar la fila",
     "updateNoPrimaryKey": "La edición en línea requiere una clave primaria",
     "pinColumnLeft": "Fijar a la izquierda",
@@ -3354,6 +3355,7 @@
     "leave": "Dejar espacio"
   },
   "timeTravel": {
+    "rollbackIncompleteCapture": "Captura incompleta: no se pudo verificar la fila o su clave primaria. Se omitió la reversión.",
     "retry": "Actualizar",
     "requestFailed": "No se pudo completar esta solicitud de historial. Inténtalo de nuevo.",
     "scopeHint": "El historial se limita a esta conexión. Las entradas antiguas sin conexión identificable se conservan, pero se ocultan.",

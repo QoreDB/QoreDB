@@ -167,14 +167,18 @@ pub fn run() {
             }
 
             let state: tauri::State<SharedState> = app.state();
-            let (session_manager, plugin_host) = {
+            let (session_manager, plugin_host, changelog_store) = {
                 let app_state = state.blocking_lock();
                 (
                     Arc::clone(&app_state.session_manager),
                     Arc::clone(&app_state.plugin_host),
+                    Arc::clone(&app_state.changelog_store),
                 )
             };
             session_manager.start_health_monitor(app.handle().clone());
+            tauri::async_runtime::spawn(time_travel::store::run_retention_maintenance(
+                Arc::downgrade(&changelog_store),
+            ));
 
             {
                 let (tx, mut rx) =

@@ -8,6 +8,7 @@ import {
   formatCellPreview,
   formatValue,
   type RowDataCache,
+  stableRowId,
 } from './dataGridUtils';
 
 const columns = [
@@ -26,6 +27,27 @@ function row(id: number) {
 function ids(cache: RowDataCache) {
   return cache.converted.map(r => r.id);
 }
+
+describe('stableRowId', () => {
+  it('distinguishes composite boundaries and value types', () => {
+    const keys = ['tenant', 'id'];
+    const ids = [
+      { tenant: 'a::b', id: 'c' },
+      { tenant: 'a', id: 'b::c' },
+      { tenant: 'a', id: 1 },
+      { tenant: 'a', id: '1' },
+      { tenant: 'a', id: { $qoreInt: '9007199254740993' } },
+      { tenant: 'a', id: { $qoreInt: '9007199254740992' } },
+    ].map(row => stableRowId(row, keys, 0));
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it('keeps identity when a non-key value changes', () => {
+    expect(stableRowId({ id: 12, name: 'before' }, ['id'], 3)).toBe(
+      stableRowId({ id: 12, name: 'after' }, ['id'], 20)
+    );
+  });
+});
 
 describe('convertToRowDataIncremental', () => {
   it('converts every row on a cold cache', () => {
@@ -49,6 +71,37 @@ describe('convertToRowDataIncremental', () => {
     const warm = convertToRowDataIncremental(page([...rows]), cold);
 
     expect(warm.converted).toBe(cold.converted);
+  });
+
+  it('shows a confirmed edit in the middle of five pages without replacing other proxies', () => {
+    const rows = Array.from({ length: 500 }, (_, i) => row(i));
+    const cold = convertToRowDataIncremental(page(rows), null);
+    const updated = rows.slice();
+    updated[234] = { values: [234, 'server value'] };
+    const warm = convertToRowDataIncremental(page(updated), cold);
+
+    expect(warm.converted[234].label).toBe('server value');
+    expect(warm.converted[234]).not.toBe(cold.converted[234]);
+    expect(warm.converted[233]).toBe(cold.converted[233]);
+    expect(warm.converted[499]).toBe(cold.converted[499]);
+    expect(cold.converted[234].label).toBe(row(234).values[1]);
+  });
+
+  it('reconciles a changed prefix and a concurrent appended page together', () => {
+    const rows = [row(1), row(2), row(3)];
+    const cold = convertToRowDataIncremental(page(rows), null);
+    const warm = convertToRowDataIncremental(
+      page([{ values: [1, 'confirmed'] }, rows[1], rows[2], row(4)]),
+      cold
+    );
+
+    expect(warm.converted.map(r => r.label)).toEqual([
+      'confirmed',
+      row(2).values[1],
+      row(3).values[1],
+      row(4).values[1],
+    ]);
+    expect(warm.converted[1]).toBe(cold.converted[1]);
   });
 
   // A reload replaces the rows in place, so the prefix is only reusable when

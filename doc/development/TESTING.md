@@ -27,6 +27,38 @@ causes Vitest to run the full suite instead of applying that file filter.
 Vitest uses the Node environment and discovers `src/**/*.test.ts` through
 [vite.config.ts](../../vite.config.ts); it does not currently run DOM component tests.
 
+The optional [inline-edit browser check](../../scripts/test-inline-edit-ui.mjs)
+mounts the real grid and pagination hook in a synthetic fixture. It needs
+Playwright and Chromium installed locally. `QOREDB_PLAYWRIGHT_MODULE` may point
+to an absolute Playwright module path when it is not resolvable from this repo;
+`QOREDB_CHROMIUM_EXECUTABLE` may select an already installed Chromium executable.
+Neither is a production dependency.
+
+```bash
+# Keep this frontend server running in another terminal.
+pnpm exec vite --host 127.0.0.1 --port 1430
+node scripts/test-inline-edit-ui.mjs
+```
+
+`QOREDB_UI_BASE_URL` overrides the default `http://127.0.0.1:1430`.
+The fixture mocks IPC and providers inside its own browser context: it never
+connects to a database, saves a connection, activates a licence or executes an
+export. It checks five retained pages, scroll, selection, keyboard focus, failed
+and late writes, concurrent paging and deferred dialogs. A screenshot is written
+to `.perf/inline-edit-ui.png` (override with `QOREDB_UI_SCREENSHOT`). Do not run a
+Vite production build concurrently: dev-server reloads would reset the fixture.
+This browser check complements the pure reconciliation tests and the SQLite
+driver readback test; it does not validate Tauri IPC or native WebView behavior.
+
+The [Time Travel settings check](../../scripts/test-time-travel-settings-ui.mjs)
+uses the same Vite/Playwright setup and environment variables. Run
+`node scripts/test-time-travel-settings-ui.mjs` against that server. Its synthetic
+fixture mounts the real settings card and checks draft-only typing, explicit
+saves, pending controls, server-returned settings, failures/retries, numeric
+validation, typing multiple exclusions and an unavailable feature. IPC and
+licence state are simulated only inside the fixture; no application history
+is read or deleted.
+
 `pnpm test` runs `test:ts` followed by `test:rust`. The latter runs `cargo test`
 in `src-tauri`, whose root is also the `qoredb` package. It does not run all
 workspace members' unit tests. Use explicit `-p` for changed crates. A workspace
@@ -111,6 +143,7 @@ For PostgreSQL, for example:
 docker compose up -d postgres
 docker compose exec -T postgres pg_isready -U qoredb -d testdb
 QOREDB_TEST_POSTGRES_REQUIRED=true cargo test --manifest-path src-tauri/Cargo.toml -p qoredb --test integration_databases postgres_e2e -- --nocapture --test-threads=1
+QOREDB_TEST_POSTGRES_REQUIRED=true cargo test --manifest-path src-tauri/Cargo.toml -p qoredb --features pro --test integration_databases time_travel_capture -- --nocapture
 ```
 
 Wait for readiness before running the test. Read the `Service` mapping and

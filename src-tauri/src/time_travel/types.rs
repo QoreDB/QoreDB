@@ -25,6 +25,9 @@ pub struct ChangelogEntry {
     /// beyond their original session and must not be reassigned by display name.
     #[serde(default)]
     pub connection_id: Option<String>,
+    /// Backend workspace identity captured when the session was opened.
+    #[serde(default)]
+    pub workspace_id: Option<String>,
     /// Driver that executed the mutation
     pub driver_id: String,
     /// Namespace (database + optional schema)
@@ -137,7 +140,7 @@ pub struct TimeTravelConfig {
     pub max_entries: usize,
     /// Retention period in days (0 = unlimited)
     pub retention_days: u32,
-    /// Maximum changelog file size in MB
+    /// Maximum changelog file size in MiB (0 = unlimited)
     pub max_file_size_mb: u64,
     /// Tables excluded from capture (exact names)
     pub excluded_tables: Vec<String>,
@@ -196,12 +199,19 @@ pub struct ChangelogScope {
     pub session_id: String,
     pub connection_id: Option<String>,
     pub driver_id: String,
+    pub workspace_id: Option<String>,
 }
 
 impl ChangelogScope {
     pub fn contains(&self, entry: &ChangelogEntry) -> bool {
         if self.driver_id != entry.driver_id {
             return false;
+        }
+        match &entry.workspace_id {
+            Some(origin) if self.workspace_id.as_ref() != Some(origin) => return false,
+            // Legacy captures cannot be assigned to a new workspace from a copied connection ID.
+            None if self.session_id != entry.session_id => return false,
+            _ => {}
         }
         match (&self.connection_id, &entry.connection_id) {
             (Some(expected), Some(actual)) => expected == actual,

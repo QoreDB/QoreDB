@@ -1,6 +1,11 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
+/* Test reports and fixtures do not contribute application utility classes. */
+@source not "../doc/tests";
+@source not "../scripts/fixtures/inline-edit";
+@source not "../scripts/test-inline-edit-ui.mjs";
+
 @custom-variant dark (&:is(.dark *));
 
 @variant dark 

@@ -1,10 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { AiAssistantPanel } from '@/components/AI/AiAssistantPanel';
-import { InlineEditDialog } from '@/components/AI/InlineEditDialog';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -82,6 +81,10 @@ import {
   shouldRefreshSchema,
 } from './queryPanelUtils';
 import { SaveQueryDialog } from './SaveQueryDialog';
+
+const InlineEditDialog = lazy(() =>
+  import('@/components/AI/InlineEditDialog').then(module => ({ default: module.InlineEditDialog }))
+);
 
 const EDITOR_HEIGHT_KEY = 'query-editor-height';
 const MIN_EDITOR_HEIGHT = 100;
@@ -1178,17 +1181,19 @@ export function QueryPanel({
       </div>
 
       {inlineEdit && (
-        <InlineEditDialog
-          open
-          source={inlineEdit.source}
-          isSelection={inlineEdit.isSelection}
-          sessionId={sessionId}
-          namespace={
-            activeNamespace ?? (connectionDatabase ? { database: connectionDatabase } : undefined)
-          }
-          onApply={rewritten => sqlEditorRef.current?.replaceSelectionOrAll(rewritten)}
-          onClose={() => setInlineEdit(null)}
-        />
+        <Suspense fallback={null}>
+          <InlineEditDialog
+            open
+            source={inlineEdit.source}
+            isSelection={inlineEdit.isSelection}
+            sessionId={sessionId}
+            namespace={
+              activeNamespace ?? (connectionDatabase ? { database: connectionDatabase } : undefined)
+            }
+            onApply={rewritten => sqlEditorRef.current?.replaceSelectionOrAll(rewritten)}
+            onClose={() => setInlineEdit(null)}
+          />
+        </Suspense>
       )}
 
       <QueryHistory

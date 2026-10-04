@@ -3,6 +3,7 @@
 import { memo } from 'react';
 import { isDocumentDatabase } from '@/lib/connection/driverCapabilities';
 import type { Driver } from '@/lib/connection/drivers';
+import type { TableCellUpdateHandler } from '@/lib/query/tableRowUpdate';
 import type { SandboxChange, SandboxDeleteDisplay } from '@/lib/sandbox/sandboxTypes';
 import type {
   CancelSupport,
@@ -37,6 +38,7 @@ interface ResultsViewerProps {
   mutationsSupported?: boolean;
   initialFilter?: string;
   onRowsUpdated?: () => void;
+  onUpdateCell?: TableCellUpdateHandler;
   onOpenRelatedTable?: (namespace: Namespace, tableName: string) => void;
   onRowClick?: (row: Record<string, Value>) => void;
   infiniteScrollTotalRows?: number | null;
@@ -95,6 +97,7 @@ export const ResultsViewer = memo(function ResultsViewer({
   mutationsSupported,
   initialFilter,
   onRowsUpdated,
+  onUpdateCell,
   onOpenRelatedTable,
   onRowClick,
   infiniteScrollTotalRows,
@@ -192,6 +195,7 @@ export const ResultsViewer = memo(function ResultsViewer({
         initialFilter={initialFilter}
         onRowsDeleted={onRowsDeleted}
         onRowsUpdated={onRowsUpdated}
+        onUpdateCell={onUpdateCell}
         onOpenRelatedTable={onOpenRelatedTable}
         onRowClick={onRowClick}
         infiniteScrollTotalRows={infiniteScrollTotalRows}

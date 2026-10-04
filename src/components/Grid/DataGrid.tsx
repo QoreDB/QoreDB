@@ -35,7 +35,6 @@ import {
   ShareExportDialog,
   type ShareExportDialogRequest,
 } from '@/components/Share/ShareExportDialog';
-import { SaveSnapshotDialog } from '@/components/Snapshot/SaveSnapshotDialog';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useShareLinks } from '@/hooks/useShareLinks';
 import { useStreamingExport } from '@/hooks/useStreamingExport';
@@ -44,8 +43,8 @@ import { BULK_EDIT_CORE_LIMIT } from '@/lib/bulkEdit';
 import { type Driver, getDriverMetadata } from '@/lib/connection/drivers';
 import { type ExportDataDetail, UI_EVENT_EXPORT_DATA } from '@/lib/events/uiEvents';
 import type { ExportConfig } from '@/lib/export';
-import { exactIntText, isExactInt } from '@/lib/query/exactInt';
 import { indexedLeadingColumns } from '@/lib/query/indexCost';
+import type { TableCellUpdateHandler } from '@/lib/query/tableRowUpdate';
 import { applyOverlay, emptyOverlayResult, type OverlayResult } from '@/lib/sandbox/sandboxOverlay';
 import type { SandboxChange, SandboxDeleteDisplay } from '@/lib/sandbox/sandboxTypes';
 import type {
@@ -63,7 +62,6 @@ import type {
 } from '@/lib/tauri';
 import { useAiPreferences } from '@/providers/AiPreferencesProvider';
 import { useLicense } from '@/providers/LicenseProvider';
-import { DataGeneratorDialog } from './DataGeneratorDialog';
 import { DataGridColumnHeader } from './DataGridColumnHeader';
 import { DataGridHeader } from './DataGridHeader';
 import { DataGridPagination } from './DataGridPagination';
@@ -87,10 +85,19 @@ import {
   formatValue,
   type RowData,
   type RowDataCache,
+  stableRowId,
 } from './utils/dataGridUtils';
 
 const BulkEditDialog = lazy(() =>
   import('./BulkEditDialog').then(module => ({ default: module.BulkEditDialog }))
+);
+const DataGeneratorDialog = lazy(() =>
+  import('./DataGeneratorDialog').then(module => ({ default: module.DataGeneratorDialog }))
+);
+const SaveSnapshotDialog = lazy(() =>
+  import('@/components/Snapshot/SaveSnapshotDialog').then(module => ({
+    default: module.SaveSnapshotDialog,
+  }))
 );
 
 const EMPTY_OVERLAY_RESULT: OverlayResult = {
@@ -147,6 +154,7 @@ interface DataGridProps {
   onRowsDeleted?: () => void;
   onRowClick?: (row: RowData) => void;
   onRowsUpdated?: () => void;
+  onUpdateCell?: TableCellUpdateHandler;
   onOpenRelatedTable?: (
     namespace: Namespace,
     tableName: string,
@@ -207,6 +215,7 @@ export function DataGrid({
   onRowsDeleted,
   onRowClick,
   onRowsUpdated,
+  onUpdateCell,
   onOpenRelatedTable,
   sandboxMode = false,
   pendingChanges = [],
@@ -244,6 +253,19 @@ export function DataGrid({
 
   const [sorting, setSorting] = useState<SortingState>([]);
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
+  const selectionScope = JSON.stringify([
+    sessionId,
+    namespace?.database,
+    namespace?.schema,
+    tableName,
+  ]);
+  const selectionScopeRef = useRef(selectionScope);
+  useEffect(() => {
+    if (selectionScopeRef.current !== selectionScope) {
+      selectionScopeRef.current = selectionScope;
+      setRowSelection({});
+    }
+  }, [selectionScope]);
   const [pagination, setPagination] = useState<PaginationState>({
     pageIndex: 0,
     pageSize: 50,
@@ -274,6 +296,7 @@ export function DataGrid({
   const [showFilters, setShowFilters] = useState(false);
   const [bulkEditDialogOpen, setBulkEditDialogOpen] = useState(false);
   const [dataGenDialogOpen, setDataGenDialogOpen] = useState(false);
+  const [dataGenRequested, setDataGenRequested] = useState(false);
   const isServerSideSorting = isServerSideMode;
 
   useEffect(() => {
@@ -435,15 +458,7 @@ export function DataGrid({
 
   const getRowId = useMemo(() => {
     if (!primaryKey || primaryKey.length === 0) return undefined;
-    return (row: RowData, index: number) => {
-      let composite = '';
-      for (const key of primaryKey) {
-        const v = row[key];
-        if (v === null || v === undefined) return `__idx_${index}`;
-        composite += `${composite ? '::' : ''}${isExactInt(v) ? exactIntText(v) : String(v)}`;
-      }
-      return composite;
-    };
+    return (row: RowData, index: number) => stableRowId(row, primaryKey, index);
   }, [primaryKey]);
 
   // Server-side sorting hits the engine, so a column with no index to follow
@@ -522,6 +537,7 @@ export function DataGrid({
     maskedColumns,
     onSandboxUpdate,
     onRowsUpdated,
+    onUpdateCell,
   });
 
   useEffect(() => {
@@ -842,6 +858,7 @@ export function DataGrid({
   const [streamingDialogOpen, setStreamingDialogOpen] = useState(false);
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [snapshotDialogOpen, setSnapshotDialogOpen] = useState(false);
+  const [snapshotRequested, setSnapshotRequested] = useState(false);
   const canStreamExport = Boolean(sessionId && exportQuery);
   const { startShareExport } = useShareLinks(sessionId);
 
@@ -1036,12 +1053,26 @@ export function DataGrid({
           copied={!!copied}
           showFilters={showFilters}
           setShowFilters={setShowFilters}
-          onSaveSnapshot={result ? () => setSnapshotDialogOpen(true) : undefined}
+          onSaveSnapshot={
+            result
+              ? () => {
+                  setSnapshotRequested(true);
+                  setSnapshotDialogOpen(true);
+                }
+              : undefined
+          }
           onExplainWithAi={canExplainWithAi ? handleExplainWithAi : undefined}
           aiExplanation={aiExplanation}
           aiExplainLoading={aiExplainLoading}
           onDismissAiExplanation={() => setAiExplanation(null)}
-          onGenerateData={canGenerateData ? () => setDataGenDialogOpen(true) : undefined}
+          onGenerateData={
+            canGenerateData
+              ? () => {
+                  setDataGenRequested(true);
+                  setDataGenDialogOpen(true);
+                }
+              : undefined
+          }
           searchScope={isServerSideMode ? searchScope : undefined}
         />
       </div>
@@ -1167,34 +1198,38 @@ export function DataGrid({
         </Suspense>
       )}
 
-      {canGenerateData && sessionId && tableName && namespace && (
-        <DataGeneratorDialog
-          open={dataGenDialogOpen}
-          onOpenChange={setDataGenDialogOpen}
-          sessionId={sessionId}
-          namespace={namespace}
-          tableName={tableName}
-          driver={driver}
-          onExecuted={() => onRowsUpdated?.()}
-        />
+      {dataGenRequested && canGenerateData && sessionId && tableName && namespace && (
+        <Suspense fallback={null}>
+          <DataGeneratorDialog
+            open={dataGenDialogOpen}
+            onOpenChange={setDataGenDialogOpen}
+            sessionId={sessionId}
+            namespace={namespace}
+            tableName={tableName}
+            driver={driver}
+            onExecuted={() => onRowsUpdated?.()}
+          />
+        </Suspense>
       )}
 
-      {result && (
-        <SaveSnapshotDialog
-          open={snapshotDialogOpen}
-          onOpenChange={setSnapshotDialogOpen}
-          result={result}
-          source={exportQuery || tableName || 'query'}
-          sourceType={tableName ? 'table' : 'query'}
-          connectionName={connectionName}
-          driver={undefined}
-          namespace={namespace}
-          defaultName={
-            tableName
-              ? `${tableName} - ${new Date().toLocaleDateString()}`
-              : `Query - ${new Date().toLocaleDateString()}`
-          }
-        />
+      {snapshotRequested && result && (
+        <Suspense fallback={null}>
+          <SaveSnapshotDialog
+            open={snapshotDialogOpen}
+            onOpenChange={setSnapshotDialogOpen}
+            result={result}
+            source={exportQuery || tableName || 'query'}
+            sourceType={tableName ? 'table' : 'query'}
+            connectionName={connectionName}
+            driver={undefined}
+            namespace={namespace}
+            defaultName={
+              tableName
+                ? `${tableName} - ${new Date().toLocaleDateString()}`
+                : `Query - ${new Date().toLocaleDateString()}`
+            }
+          />
+        </Suspense>
       )}
 
       <DangerConfirmDialog

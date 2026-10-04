@@ -88,6 +88,21 @@ impl DataEngine for TestDriver {
     ) -> EngineResult<TableSchema> {
         self.sqlite.describe_table(session, namespace, table).await
     }
+    fn supports_safe_row_capture(&self) -> bool {
+        true
+    }
+
+    async fn query_table(
+        &self,
+        session: SessionId,
+        namespace: &Namespace,
+        table: &str,
+        options: qore_core::TableQueryOptions,
+    ) -> EngineResult<qore_core::PaginatedQueryResult> {
+        self.sqlite
+            .query_table(session, namespace, table, options)
+            .await
+    }
     async fn preview_table(
         &self,
         session: SessionId,
@@ -108,6 +123,18 @@ impl DataEngine for TestDriver {
     ) -> EngineResult<QueryResult> {
         self.sqlite
             .insert_row(session, namespace, table, data)
+            .await
+    }
+    async fn insert_row_returning(
+        &self,
+        session: SessionId,
+        namespace: &Namespace,
+        table: &str,
+        data: &RowData,
+        returning_columns: &[String],
+    ) -> EngineResult<qore_core::RowInsertResult> {
+        self.sqlite
+            .insert_row_returning(session, namespace, table, data, returning_columns)
             .await
     }
     async fn update_row(
@@ -256,20 +283,29 @@ async fn count(f: &Fixture) -> i64 {
 #[tokio::test]
 async fn rolled_back_batch_has_no_confirmed_changes() {
     let f = fixture(false, false, true).await;
-    let result = execute_batch(&f.driver, f.session, &[insert(&f, 1), insert(&f, 1)], true).await;
+    let result = execute_batch(
+        &f.driver,
+        f.session,
+        &[insert(&f, 1), insert(&f, 1)],
+        true,
+        &[0],
+    )
+    .await;
     assert!(!result.success);
     assert_eq!(count(&f).await, 0);
     assert_eq!(result.applied_count, 0);
     assert!(result.applied_indices.is_empty());
+    assert!(result.captures.is_empty());
     assert!(!result.outcome_unknown);
 }
 
 #[tokio::test]
 async fn failed_commit_is_unknown_and_never_confirmed() {
     let f = fixture(true, false, true).await;
-    let result = execute_batch(&f.driver, f.session, &[insert(&f, 1)], true).await;
+    let result = execute_batch(&f.driver, f.session, &[insert(&f, 1)], true, &[0]).await;
     assert!(!result.success);
     assert!(result.outcome_unknown);
+    assert!(result.captures.is_empty());
     assert!(result.applied_indices.is_empty());
     assert_eq!(result.applied_count, 0);
     assert!(!result.error.unwrap().contains("synthetic-secret"));
@@ -279,7 +315,7 @@ async fn failed_commit_is_unknown_and_never_confirmed() {
 #[tokio::test]
 async fn required_transaction_never_silently_falls_back_to_partial_writes() {
     let f = fixture(false, false, false).await;
-    let result = execute_batch(&f.driver, f.session, &[insert(&f, 1)], true).await;
+    let result = execute_batch(&f.driver, f.session, &[insert(&f, 1)], true, &[0]).await;
     assert!(!result.success);
     assert_eq!(count(&f).await, 0);
     assert!(result.applied_indices.is_empty());
@@ -349,7 +385,11 @@ async fn failed_rollback_is_unknown_and_redacts_secrets() {
 async fn begin_failure_does_not_rollback_an_existing_transaction() {
     let f = fixture(false, false, true).await;
     f.driver.begin_transaction(f.session).await.unwrap();
-    apply_single_change(&f.driver, f.session, &insert(&f, 1))
+    let change = insert(&f, 1);
+    let data = RowData {
+        columns: change.new_values.clone().unwrap(),
+    };
+    apply_single_change(&f.driver, f.session, &change, &data, &[])
         .await
         .unwrap();
     let result = guarded(&f, &[insert(&f, 2)], false).await;
@@ -367,6 +407,7 @@ async fn explicit_nontransactional_batch_reports_only_successes_and_stops_on_fai
         f.session,
         &[insert(&f, 1), insert(&f, 1), insert(&f, 3)],
         false,
+        &[0],
     )
     .await;
     assert!(!result.success);
@@ -526,3 +567,6 @@ async fn missing_target_rolls_back_previous_writes() {
     assert_eq!(result.applied_count, 0);
     assert_eq!(count(&f).await, 0);
 }
+
+#[path = "batch_capture_tests.rs"]
+mod capture_tests;

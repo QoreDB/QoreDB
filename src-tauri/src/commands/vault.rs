@@ -39,12 +39,13 @@ fn masking_change_allowed(
 
 async fn refresh_session_masking(
     state: &State<'_, SharedState>,
+    workspace_id: &str,
     connection_id: &str,
     masking: &ConnectionMasking,
 ) {
     let session_manager = std::sync::Arc::clone(&state.lock().await.session_manager);
     session_manager
-        .update_connection_masking(connection_id, masking)
+        .update_connection_masking(workspace_id, connection_id, masking)
         .await;
 }
 
@@ -53,16 +54,31 @@ async fn refresh_session_masking(
 pub(crate) async fn get_workspace_store(
     ws_manager: &State<'_, SharedWorkspaceManager>,
 ) -> Option<WorkspaceConnectionStore> {
+    get_workspace_context(ws_manager).await.1
+}
+
+/// Resolve the store and its trusted identity from the same workspace snapshot.
+/// A switch after this point cannot change the origin of the operation.
+pub(crate) async fn get_workspace_context(
+    ws_manager: &State<'_, SharedWorkspaceManager>,
+) -> (String, Option<WorkspaceConnectionStore>) {
     let mgr = ws_manager.lock().await;
+    workspace_context(&mgr)
+}
+
+fn workspace_context(
+    mgr: &crate::workspace::WorkspaceManager,
+) -> (String, Option<WorkspaceConnectionStore>) {
+    let project_id = mgr.project_id();
     let ws = mgr.active();
-    if ws.source == WorkspaceSource::Default {
-        return None;
-    }
-    Some(WorkspaceConnectionStore::new(
-        ws.path.join("connections"),
-        qore_service::workspace::keyring_service(&mgr.project_id()),
-        Box::new(KeyringProvider::new()),
-    ))
+    let store = (ws.source != WorkspaceSource::Default).then(|| {
+        WorkspaceConnectionStore::new(
+            ws.path.join("connections"),
+            qore_service::workspace::keyring_service(&project_id),
+            Box::new(KeyringProvider::new()),
+        )
+    });
+    (project_id, store)
 }
 
 #[derive(Debug, Serialize)]
@@ -359,7 +375,8 @@ pub async fn save_connection(
         project_id: input.project_id,
     };
 
-    let result = match get_workspace_store(&ws_manager).await {
+    let (workspace_id, workspace_store) = get_workspace_context(&ws_manager).await;
+    let result = match workspace_store {
         Some(ws_store) => {
             let stored = ws_store.get_connection(&connection.id).ok();
             if keep_exposure {
@@ -409,7 +426,8 @@ pub async fn save_connection(
 
     match result {
         Ok(()) => {
-            refresh_session_masking(&state, &connection.id, &connection.masking).await;
+            refresh_session_masking(&state, &workspace_id, &connection.id, &connection.masking)
+                .await;
             Ok(VaultResponse {
                 success: true,
                 error: None,
@@ -500,7 +518,8 @@ pub async fn set_connection_masking(
         Ok(connection)
     };
 
-    let result = match get_workspace_store(&ws_manager).await {
+    let (workspace_id, workspace_store) = get_workspace_context(&ws_manager).await;
+    let result = match workspace_store {
         Some(ws_store) => ws_store
             .get_connection(&connection_id)
             .map_err(|e| e.sanitized_message())
@@ -537,7 +556,7 @@ pub async fn set_connection_masking(
 
     Ok(match result {
         Ok(()) => {
-            refresh_session_masking(&state, &connection_id, &masking).await;
+            refresh_session_masking(&state, &workspace_id, &connection_id, &masking).await;
             VaultResponse {
                 success: true,
                 error: None,
@@ -735,5 +754,54 @@ pub async fn get_connection_credentials(
             password: None,
             error: Some(e.sanitized_message()),
         }),
+    }
+}
+
+#[cfg(test)]
+mod workspace_context_tests {
+    use super::*;
+
+    #[test]
+    fn connection_store_and_identity_stay_bound_after_workspace_switch() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let mut manager = crate::workspace::WorkspaceManager::new(dir.path().join("config"));
+        let (default_id, default_store) = workspace_context(&manager);
+        assert_eq!(default_id, "default");
+        assert!(default_store.is_none());
+        let write_connection = |workspace: &crate::workspace::types::WorkspaceInfo, name: &str| {
+            let connection = serde_json::json!({
+                "id": "copied-id", "name": name, "driver": "sqlite", "environment": "development",
+                "read_only": false, "host": "fixture.db", "port": 0, "username": "", "ssl": false,
+                "project_id": "default"
+            });
+            std::fs::write(
+                workspace.path.join("connections/copied-id.json"),
+                serde_json::to_vec(&connection).unwrap(),
+            )
+            .unwrap();
+        };
+        let a = manager
+            .create_workspace(&dir.path().join("a"), "Workspace A")
+            .unwrap();
+        write_connection(&a, "Connection A");
+        let (origin_a, store_a) = workspace_context(&manager);
+        let b = manager
+            .create_workspace(&dir.path().join("b"), "Workspace B")
+            .unwrap();
+        write_connection(&b, "Connection B");
+        let (origin_b, store_b) = workspace_context(&manager);
+        assert_ne!(origin_a, origin_b);
+        assert_ne!(origin_a, "default");
+        // Metadata may carry a copied/default project label; backend context owns the origin.
+        assert_eq!(
+            store_a.unwrap().get_connection("copied-id").unwrap().name,
+            "Connection A"
+        );
+        assert_eq!(
+            store_b.unwrap().get_connection("copied-id").unwrap().name,
+            "Connection B"
+        );
+        manager.switch_to(&a.path, WorkspaceSource::Manual).unwrap();
+        assert_eq!(workspace_context(&manager).0, origin_a);
     }
 }

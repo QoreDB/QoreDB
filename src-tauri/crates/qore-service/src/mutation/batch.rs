@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
+use super::capture::{MAX_CAPTURE_BYTES, MutationCapture, finish_capture, prepare_capture};
 use qore_core::{DataEngine, EngineError, RowData, SessionId};
 use qore_drivers::session_manager::SessionManager;
 use qore_sql::generator::{SandboxChangeDto, SandboxChangeType};
@@ -26,6 +27,10 @@ pub struct ApplyBatchResult {
     pub outcome_unknown: bool,
     pub error: Option<String>,
     pub failed_changes: Vec<FailedChange>,
+    /// Internal, unmasked images. Only the history adapter may persist these,
+    /// after applying its current privacy policy; never serialize them to IPC.
+    #[serde(skip)]
+    pub captures: Vec<(usize, MutationCapture)>,
     #[serde(skip)]
     execution_times_ms: Vec<f64>,
 }
@@ -48,6 +53,29 @@ pub async fn apply_batch(
     changes: &[SandboxChangeDto],
     use_transaction: bool,
     acknowledged: bool,
+) -> ApplyBatchResult {
+    apply_batch_with_capture(
+        manager,
+        interceptor,
+        cache,
+        session,
+        changes,
+        use_transaction,
+        acknowledged,
+        &[],
+    )
+    .await
+}
+
+pub async fn apply_batch_with_capture(
+    manager: &SessionManager,
+    interceptor: &InterceptorPipeline,
+    cache: &QueryCache,
+    session: SessionId,
+    changes: &[SandboxChangeDto],
+    use_transaction: bool,
+    acknowledged: bool,
+    capture_indices: &[usize],
 ) -> ApplyBatchResult {
     let mut preflights = Vec::with_capacity(changes.len());
     for (index, change) in changes.iter().enumerate() {
@@ -110,7 +138,14 @@ pub async fn apply_batch(
             ..Default::default()
         };
     };
-    let result = execute_batch(&first.driver, session, changes, use_transaction).await;
+    let result = execute_batch(
+        &first.driver,
+        session,
+        changes,
+        use_transaction,
+        capture_indices,
+    )
+    .await;
     if !result.execution_times_ms.is_empty() {
         if let Some(key) = manager.connection_key(session).await {
             cache.invalidate_connection(&key);
@@ -169,6 +204,7 @@ async fn execute_batch(
     session: SessionId,
     changes: &[SandboxChangeDto],
     use_transaction: bool,
+    capture_indices: &[usize],
 ) -> ApplyBatchResult {
     let mut result = ApplyBatchResult::default();
     if use_transaction {
@@ -186,14 +222,64 @@ async fn execute_batch(
         }
     }
 
+    let mut remaining_capture_bytes = MAX_CAPTURE_BYTES;
     for (index, change) in changes.iter().enumerate() {
+        let data = RowData {
+            columns: change.new_values.clone().unwrap_or_default(),
+        };
+        let prepared = if remaining_capture_bytes > 0 && capture_indices.contains(&index) {
+            Some(
+                prepare_capture(
+                    driver.as_ref(),
+                    session,
+                    &change.namespace,
+                    &change.table_name,
+                    change.change_type.clone(),
+                    change.primary_key.as_ref().unwrap_or(&data),
+                )
+                .await,
+            )
+        } else {
+            None
+        };
         let start = Instant::now();
-        let applied = apply_single_change(driver, session, change).await;
+        let returning_columns = prepared
+            .as_ref()
+            .map(|capture| capture.returning_columns())
+            .unwrap_or(&[]);
+        let applied = apply_single_change(driver, session, change, &data, returning_columns).await;
         result
             .execution_times_ms
             .push(start.elapsed().as_secs_f64() * 1000.0);
         match applied {
-            Ok(()) => result.applied_indices.push(index),
+            Ok(mutation) => {
+                result.applied_indices.push(index);
+                if let Some(mut prepared) = prepared {
+                    if matches!(change.change_type, SandboxChangeType::Insert) {
+                        prepared.use_inserted_values(mutation.returned_values);
+                    }
+                    if let Some(capture) = finish_capture(
+                        driver.as_ref(),
+                        session,
+                        &change.namespace,
+                        &change.table_name,
+                        change.change_type.clone(),
+                        &data,
+                        prepared,
+                        &mutation.result,
+                    )
+                    .await
+                    {
+                        if let Some(bytes) = capture.retained_bytes(remaining_capture_bytes) {
+                            remaining_capture_bytes -= bytes;
+                            result.captures.push((index, capture));
+                        } else {
+                            // Keep the confirmed event without invented row images.
+                            remaining_capture_bytes = 0;
+                        }
+                    }
+                }
+            }
             Err(error) => {
                 let message = error.sanitized_message();
                 result.failed_changes.push(FailedChange {
@@ -203,6 +289,7 @@ async fn execute_batch(
                 result.error = Some(format!("Change {} failed: {message}", index + 1));
                 if use_transaction {
                     result.applied_indices.clear();
+                    result.captures.clear();
                     match driver.rollback(session).await {
                         Ok(()) => result
                             .error
@@ -230,6 +317,7 @@ async fn execute_batch(
     if use_transaction {
         if let Err(error) = driver.commit(session).await {
             result.applied_indices.clear();
+            result.captures.clear();
             result.outcome_unknown = true;
             result.error = Some(format!(
                 "Failed to commit transaction: {}",
@@ -254,21 +342,22 @@ async fn apply_single_change(
     driver: &Arc<dyn DataEngine>,
     session: SessionId,
     change: &SandboxChangeDto,
-) -> Result<(), EngineError> {
+    data: &RowData,
+    returning_columns: &[String],
+) -> Result<qore_core::RowInsertResult, EngineError> {
     let result = match change.change_type {
         SandboxChangeType::Insert => {
-            let values = change
+            change
                 .new_values
                 .as_ref()
                 .ok_or_else(|| EngineError::validation("INSERT missing new_values"))?;
             driver
-                .insert_row(
+                .insert_row_returning(
                     session,
                     &change.namespace,
                     &change.table_name,
-                    &RowData {
-                        columns: values.clone(),
-                    },
+                    data,
+                    returning_columns,
                 )
                 .await?
         }
@@ -277,21 +366,14 @@ async fn apply_single_change(
                 .primary_key
                 .as_ref()
                 .ok_or_else(|| EngineError::validation("UPDATE missing primary_key"))?;
-            let values = change
+            change
                 .new_values
                 .as_ref()
                 .ok_or_else(|| EngineError::validation("UPDATE missing new_values"))?;
             driver
-                .update_row(
-                    session,
-                    &change.namespace,
-                    &change.table_name,
-                    pk,
-                    &RowData {
-                        columns: values.clone(),
-                    },
-                )
+                .update_row(session, &change.namespace, &change.table_name, pk, data)
                 .await?
+                .into()
         }
         SandboxChangeType::Delete => {
             let pk = change
@@ -301,14 +383,15 @@ async fn apply_single_change(
             driver
                 .delete_row(session, &change.namespace, &change.table_name, pk)
                 .await?
+                .into()
         }
     };
-    if matches!(result.affected_rows, Some(0)) {
+    if matches!(result.result.affected_rows, Some(0)) {
         return Err(EngineError::validation(
             "Change affected 0 rows (possible conflict)",
         ));
     }
-    Ok(())
+    Ok(result)
 }
 
 #[cfg(all(test, feature = "driver-sqlite"))]

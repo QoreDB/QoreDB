@@ -48,6 +48,20 @@ that every check passes on the current checkout.
   commit/rollback fidelity, mutation guards, live SQLite tests and deferred Bulk Edit loading.
 - [v0.1.40 Time Travel masking, 2026-10-03](tests/V0_1_40_TIME_TRAVEL_PRIVACY_2026-10-03.md):
   key/JSON redaction, current connection rules on historical reads and safe rollback limits.
+- [v0.1.40 inline editing, 2026-10-04](tests/V0_1_40_INLINE_EDIT_2026-10-04.md):
+  canonical row reconciliation, browser scroll/selection/focus checks and live SQLite readback.
+- [v0.1.40 Time Travel captures, 2026-10-04](tests/V0_1_40_TIME_TRAVEL_CAPTURE_2026-10-04.md):
+  database images per mutation, verified keys, bounded batch images and safe refusal of incomplete rollbacks.
+- [v0.1.40 generated keys, 2026-10-04](tests/V0_1_40_GENERATED_KEYS_2026-10-04.md):
+  SQLite/PostgreSQL INSERT identities, live permission checks and restored frontend budgets.
+- [v0.1.40 capture transactions, 2026-10-04](tests/V0_1_40_CAPTURE_TRANSACTIONS_2026-10-04.md):
+  isolated PostgreSQL reads, cancellation recovery, lost-transaction guards and commit verification.
+- [v0.1.40 retained history, 2026-10-04](tests/V0_1_40_HISTORY_RETENTION_2026-10-04.md):
+  reads beyond the cache, atomic retention, rollback limits and a 50 000-event fixture.
+- [v0.1.40 workspace history, 2026-10-04](tests/V0_1_40_WORKSPACE_HISTORY_2026-10-04.md):
+  session-bound history origin, scoped masking updates and workspace-bound deletion confirmations.
+- [v0.1.40 retention policy, 2026-10-04](tests/V0_1_40_RETENTION_POLICY_2026-10-04.md):
+  scheduled duration/count/size cleanup, durable settings errors and explicit settings saves.
 - [Driver limitations](tests/DRIVER_LIMITATIONS.md): coverage boundaries,
   unsupported operations, and mock/live distinctions.
 

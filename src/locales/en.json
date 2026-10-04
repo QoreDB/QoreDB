@@ -1410,6 +1410,7 @@
     "updateConfirmDescription": "You are about to update {{column}} in {{table}}.",
     "updateConfirmLabel": "Update value",
     "updateSuccess": "Row updated successfully",
+    "updateReloaded": "Change saved. Reloading the table to keep the view consistent.",
     "updateError": "Failed to update row",
     "updateNoPrimaryKey": "Inline edit requires a primary key",
     "pinColumnLeft": "Pin to left",
@@ -3393,6 +3394,7 @@
     "leave": "Leave workspace"
   },
   "timeTravel": {
+    "rollbackIncompleteCapture": "Incomplete capture: the row or its primary key could not be verified. Rollback skipped.",
     "retry": "Refresh",
     "requestFailed": "Unable to complete this history request. Please retry.",
     "scopeHint": "History is limited to this connection. Older records with an unknown connection are preserved but hidden.",

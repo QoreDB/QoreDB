@@ -1410,6 +1410,7 @@
     "updateConfirmDescription": "Vous êtes sur le point de modifier {{column}} dans {{table}}.",
     "updateConfirmLabel": "Modifier la valeur",
     "updateSuccess": "Ligne modifiée avec succès",
+    "updateReloaded": "Modification enregistrée. Actualisation du tableau pour garder une vue cohérente.",
     "updateError": "Échec de la modification de la ligne",
     "updateNoPrimaryKey": "L’édition inline nécessite une clé primaire",
     "pinColumnLeft": "Épingler à gauche",
@@ -3393,6 +3394,7 @@
     "leave": "Quitter l'espace"
   },
   "timeTravel": {
+    "rollbackIncompleteCapture": "Capture incomplète : la ligne ou sa clé primaire n’a pas pu être vérifiée. Restauration ignorée.",
     "retry": "Rafraîchir",
     "requestFailed": "Impossible de traiter cette demande d’historique. Réessayez.",
     "scopeHint": "Historique limité à cette connexion. Les anciennes entrées sans connexion identifiable sont conservées mais masquées.",

@@ -1366,6 +1366,7 @@
     "updateConfirmDescription": "您即将更新 {{table}} 中的 {{column}}。",
     "updateConfirmLabel": "更新值",
     "updateSuccess": "行更新成功",
+    "updateReloaded": "更改已保存。正在重新加载表格以保持视图一致。",
     "updateError": "更新行失败",
     "updateNoPrimaryKey": "内联编辑需要主键",
     "pinColumnLeft": "固定到左侧",
@@ -3344,6 +3345,7 @@
     "leave": "离开"
   },
   "timeTravel": {
+    "rollbackIncompleteCapture": "记录不完整：无法验证行或其主键，已跳过回滚。",
     "retry": "刷新",
     "requestFailed": "无法完成此历史记录请求，请重试。",
     "scopeHint": "仅显示此连接的历史记录。无法识别连接的旧记录会保留，但不会显示。",

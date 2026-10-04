@@ -17,7 +17,7 @@ import {
   Trash2,
   X,
 } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { ChangesPanel, MigrationPreview, SandboxToggle } from '@/components/Sandbox';
@@ -83,7 +83,8 @@ import { ResultsViewer } from '../Results/ResultsViewer';
 import { IndexDialog } from '../Schema/IndexDialog';
 import { CacheBadge } from './CacheBadge';
 import { ContentBreadcrumb } from './ContentBreadcrumb';
-import { RowModal } from './RowModal';
+
+const RowModal = lazy(() => import('./RowModal').then(module => ({ default: module.RowModal })));
 
 function formatTableName(namespace: Namespace, tableName: string): string {
   return namespace.schema ? `${namespace.schema}.${tableName}` : tableName;
@@ -265,6 +266,7 @@ export function TableBrowser({
 
   // Modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [rowModalRequested, setRowModalRequested] = useState(false);
   const [modalMode, setModalMode] = useState<'insert' | 'update'>('insert');
   const [selectedRow, setSelectedRow] = useState<Record<string, Value> | undefined>(undefined);
   const mutationsSupported = driverCapabilities?.mutations ?? true;
@@ -387,6 +389,7 @@ export function TableBrowser({
     cancelExactTotal,
     reload,
     refresh,
+    updateCell,
   } = useInfiniteTableData({
     sessionId,
     namespace,
@@ -399,6 +402,7 @@ export function TableBrowser({
     searchMode,
     maxOffsetWindow: driverCapabilities?.pagination?.max_offset_window,
     keysetColumns,
+    primaryKey: schema?.primary_key ?? undefined,
     filters: infiniteScrollFilters,
     // The first page decides the ordering for the whole walk, and the unique
     // key it needs comes from the schema. Fetching before it resolves means
@@ -732,6 +736,7 @@ export function TableBrowser({
 
     setModalMode('insert');
     setSelectedRow(undefined);
+    setRowModalRequested(true);
     setIsModalOpen(true);
   }, [isDocument, mutationsSupported, readOnly, t]);
 
@@ -747,6 +752,7 @@ export function TableBrowser({
       }
       setModalMode('update');
       setSelectedRow(row);
+      setRowModalRequested(true);
       setIsModalOpen(true);
     },
     [mutationsSupported, readOnly, t]
@@ -948,6 +954,7 @@ export function TableBrowser({
             mutationsSupported={mutationsSupported}
             initialFilter={searchFilter?.value}
             onRowsUpdated={reload}
+            onUpdateCell={updateCell}
             onOpenRelatedTable={onOpenRelatedTable}
             sandboxMode={sandboxActive}
             pendingChanges={sandboxChanges}
@@ -1003,29 +1010,31 @@ export function TableBrowser({
         )}
       </div>
 
-      {schema && !isDocument && (
-        <RowModal
-          isOpen={isModalOpen}
-          onClose={() => setIsModalOpen(false)}
-          mode={modalMode}
-          sessionId={sessionId}
-          namespace={namespace}
-          tableName={tableName}
-          schema={schema}
-          driver={driver}
-          environment={environment}
-          connectionName={connectionName}
-          connectionDatabase={connectionDatabase}
-          readOnly={readOnly}
-          initialData={selectedRow}
-          maskedColumns={
-            new Set(data?.columns.filter(column => column.masked).map(column => column.name))
-          }
-          onSuccess={reload}
-          sandboxMode={sandboxActive}
-          onSandboxInsert={handleSandboxInsert}
-          onSandboxUpdate={handleSandboxUpdate}
-        />
+      {schema && !isDocument && rowModalRequested && (
+        <Suspense fallback={null}>
+          <RowModal
+            isOpen={isModalOpen}
+            onClose={() => setIsModalOpen(false)}
+            mode={modalMode}
+            sessionId={sessionId}
+            namespace={namespace}
+            tableName={tableName}
+            schema={schema}
+            driver={driver}
+            environment={environment}
+            connectionName={connectionName}
+            connectionDatabase={connectionDatabase}
+            readOnly={readOnly}
+            initialData={selectedRow}
+            maskedColumns={
+              new Set(data?.columns.filter(column => column.masked).map(column => column.name))
+            }
+            onSuccess={reload}
+            sandboxMode={sandboxActive}
+            onSandboxInsert={handleSandboxInsert}
+            onSandboxUpdate={handleSandboxUpdate}
+          />
+        </Suspense>
       )}
 
       {isDocument && (

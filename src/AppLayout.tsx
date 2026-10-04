@@ -20,7 +20,6 @@ import {
   subscribeSandbox,
 } from '@/lib/sandbox/sandboxStore';
 import { getShortcut } from '@/utils/platform';
-import { SchemaExplainDialog } from './components/AI/SchemaExplainDialog';
 import { AppOverlays } from './components/AppOverlays';
 import { DatabaseBrowser, type DatabaseBrowserTab } from './components/Browser/DatabaseBrowser';
 import { TableBrowser, type TableBrowserTab } from './components/Browser/TableBrowser';
@@ -60,6 +59,11 @@ const ReplayTab = lazy(() => import('./components/Replay').then(m => ({ default:
 const SettingsPage = lazy(() =>
   import('./components/Settings/SettingsPage').then(m => ({
     default: m.SettingsPage,
+  }))
+);
+const SchemaExplainDialog = lazy(() =>
+  import('./components/AI/SchemaExplainDialog').then(m => ({
+    default: m.SchemaExplainDialog,
   }))
 );
 const SnapshotManager = lazy(() =>
@@ -1158,12 +1162,14 @@ export function AppLayout() {
       </div>
 
       {aiExplainTarget && (
-        <SchemaExplainDialog
-          sessionId={sessionId}
-          namespace={aiExplainTarget.namespace}
-          table={aiExplainTarget.table}
-          onClose={() => setAiExplainTarget(null)}
-        />
+        <Suspense fallback={null}>
+          <SchemaExplainDialog
+            sessionId={sessionId}
+            namespace={aiExplainTarget.namespace}
+            table={aiExplainTarget.table}
+            onClose={() => setAiExplainTarget(null)}
+          />
+        </Suspense>
       )}
 
       <AppOverlays

@@ -118,6 +118,7 @@ mod sandbox_impl {
 
         let session = parse_session_id(&session_id)?;
         let connection_identity = session_manager.get_saved_connection_identity(session).await;
+        let workspace_id = session_manager.workspace_id(session).await;
         let driver = session_manager
             .get_driver(session)
             .await
@@ -126,7 +127,13 @@ mod sandbox_impl {
             .get_environment(session)
             .await
             .map_err(|e| e.sanitized_message())?;
-        let result = qore_service::mutation::batch::apply_batch(
+        let capture_indices: Vec<_> = changes
+            .iter()
+            .enumerate()
+            .filter(|(_, change)| changelog_store.should_capture(&change.table_name, &environment))
+            .map(|(index, _)| index)
+            .collect();
+        let result = qore_service::mutation::batch::apply_batch_with_capture(
             &session_manager,
             &interceptor,
             &query_cache,
@@ -134,12 +141,14 @@ mod sandbox_impl {
             &changes,
             use_transaction,
             acknowledged_dangerous.unwrap_or(false),
+            &capture_indices,
         )
         .await;
         capture_confirmed_batch(
             &changelog_store,
             &session_id,
             driver.driver_id(),
+            workspace_id.as_deref(),
             connection_identity.as_ref().map(|(id, _)| id.as_str()),
             connection_identity.as_ref().map(|(_, name)| name.as_str()),
             &environment,

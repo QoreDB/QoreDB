@@ -1,18 +1,30 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { Binary } from 'lucide-react';
-import { memo, type RefObject, useCallback, useMemo, useState } from 'react';
+import {
+  lazy,
+  memo,
+  type RefObject,
+  Suspense,
+  useCallback,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { useTranslation } from 'react-i18next';
 import { isBinaryType } from '@/lib/binaryUtils';
 import { findViewerFor } from '@/lib/plugins';
 import type { ForeignKey, Namespace, RelationFilter, Value } from '@/lib/tauri';
 import { cn } from '@/lib/utils';
 import { usePlugins } from '@/providers/PluginProvider';
-import { BlobViewer } from './BlobViewer';
 import { ForeignKeyPeekTooltip } from './ForeignKeyPeekTooltip';
 import type { PeekState } from './hooks/useForeignKeyPeek';
 import { PluginCellRenderer } from './PluginCellRenderer';
 import { formatCellPreview, type RowData } from './utils/dataGridUtils';
+
+const BlobViewer = lazy(() =>
+  import('./BlobViewer').then(module => ({ default: module.BlobViewer }))
+);
 
 export interface EditableDataCellProps {
   value: Value;
@@ -67,6 +79,19 @@ export const EditableDataCell = memo(function EditableDataCell({
   const formatted = preview.text;
   const isNull = value === null;
   const [blobViewerOpen, setBlobViewerOpen] = useState(false);
+  const cellRef = useRef<HTMLButtonElement>(null);
+  const restoreCellFocus = useCallback(() => {
+    requestAnimationFrame(() => {
+      const cell = cellRef.current;
+      if (!cell?.isConnected) return;
+      const active = cell.ownerDocument.activeElement;
+      // Enter/Escape remove the input. Do not move focus back if the user or
+      // a production confirmation dialog has already moved it elsewhere.
+      if (active === cell.ownerDocument.body || (active && cell.contains(active))) {
+        cell.focus({ preventScroll: true });
+      }
+    });
+  }, []);
   const { contributions } = usePlugins();
   const pluginViewer = useMemo(
     () =>
@@ -102,28 +127,23 @@ export const EditableDataCell = memo(function EditableDataCell({
           <Binary className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
           <span className="truncate text-muted-foreground italic text-xs">{formatted}</span>
         </div>
-        <BlobViewer
-          open={blobViewerOpen}
-          onOpenChange={setBlobViewerOpen}
-          value={value}
-          columnName={columnId}
-          dataType={dataType ?? ''}
-        />
+        {blobViewerOpen && (
+          <Suspense fallback={null}>
+            <BlobViewer
+              open={blobViewerOpen}
+              onOpenChange={setBlobViewerOpen}
+              value={value}
+              columnName={columnId}
+              dataType={dataType ?? ''}
+            />
+          </Suspense>
+        )}
       </>
     );
   }
 
   const cellContent = (
-    <div
-      className={cn(
-        'block',
-        !isEditing && 'truncate',
-        !isEditing && inlineEditAvailable && 'cursor-text',
-        canPeek && 'group'
-      )}
-      onClick={onStartEdit}
-      onDoubleClick={onStartEdit}
-    >
+    <div className={cn('block', !isEditing && 'truncate', canPeek && 'group')}>
       {isEditing ? (
         <input
           ref={editInputRef}
@@ -135,32 +155,55 @@ export const EditableDataCell = memo(function EditableDataCell({
           onChange={event => onEditValueChange(event.target.value)}
           onBlur={() => void onCommitEdit()}
           onKeyDown={event => {
+            if (event.nativeEvent.isComposing) return;
             if (event.key === 'Enter') {
               event.preventDefault();
               void onCommitEdit();
+              restoreCellFocus();
             }
             if (event.key === 'Escape') {
               event.preventDefault();
               onCancelEdit();
+              restoreCellFocus();
             }
           }}
           className="w-full bg-background border border-accent/50 rounded px-1.5 py-0.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-accent/40"
           aria-label={t('grid.editCell')}
         />
-      ) : pluginViewer && !isNull ? (
-        <PluginCellRenderer viewer={pluginViewer} value={value} formatted={formatted} />
       ) : (
-        <span
+        <button
+          ref={cellRef}
+          type="button"
+          tabIndex={inlineEditAvailable ? 0 : -1}
+          aria-label={inlineEditAvailable ? `${t('grid.editCell')}: ${columnId}` : undefined}
           className={cn(
-            'truncate block',
-            isNull && 'text-muted-foreground italic',
-            canPeek && 'group-hover:text-foreground'
+            'block w-full truncate text-left focus:outline-none focus:ring-2 focus:ring-accent/40',
+            inlineEditAvailable ? 'cursor-text' : 'cursor-default'
           )}
-          title={preview.truncated ? t('grid.cellPreviewTruncated') : undefined}
+          onClick={onStartEdit}
+          onKeyDown={event => {
+            if (inlineEditAvailable && event.key === 'F2') {
+              event.preventDefault();
+              onStartEdit();
+            }
+          }}
         >
-          {formatted}
-          {preview.truncated && <span className="text-muted-foreground">…</span>}
-        </span>
+          {pluginViewer && !isNull ? (
+            <PluginCellRenderer viewer={pluginViewer} value={value} formatted={formatted} />
+          ) : (
+            <span
+              className={cn(
+                'truncate block',
+                isNull && 'text-muted-foreground italic',
+                canPeek && 'group-hover:text-foreground'
+              )}
+              title={preview.truncated ? t('grid.cellPreviewTruncated') : undefined}
+            >
+              {formatted}
+              {preview.truncated && <span className="text-muted-foreground">…</span>}
+            </span>
+          )}
+        </button>
       )}
     </div>
   );

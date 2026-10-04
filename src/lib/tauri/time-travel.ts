@@ -18,6 +18,7 @@ export interface ChangelogEntry {
   timestamp: string;
   session_id: string;
   connection_id: string | null;
+  workspace_id?: string | null;
   driver_id: string;
   namespace: Namespace;
   table_name: string;

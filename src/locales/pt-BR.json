@@ -1375,6 +1375,7 @@
     "updateConfirmDescription": "Você está prestes a atualizar {{column}} em {{table}}.",
     "updateConfirmLabel": "Atualizar valor",
     "updateSuccess": "Linha atualizada com sucesso",
+    "updateReloaded": "Alteração salva. Recarregando a tabela para manter a visualização consistente.",
     "updateError": "Falha ao atualizar linha",
     "updateNoPrimaryKey": "Edição inline requer uma chave primária",
     "pinColumnLeft": "Fixar à esquerda",
@@ -3354,6 +3355,7 @@
     "leave": "Sair"
   },
   "timeTravel": {
+    "rollbackIncompleteCapture": "Captura incompleta: não foi possível verificar a linha ou sua chave primária. Reversão ignorada.",
     "retry": "Atualizar",
     "requestFailed": "Não foi possível concluir esta solicitação de histórico. Tente novamente.",
     "scopeHint": "O histórico é limitado a esta conexão. Registros antigos sem conexão identificável são preservados, mas ficam ocultos.",

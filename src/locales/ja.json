@@ -1366,6 +1366,7 @@
     "updateConfirmDescription": "{{table}} の {{column}} を更新しようとしています。",
     "updateConfirmLabel": "値を更新",
     "updateSuccess": "行を更新しました",
+    "updateReloaded": "変更を保存しました。表示の整合性を保つため、テーブルを再読み込みしています。",
     "updateError": "行の更新に失敗しました",
     "updateNoPrimaryKey": "インライン編集には主キーが必要です",
     "pinColumnLeft": "左に固定",
@@ -3344,6 +3345,7 @@
     "leave": "離れる"
   },
   "timeTravel": {
+    "rollbackIncompleteCapture": "不完全な記録：行または主キーを確認できませんでした。ロールバックをスキップしました。",
     "retry": "更新",
     "requestFailed": "履歴のリクエストを完了できませんでした。再試行してください。",
     "scopeHint": "この接続の履歴のみを表示します。接続を特定できない古い記録は保持されますが、表示されません。",

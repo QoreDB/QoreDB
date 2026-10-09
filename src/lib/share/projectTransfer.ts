@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import i18n from '../../i18n';
 import type { QueryLibraryExportV1 } from '../query/queryLibrary';
-import { exportLibrary, importLibrary } from '../query/queryLibrary';
+import { exportLibrary, importLibrary, validateLibraryImport } from '../query/queryLibrary';
+import { captureWorkspaceScope } from '../stores/workspaceStore';
 import type { Environment, SavedConnection } from '../tauri';
 import { listSavedConnections, saveConnection } from '../tauri';
 
@@ -91,7 +93,13 @@ export async function buildProjectExportV1(input: {
   includeQueryLibrary: boolean;
   redactQueries: boolean;
 }): Promise<ProjectExportV1> {
+  const isCurrent = captureWorkspaceScope(input.projectId);
+  if (!isCurrent()) throw new Error(i18n.t('common.contextChanged'));
+  const queryLibrary = input.includeQueryLibrary
+    ? exportLibrary({ redact: input.redactQueries })
+    : undefined;
   const connections = await listSavedConnections(input.projectId);
+  if (!isCurrent()) throw new Error(i18n.t('common.contextChanged'));
 
   return {
     type: 'qoredb_project',
@@ -100,9 +108,7 @@ export async function buildProjectExportV1(input: {
     projectId: input.projectId,
     credentialsIncluded: false,
     connections,
-    queryLibrary: input.includeQueryLibrary
-      ? exportLibrary({ redact: input.redactQueries })
-      : undefined,
+    queryLibrary,
   };
 }
 
@@ -125,19 +131,21 @@ export async function importProjectExportV1(
   libraryImported?: { foldersImported: number; itemsImported: number };
 }> {
   const maxConnections = input.maxConnections ?? 100;
-
-  let existingNames = new Set<string>();
-  try {
-    const existing = await listSavedConnections(input.projectId);
-    existingNames = new Set(existing.map(c => c.name));
-  } catch {
-    existingNames = new Set();
-  }
+  const isCurrent = captureWorkspaceScope(input.projectId);
+  const assertCurrent = () => {
+    if (!isCurrent()) throw new Error(i18n.t('common.contextChanged'));
+  };
+  assertCurrent();
+  if (payload.queryLibrary !== undefined) validateLibraryImport(payload.queryLibrary);
+  const existing = await listSavedConnections(input.projectId);
+  assertCurrent();
+  const existingNames = new Set(existing.map(c => c.name));
 
   let connectionsImported = 0;
   let connectionsSkipped = 0;
 
   for (const raw of payload.connections.slice(0, maxConnections)) {
+    assertCurrent();
     if (!isRecord(raw)) {
       connectionsSkipped += 1;
       continue;
@@ -230,6 +238,7 @@ export async function importProjectExportV1(
       project_id: input.projectId,
       ssh_tunnel,
     });
+    assertCurrent();
 
     if (result.success) {
       connectionsImported += 1;
@@ -239,7 +248,8 @@ export async function importProjectExportV1(
   }
 
   const queryLibrary = payload.queryLibrary;
-  const libraryImported = queryLibrary ? importLibrary(queryLibrary) : undefined;
+  assertCurrent();
+  const libraryImported = queryLibrary !== undefined ? importLibrary(queryLibrary) : undefined;
 
   return { connectionsImported, connectionsSkipped, libraryImported };
 }

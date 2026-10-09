@@ -1548,6 +1548,7 @@
     "loadingOptions": "옵션 로딩 중..."
   },
   "common": {
+    "contextChanged": "컨텍스트가 변경되었습니다. 작업을 다시 시도하세요.",
     "loading": "로딩 중...",
     "error": "오류",
     "success": "성공",

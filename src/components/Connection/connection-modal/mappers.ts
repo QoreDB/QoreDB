@@ -100,7 +100,7 @@ export function buildConnectionConfig(formData: ConnectionFormData): ConnectionC
 export function buildSavedConnection(
   formData: ConnectionFormData,
   connectionId: string,
-  projectId: string = 'default'
+  projectId: string
 ): SavedConnection {
   return {
     id: connectionId,
@@ -157,7 +157,7 @@ export function buildSavedConnection(
 export function buildSaveConnectionInput(
   formData: ConnectionFormData,
   connectionId: string,
-  projectId: string = 'default'
+  projectId: string
 ) {
   const savedConnection = buildSavedConnection(formData, connectionId, projectId);
 

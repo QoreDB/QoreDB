@@ -1548,6 +1548,7 @@
     "loadingOptions": "正在加载选项…"
   },
   "common": {
+    "contextChanged": "上下文已更改。请重新执行操作。",
     "loading": "正在加载…",
     "error": "错误",
     "success": "成功",

@@ -445,10 +445,20 @@ export function exportLibrary(options?: { redact?: boolean }): QueryLibraryExpor
   };
 }
 
+export function validateLibraryImport(input: unknown): void {
+  prepareLibraryImport(input);
+}
+
 export function importLibrary(input: unknown): {
   foldersImported: number;
   itemsImported: number;
 } {
+  const { state, foldersImported, itemsImported } = prepareLibraryImport(input);
+  writeState(state);
+  return { foldersImported, itemsImported };
+}
+
+function prepareLibraryImport(input: unknown) {
   const payload = parseLibraryExport(input);
 
   const state = readState();
@@ -510,10 +520,12 @@ export function importLibrary(input: unknown): {
   if (state.folders.length + importedFolders.length > MAX_FOLDERS) {
     throw new Error(i18n.t('library.folderLimit', { count: MAX_FOLDERS }));
   }
-  writeState({
-    folders: [...state.folders, ...importedFolders],
-    items: [...importedItems, ...state.items],
-  });
-
-  return { foldersImported: importedFolders.length, itemsImported: importedItems.length };
+  return {
+    state: {
+      folders: [...state.folders, ...importedFolders],
+      items: [...importedItems, ...state.items],
+    },
+    foldersImported: importedFolders.length,
+    itemsImported: importedItems.length,
+  };
 }

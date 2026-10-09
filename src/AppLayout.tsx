@@ -31,6 +31,7 @@ import { QueryPanel } from './components/Query/QueryPanel';
 import { SandboxBorder } from './components/Sandbox';
 import type { SearchResult } from './components/Search/GlobalSearch';
 import { Sidebar } from './components/Sidebar/Sidebar';
+import { useOpenNotebook } from './hooks/useOpenNotebook';
 
 const DataDiffViewer = lazy(() =>
   import('./components/Diff/DataDiffViewer').then(m => ({
@@ -361,19 +362,7 @@ export function AppLayout() {
     if (sessionId) openTab(createNotebookTab());
   }, [sessionId, openTab]);
 
-  const handleOpenNotebook = useCallback(async () => {
-    if (!sessionId) return;
-    try {
-      const { openNotebookFromFile, setPendingNotebook } = await import(
-        './lib/notebook/notebookIO'
-      );
-      const nbResult = await openNotebookFromFile();
-      if (nbResult) {
-        setPendingNotebook(nbResult.path, nbResult.notebook);
-        openTab(createNotebookTab(nbResult.notebook.metadata.title, nbResult.path));
-      }
-    } catch {}
-  }, [sessionId, openTab]);
+  const handleOpenNotebook = useOpenNotebook(sessionId, openTab);
 
   const handleOpenDiff = useCallback(() => {
     if (sessionId)
@@ -837,20 +826,7 @@ export function AppLayout() {
             if (sessionId) openTab(createNotebookTab());
             return;
           case 'cmd_open_notebook':
-            if (sessionId) {
-              try {
-                const { openNotebookFromFile, setPendingNotebook } = await import(
-                  './lib/notebook/notebookIO'
-                );
-                const nbResult = await openNotebookFromFile();
-                if (nbResult) {
-                  setPendingNotebook(nbResult.path, nbResult.notebook);
-                  openTab(createNotebookTab(nbResult.notebook.metadata.title, nbResult.path));
-                }
-              } catch (err) {
-                console.error('Failed to open notebook from file:', err);
-              }
-            }
+            await handleOpenNotebook();
             return;
           case 'cmd_convert_to_notebook':
             if (sessionId && activeTab?.type === 'query') {
@@ -961,6 +937,7 @@ export function AppLayout() {
       queryDrafts,
       handleConnected,
       handleOpenDiff,
+      handleOpenNotebook,
       handleToggleSandbox,
       refreshSidebar,
       projectId,

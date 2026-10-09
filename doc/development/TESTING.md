@@ -81,6 +81,13 @@ mounts AppOverlays with unrelated panels mocked to check deferred query-library
 loading and retained search state. The pure `notebookIO.test.ts` suite separately
 writes and rereads temporary QNB/HTML files using Node adapters, not Tauri plugins.
 
+The [file-operation lifecycle check](../../scripts/test-file-operations-ui.mjs),
+run with `node scripts/test-file-operations-ui.mjs`, uses the same setup. It mounts
+the shared notebook-open hook, project transfer card and connection form, checking
+workspace/session changes, late file reads, confirmations, duplicate actions, errors,
+retry, explicit connection project IDs and cleanup of late sessions.
+Native dialogs, file IO and IPC are simulated; AppLayout itself is not mounted.
+
 The [schema-diff browser check](../../scripts/test-schema-diff-ui.mjs), run with
 `node scripts/test-schema-diff-ui.mjs`, uses the same Vite/Playwright setup.
 It mounts the real viewer with simulated IPC to check incomplete capture errors,

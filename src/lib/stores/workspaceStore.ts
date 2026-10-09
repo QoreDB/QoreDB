@@ -18,6 +18,7 @@ let state: WorkspaceState = {
 };
 
 const listeners = new Set<() => void>();
+let contextGeneration = 0;
 
 function emit() {
   for (const l of listeners) l();
@@ -31,6 +32,12 @@ function updateState(
     key => !Object.is(state[key], patch[key])
   );
   if (!changed) return false;
+  if (
+    ('projectId' in patch && patch.projectId !== state.projectId) ||
+    ('activeWorkspace' in patch && patch.activeWorkspace !== state.activeWorkspace) ||
+    (patch.isLoading === true && !state.isLoading)
+  )
+    contextGeneration += 1;
   state = { ...state, ...patch };
   emit();
   return true;
@@ -43,6 +50,17 @@ function subscribe(listener: () => void): () => void {
 
 export function getWorkspaceState(): WorkspaceState {
   return state;
+}
+
+/** Async work remains bound to one activation, even after an A/B/A round trip. */
+export function captureWorkspaceScope(projectId = state.projectId): () => boolean {
+  const generation = contextGeneration;
+  const available = !state.isLoading && projectId === state.projectId;
+  return () =>
+    available &&
+    !state.isLoading &&
+    contextGeneration === generation &&
+    state.projectId === projectId;
 }
 
 export function setActiveWorkspace(workspace: WorkspaceInfo | null, projectId: string) {

@@ -81,6 +81,16 @@ fn workspace_context(
     (project_id, store)
 }
 
+fn require_workspace(
+    context: (String, Option<WorkspaceConnectionStore>),
+    requested_project_id: &str,
+) -> Result<(String, Option<WorkspaceConnectionStore>), String> {
+    if context.0 != requested_project_id {
+        return Err("Workspace changed; retry the operation in the current workspace".into());
+    }
+    Ok(context)
+}
+
 #[derive(Debug, Serialize)]
 pub struct VaultResponse {
     pub success: bool,
@@ -375,7 +385,8 @@ pub async fn save_connection(
         project_id: input.project_id,
     };
 
-    let (workspace_id, workspace_store) = get_workspace_context(&ws_manager).await;
+    let (workspace_id, workspace_store) =
+        require_workspace(get_workspace_context(&ws_manager).await, &input_project_id)?;
     let result = match workspace_store {
         Some(ws_store) => {
             let stored = ws_store.get_connection(&connection.id).ok();
@@ -584,7 +595,9 @@ pub async fn list_saved_connections(
     }
     drop(state);
 
-    if let Some(ws_store) = get_workspace_store(&ws_manager).await {
+    let (_, workspace_store) =
+        require_workspace(get_workspace_context(&ws_manager).await, &project_id)?;
+    if let Some(ws_store) = workspace_store {
         return ws_store
             .list_connections()
             .map_err(|e| e.sanitized_message());
@@ -760,6 +773,42 @@ pub async fn get_connection_credentials(
 #[cfg(test)]
 mod workspace_context_tests {
     use super::*;
+
+    #[test]
+    fn requested_connection_project_must_match_the_resolved_workspace() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let mut manager = crate::workspace::WorkspaceManager::new(dir.path().join("config"));
+        assert!(require_workspace(workspace_context(&manager), "default").is_ok());
+        assert!(require_workspace(workspace_context(&manager), "stale").is_err());
+        let a = manager
+            .create_workspace(&dir.path().join("a"), "A")
+            .unwrap();
+        let origin_a = manager.project_id();
+        let resolved_a = require_workspace(workspace_context(&manager), &origin_a).unwrap();
+        manager
+            .create_workspace(&dir.path().join("b"), "B")
+            .unwrap();
+        assert!(require_workspace(workspace_context(&manager), &origin_a).is_err());
+        assert!(require_workspace(workspace_context(&manager), "default").is_err());
+        assert!(require_workspace(workspace_context(&manager), &manager.project_id()).is_ok());
+        // A store resolved before the switch still reads A, never the active B.
+        let connection = serde_json::json!({
+            "id": "fixture", "name": "A", "driver": "sqlite", "environment": "development",
+            "read_only": true, "host": "fixture.db", "port": 0, "username": "", "ssl": false,
+            "project_id": origin_a
+        });
+        std::fs::write(
+            a.path.join("connections/fixture.json"),
+            serde_json::to_vec(&connection).unwrap(),
+        )
+        .unwrap();
+        assert_eq!(resolved_a.1.unwrap().list_connections().unwrap().len(), 1);
+        let current_b =
+            require_workspace(workspace_context(&manager), &manager.project_id()).unwrap();
+        assert!(current_b.1.unwrap().list_connections().unwrap().is_empty());
+        manager.switch_to_default();
+        assert!(require_workspace(workspace_context(&manager), &origin_a).is_err());
+    }
 
     #[test]
     fn connection_store_and_identity_stay_bound_after_workspace_switch() {

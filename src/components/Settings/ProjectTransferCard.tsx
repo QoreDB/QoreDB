@@ -4,7 +4,7 @@ import { open as openDialog, save } from '@tauri-apps/plugin-dialog';
 import { readTextFile, writeTextFile } from '@tauri-apps/plugin-fs';
 import { revealItemInDir } from '@tauri-apps/plugin-opener';
 import { Briefcase, Upload } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -16,6 +16,7 @@ import {
   isProjectExportV1,
 } from '@/lib/share/projectTransfer';
 import { confirmDialog } from '@/lib/stores/confirmStore';
+import { captureWorkspaceScope } from '@/lib/stores/workspaceStore';
 import { SettingsCard } from './SettingsCard';
 
 interface ProjectTransferCardProps {
@@ -31,7 +32,20 @@ export function ProjectTransferCard({ projectId }: ProjectTransferCardProps) {
   const [includeLibrary, setIncludeLibrary] = useState(true);
   const [redactQueries, setRedactQueries] = useState(true);
 
+  const busy = useRef(false);
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
+
   async function handleExport() {
+    const inWorkspace = captureWorkspaceScope(projectId);
+    const isCurrent = () => mounted.current && inWorkspace();
+    if (busy.current || !isCurrent()) return;
+    busy.current = true;
     setExporting(true);
     try {
       const payload = await buildProjectExportV1({
@@ -40,13 +54,15 @@ export function ProjectTransferCard({ projectId }: ProjectTransferCardProps) {
         redactQueries,
       });
 
+      if (!isCurrent()) return;
       const filePath = await save({
         defaultPath: 'qoredb-project.json',
         filters: [{ name: 'JSON', extensions: ['json'] }],
       });
-      if (!filePath) return;
+      if (!filePath || !isCurrent()) return;
 
       await writeTextFile(filePath, JSON.stringify(payload, null, 2));
+      if (!isCurrent()) return;
       revealItemInDir(filePath).catch(() => undefined);
 
       const name = filePath.split(/[\\/]/).pop() || filePath;
@@ -54,26 +70,36 @@ export function ProjectTransferCard({ projectId }: ProjectTransferCardProps) {
         description: filePath,
       });
     } catch (err) {
+      if (!isCurrent()) return;
       toast.error(t('settings.projectExportError'), {
         description: err instanceof Error ? err.message : String(err),
       });
     } finally {
-      setExporting(false);
+      busy.current = false;
+      if (mounted.current) setExporting(false);
     }
   }
 
   async function handleImport() {
-    if (!(await confirmDialog({ description: t('settings.projectImportConfirm') }))) return;
-
+    const inWorkspace = captureWorkspaceScope(projectId);
+    const isCurrent = () => mounted.current && inWorkspace();
+    if (busy.current || !isCurrent()) return;
+    busy.current = true;
     setImporting(true);
     try {
+      if (
+        !(await confirmDialog({ description: t('settings.projectImportConfirm') })) ||
+        !isCurrent()
+      )
+        return;
       const filePath = await openDialog({
         multiple: false,
         filters: [{ name: 'JSON', extensions: ['json'] }],
       });
-      if (!filePath || Array.isArray(filePath)) return;
+      if (!filePath || Array.isArray(filePath) || !isCurrent()) return;
 
       const raw = await readTextFile(filePath);
+      if (!isCurrent()) return;
       if (raw.length > MAX_PROJECT_BYTES) {
         throw new Error(t('settings.projectTooLarge'));
       }
@@ -84,6 +110,7 @@ export function ProjectTransferCard({ projectId }: ProjectTransferCardProps) {
       }
 
       const result = await importProjectExportV1(parsed, { projectId });
+      if (!isCurrent()) return;
       if (result.connectionsImported > 0) {
         emitUiEvent(UI_EVENT_CONNECTIONS_CHANGED);
       }
@@ -102,11 +129,13 @@ export function ProjectTransferCard({ projectId }: ProjectTransferCardProps) {
         }
       );
     } catch (err) {
+      if (!isCurrent()) return;
       toast.error(t('settings.projectImportError'), {
         description: err instanceof Error ? err.message : String(err),
       });
     } finally {
-      setImporting(false);
+      busy.current = false;
+      if (mounted.current) setImporting(false);
     }
   }
 
@@ -117,11 +146,11 @@ export function ProjectTransferCard({ projectId }: ProjectTransferCardProps) {
     >
       <div className="space-y-4">
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" onClick={handleExport} disabled={exporting}>
+          <Button variant="outline" onClick={handleExport} disabled={exporting || importing}>
             <Briefcase size={16} className="mr-2" />
             {t('settings.projectExport')}
           </Button>
-          <Button variant="outline" onClick={handleImport} disabled={importing}>
+          <Button variant="outline" onClick={handleImport} disabled={exporting || importing}>
             <Upload size={16} className="mr-2" />
             {t('settings.projectImport')}
           </Button>

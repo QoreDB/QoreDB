@@ -1592,6 +1592,7 @@
     "loadingOptions": "Chargement des options..."
   },
   "common": {
+    "contextChanged": "Le contexte a changé. Relancez l’action.",
     "loading": "Chargement...",
     "error": "Erreur",
     "success": "Succès",

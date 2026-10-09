@@ -1592,6 +1592,7 @@
     "loadingOptions": "Loading options..."
   },
   "common": {
+    "contextChanged": "The context changed. Please try the action again.",
     "loading": "Loading...",
     "error": "Error",
     "success": "Success",

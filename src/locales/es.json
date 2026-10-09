@@ -1557,6 +1557,7 @@
     "loadingOptions": "Cargando opciones..."
   },
   "common": {
+    "contextChanged": "El contexto ha cambiado. Vuelve a iniciar la acción.",
     "loading": "Cargando...",
     "error": "Error",
     "success": "Éxito",

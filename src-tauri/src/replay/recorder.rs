@@ -1064,8 +1064,12 @@ mod tests {
             .unwrap();
         assert!(one_entry_bytes > 0);
 
+        // RFC3339 AutoSi timestamps can gain up to ten bytes (dot + nanoseconds)
+        // between the sizing capture and this run. Both entries still cannot fit.
+        let budget = one_entry_bytes + 10;
+        assert!(2 * one_entry_bytes.saturating_sub(10) > budget);
         let mut opts = options(CaptureMode::Full);
-        opts.capture_budget_bytes = one_entry_bytes + 1;
+        opts.capture_budget_bytes = budget;
         recorder
             .start(opts, "postgres".into(), None, "staging".into(), false)
             .unwrap();
@@ -1097,7 +1101,7 @@ mod tests {
         assert!(capture.has_entry(&run.run_id, &set.entries[0].id));
         assert!(!capture.has_entry(&run.run_id, &set.entries[1].id));
         assert!(
-            run.captured_bytes <= one_entry_bytes + 1,
+            run.captured_bytes <= budget,
             "the run never writes past its budget"
         );
 

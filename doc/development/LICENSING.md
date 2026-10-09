@@ -34,7 +34,7 @@ rg -l '^// SPDX-License-Identifier: BUSL-1.1' src src-tauri --glob '*.ts' --glob
 | Data diff | `src/components/Diff/`, `src/lib/diffUtils.ts` |
 | Federation | `src/components/Federation/`, `src/lib/connection/federation.ts`, `qore-service/src/federation/`, federation command |
 | Query replay | `src/components/Replay/`, `src/hooks/useReplay.ts`, `src/lib/replay*.ts`, `src-tauri/src/replay/`, replay command and `tests/replay_e2e.rs` |
-| Time travel | `src/components/TimeTravel/`, `src-tauri/src/time_travel/`, time-travel command |
+| Time travel | `src/components/TimeTravel/`, `src-tauri/src/time_travel/`, time-travel command; `qore-service/src/mutation/{capture,capture_tests,batch_capture_tests}.rs`; `src-tauri/tests/integration_databases/time_travel_capture.rs` |
 | Advanced notebook | `ChartCell.tsx`, `ContractCell.tsx`, `CellResultSummary.tsx`, `notebookInterCellRef.ts` |
 | Advanced schema | `src/components/Schema/ERDiagram.tsx` |
 | Advanced export | `src-tauri/src/export/writers/parquet_writer.rs`, `xlsx.rs` |

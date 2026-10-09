@@ -974,6 +974,25 @@ impl QueryResult {
     }
 }
 
+/// Internal INSERT outcome. Returned columns belong to this one statement;
+/// they are not a canonical after-image (AFTER triggers may change them).
+/// Kept separate from QueryResult so generated keys never bypass result masking
+/// or silently extend the public IPC response.
+#[derive(Debug)]
+pub struct RowInsertResult {
+    pub result: QueryResult,
+    pub returned_values: Option<RowData>,
+}
+
+impl From<QueryResult> for RowInsertResult {
+    fn from(result: QueryResult) -> Self {
+        Self {
+            result,
+            returned_values: None,
+        }
+    }
+}
+
 /// Foreign Key definition
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ForeignKey {

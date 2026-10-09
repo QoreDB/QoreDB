@@ -2,12 +2,15 @@
 
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { Binary, Check, SearchX } from 'lucide-react';
-import { useCallback, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { BlobViewer } from '@/components/Grid/BlobViewer';
 import { estimateByteSizeFromBase64, formatFileSize, isBinaryType } from '@/lib/binaryUtils';
 import { cn } from '@/lib/utils';
 import type { QueryResult } from '../../lib/tauri';
+
+const BlobViewer = lazy(() =>
+  import('@/components/Grid/BlobViewer').then(module => ({ default: module.BlobViewer }))
+);
 
 interface ResultsTableProps {
   result: QueryResult | null;
@@ -170,13 +173,17 @@ function ResultsTableCell({
             {formatValue(value, dataType)}
           </span>
         </div>
-        <BlobViewer
-          open={blobOpen}
-          onOpenChange={setBlobOpen}
-          value={value}
-          columnName={columnName}
-          dataType={dataType ?? ''}
-        />
+        {blobOpen && (
+          <Suspense fallback={null}>
+            <BlobViewer
+              open={blobOpen}
+              onOpenChange={setBlobOpen}
+              value={value}
+              columnName={columnName}
+              dataType={dataType ?? ''}
+            />
+          </Suspense>
+        )}
       </>
     );
   }

@@ -1,5 +1,9 @@
 {
   "bundle": {
-    "externalBin": ["binaries/qore-mcp", "binaries/qore"]
+    "externalBin": ["binaries/qore-mcp", "binaries/qore"],
+    "resources": {
+      "../LICENSE": "licenses/LICENSE",
+      "../LICENSE-BSL": "licenses/LICENSE-BSL"
+    }
   }
 }

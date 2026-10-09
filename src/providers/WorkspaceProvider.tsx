@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { createContext, type ReactNode, useCallback, useContext, useEffect } from 'react';
+import { createContext, type ReactNode, useCallback, useContext, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { emitUiEvent, UI_EVENT_WORKSPACE_CHANGED } from '@/lib/events/uiEvents';
 import { loadMigrations } from '@/lib/migrations/migrationsStore';
-import { loadWorkspaceLibrary } from '@/lib/query/queryLibrary';
+import { flushWorkspaceLibrary, syncWorkspaceLibrary } from '@/lib/query/queryLibrary';
 import {
   setActiveWorkspace,
   setRecentWorkspaces,
@@ -23,7 +23,6 @@ import {
   openWorkspace as tauriOpenWorkspace,
   switchWorkspace as tauriSwitchWorkspace,
   type WorkspaceInfo,
-  wsGetQueryLibrary,
 } from '@/lib/tauri';
 import { isWeb, listen, type UnlistenFn } from '@/lib/transport';
 
@@ -52,15 +51,11 @@ function removeDismissedWorkspace(path: string) {
   localStorage.setItem(DISMISSED_WORKSPACE_KEY, JSON.stringify([...set]));
 }
 
-/** Load the workspace query library from disk into localStorage */
-async function syncWorkspaceLibrary() {
+async function reloadWorkspaceLibrary() {
   try {
-    const lib = await wsGetQueryLibrary();
-    if (lib) {
-      loadWorkspaceLibrary(lib);
-    }
-  } catch (err) {
-    console.warn('Failed to sync workspace library:', err);
+    await syncWorkspaceLibrary();
+  } catch {
+    console.warn('Failed to sync workspace library; local changes retained.');
   }
 }
 
@@ -85,6 +80,28 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const projectId = useWorkspaceStore(s => s.projectId);
   const isLoading = useWorkspaceStore(s => s.isLoading);
 
+  const changingWorkspace = useRef(false);
+
+  const beginWorkspaceChange = useCallback(async () => {
+    if (changingWorkspace.current) return false;
+    changingWorkspace.current = true;
+    setWorkspaceLoading(true);
+    try {
+      await flushWorkspaceLibrary();
+      return true;
+    } catch {
+      toast.error(t('library.saveError'));
+      changingWorkspace.current = false;
+      setWorkspaceLoading(false);
+      return false;
+    }
+  }, [t]);
+
+  const finishWorkspaceChange = useCallback(() => {
+    changingWorkspace.current = false;
+    setWorkspaceLoading(false);
+  }, []);
+
   // Initialize: detect workspace from CWD, load active + recents
   useEffect(() => {
     let cancelled = false;
@@ -95,6 +112,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         return;
       }
       try {
+        await flushWorkspaceLibrary();
         const detected = await detectWorkspace();
 
         if (cancelled) return;
@@ -108,7 +126,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
             const pid = await getWorkspaceProjectId();
             if (!cancelled) {
               setActiveWorkspace(detected, pid);
-              await syncWorkspaceLibrary();
+              await reloadWorkspaceLibrary();
               toast.info(t('workspace.detected'), {
                 description: detected.manifest.name,
                 duration: 5000,
@@ -119,7 +137,10 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
           // No workspace detected, use default
           const active = await getActiveWorkspace();
           const pid = await getWorkspaceProjectId();
-          if (!cancelled) setActiveWorkspace(active, pid);
+          if (!cancelled) {
+            setActiveWorkspace(active, pid);
+            await reloadWorkspaceLibrary();
+          }
         }
 
         const recents = await listRecentWorkspaces();
@@ -143,7 +164,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 
     // Reload query library when .qoredb/queries/ changes externally
     listen('workspace_fs:queries', () => {
-      if (!cancelled) syncWorkspaceLibrary();
+      if (!cancelled) void reloadWorkspaceLibrary();
     }).then(fn => {
       if (cancelled) fn();
       else unlisteners.push(fn);
@@ -180,13 +201,14 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 
   const switchWorkspace = useCallback(
     async (qoredbPath: string): Promise<boolean> => {
+      if (!(await beginWorkspaceChange())) return false;
       try {
         const result = await tauriSwitchWorkspace(qoredbPath);
         if (result.success && result.workspace) {
           const pid = await getWorkspaceProjectId();
           setActiveWorkspace(result.workspace, pid);
           emitUiEvent(UI_EVENT_WORKSPACE_CHANGED);
-          await syncWorkspaceLibrary();
+          await reloadWorkspaceLibrary();
           removeDismissedWorkspace(qoredbPath);
           const recents = await listRecentWorkspaces();
           setRecentWorkspaces(recents);
@@ -198,30 +220,37 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         toast.error(t('common.unknownError'));
         console.error('Failed to switch workspace:', err);
         return false;
+      } finally {
+        finishWorkspaceChange();
       }
     },
-    [t]
+    [beginWorkspaceChange, finishWorkspaceChange, t]
   );
 
   const switchToDefault = useCallback(async () => {
+    if (!(await beginWorkspaceChange())) return;
     try {
       const info = await switchToDefaultWorkspace();
       setActiveWorkspace(info, 'default');
       emitUiEvent(UI_EVENT_WORKSPACE_CHANGED);
     } catch (err) {
+      toast.error(t('common.unknownError'));
       console.error('Failed to switch to default workspace:', err);
+    } finally {
+      finishWorkspaceChange();
     }
-  }, []);
+  }, [beginWorkspaceChange, finishWorkspaceChange, t]);
 
   const createWorkspace = useCallback(
     async (projectDir: string, name: string): Promise<boolean> => {
+      if (!(await beginWorkspaceChange())) return false;
       try {
         const result = await tauriCreateWorkspace(projectDir, name);
         if (result.success && result.workspace) {
           const pid = await getWorkspaceProjectId();
           setActiveWorkspace(result.workspace, pid);
           emitUiEvent(UI_EVENT_WORKSPACE_CHANGED);
-          await syncWorkspaceLibrary();
+          await reloadWorkspaceLibrary();
           const recents = await listRecentWorkspaces();
           setRecentWorkspaces(recents);
           toast.success(t('workspace.created'));
@@ -233,20 +262,23 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         toast.error(t('common.unknownError'));
         console.error('Failed to create workspace:', err);
         return false;
+      } finally {
+        finishWorkspaceChange();
       }
     },
-    [t]
+    [beginWorkspaceChange, finishWorkspaceChange, t]
   );
 
   const openWorkspace = useCallback(
     async (qoredbPath: string): Promise<boolean> => {
+      if (!(await beginWorkspaceChange())) return false;
       try {
         const result = await tauriOpenWorkspace(qoredbPath);
         if (result.success && result.workspace) {
           const pid = await getWorkspaceProjectId();
           setActiveWorkspace(result.workspace, pid);
           emitUiEvent(UI_EVENT_WORKSPACE_CHANGED);
-          await syncWorkspaceLibrary();
+          await reloadWorkspaceLibrary();
           const recents = await listRecentWorkspaces();
           setRecentWorkspaces(recents);
           return true;
@@ -257,9 +289,11 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         toast.error(t('common.unknownError'));
         console.error('Failed to open workspace:', err);
         return false;
+      } finally {
+        finishWorkspaceChange();
       }
     },
-    [t]
+    [beginWorkspaceChange, finishWorkspaceChange, t]
   );
 
   const refreshRecents = useCallback(async () => {

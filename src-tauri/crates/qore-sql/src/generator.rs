@@ -544,6 +544,40 @@ mod tests {
     use super::*;
 
     #[test]
+    fn bulk_edit_wire_values_keep_exact_digits_in_sql() {
+        let change: SandboxChangeDto = serde_json::from_value(serde_json::json!({
+            "change_type": "update",
+            "namespace": { "database": "test" },
+            "table_name": "items",
+            "primary_key": { "columns": { "id": { "$qoreInt": "9223372036854775807" } } },
+            "new_values": {
+                "amount": { "$qoreInt": "9007199254740993" },
+                "price": "0.123456789012345678901",
+                "optional": null
+            }
+        }))
+        .unwrap();
+        let values = change.new_values.as_ref().unwrap();
+        assert!(matches!(values["amount"], Value::Int(9007199254740993)));
+        assert!(matches!(values["price"], Value::Text(_)));
+        for driver in [
+            "postgres",
+            "mysql",
+            "sqlite",
+            "sqlserver",
+            "snowflake",
+            "bigquery",
+        ] {
+            let script = generate_migration_script(driver, std::slice::from_ref(&change));
+            assert_eq!(script.statement_count, 1, "{driver}");
+            assert!(script.sql.contains(" = 9007199254740993"), "{driver}");
+            assert!(script.sql.contains(" = 9223372036854775807"), "{driver}");
+            assert!(script.sql.contains("'0.123456789012345678901'"), "{driver}");
+            assert!(script.sql.contains(" = NULL"), "{driver}");
+        }
+    }
+
+    #[test]
     fn managed_postgres_drivers_resolve_to_postgres() {
         for driver in [
             "cockroachdb",

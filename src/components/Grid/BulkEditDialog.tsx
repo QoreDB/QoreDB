@@ -34,7 +34,8 @@ import {
 } from '@/lib/bulkEdit';
 import { Driver } from '@/lib/connection/drivers';
 import type { MigrationScript, SandboxChangeDto } from '@/lib/sandbox/sandboxTypes';
-import type { Namespace, TableSchema, Value } from '@/lib/tauri';
+import { confirmDialog } from '@/lib/stores/confirmStore';
+import type { Environment, Namespace, TableSchema, Value } from '@/lib/tauri';
 import { applySandboxChanges, generateMigrationSql } from '@/lib/tauri';
 import { useLicense } from '@/providers/LicenseProvider';
 import type { RowData } from './utils/dataGridUtils';
@@ -49,6 +50,7 @@ interface BulkEditDialogProps {
   tableName?: string;
   sessionId?: string;
   dialect?: Driver;
+  environment?: Environment;
   sandboxMode?: boolean;
   onSandboxUpdate?: (
     primaryKey: Record<string, Value>,
@@ -72,6 +74,7 @@ export function BulkEditDialog({
   tableName,
   sessionId,
   dialect = Driver.Postgres,
+  environment = 'development',
   sandboxMode = false,
   onSandboxUpdate,
   maskedColumns,
@@ -92,6 +95,7 @@ export function BulkEditDialog({
   const [script, setScript] = useState<MigrationScript | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
+  const [outcomeUnknown, setOutcomeUnknown] = useState(false);
   const [isApplying, setIsApplying] = useState(false);
 
   useEffect(() => {
@@ -173,7 +177,7 @@ export function BulkEditDialog({
   }, [open, sandboxMode, sessionId, dtos, requiresPro, t]);
 
   const handleApply = useCallback(async () => {
-    if (requiresPro || !canBuild || dtos.length === 0) return;
+    if (requiresPro || !canBuild || dtos.length === 0 || isApplying || outcomeUnknown) return;
 
     if (sandboxMode) {
       if (!onSandboxUpdate) {
@@ -195,19 +199,32 @@ export function BulkEditDialog({
 
     setIsApplying(true);
     try {
-      const res = await applySandboxChanges(sessionId, dtos, true);
+      const acknowledged =
+        environment === 'production' &&
+        (await confirmDialog({
+          title: t('bulkEdit.title'),
+          description: t('sandbox.migration.prodWarning'),
+          confirmLabel: t('sandbox.migration.apply'),
+          confirmationLabel: 'APPLY',
+        }));
+      if (environment === 'production' && !acknowledged) return;
+      const res = await applySandboxChanges(sessionId, dtos, true, acknowledged);
+      setOutcomeUnknown(res.outcome_unknown);
       if (res.success) {
         toast.success(t('bulkEdit.applySuccess', { count: res.applied_count }));
         onApplied?.();
         onOpenChange(false);
       } else {
         toast.error(t('bulkEdit.applyError'), {
-          description: res.error ?? undefined,
+          description: res.outcome_unknown ? t('sandbox.migration.outcomeUnknown') : res.error,
+          duration: res.outcome_unknown ? Infinity : undefined,
         });
       }
-    } catch (err) {
+    } catch {
+      setOutcomeUnknown(true);
       toast.error(t('bulkEdit.applyError'), {
-        description: err instanceof Error ? err.message : String(err),
+        description: t('sandbox.migration.outcomeUnknown'),
+        duration: Infinity,
       });
     } finally {
       setIsApplying(false);
@@ -219,7 +236,9 @@ export function BulkEditDialog({
     sandboxMode,
     onSandboxUpdate,
     sessionId,
-    dialect,
+    environment,
+    isApplying,
+    outcomeUnknown,
     onApplied,
     onOpenChange,
     t,
@@ -228,7 +247,12 @@ export function BulkEditDialog({
   const previewSql = sandboxMode ? null : (script?.sql ?? null);
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog
+      open={open}
+      onOpenChange={next => {
+        if (!isApplying) onOpenChange(next);
+      }}
+    >
       <DialogContent className="max-w-3xl max-h-[85vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-sm">
@@ -248,7 +272,7 @@ export function BulkEditDialog({
             <Select
               value={column}
               onValueChange={setColumn}
-              disabled={eligibleColumns.length === 0}
+              disabled={isApplying || eligibleColumns.length === 0}
             >
               <SelectTrigger id="bulk-edit-column" className="h-9">
                 <SelectValue placeholder={t('bulkEdit.columnPlaceholder')} />
@@ -267,7 +291,11 @@ export function BulkEditDialog({
             <Label htmlFor="bulk-edit-op" className="text-xs">
               {t('bulkEdit.operation')}
             </Label>
-            <Select value={operation} onValueChange={v => setOperation(v as BulkEditOperation)}>
+            <Select
+              value={operation}
+              onValueChange={v => setOperation(v as BulkEditOperation)}
+              disabled={isApplying}
+            >
               <SelectTrigger id="bulk-edit-op" className="h-9 w-40">
                 <SelectValue />
               </SelectTrigger>
@@ -287,7 +315,7 @@ export function BulkEditDialog({
               value={value}
               onChange={e => setValue(e.target.value)}
               placeholder={operation === 'set_null' ? 'NULL' : t('bulkEdit.valuePlaceholder')}
-              disabled={operation === 'set_null'}
+              disabled={isApplying || operation === 'set_null'}
               className="h-9 font-mono text-sm"
             />
           </div>
@@ -358,8 +386,13 @@ export function BulkEditDialog({
           </div>
         )}
 
+        {outcomeUnknown && (
+          <p role="alert" className="text-sm text-error">
+            {t('sandbox.migration.outcomeUnknown')}
+          </p>
+        )}
         <DialogFooter className="shrink-0">
-          <Button variant="ghost" onClick={() => onOpenChange(false)}>
+          <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={isApplying}>
             {t('common.cancel')}
           </Button>
           <Button
@@ -369,6 +402,7 @@ export function BulkEditDialog({
               !canBuild ||
               dtos.length === 0 ||
               isApplying ||
+              outcomeUnknown ||
               (!sandboxMode && previewLoading)
             }
           >

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
+import type { TableCellUpdateHandler } from '@/lib/query/tableRowUpdate';
 import { type Environment, type Namespace, updateRow, type Value } from '@/lib/tauri';
 import type { RowData } from '../utils/dataGridUtils';
 import { useValueParsing } from './useValueParsing';
@@ -24,6 +25,7 @@ export interface UseInlineEditProps {
     newValues: Record<string, Value>
   ) => void;
   onRowsUpdated?: () => void;
+  onUpdateCell?: TableCellUpdateHandler;
 }
 
 export interface UseInlineEditReturn {
@@ -80,16 +82,15 @@ export function useInlineEdit({
   maskedColumns,
   onSandboxUpdate,
   onRowsUpdated,
+  onUpdateCell,
 }: UseInlineEditProps): UseInlineEditReturn {
   const { t } = useTranslation();
   const { getEditableValue, parseInputValue, valuesEqual } = useValueParsing();
 
   const [editingCell, setEditingCell] = useState<{ rowId: string; columnId: string } | null>(null);
   const [, setEditingValue] = useState('');
-  const [, setEditingInitialValue] = useState('');
-  const [, setEditingOriginalValue] = useState<Value | undefined>(undefined);
-  const [, setEditingRow] = useState<RowData | null>(null);
   const [isUpdating, setIsUpdating] = useState(false);
+  const updatingRef = useRef(false);
 
   // Confirmation dialog state (for production)
   const [updateConfirmOpen, setUpdateConfirmOpen] = useState(false);
@@ -123,10 +124,7 @@ export function useInlineEdit({
 
   const resetEditingState = useCallback(() => {
     setEditingCell(null);
-    setEditingRow(null);
     setEditingValue('');
-    setEditingInitialValue('');
-    setEditingOriginalValue(undefined);
     editingCellRef.current = null;
     editingRowRef.current = null;
     editingValueRef.current = '';
@@ -134,8 +132,25 @@ export function useInlineEdit({
     editingOriginalValueRef.current = undefined;
   }, []);
 
+  const editContext = JSON.stringify([
+    sessionId,
+    namespace?.database,
+    namespace?.schema,
+    tableName,
+  ]);
+  const editContextRef = useRef(editContext);
+  useEffect(() => {
+    if (editContextRef.current !== editContext) {
+      editContextRef.current = editContext;
+      resetEditingState();
+      setPendingUpdate(null);
+      setUpdateConfirmOpen(false);
+    }
+  }, [editContext, resetEditingState]);
+
   const startInlineEdit = useCallback(
     (row: RowData, rowId: string, columnId: string, currentValue: Value) => {
+      if (updatingRef.current) return;
       skipCommitRef.current = false;
       if (editingCellRef.current?.rowId === rowId && editingCellRef.current.columnId === columnId) {
         return;
@@ -162,10 +177,7 @@ export function useInlineEdit({
       const displayValue = getEditableValue(currentValue);
       const cellRef = { rowId, columnId };
       setEditingCell(cellRef);
-      setEditingRow(row);
       setEditingValue(displayValue);
-      setEditingInitialValue(displayValue);
-      setEditingOriginalValue(currentValue);
       editingCellRef.current = cellRef;
       editingRowRef.current = row;
       editingValueRef.current = displayValue;
@@ -188,6 +200,7 @@ export function useInlineEdit({
       payload: { row: RowData; columnId: string; value: Value; originalValue: Value },
       acknowledgedDangerous = false
     ) => {
+      if (updatingRef.current) return;
       if (!namespace || !tableName || !primaryKey || primaryKey.length === 0) {
         toast.error(t('grid.updateNoPrimaryKey'));
         return;
@@ -223,26 +236,37 @@ export function useInlineEdit({
         return;
       }
 
+      updatingRef.current = true;
       setIsUpdating(true);
       try {
-        const res = await updateRow(
-          sessionId,
-          namespace.database,
-          namespace.schema,
-          tableName,
-          { columns: pkData },
-          { columns: { [payload.columnId]: payload.value } },
-          acknowledgedDangerous
-        );
+        const res = onUpdateCell
+          ? await onUpdateCell(
+              {
+                primaryKey: pkData,
+                column: payload.columnId,
+                value: payload.value,
+              },
+              acknowledgedDangerous
+            )
+          : await updateRow(
+              sessionId,
+              namespace.database,
+              namespace.schema,
+              tableName,
+              { columns: pkData },
+              { columns: { [payload.columnId]: payload.value } },
+              acknowledgedDangerous
+            );
         if (res.success) {
           toast.success(t('grid.updateSuccess'));
-          onRowsUpdated?.();
+          if (!onUpdateCell) onRowsUpdated?.();
         } else {
           toast.error(t('grid.updateError'));
         }
       } catch {
         toast.error(t('grid.updateError'));
       } finally {
+        updatingRef.current = false;
         setIsUpdating(false);
       }
     },
@@ -256,6 +280,7 @@ export function useInlineEdit({
       sandboxMode,
       onSandboxUpdate,
       onRowsUpdated,
+      onUpdateCell,
       t,
     ]
   );

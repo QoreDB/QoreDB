@@ -276,6 +276,28 @@ export function getChangesCount(sessionId: string): number {
   return session.changes.length;
 }
 
+/** Remove only the submitted revisions confirmed by the backend. */
+export function acknowledgeSandboxChanges(
+  sessionId: string,
+  submitted: SandboxChange[],
+  appliedIndices: number[]
+): void {
+  const state = getSandboxState();
+  const session = state.sessions[sessionId];
+  if (!session) return;
+  const confirmed = new Map(
+    appliedIndices.flatMap(index => {
+      const change = submitted[index];
+      return change ? [[change.id, stableStringify(change)] as const] : [];
+    })
+  );
+  session.changes = session.changes.filter(
+    change => confirmed.get(change.id) !== stableStringify(change)
+  );
+  saveSandboxState(state);
+  notifyListeners(sessionId);
+}
+
 export function clearSandboxChanges(sessionId: string): void {
   const state = getSandboxState();
   const session = state.sessions[sessionId];

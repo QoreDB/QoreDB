@@ -387,12 +387,14 @@ mod tests {
                 set_name: "s".into(),
                 started_at: String::new(),
                 finished_at: None,
+                cancelled: false,
                 connection_label: None,
                 driver_id: "postgres".into(),
                 environment: "staging".into(),
                 capture_mode: CaptureMode::Full,
                 capture_stopped_reason: None,
                 is_baseline: false,
+                reference_generation: false,
                 captured_bytes: 0,
                 entry_count: results.len(),
             },
@@ -415,6 +417,7 @@ mod tests {
 
         let set = ReplaySet {
             version: REPLAY_SET_VERSION,
+            baseline_run_id: None,
             name: "s".into(),
             created_at: String::new(),
             source: ReplaySource {

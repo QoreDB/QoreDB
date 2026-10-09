@@ -12,7 +12,7 @@
 #![cfg(feature = "pro")]
 
 use std::sync::Arc;
-use std::sync::atomic::AtomicBool;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use qore_core::registry::DriverRegistry;
 use qore_drivers::query_manager::QueryManager;
@@ -105,7 +105,10 @@ impl Drop for Harness {
 
 /// `Ok(None)` when PostgreSQL is unreachable and not required.
 async fn harness_or_skip() -> EngineResult<Option<Harness>> {
-    let config = postgres_config();
+    harness_with_config(postgres_config()).await
+}
+
+async fn harness_with_config(config: ConnectionConfig) -> EngineResult<Option<Harness>> {
     let driver = Arc::new(PostgresDriver::new());
 
     if let Err(err) = driver.test_connection(&config).await {
@@ -121,6 +124,7 @@ async fn harness_or_skip() -> EngineResult<Option<Harness>> {
     let registry = Arc::new(registry);
     let session_manager = Arc::new(SessionManager::new(Arc::clone(&registry)));
     let session = session_manager.connect(config).await?;
+    session_manager.bind_workspace(session, "default").await?;
     let driver = session_manager.get_driver(session).await?;
 
     let capture_dir =
@@ -143,6 +147,347 @@ async fn harness_or_skip() -> EngineResult<Option<Harness>> {
         driver,
         session,
     }))
+}
+
+fn replay_set(queries: &[&str]) -> qoredb_lib::replay::types::ReplaySet {
+    use qoredb_lib::replay::types::{ExpectedOutcome, ReplayEntry, ReplaySet, ReplaySource};
+    ReplaySet {
+        version: 1,
+        baseline_run_id: None,
+        name: "qualification".into(),
+        created_at: chrono::Utc::now().to_rfc3339(),
+        source: ReplaySource {
+            driver_id: "postgres".into(),
+            connection_label: None,
+            environment: "development".into(),
+        },
+        ignored_columns: vec![],
+        redacted: false,
+        entries: queries
+            .iter()
+            .enumerate()
+            .map(|(index, query)| ReplayEntry {
+                id: uuid::Uuid::new_v4().to_string(),
+                order: index as u32,
+                query: (*query).into(),
+                driver_id: "postgres".into(),
+                namespace: None,
+                operation_type: "select".into(),
+                // Hand-edited files cannot authorize a mutation by claiming SELECT.
+                is_mutation: false,
+                expected: ExpectedOutcome {
+                    execution_time_ms: 10.0,
+                    row_count: Some(1),
+                    success: true,
+                    fingerprint: None,
+                    result_digest: None,
+                },
+            })
+            .collect(),
+    }
+}
+
+#[tokio::test]
+async fn cancellation_keeps_completed_results_and_skips_remaining_queries() -> EngineResult<()> {
+    let Some(h) = harness_or_skip().await? else {
+        return Ok(());
+    };
+    let set = replay_set(&["SELECT 41 AS id", "SELECT 42 AS id"]);
+    let cancel = AtomicBool::new(false);
+    let report = run_set(
+        h.services(),
+        h.session,
+        &h.session.0.to_string(),
+        &set,
+        "cancel",
+        "default",
+        &ReplayRunOptions::default(),
+        &h.captures,
+        None,
+        &Default::default(),
+        &cancel,
+        |progress| {
+            if progress.completed == 1 {
+                cancel.store(true, Ordering::SeqCst);
+            }
+        },
+    )
+    .await
+    .map_err(EngineError::internal)?;
+    assert_eq!(report.summary.matched, 1);
+    assert_eq!(report.summary.skipped, 1);
+    assert_eq!(report.results[1].skip_code.as_deref(), Some("cancelled"));
+    assert_eq!(
+        serde_json::to_value(&report.run).unwrap()["cancelled"],
+        true
+    );
+    let saved = h
+        .captures
+        .load_report(&report.run.run_id)
+        .map_err(EngineError::internal)?;
+    assert_eq!(saved.summary.skipped, 1);
+    assert!(saved.run.finished_at.is_some());
+    assert!(
+        h.captures
+            .load_entry(&report.run.run_id, &set.entries[1].id)
+            .is_err()
+    );
+    h.session_manager.disconnect(h.session).await?;
+    Ok(())
+}
+
+#[tokio::test]
+async fn cancellation_during_last_query_is_not_reported_as_a_complete_run() -> EngineResult<()> {
+    let Some(h) = harness_or_skip().await? else {
+        return Ok(());
+    };
+    let set = replay_set(&["SELECT pg_sleep(0.2), 42 AS id"]);
+    let cancel = AtomicBool::new(false);
+    let session_id = h.session.0.to_string();
+    let options = ReplayRunOptions::default();
+    let excluded = Default::default();
+    let run = run_set(
+        h.services(),
+        h.session,
+        &session_id,
+        &set,
+        "cancel-last",
+        "default",
+        &options,
+        &h.captures,
+        None,
+        &excluded,
+        &cancel,
+        |_| {},
+    );
+    let cancel_when_active = async {
+        tokio::time::timeout(std::time::Duration::from_secs(5), async {
+            while h.query_manager.count_active().await == 0 {
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .expect("query becomes active");
+        cancel.store(true, Ordering::SeqCst);
+    };
+    let (report, ()) = tokio::join!(run, cancel_when_active);
+    let report = report.map_err(EngineError::internal)?;
+    assert_eq!(
+        serde_json::to_value(&report.run).unwrap()["cancelled"],
+        true
+    );
+    // Cancellation between entries does not pretend to roll back a query already sent.
+    assert!(report.results[0].success);
+    assert_eq!(h.query_manager.count_active().await, 0);
+    assert!(h.captures.load_report(&report.run.run_id).is_ok());
+    h.session_manager.disconnect(h.session).await?;
+    Ok(())
+}
+
+#[tokio::test]
+async fn replay_refuses_a_session_from_another_workspace() -> EngineResult<()> {
+    let Some(h) = harness_or_skip().await? else {
+        return Ok(());
+    };
+    let outcome = run_set(
+        h.services(),
+        h.session,
+        &h.session.0.to_string(),
+        &replay_set(&["SELECT 42"]),
+        "isolation",
+        "other-workspace",
+        &ReplayRunOptions::default(),
+        &h.captures,
+        None,
+        &Default::default(),
+        &AtomicBool::new(false),
+        |_| {},
+    )
+    .await;
+    assert!(
+        outcome.is_err(),
+        "a different workspace must not execute or capture this session"
+    );
+    assert!(h.captures.list_runs("isolation").unwrap().is_empty());
+    h.session_manager.disconnect(h.session).await?;
+    Ok(())
+}
+
+#[tokio::test]
+async fn replay_masks_rows_before_capture_on_disk() -> EngineResult<()> {
+    use qore_core::masking::{ConnectionMasking, HIDDEN_VALUE, MaskMode, MaskingRule};
+    use qoredb_lib::engine::types::Value;
+    let Some(h) = harness_or_skip().await? else {
+        return Ok(());
+    };
+    h.session_manager
+        .set_saved_connection_identity(h.session, "synthetic".into(), "Synthetic".into())
+        .await;
+    h.session_manager
+        .set_masking(
+            h.session,
+            &ConnectionMasking {
+                rules: vec![MaskingRule {
+                    table: String::new(),
+                    column: "secret".into(),
+                    mode: MaskMode::Hidden,
+                }],
+                mask_detected_columns: false,
+            },
+        )
+        .await;
+    let set =
+        replay_set(&["SELECT 'synthetic-row-secret' AS secret, 9007199254740993::bigint AS id"]);
+    let report = run_set(
+        h.services(),
+        h.session,
+        &h.session.0.to_string(),
+        &set,
+        "mask",
+        "default",
+        &ReplayRunOptions::default(),
+        &h.captures,
+        None,
+        &Default::default(),
+        &AtomicBool::new(false),
+        |_| {},
+    )
+    .await
+    .map_err(EngineError::internal)?;
+    let captured = h
+        .captures
+        .load_entry(&report.run.run_id, &set.entries[0].id)
+        .unwrap();
+    assert!(captured.meta.columns[0].masked);
+    assert!(matches!(&captured.rows[0].values[0], Value::Text(value) if value == HIDDEN_VALUE));
+    assert!(matches!(
+        captured.rows[0].values[1],
+        Value::Int(9007199254740993)
+    ));
+    h.session_manager.disconnect(h.session).await?;
+    Ok(())
+}
+
+#[tokio::test]
+async fn replay_refuses_forged_mutations_on_read_only_and_production_connections()
+-> EngineResult<()> {
+    for (read_only, environment, allow_mutations) in [
+        (false, "development", false),
+        (true, "development", true),
+        (false, "production", true),
+    ] {
+        let mut config = postgres_config();
+        config.read_only = read_only;
+        config.environment = environment.into();
+        let Some(h) = harness_with_config(config).await? else {
+            return Ok(());
+        };
+        let table = format!("qoredb_replay_{}", uuid::Uuid::new_v4().simple());
+        h.exec(&format!("CREATE TABLE {table} (id int)")).await?;
+        let set = replay_set(&[&format!("INSERT INTO {table} VALUES (1)")]);
+        let options = ReplayRunOptions {
+            allow_mutations,
+            ..Default::default()
+        };
+        let report = run_set(
+            h.services(),
+            h.session,
+            &h.session.0.to_string(),
+            &set,
+            "guard",
+            "default",
+            &options,
+            &h.captures,
+            None,
+            &Default::default(),
+            &AtomicBool::new(false),
+            |_| {},
+        )
+        .await
+        .map_err(EngineError::internal)?;
+        assert_eq!(
+            report.summary.skipped, 1,
+            "{environment}, read_only={read_only}"
+        );
+        let count = h
+            .driver
+            .execute(
+                h.session,
+                &format!("SELECT count(*) FROM {table}"),
+                QueryId::new(),
+            )
+            .await?;
+        assert!(matches!(
+            count.rows[0].values[0],
+            qoredb_lib::engine::types::Value::Int(0)
+        ));
+        h.exec(&format!("DROP TABLE {table}")).await?;
+        h.session_manager.disconnect(h.session).await?;
+    }
+    Ok(())
+}
+
+#[tokio::test]
+async fn ab_checks_both_workspaces_before_executing_and_reports_real_progress() -> EngineResult<()>
+{
+    use qoredb_lib::replay::runner::run_ab;
+    let Some(h) = harness_or_skip().await? else {
+        return Ok(());
+    };
+    let right = h.session_manager.connect(postgres_config()).await?;
+    let set = replay_set(&["SELECT 42 AS id"]);
+    let options = ReplayRunOptions {
+        run_retention: 1,
+        ..Default::default()
+    };
+    let mut progress = Vec::new();
+    // Unknown origin on the right: even the valid left side must not run.
+    let invalid = run_ab(
+        h.services(),
+        h.session,
+        &h.session.0.to_string(),
+        right,
+        &right.0.to_string(),
+        &set,
+        "ab",
+        "default",
+        &options,
+        &h.captures,
+        &AtomicBool::new(false),
+        |_| {},
+    )
+    .await;
+    assert!(invalid.is_err());
+    assert!(h.captures.list_runs("ab").unwrap().is_empty());
+    h.session_manager.bind_workspace(right, "default").await?;
+    let report = run_ab(
+        h.services(),
+        h.session,
+        &h.session.0.to_string(),
+        right,
+        &right.0.to_string(),
+        &set,
+        "ab",
+        "default",
+        &options,
+        &h.captures,
+        &AtomicBool::new(false),
+        |p| progress.push((p.completed, p.total)),
+    )
+    .await
+    .map_err(EngineError::internal)?;
+    assert_eq!(report.summary.matched, 1);
+    assert_eq!(progress, vec![(0, 2), (1, 2), (1, 2), (2, 2)]);
+    for run_id in [&report.left.run_id, &report.right.run_id] {
+        assert!(
+            h.captures.load_entry(run_id, &set.entries[0].id).is_ok(),
+            "A/B keeps both captures after retention"
+        );
+    }
+    assert!(h.captures.last_report("ab").unwrap().ab.is_some());
+    h.session_manager.disconnect(right).await?;
+    h.session_manager.disconnect(h.session).await?;
+    Ok(())
 }
 
 /// The connection a recording is bound to; anything else is ignored.
@@ -474,4 +819,147 @@ async fn a_recorded_set_never_carries_row_values() -> EngineResult<()> {
     harness.exec(&format!("DROP TABLE {table}")).await?;
     harness.session_manager.disconnect(harness.session).await?;
     Ok(())
+}
+
+async fn replay_reference_cycle(options: ReplayRunOptions) -> EngineResult<()> {
+    use qoredb_lib::engine::types::Value;
+    use qoredb_lib::replay::store::ReplaySetStore;
+    use qoredb_lib::replay::types::{ReplayReport, ReplaySet};
+
+    async fn replay(
+        h: &Harness,
+        set: &ReplaySet,
+        options: &ReplayRunOptions,
+    ) -> Result<ReplayReport, String> {
+        let baseline = h
+            .captures
+            .baseline_for_set("reference-cycle", set)?
+            .map(|run| run.run_id);
+        run_set(
+            h.services(),
+            h.session,
+            &h.session.0.to_string(),
+            set,
+            "reference-cycle",
+            "default",
+            options,
+            &h.captures,
+            baseline,
+            &Default::default(),
+            &AtomicBool::new(false),
+            |_| {},
+        )
+        .await
+    }
+
+    let Some(h) = harness_or_skip().await? else {
+        return Ok(());
+    };
+    let table = format!("qoredb_reference_{}", uuid::Uuid::new_v4().simple());
+    h.exec(&format!("CREATE TABLE {table} (id BIGINT NOT NULL)"))
+        .await?;
+    h.exec(&format!("INSERT INTO {table} VALUES (9007199254740993)"))
+        .await?;
+    let set = replay_set(&[&format!("SELECT id FROM {table}")]);
+    let store = ReplaySetStore::new(&h.capture_dir.join("workspace"));
+    store
+        .save("reference-cycle", &set)
+        .map_err(EngineError::internal)?;
+    let initial = replay(&h, &set, &ReplayRunOptions::default())
+        .await
+        .map_err(EngineError::internal)?;
+    let set = h
+        .captures
+        .accept_run(set, "reference-cycle", &initial.run.run_id, None, |set| {
+            store.save("reference-cycle", set).map(|_| ())
+        })
+        .map_err(EngineError::internal)?;
+    let old_reference = set.baseline_run_id.clone().unwrap();
+
+    h.exec(&format!("UPDATE {table} SET id = 9007199254740994"))
+        .await?;
+    let changed = replay(&h, &set, &options)
+        .await
+        .map_err(EngineError::internal)?;
+    assert_eq!(changed.results[0].verdict, ReplayVerdict::DigestDiff);
+    let captured = changed.results[0].captured;
+    let accepted = h
+        .captures
+        .accept_run(set, "reference-cycle", &changed.run.run_id, None, |set| {
+            store.save("reference-cycle", set).map(|_| ())
+        })
+        .map_err(EngineError::internal)?;
+    let new_reference = accepted.baseline_run_id.clone().unwrap();
+    assert_ne!(old_reference, new_reference);
+    let reopened = store
+        .load("reference-cycle")
+        .map_err(EngineError::internal)?;
+    assert_eq!(
+        reopened.baseline_run_id.as_deref(),
+        Some(new_reference.as_str())
+    );
+    assert_eq!(
+        reopened.entries[0].expected.result_digest,
+        changed.results[0].digest
+    );
+    let captures = CaptureStore::new(h.capture_dir.clone());
+    let old_rows = captures
+        .load_entry(&old_reference, &reopened.entries[0].id)
+        .map_err(EngineError::internal)?;
+    assert!(matches!(
+        old_rows.rows[0].values[0],
+        Value::Int(9007199254740993)
+    ));
+    assert_eq!(
+        captures.has_entry(&new_reference, &reopened.entries[0].id),
+        captured
+    );
+    if captured {
+        let rows = captures
+            .load_entry(&new_reference, &reopened.entries[0].id)
+            .map_err(EngineError::internal)?;
+        assert!(matches!(
+            rows.rows[0].values[0],
+            Value::Int(9007199254740994)
+        ));
+    }
+    let repeated = replay(&h, &reopened, &ReplayRunOptions::default())
+        .await
+        .map_err(EngineError::internal)?;
+    assert_eq!(repeated.summary.matched, 1);
+    assert_eq!(repeated.baseline_run_id, Some(new_reference));
+    assert_eq!(
+        captures
+            .load_report(&changed.run.run_id)
+            .unwrap()
+            .baseline_run_id,
+        Some(old_reference.clone())
+    );
+    assert!(captures.has_entry(&old_reference, &reopened.entries[0].id));
+    h.exec(&format!("DROP TABLE {table}")).await?;
+    h.session_manager.disconnect(h.session).await?;
+    Ok(())
+}
+
+#[tokio::test]
+async fn accepted_full_reference_survives_reopening_and_replay() -> EngineResult<()> {
+    replay_reference_cycle(ReplayRunOptions::default()).await
+}
+
+#[tokio::test]
+async fn accepted_metadata_only_reference_never_reuses_old_rows() -> EngineResult<()> {
+    replay_reference_cycle(ReplayRunOptions {
+        capture_mode: CaptureMode::MetadataOnly,
+        ..Default::default()
+    })
+    .await
+}
+
+#[tokio::test]
+async fn accepted_budget_limited_reference_never_reuses_old_rows() -> EngineResult<()> {
+    replay_reference_cycle(ReplayRunOptions {
+        capture_budget_bytes: 1,
+        ..Default::default()
+    })
+    .await
 }

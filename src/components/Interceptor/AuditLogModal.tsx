@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { FileText } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { LicenseGate } from '@/components/License/LicenseGate';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -9,7 +9,10 @@ import type { AuditLogTab } from '@/lib/stores/modalStore';
 import { cn } from '@/lib/utils';
 import { AuditLogPanel } from './AuditLogPanel';
 import { ProfilingPanel } from './ProfilingPanel';
-import { QueryTrendsPanel } from './QueryTrendsPanel';
+
+const QueryTrendsPanel = lazy(() =>
+  import('./QueryTrendsPanel').then(module => ({ default: module.QueryTrendsPanel }))
+);
 
 interface AuditLogModalProps {
   isOpen: boolean;
@@ -60,7 +63,17 @@ export function AuditLogModal({ isOpen, initialTab, onClose }: AuditLogModalProp
               <ProfilingPanel view={tab === 'slow' ? 'slow' : 'overview'} />
             </LicenseGate>
           )}
-          {tab === 'trends' && <QueryTrendsPanel />}
+          {tab === 'trends' && (
+            <Suspense
+              fallback={
+                <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+                  {t('common.loading')}
+                </div>
+              }
+            >
+              <QueryTrendsPanel />
+            </Suspense>
+          )}
         </div>
       </DialogContent>
     </Dialog>

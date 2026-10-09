@@ -50,7 +50,7 @@ export function RollbackDialog({
             </div>
             {result.warnings.map((w, i) => (
               <div key={i} className="text-xs ml-5">
-                {w}
+                {w === 'timeTravel.rollbackIncompleteCapture' ? t(w) : w}
               </div>
             ))}
           </div>

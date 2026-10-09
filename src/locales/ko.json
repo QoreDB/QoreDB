@@ -508,6 +508,9 @@
     "close": "닫기"
   },
   "library": {
+    "invalidData": "라이브러리를 읽을 수 없습니다. 데이터는 교체되지 않았습니다. 유효한 데이터를 복원한 후 새로 고침하세요.",
+    "itemLimit": "라이브러리는 쿼리를 최대 {{count}}개까지 저장할 수 있습니다. 추가하기 전에 기존 쿼리를 삭제하세요. 변경된 내용은 없습니다.",
+    "folderLimit": "라이브러리는 폴더를 최대 {{count}}개까지 저장할 수 있습니다. 추가하기 전에 기존 폴더를 삭제하세요. 변경된 내용은 없습니다.",
     "title": "쿼리 라이브러리",
     "open": "라이브러리",
     "save": "저장",
@@ -655,6 +658,7 @@
     "clearAll": "모든 결과 지우기",
     "cancelExecution": "취소",
     "executionStopped": "실행이 취소되었습니다",
+    "referenceUnavailable": "{{reference}}을(를) 사용할 수 없습니다. 원본 결과는 최신이며 완전하고, 마스킹이나 모호함이 없어야 합니다.",
     "allCellsExecuted": "모든 셀이 실행되었습니다",
     "save": "노트북 저장",
     "saveAs": "다른 이름으로 저장...",
@@ -714,6 +718,7 @@
     "aiCellInserted": "아래에 SQL 셀을 삽입했습니다"
   },
   "replay": {
+    "cancelledReport": "재실행이 취소되었습니다. 실행된 쿼리는 보존되며, 진행 중이던 쿼리는 완료되었을 수 있습니다.",
     "title": "쿼리 리플레이",
     "openLab": "쿼리 리플레이 열기",
     "setName": "세트 이름",
@@ -845,6 +850,7 @@
       "acceptBody": "세트의 기대값이 이 실행에서 관측된 값으로 대체됩니다. 이후 재생은 이것과 비교됩니다."
     },
     "skipReason": {
+      "cancelled": "재실행 취소됨",
       "mutation_excluded": "변경 쿼리는 재생에서 제외됨",
       "mutation_production_blocked": "변경 쿼리는 프로덕션에서 재생되지 않습니다"
     }
@@ -1366,6 +1372,7 @@
     "updateConfirmDescription": "{{table}}에서 {{column}}을(를) 업데이트하려고 합니다.",
     "updateConfirmLabel": "값 업데이트",
     "updateSuccess": "행이 성공적으로 업데이트되었습니다",
+    "updateReloaded": "변경 사항을 저장했습니다. 일관된 표시를 위해 테이블을 다시 불러옵니다.",
     "updateError": "행 업데이트에 실패했습니다",
     "updateNoPrimaryKey": "인라인 편집에는 기본 키가 필요합니다",
     "pinColumnLeft": "왼쪽에 고정",
@@ -1541,6 +1548,7 @@
     "loadingOptions": "옵션 로딩 중..."
   },
   "common": {
+    "contextChanged": "컨텍스트가 변경되었습니다. 작업을 다시 시도하세요.",
     "loading": "로딩 중...",
     "error": "오류",
     "success": "성공",
@@ -2047,6 +2055,8 @@
     },
     "generateSQL": "SQL 생성",
     "migration": {
+      "outcomeUnknown": "결과를 확인할 수 없습니다. 이 배치를 다시 실행하지 마세요. 다시 연결하여 해당 행을 확인한 후 새 배치를 준비하세요.",
+      "previewChanged": "대기 중인 변경 사항이 바뀌었습니다. 이 미리보기를 닫고 적용하기 전에 다시 생성하세요.",
       "title": "마이그레이션 스크립트",
       "generating": "스크립트 생성 중...",
       "statements": "{{count}}개 문",
@@ -2505,7 +2515,19 @@
     "side": {
       "left": "왼쪽",
       "right": "오른쪽"
-    }
+    },
+    "incompleteComparison": "불완전한 비교",
+    "noMatchingRows": "이 필터에 일치하는 행이 없습니다",
+    "noObservedDifferences": "비교한 데이터에서 차이가 발견되지 않았습니다",
+    "warnings": {
+      "ambiguousKeys": "키가 중복됩니다. 나머지 행은 원본 순서대로 대응됩니다.",
+      "uncomparedColumns": "일부 열은 비교되지 않습니다.",
+      "noCommonColumns": "열 이름이 달라 위치를 기준으로 비교합니다.",
+      "missingKeyColumns": "선택한 키 열이 없습니다.",
+      "maskedColumns": "마스킹된 값은 완전히 비교할 수 없습니다.",
+      "truncated": "불러온 행만 비교합니다."
+    },
+    "retry": "다시 시도"
   },
   "virtualRelations": {
     "title": "가상 관계",
@@ -3114,6 +3136,7 @@
     "driftCheckHint": "라이브 스키마를 베이스라인과 비교하여 외부 변경을 감지합니다.",
     "driftTitle": "스키마 드리프트",
     "driftNone": "드리프트 없음 — 스키마가 베이스라인과 일치합니다",
+    "schemaEnumerationIncomplete": "스키마 캡처가 불완전합니다. 연결과 데이터베이스를 확인하고 비교하거나 마이그레이션을 생성하기 전에 다시 시도하세요.",
     "captureIncomplete": "{{count}}개 테이블을 건너뛰고 캡처했습니다(설명 실패)",
     "close": "닫기",
     "tableAdded": "추가됨",
@@ -3342,9 +3365,14 @@
     "leave": "나가기"
   },
   "timeTravel": {
+    "rollbackIncompleteCapture": "불완전한 기록: 행 또는 기본 키를 확인할 수 없어 롤백을 건너뛰었습니다.",
+    "retry": "새로 고침",
+    "requestFailed": "기록 요청을 완료하지 못했습니다. 다시 시도하세요.",
+    "scopeHint": "이 연결의 기록만 표시합니다. 연결을 식별할 수 없는 이전 기록은 보존되지만 표시되지 않습니다.",
     "viewHistory": "View data history",
     "title": "Data Time-Travel",
     "timeline": {
+      "events": "이벤트 {{count}}개",
       "title": "Timeline",
       "noEvents": "No mutations recorded for this table",
       "loadMore": "Load more events",

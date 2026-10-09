@@ -26,7 +26,7 @@ use sqlx::pool::PoolConnection;
 use sqlx::sqlite::{
     Sqlite, SqliteColumn, SqliteConnectOptions, SqlitePool, SqlitePoolOptions, SqliteRow,
 };
-use sqlx::{Column, Row, TypeInfo, ValueRef};
+use sqlx::{Column, Executor, Row, TypeInfo, ValueRef};
 use tokio::sync::{Mutex, RwLock};
 
 use qore_core::cursor::KeysetPlan;
@@ -37,9 +37,9 @@ use qore_core::types::{
     ConnectionConfig, FilterOperator, ForeignKey, MaintenanceMessage, MaintenanceMessageLevel,
     MaintenanceOperationInfo, MaintenanceOperationType, MaintenanceRequest, MaintenanceResult,
     Namespace, PaginatedQueryResult, PaginationCapability, QueryId, QueryResult, Row as QRow,
-    RowData, SearchMode, SessionId, SnapshotSupport, SortDirection, TableColumn, TableIndex,
-    TableQueryOptions, TableSchema, Trigger, TriggerEvent, TriggerList, TriggerListOptions,
-    TriggerOperationResult, TriggerTiming, TruncateAllResult, Value,
+    RowData, RowInsertResult, SearchMode, SessionId, SnapshotSupport, SortDirection, TableColumn,
+    TableIndex, TableQueryOptions, TableSchema, Trigger, TriggerEvent, TriggerList,
+    TriggerListOptions, TriggerOperationResult, TriggerTiming, TruncateAllResult, Value,
 };
 use qore_sql::safety;
 
@@ -69,6 +69,98 @@ impl SqliteDriver {
         Self {
             sessions: Arc::new(RwLock::new(HashMap::new())),
         }
+    }
+
+    async fn insert_row_impl(
+        &self,
+        session: SessionId,
+        table: &str,
+        data: &RowData,
+        returning_columns: &[String],
+    ) -> EngineResult<RowInsertResult> {
+        let sqlite_session = self.get_session(session).await?;
+
+        let table_name = Self::quote_ident(table);
+
+        let mut keys: Vec<&String> = data.columns.keys().collect();
+        keys.sort();
+
+        let mut sql = if keys.is_empty() {
+            format!("INSERT INTO {} DEFAULT VALUES", table_name)
+        } else {
+            let cols_str = keys
+                .iter()
+                .map(|k| Self::quote_ident(k))
+                .collect::<Vec<_>>()
+                .join(", ");
+            let params_str = vec!["?"; keys.len()].join(", ");
+            format!(
+                "INSERT INTO {} ({}) VALUES ({})",
+                table_name, cols_str, params_str
+            )
+        };
+
+        if !returning_columns.is_empty() {
+            sql.push_str(" RETURNING ");
+            sql.push_str(
+                &returning_columns
+                    .iter()
+                    .map(|column| Self::quote_ident(column))
+                    .collect::<Vec<_>>()
+                    .join(", "),
+            );
+        }
+
+        let mut query = sqlx::query(&sql);
+        for k in &keys {
+            let val = data.columns.get(*k).unwrap();
+            query = Self::bind_param(query, val);
+        }
+
+        let start = Instant::now();
+        let mut tx_guard = sqlite_session.transaction_conn.lock().await;
+        if !returning_columns.is_empty() {
+            let rows = if let Some(ref mut conn) = *tx_guard {
+                query.fetch_all(&mut **conn).await
+            } else {
+                query.fetch_all(&sqlite_session.pool).await
+            }
+            .map_err(|error| EngineError::execution_error(error.to_string()))?;
+            let returned_values = if rows.len() == 1 {
+                let row = &rows[0];
+                let decoded = convert_row_with_decoders(row, &build_decoders(row.columns()));
+                Some(RowData {
+                    columns: row
+                        .columns()
+                        .iter()
+                        .zip(decoded.values)
+                        .map(|(column, value)| (column.name().to_string(), value))
+                        .collect(),
+                })
+            } else {
+                None
+            };
+            return Ok(RowInsertResult {
+                result: QueryResult::with_affected_rows(
+                    rows.len() as u64,
+                    start.elapsed().as_secs_f64() * 1000.0,
+                ),
+                returned_values,
+            });
+        }
+        let result = if let Some(ref mut conn) = *tx_guard {
+            query.execute(&mut **conn).await
+        } else {
+            query.execute(&sqlite_session.pool).await
+        };
+
+        let result = result.map_err(|e| EngineError::execution_error(e.to_string()))?;
+
+        Ok(QueryResult::with_affected_rows(
+            result.rows_affected(),
+            start.elapsed().as_micros() as f64 / 1000.0,
+        )
+        .into())
     }
 
     async fn create_pool(
@@ -707,6 +799,28 @@ impl DataEngine for SqliteDriver {
             }
         }
 
+        drop(stream);
+        if !columns_sent && stream_error.is_none() && !sender.is_closed() {
+            // An empty result still has a schema. Describe only this fallback;
+            // populated results keep the runtime types used by their decoders.
+            let description = (&mut *conn)
+                .describe(query)
+                .await
+                .map_err(|e| EngineError::execution_error(e.to_string()))?;
+            let columns = description
+                .columns()
+                .iter()
+                .enumerate()
+                .map(|(index, column)| ColumnInfo {
+                    name: column.name().into(),
+                    data_type: column.type_info().name().into(),
+                    nullable: description.nullable(index).unwrap_or(true),
+                    masked: false,
+                })
+                .collect();
+            let _ = sender.send(StreamEvent::Columns(columns)).await;
+        }
+
         if !batch.is_empty() {
             let _ = sender.send(StreamEvent::RowBatch(batch)).await;
         }
@@ -1003,6 +1117,10 @@ impl DataEngine for SqliteDriver {
     ) -> EngineResult<QueryResult> {
         let query = format!("SELECT * FROM {} LIMIT {}", Self::quote_ident(table), limit);
         self.execute(session, &query, QueryId::new()).await
+    }
+
+    fn supports_safe_row_capture(&self) -> bool {
+        true
     }
 
     async fn query_table(
@@ -1480,48 +1598,21 @@ impl DataEngine for SqliteDriver {
         table: &str,
         data: &RowData,
     ) -> EngineResult<QueryResult> {
-        let sqlite_session = self.get_session(session).await?;
+        self.insert_row_impl(session, table, data, &[])
+            .await
+            .map(|outcome| outcome.result)
+    }
 
-        let table_name = Self::quote_ident(table);
-
-        let mut keys: Vec<&String> = data.columns.keys().collect();
-        keys.sort();
-
-        let sql = if keys.is_empty() {
-            format!("INSERT INTO {} DEFAULT VALUES", table_name)
-        } else {
-            let cols_str = keys
-                .iter()
-                .map(|k| Self::quote_ident(k))
-                .collect::<Vec<_>>()
-                .join(", ");
-            let params_str = vec!["?"; keys.len()].join(", ");
-            format!(
-                "INSERT INTO {} ({}) VALUES ({})",
-                table_name, cols_str, params_str
-            )
-        };
-
-        let mut query = sqlx::query(&sql);
-        for k in &keys {
-            let val = data.columns.get(*k).unwrap();
-            query = Self::bind_param(query, val);
-        }
-
-        let start = Instant::now();
-        let mut tx_guard = sqlite_session.transaction_conn.lock().await;
-        let result = if let Some(ref mut conn) = *tx_guard {
-            query.execute(&mut **conn).await
-        } else {
-            query.execute(&sqlite_session.pool).await
-        };
-
-        let result = result.map_err(|e| EngineError::execution_error(e.to_string()))?;
-
-        Ok(QueryResult::with_affected_rows(
-            result.rows_affected(),
-            start.elapsed().as_micros() as f64 / 1000.0,
-        ))
+    async fn insert_row_returning(
+        &self,
+        session: SessionId,
+        _namespace: &Namespace,
+        table: &str,
+        data: &RowData,
+        returning_columns: &[String],
+    ) -> EngineResult<RowInsertResult> {
+        self.insert_row_impl(session, table, data, returning_columns)
+            .await
     }
 
     async fn update_row(
@@ -1864,6 +1955,185 @@ impl DataEngine for SqliteDriver {
 mod tests {
     use super::*;
     use tempfile::tempdir;
+
+    #[tokio::test]
+    async fn test_empty_stream_reports_columns_before_done() {
+        let driver = SqliteDriver::new();
+        let dir = tempdir().unwrap();
+        let config = ConnectionConfig {
+            options: Default::default(),
+            driver: "sqlite".to_string(),
+            host: dir
+                .path()
+                .join("empty-stream.db")
+                .to_string_lossy()
+                .to_string(),
+            port: 0,
+            username: String::new(),
+            password: String::new(),
+            database: None,
+            ssl: false,
+            ssl_mode: None,
+            environment: "development".to_string(),
+            read_only: false,
+            ssh_tunnel: None,
+            pool_acquire_timeout_secs: None,
+            pool_max_connections: None,
+            pool_min_connections: None,
+            proxy: None,
+            mssql_auth: None,
+            clickhouse_cluster: None,
+            search_auth_mode: None,
+            ssl_ca_cert: None,
+        };
+        let session = driver.connect(&config).await.unwrap();
+        driver
+            .execute(
+                session,
+                "CREATE TABLE empty_fixture (id INTEGER NOT NULL, amount TEXT)",
+                QueryId::new(),
+            )
+            .await
+            .unwrap();
+        let (sender, mut receiver) = tokio::sync::mpsc::channel(4);
+        driver
+            .execute_stream(
+                session,
+                "SELECT id AS identifier, amount FROM empty_fixture",
+                QueryId::new(),
+                sender,
+            )
+            .await
+            .unwrap();
+        let Some(StreamEvent::Columns(columns)) = receiver.recv().await else {
+            panic!("empty results must start with column metadata");
+        };
+        assert_eq!(columns.len(), 2);
+        assert_eq!(columns[0].name, "identifier");
+        assert_eq!(columns[0].data_type, "INTEGER");
+        assert!(!columns[0].nullable);
+        assert_eq!(columns[1].name, "amount");
+        assert_eq!(columns[1].data_type, "TEXT");
+        assert!(matches!(receiver.recv().await, Some(StreamEvent::Done(0))));
+        assert!(receiver.recv().await.is_none());
+        driver.disconnect(session).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_inline_update_readback_observes_triggers_and_exact_composite_key() {
+        use qore_core::types::{ColumnFilter, CountMode};
+
+        let driver = SqliteDriver::new();
+        let dir = tempdir().unwrap();
+        let config = ConnectionConfig {
+            options: Default::default(),
+            driver: "sqlite".to_string(),
+            host: dir.path().join("inline.db").to_string_lossy().to_string(),
+            port: 0,
+            username: String::new(),
+            password: String::new(),
+            database: None,
+            ssl: false,
+            ssl_mode: None,
+            environment: "development".to_string(),
+            read_only: false,
+            ssh_tunnel: None,
+            pool_acquire_timeout_secs: None,
+            pool_max_connections: None,
+            pool_min_connections: None,
+            proxy: None,
+            mssql_auth: None,
+            clickhouse_cluster: None,
+            search_auth_mode: None,
+            ssl_ca_cert: None,
+        };
+        let session = driver.connect(&config).await.unwrap();
+        let ns = Namespace {
+            database: "main".into(),
+            schema: None,
+        };
+        for sql in [
+            "CREATE TABLE items (tenant TEXT NOT NULL, id INTEGER NOT NULL, name TEXT, rank INTEGER, PRIMARY KEY (tenant, id))",
+            "INSERT INTO items VALUES ('a::b', 9007199254740993, 'before', 1), ('other', 9007199254740993, 'untouched', 1)",
+            "CREATE TRIGGER normalize_name AFTER UPDATE OF name ON items BEGIN UPDATE items SET name = upper(trim(NEW.name)), rank = OLD.rank + 1 WHERE tenant = NEW.tenant AND id = NEW.id; END",
+        ] {
+            driver.execute(session, sql, QueryId::new()).await.unwrap();
+        }
+        let key = RowData {
+            columns: HashMap::from([
+                ("tenant".into(), Value::Text("a::b".into())),
+                ("id".into(), Value::Int(9_007_199_254_740_993)),
+            ]),
+        };
+        let options = TableQueryOptions {
+            page: Some(1),
+            page_size: Some(2),
+            count_mode: Some(CountMode::None),
+            filters: Some(
+                key.columns
+                    .iter()
+                    .map(|(column, value)| ColumnFilter {
+                        column: column.clone(),
+                        operator: FilterOperator::Eq,
+                        value: value.clone(),
+                        options: Default::default(),
+                    })
+                    .collect(),
+            ),
+            ..Default::default()
+        };
+        driver
+            .update_row(
+                session,
+                &ns,
+                "items",
+                &key,
+                &RowData {
+                    columns: HashMap::from([("name".into(), Value::Text("  canonical  ".into()))]),
+                },
+            )
+            .await
+            .unwrap();
+        let fresh = driver
+            .query_table(session, &ns, "items", options.clone())
+            .await
+            .unwrap();
+        assert!(!fresh.has_more);
+        assert_eq!(fresh.result.rows.len(), 1);
+        assert!(matches!(
+            fresh.result.rows[0].values.as_slice(),
+            [Value::Text(tenant), Value::Int(9_007_199_254_740_993), Value::Text(name), Value::Int(2)]
+                if tenant == "a::b" && name == "CANONICAL"
+        ));
+        assert_eq!(fresh.total_rows, None);
+
+        // A server-side key change must yield a missing old identity so the
+        // frontend reloads instead of retaining a row under the wrong key.
+        for sql in [
+            "DROP TRIGGER normalize_name",
+            "CREATE TRIGGER move_key AFTER UPDATE OF name ON items BEGIN UPDATE items SET id = NEW.id + 1 WHERE tenant = NEW.tenant AND id = NEW.id; END",
+        ] {
+            driver.execute(session, sql, QueryId::new()).await.unwrap();
+        }
+        driver
+            .update_row(
+                session,
+                &ns,
+                "items",
+                &key,
+                &RowData {
+                    columns: HashMap::from([("name".into(), Value::Text("move".into()))]),
+                },
+            )
+            .await
+            .unwrap();
+        let missing = driver
+            .query_table(session, &ns, "items", options)
+            .await
+            .unwrap();
+        assert!(missing.result.rows.is_empty());
+        driver.disconnect(session).await.unwrap();
+    }
 
     #[tokio::test]
     async fn test_connect_disconnect() {

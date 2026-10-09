@@ -131,8 +131,8 @@ export interface RowDataCache {
  * rows already converted are the same objects. Rebuilding them costs one Proxy
  * per loaded row per page, so the allocation grows with the scroll depth — a
  * hundred pages of a hundred rows means a million proxies instead of ten
- * thousand. Reuse the converted prefix whenever the new result extends the
- * previous one, and fall back to a full conversion when it does not.
+ * thousand. Reuse unchanged row objects, including when a confirmed edit
+ * replaces a row in the middle of the loaded pages.
  */
 export function convertToRowDataIncremental(
   result: QueryResult,
@@ -140,21 +140,37 @@ export function convertToRowDataIncremental(
 ): RowDataCache {
   const previous = cache?.source;
   const done = previous?.rows.length ?? 0;
-  const extendsPrevious =
+  const compatible =
     cache !== null &&
     previous !== undefined &&
     previous.columns === result.columns &&
-    result.rows.length >= done &&
-    (done === 0 || result.rows[done - 1] === previous.rows[done - 1]);
+    result.rows.length >= done;
 
-  if (!extendsPrevious) {
+  if (!compatible) {
     return { source: result, converted: convertToRowData(result) };
   }
-  if (result.rows.length === done) {
+
+  const changed: number[] = [];
+  for (let i = 0; i < result.rows.length; i++) {
+    if (result.rows[i] !== previous.rows[i]) changed.push(i);
+  }
+  if (changed.length === 0) {
     return { source: result, converted: cache.converted };
   }
-  const appended = convertToRowData({ ...result, rows: result.rows.slice(done) });
-  return { source: result, converted: cache.converted.concat(appended) };
+  const replacements = convertToRowData({ ...result, rows: changed.map(i => result.rows[i]) });
+  const converted = cache.converted.slice();
+  changed.forEach((index, i) => {
+    converted[index] = replacements[i];
+  });
+  return { source: result, converted };
+}
+
+export function stableRowId(row: RowData, primaryKey: string[], index: number): string {
+  const values = primaryKey.map(key => row[key]);
+  if (values.some(value => value === null || value === undefined)) return `__idx_${index}`;
+  // A tuple preserves types and boundaries: joining with "::" conflates
+  // composite keys such as ["a::b", "c"] and ["a", "b::c"].
+  return JSON.stringify(values);
 }
 
 export function escapeCSV(value: string): string {

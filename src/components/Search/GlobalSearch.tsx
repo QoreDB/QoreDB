@@ -4,6 +4,7 @@ import { Command, Compass, Database, FileCode, Folder, Search, Star } from 'luci
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { QoreAiMonoMark } from '@/components/Brand/QoreAiMark';
+import { useSavedConnections } from '@/hooks/useSavedConnections';
 import { cn } from '@/lib/utils';
 import { useWorkspace } from '@/providers/WorkspaceProvider';
 import { getFavorites, type HistoryEntry, searchHistory } from '../../lib/query/history';
@@ -13,7 +14,7 @@ import {
   type QueryFolder,
   type QueryLibraryItem,
 } from '../../lib/query/queryLibrary';
-import { listSavedConnections, type SavedConnection } from '../../lib/tauri';
+import type { SavedConnection } from '../../lib/tauri';
 import { commandMatchesQuery } from './commandSearch';
 
 interface GlobalSearchProps {
@@ -62,7 +63,7 @@ export function GlobalSearch({
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SearchResult[]>([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
-  const [connections, setConnections] = useState<SavedConnection[]>([]);
+  const { connections } = useSavedConnections(0, isOpen);
   const [libraryItems, setLibraryItems] = useState<QueryLibraryItem[]>([]);
   const [libraryFolders, setLibraryFolders] = useState<QueryFolder[]>([]);
   const [tipIndex, setTipIndex] = useState(0);
@@ -87,6 +88,7 @@ export function GlobalSearch({
     return items;
   }, [commands, features]);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: A project change resets the search and its library cache.
   useEffect(() => {
     if (isOpen) {
       inputRef.current?.focus();
@@ -95,13 +97,12 @@ export function GlobalSearch({
       setSelectedIndex(0);
       setTipIndex(Math.floor(Math.random() * TIP_KEYS.length));
 
-      listSavedConnections(projectId).then(setConnections).catch(console.error);
-
       try {
         setLibraryItems(listItems());
         setLibraryFolders(listFolders());
-      } catch (err) {
-        console.error(err);
+      } catch {
+        setLibraryItems([]);
+        setLibraryFolders([]);
       }
     }
   }, [isOpen, buildDefaultResults, projectId]);

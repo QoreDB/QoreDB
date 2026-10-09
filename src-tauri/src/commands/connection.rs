@@ -9,7 +9,7 @@ use tracing::instrument;
 use uuid::Uuid;
 
 use super::SharedStateExt;
-use crate::commands::vault::get_workspace_store;
+use crate::commands::vault::get_workspace_context;
 use crate::commands::workspace::SharedWorkspaceManager;
 use crate::engine::types::ConnectionConfig;
 use crate::vault::VaultStorage;
@@ -29,19 +29,20 @@ pub struct SessionListItem {
     pub display_name: String,
 }
 
-/// Resolves a saved connection to a ready-to-use config plus its display name.
+/// Resolves configuration, display name, masking and the backend workspace origin.
 ///
 /// File-based workspaces keep connections in their own `.qoredb/connections/`
-/// directory, so isolation is by directory and the flat-vault `project_id` guard
-/// does not apply there. The default workspace shares a single `connections.json`
-/// across projects, so that branch still enforces the guard.
+/// directory; the requested project must match the resolved backend workspace.
+/// Stored metadata may retain a legacy project label. The default workspace shares
+/// a single `connections.json` across projects, so that branch still checks metadata.
 pub(crate) async fn resolve_saved_connection(
     app: &AppHandle,
     ws_manager: &State<'_, SharedWorkspaceManager>,
     project_id: &str,
     connection_id: &str,
-) -> Result<(ConnectionConfig, String, ConnectionMasking), String> {
-    if let Some(ws_store) = get_workspace_store(ws_manager).await {
+) -> Result<(ConnectionConfig, String, ConnectionMasking, String), String> {
+    let (workspace_id, workspace_store) = get_workspace_context(ws_manager, project_id).await?;
+    if let Some(ws_store) = workspace_store {
         let saved = ws_store
             .get_connection(connection_id)
             .map_err(|e| e.sanitized_message())?;
@@ -52,7 +53,7 @@ pub(crate) async fn resolve_saved_connection(
         let config = saved
             .to_connection_config(&creds)
             .map_err(|e| e.sanitized_message())?;
-        return Ok((config, name, saved.masking));
+        return Ok((config, name, saved.masking, workspace_id));
     }
 
     let storage_dir = app.path().app_config_dir().map_err(|e| e.to_string())?;
@@ -73,7 +74,7 @@ pub(crate) async fn resolve_saved_connection(
     let config = saved
         .to_connection_config(&creds)
         .map_err(|e| e.sanitized_message())?;
-    Ok((config, name, saved.masking))
+    Ok((config, name, saved.masking, workspace_id))
 }
 
 #[tauri::command]
@@ -130,7 +131,7 @@ pub async fn test_saved_connection(
 
     let config =
         match resolve_saved_connection(&app, &ws_manager, &project_id, &connection_id).await {
-            Ok((cfg, _name, _masking)) => cfg,
+            Ok((cfg, _name, _masking, _workspace_id)) => cfg,
             Err(e) => {
                 return Ok(ConnectionResponse {
                     success: false,
@@ -156,7 +157,7 @@ pub async fn test_saved_connection(
 
 #[tauri::command]
 #[instrument(
-    skip(state, config),
+    skip(state, ws_manager, config),
     fields(
         driver = %config.driver,
         host = %config.host,
@@ -167,6 +168,7 @@ pub async fn test_saved_connection(
 )]
 pub async fn connect(
     state: State<'_, crate::SharedState>,
+    ws_manager: State<'_, SharedWorkspaceManager>,
     config: ConnectionConfig,
 ) -> Result<ConnectionResponse, String> {
     if !cfg!(debug_assertions) {
@@ -177,14 +179,21 @@ pub async fn connect(
         });
     }
 
+    let workspace_id = ws_manager.lock().await.project_id();
     let session_manager = state.session_manager().await;
 
     match qore_service::connection::connect(&session_manager, config).await {
-        Ok(session_id) => Ok(ConnectionResponse {
-            success: true,
-            session_id: Some(session_id.0.to_string()),
-            error: None,
-        }),
+        Ok(session_id) => {
+            session_manager
+                .bind_workspace(session_id, &workspace_id)
+                .await
+                .map_err(|error| error.sanitized_message())?;
+            Ok(ConnectionResponse {
+                success: true,
+                session_id: Some(session_id.0.to_string()),
+                error: None,
+            })
+        }
         Err(e) => Ok(ConnectionResponse {
             success: false,
             session_id: None,
@@ -214,7 +223,7 @@ pub async fn connect_saved_connection(
         Arc::clone(&state.session_manager)
     };
 
-    let (config, connection_name, masking) =
+    let (config, connection_name, masking, workspace_id) =
         match resolve_saved_connection(&app, &ws_manager, &project_id, &connection_id).await {
             Ok(resolved) => resolved,
             Err(e) => {
@@ -228,6 +237,10 @@ pub async fn connect_saved_connection(
 
     match qore_service::connection::connect(&session_manager, config).await {
         Ok(session_id) => {
+            session_manager
+                .bind_workspace(session_id, &workspace_id)
+                .await
+                .map_err(|error| error.sanitized_message())?;
             session_manager
                 .set_saved_connection_identity(session_id, connection_id.clone(), connection_name)
                 .await;

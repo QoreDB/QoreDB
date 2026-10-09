@@ -229,6 +229,7 @@ strip = "symbols"
 codegen-units = 1
 
 [dev-dependencies]
+tauri = { version = "2", features = ["test"] }
 tempfile = "3.24.0"
 wat = "1.0"
 wiremock = "0.6"

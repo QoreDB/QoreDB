@@ -26,12 +26,13 @@ import {
 import { extractVariableReferences } from '@/lib/notebook/notebookVariables';
 import {
   addItem,
-  createFolder,
   listFolders,
   parseTags,
   type QueryFolder,
   type QueryVariable,
 } from '@/lib/query/queryLibrary';
+
+import { getWorkspaceState, useWorkspaceStore } from '@/lib/stores/workspaceStore';
 
 const VARIABLE_TYPES: QueryVariable['type'][] = ['text', 'number', 'date', 'select'];
 
@@ -64,6 +65,9 @@ export function SaveQueryDialog({
   defaultFolderId = null,
 }: SaveQueryDialogProps) {
   const { t } = useTranslation();
+  const projectId = useWorkspaceStore(state => state.projectId);
+  const [origin, setOrigin] = useState(projectId);
+  const [readError, setReadError] = useState(false);
   const [folders, setFolders] = useState<QueryFolder[]>([]);
   const [title, setTitle] = useState('');
   const [tagsRaw, setTagsRaw] = useState('');
@@ -77,8 +81,18 @@ export function SaveQueryDialog({
   const detectedVars = useMemo(() => extractVariableReferences(initialQuery), [initialQuery]);
 
   useEffect(() => {
-    if (!open) return;
-    setFolders(listFolders());
+    if (!open) {
+      setOrigin(projectId);
+      return;
+    }
+    if (origin !== projectId) return;
+    try {
+      setFolders(listFolders());
+      setReadError(false);
+    } catch {
+      setFolders([]);
+      setReadError(true);
+    }
     setTitle((defaultTitle ?? inferTitleFromQuery(initialQuery)).trim());
     setTagsRaw('');
     setIsFavorite(false);
@@ -88,7 +102,11 @@ export function SaveQueryDialog({
     setVariableDefs(
       Object.fromEntries(detectedVars.map(name => [name, { name, type: 'text' } as QueryVariable]))
     );
-  }, [open, defaultFolderId, defaultTitle, initialQuery, detectedVars]);
+  }, [open, defaultFolderId, defaultTitle, initialQuery, detectedVars, projectId, origin]);
+
+  useEffect(() => {
+    if (open && origin !== projectId) onOpenChange(false);
+  }, [open, origin, projectId, onOpenChange]);
 
   function updateVarDef(name: string, patch: Partial<QueryVariable>) {
     setVariableDefs(prev => ({
@@ -101,21 +119,15 @@ export function SaveQueryDialog({
     onOpenChange(false);
   }
 
-  function resolveFolderId(): string | null {
-    if (folderMode === 'new') {
-      const created = createFolder(newFolderName);
-      return created.id;
-    }
-    return folderId ?? null;
-  }
-
   function handleSave() {
+    const workspace = getWorkspaceState();
+    if (workspace.projectId !== origin || workspace.isLoading) return;
     try {
-      const resolvedFolderId = resolveFolderId();
       addItem({
         title,
         query: initialQuery,
-        folderId: resolvedFolderId,
+        folderId: folderMode === 'existing' ? folderId : null,
+        newFolderName: folderMode === 'new' ? newFolderName : undefined,
         tags: parsedTags,
         isFavorite,
         driver,
@@ -132,12 +144,17 @@ export function SaveQueryDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open && origin === projectId} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>{t('library.saveTitle')}</DialogTitle>
         </DialogHeader>
 
+        {readError && (
+          <div role="alert" className="text-sm text-error">
+            {t('library.invalidData')}
+          </div>
+        )}
         <div className="grid gap-4 py-2">
           <div className="grid gap-2">
             <Label htmlFor="ql-title">{t('library.fields.title')}</Label>
@@ -290,7 +307,10 @@ export function SaveQueryDialog({
           <Button variant="outline" onClick={close}>
             {t('common.cancel')}
           </Button>
-          <Button onClick={handleSave} disabled={!title.trim() || !initialQuery.trim()}>
+          <Button
+            onClick={handleSave}
+            disabled={readError || !title.trim() || !initialQuery.trim()}
+          >
             {t('library.save')}
           </Button>
         </DialogFooter>

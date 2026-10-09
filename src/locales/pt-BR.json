@@ -508,6 +508,9 @@
     "close": "Fechar"
   },
   "library": {
+    "invalidData": "Não foi possível ler a biblioteca. Nenhum dado foi substituído. Restaure dados válidos e atualize.",
+    "itemLimit": "A biblioteca permite até {{count}} consultas. Exclua algumas antes de adicionar mais. Nada foi alterado.",
+    "folderLimit": "A biblioteca permite até {{count}} pastas. Exclua algumas antes de adicionar mais. Nada foi alterado.",
     "title": "Biblioteca de Consultas",
     "open": "Biblioteca",
     "save": "Salvar",
@@ -655,6 +658,7 @@
     "clearAll": "Limpar todos os resultados",
     "cancelExecution": "Cancelar",
     "executionStopped": "Execução cancelada",
+    "referenceUnavailable": "Não é possível usar {{reference}}. O resultado de origem deve estar atualizado, completo, sem mascaramento e sem ambiguidade.",
     "allCellsExecuted": "Todas as células executadas",
     "save": "Salvar notebook",
     "saveAs": "Salvar como...",
@@ -714,6 +718,7 @@
     "aiCellInserted": "Célula SQL inserida abaixo"
   },
   "replay": {
+    "cancelledReport": "Reprodução cancelada. As consultas executadas são preservadas; a consulta em andamento pode ter terminado.",
     "title": "Reexecução de consultas",
     "openLab": "Abrir a reexecução de consultas",
     "setName": "Nome do conjunto",
@@ -854,6 +859,7 @@
       "acceptBody": "As expectativas do conjunto são substituídas pelo que esta execução observou. As próximas serão comparadas com ela."
     },
     "skipReason": {
+      "cancelled": "Reprodução cancelada",
       "mutation_excluded": "Mutação excluída da reprodução",
       "mutation_production_blocked": "Mutações nunca são reproduzidas em produção"
     }
@@ -1375,6 +1381,7 @@
     "updateConfirmDescription": "Você está prestes a atualizar {{column}} em {{table}}.",
     "updateConfirmLabel": "Atualizar valor",
     "updateSuccess": "Linha atualizada com sucesso",
+    "updateReloaded": "Alteração salva. Recarregando a tabela para manter a visualização consistente.",
     "updateError": "Falha ao atualizar linha",
     "updateNoPrimaryKey": "Edição inline requer uma chave primária",
     "pinColumnLeft": "Fixar à esquerda",
@@ -1550,6 +1557,7 @@
     "loadingOptions": "Carregando opções..."
   },
   "common": {
+    "contextChanged": "O contexto mudou. Tente realizar a ação novamente.",
     "loading": "Carregando...",
     "error": "Erro",
     "success": "Sucesso",
@@ -2056,6 +2064,8 @@
     },
     "generateSQL": "Gerar SQL",
     "migration": {
+      "outcomeUnknown": "Não foi possível confirmar o resultado. Não execute este lote novamente por enquanto. Reconecte e verifique as linhas afetadas antes de preparar outro lote.",
+      "previewChanged": "As alterações pendentes mudaram. Feche esta prévia e gere uma nova antes de aplicar.",
       "title": "Script de Migração",
       "generating": "Gerando script...",
       "statements": "{{count}} instrução(ões)",
@@ -2514,7 +2524,19 @@
     "side": {
       "left": "esquerda",
       "right": "direita"
-    }
+    },
+    "incompleteComparison": "Comparação incompleta",
+    "noMatchingRows": "Nenhuma linha corresponde a este filtro",
+    "noObservedDifferences": "Nenhuma diferença observada nos dados comparados",
+    "warnings": {
+      "ambiguousKeys": "Chaves duplicadas: as linhas restantes são associadas na ordem de origem.",
+      "uncomparedColumns": "Algumas colunas não são comparadas.",
+      "noCommonColumns": "Os nomes das colunas diferem: comparação por posição.",
+      "missingKeyColumns": "Faltam colunas-chave selecionadas.",
+      "maskedColumns": "Valores mascarados não podem ser comparados integralmente.",
+      "truncated": "Somente as linhas carregadas são comparadas."
+    },
+    "retry": "Tentar novamente"
   },
   "virtualRelations": {
     "title": "Relações Virtuais",
@@ -3124,6 +3146,7 @@
     "driftCheckHint": "Compara o esquema ativo com a baseline para detectar mudanças externas.",
     "driftTitle": "Desvio de esquema",
     "driftNone": "Sem desvio — o esquema corresponde à baseline",
+    "schemaEnumerationIncomplete": "A captura do esquema está incompleta. Verifique a conexão e o banco de dados e tente novamente antes de comparar ou gerar uma migração.",
     "captureIncomplete": "Capturado com {{count}} tabela(s) ignorada(s) (falha ao descrever)",
     "close": "Fechar",
     "tableAdded": "Adicionada",
@@ -3352,9 +3375,15 @@
     "leave": "Sair"
   },
   "timeTravel": {
+    "rollbackIncompleteCapture": "Captura incompleta: não foi possível verificar a linha ou sua chave primária. Reversão ignorada.",
+    "retry": "Atualizar",
+    "requestFailed": "Não foi possível concluir esta solicitação de histórico. Tente novamente.",
+    "scopeHint": "O histórico é limitado a esta conexão. Registros antigos sem conexão identificável são preservados, mas ficam ocultos.",
     "viewHistory": "View data history",
     "title": "Data Time-Travel",
     "timeline": {
+      "events": "{{count}} evento",
+      "events_other": "{{count}} eventos",
       "title": "Timeline",
       "noEvents": "No mutations recorded for this table",
       "loadMore": "Load more events",

@@ -20,7 +20,6 @@ import {
   subscribeSandbox,
 } from '@/lib/sandbox/sandboxStore';
 import { getShortcut } from '@/utils/platform';
-import { SchemaExplainDialog } from './components/AI/SchemaExplainDialog';
 import { AppOverlays } from './components/AppOverlays';
 import { DatabaseBrowser, type DatabaseBrowserTab } from './components/Browser/DatabaseBrowser';
 import { TableBrowser, type TableBrowserTab } from './components/Browser/TableBrowser';
@@ -32,6 +31,7 @@ import { QueryPanel } from './components/Query/QueryPanel';
 import { SandboxBorder } from './components/Sandbox';
 import type { SearchResult } from './components/Search/GlobalSearch';
 import { Sidebar } from './components/Sidebar/Sidebar';
+import { useOpenNotebook } from './hooks/useOpenNotebook';
 
 const DataDiffViewer = lazy(() =>
   import('./components/Diff/DataDiffViewer').then(m => ({
@@ -60,6 +60,11 @@ const ReplayTab = lazy(() => import('./components/Replay').then(m => ({ default:
 const SettingsPage = lazy(() =>
   import('./components/Settings/SettingsPage').then(m => ({
     default: m.SettingsPage,
+  }))
+);
+const SchemaExplainDialog = lazy(() =>
+  import('./components/AI/SchemaExplainDialog').then(m => ({
+    default: m.SchemaExplainDialog,
   }))
 );
 const SnapshotManager = lazy(() =>
@@ -94,7 +99,6 @@ import { useWebviewGuards } from './hooks/useWebviewGuards';
 import { Driver, getDriverMetadata } from './lib/connection/drivers';
 import { buildQualifiedTableName } from './lib/ddl';
 import { getDocsUrl, getDriverDocsPath, getSiteUrl } from './lib/externalLinks';
-import { openNotebookFromFile, setPendingNotebook } from './lib/notebook/notebookIO';
 import { notify } from './lib/notify';
 import { splitContributionId } from './lib/plugins';
 import type { HistoryEntry } from './lib/query/history';
@@ -358,16 +362,7 @@ export function AppLayout() {
     if (sessionId) openTab(createNotebookTab());
   }, [sessionId, openTab]);
 
-  const handleOpenNotebook = useCallback(async () => {
-    if (!sessionId) return;
-    try {
-      const nbResult = await openNotebookFromFile();
-      if (nbResult) {
-        setPendingNotebook(nbResult.path, nbResult.notebook);
-        openTab(createNotebookTab(nbResult.notebook.metadata.title, nbResult.path));
-      }
-    } catch {}
-  }, [sessionId, openTab]);
+  const handleOpenNotebook = useOpenNotebook(sessionId, openTab);
 
   const handleOpenDiff = useCallback(() => {
     if (sessionId)
@@ -831,17 +826,7 @@ export function AppLayout() {
             if (sessionId) openTab(createNotebookTab());
             return;
           case 'cmd_open_notebook':
-            if (sessionId) {
-              try {
-                const nbResult = await openNotebookFromFile();
-                if (nbResult) {
-                  setPendingNotebook(nbResult.path, nbResult.notebook);
-                  openTab(createNotebookTab(nbResult.notebook.metadata.title, nbResult.path));
-                }
-              } catch (err) {
-                console.error('Failed to open notebook from file:', err);
-              }
-            }
+            await handleOpenNotebook();
             return;
           case 'cmd_convert_to_notebook':
             if (sessionId && activeTab?.type === 'query') {
@@ -952,6 +937,7 @@ export function AppLayout() {
       queryDrafts,
       handleConnected,
       handleOpenDiff,
+      handleOpenNotebook,
       handleToggleSandbox,
       refreshSidebar,
       projectId,
@@ -1158,12 +1144,14 @@ export function AppLayout() {
       </div>
 
       {aiExplainTarget && (
-        <SchemaExplainDialog
-          sessionId={sessionId}
-          namespace={aiExplainTarget.namespace}
-          table={aiExplainTarget.table}
-          onClose={() => setAiExplainTarget(null)}
-        />
+        <Suspense fallback={null}>
+          <SchemaExplainDialog
+            sessionId={sessionId}
+            namespace={aiExplainTarget.namespace}
+            table={aiExplainTarget.table}
+            onClose={() => setAiExplainTarget(null)}
+          />
+        </Suspense>
       )}
 
       <AppOverlays
@@ -1290,6 +1278,7 @@ function AppContent({
   onCreateEvent,
   onOpenSequenceSource,
 }: AppContentProps) {
+  const { projectId } = useWorkspace();
   if (!sessionId) {
     return (
       <WelcomeScreen
@@ -1448,7 +1437,7 @@ function AppContent({
       <div className="flex-1 min-h-0 flex flex-col">
         <LicenseGate feature="query_replay">
           <ReplayTab
-            key={activeTab.id}
+            key={`${projectId}:${sessionId}:${activeTab.id}`}
             sessionId={sessionId}
             environment={activeConnection?.environment}
             connectionName={activeConnection?.name}

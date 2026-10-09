@@ -45,6 +45,7 @@ export interface ReplaySet {
   /** Query text was redacted on the way in: shareable, and not replayable. */
   redacted: boolean;
   entries: ReplayEntry[];
+  baseline_run_id?: string | null;
 }
 
 export interface ReplaySetSummary {
@@ -63,12 +64,14 @@ export interface RunMeta {
   set_name: string;
   started_at: string;
   finished_at?: string | null;
+  cancelled?: boolean;
   connection_label?: string | null;
   driver_id: string;
   environment: string;
   capture_mode: CaptureMode;
   capture_stopped_reason?: CaptureStopReason | null;
   is_baseline: boolean;
+  reference_generation?: boolean;
   captured_bytes: number;
   entry_count: number;
 }
@@ -179,6 +182,7 @@ export const DEFAULT_RUN_OPTIONS: ReplayRunOptions = {
 };
 
 export interface StartRecordingRequest {
+  project_id: string;
   session_id: string;
   name: string;
   ignored_columns: string[];
@@ -192,28 +196,36 @@ export async function startRecording(request: StartRecordingRequest): Promise<Re
   return invoke('replay_start_recording', { request });
 }
 
-export async function stopRecording(slug?: string): Promise<ReplaySetSummary> {
-  return invoke('replay_stop_recording', { slug: slug ?? null });
+export interface RecordingTarget {
+  projectId: string;
+  runId: string;
 }
 
-export async function cancelRecording(): Promise<void> {
-  return invoke('replay_cancel_recording');
+export async function stopRecording(
+  target: RecordingTarget,
+  slug?: string
+): Promise<ReplaySetSummary> {
+  return invoke('replay_stop_recording', { ...target, slug: slug ?? null });
 }
 
-export async function getRecordingStatus(): Promise<RecordingStatus | null> {
-  return invoke('replay_recording_status');
+export async function cancelRecording(target: RecordingTarget): Promise<void> {
+  return invoke('replay_cancel_recording', { ...target });
 }
 
-export async function getRecordedPreviews(): Promise<RecordedPreview[]> {
-  return invoke('replay_recorded_previews');
+export async function getRecordingStatus(projectId: string): Promise<RecordingStatus | null> {
+  return invoke('replay_recording_status', { projectId });
 }
 
-export async function discardRecorded(index: number): Promise<void> {
-  return invoke('replay_discard_recorded', { index });
+export async function getRecordedPreviews(target: RecordingTarget): Promise<RecordedPreview[]> {
+  return invoke('replay_recorded_previews', { ...target });
 }
 
-export async function discardRecordedMutations(): Promise<number> {
-  return invoke('replay_discard_mutations');
+export async function discardRecorded(target: RecordingTarget, index: number): Promise<void> {
+  return invoke('replay_discard_recorded', { ...target, index });
+}
+
+export async function discardRecordedMutations(target: RecordingTarget): Promise<number> {
+  return invoke('replay_discard_mutations', { ...target });
 }
 
 export async function listReplaySets(): Promise<ReplaySetSummary[]> {

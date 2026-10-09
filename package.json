@@ -28,7 +28,9 @@
     "changelog:latest": "git cliff --latest --strip header",
     "typecheck": "tsc --noEmit",
     "docs:check": "node scripts/check-repository.mjs",
-    "test:repo": "node --test scripts/check-repository.test.mjs"
+    "test:repo": "node --test scripts/check-repository.test.mjs",
+    "perf:bundle": "node scripts/measure-bundle.mjs",
+    "test:perf": "node --test scripts/measure-bundle.test.mjs"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.3",

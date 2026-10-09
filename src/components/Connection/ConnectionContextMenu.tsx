@@ -72,7 +72,7 @@ export function ConnectionContextMenu({
   children,
 }: ConnectionContextMenuProps) {
   const { t } = useTranslation();
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteAction, setDeleteAction] = useState<(() => Promise<void>) | null>(null);
   const [truncateOpen, setTruncateOpen] = useState(false);
   const [truncateLoading, setTruncateLoading] = useState(false);
   const { testing, deleting, duplicating, handleTest, handleEdit, handleDelete, handleDuplicate } =
@@ -80,7 +80,7 @@ export function ConnectionContextMenu({
       connection,
       onEdit,
       onDeleted,
-      onAfterAction: () => setShowDeleteConfirm(false),
+      onAfterAction: () => setDeleteAction(null),
     });
 
   const driverId = connection.driver.toLowerCase();
@@ -215,7 +215,7 @@ export function ConnectionContextMenu({
             variant="destructive"
             onSelect={e => {
               e.preventDefault();
-              setShowDeleteConfirm(true);
+              setDeleteAction(() => handleDelete);
             }}
             disabled={deleting}
           >
@@ -225,7 +225,12 @@ export function ConnectionContextMenu({
         </ContextMenuContent>
       </ContextMenu>
 
-      <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+      <Dialog
+        open={deleteAction !== null}
+        onOpenChange={open => {
+          if (!open) setDeleteAction(null);
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{t('connection.menu.delete')}</DialogTitle>
@@ -236,14 +241,17 @@ export function ConnectionContextMenu({
             </p>
           </div>
           <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setShowDeleteConfirm(false)}
-              disabled={deleting}
-            >
+            <Button variant="outline" onClick={() => setDeleteAction(null)} disabled={deleting}>
               {t('common.cancel')}
             </Button>
-            <Button variant="destructive" onClick={handleDelete} disabled={deleting}>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                void deleteAction?.();
+                setDeleteAction(null);
+              }}
+              disabled={deleting}
+            >
               {deleting ? (
                 <Loader2 size={14} className="animate-spin mr-2" />
               ) : (

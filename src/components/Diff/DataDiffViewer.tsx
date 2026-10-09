@@ -161,6 +161,7 @@ export function DataDiffViewer({
         tableName: leftSource.tableName,
         query: leftSource.query,
         result: leftSource.result,
+        truncated: leftSource.truncated,
         namespace: leftSource.namespace,
         connectionId: leftSource.connectionId,
       });
@@ -168,6 +169,7 @@ export function DataDiffViewer({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     leftSource.result,
+    leftSource.truncated,
     leftSource.connectionId,
     leftSource.mode,
     leftSource.namespace,
@@ -185,6 +187,7 @@ export function DataDiffViewer({
         tableName: rightSource.tableName,
         query: rightSource.query,
         result: rightSource.result,
+        truncated: rightSource.truncated,
         namespace: rightSource.namespace,
         connectionId: rightSource.connectionId,
       });
@@ -192,6 +195,7 @@ export function DataDiffViewer({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     rightSource.result,
+    rightSource.truncated,
     onSourceChange,
     rightSource.connectionId,
     rightSource.mode,

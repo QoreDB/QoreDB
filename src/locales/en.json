@@ -537,6 +537,9 @@
     "close": "Close"
   },
   "library": {
+    "invalidData": "Unable to read the library. No data was replaced. Restore valid data, then refresh.",
+    "itemLimit": "The library is limited to {{count}} queries. Remove some queries before adding more. Nothing was changed.",
+    "folderLimit": "The library is limited to {{count}} folders. Remove some folders before adding more. Nothing was changed.",
     "title": "Query Library",
     "open": "Library",
     "save": "Save",
@@ -684,6 +687,7 @@
     "clearAll": "Clear all results",
     "cancelExecution": "Cancel",
     "executionStopped": "Execution cancelled",
+    "referenceUnavailable": "Cannot use {{reference}}. Its source must have a current, complete, unmasked and unambiguous result.",
     "allCellsExecuted": "All cells executed",
     "save": "Save notebook",
     "saveAs": "Save as...",
@@ -743,6 +747,7 @@
     "aiCellInserted": "SQL cell inserted below"
   },
   "replay": {
+    "cancelledReport": "Replay cancelled. Completed queries are preserved; an in-flight query may have finished.",
     "title": "Query Replay",
     "openLab": "Open Query Replay",
     "setName": "Set name",
@@ -883,6 +888,7 @@
       "acceptBody": "The set's expectations are replaced by what this run observed. Later replays compare against it."
     },
     "skipReason": {
+      "cancelled": "Replay cancelled",
       "mutation_excluded": "Mutation excluded from the replay",
       "mutation_production_blocked": "Mutations are never replayed against production"
     }
@@ -1410,6 +1416,7 @@
     "updateConfirmDescription": "You are about to update {{column}} in {{table}}.",
     "updateConfirmLabel": "Update value",
     "updateSuccess": "Row updated successfully",
+    "updateReloaded": "Change saved. Reloading the table to keep the view consistent.",
     "updateError": "Failed to update row",
     "updateNoPrimaryKey": "Inline edit requires a primary key",
     "pinColumnLeft": "Pin to left",
@@ -1585,6 +1592,7 @@
     "loadingOptions": "Loading options..."
   },
   "common": {
+    "contextChanged": "The context changed. Please try the action again.",
     "loading": "Loading...",
     "error": "Error",
     "success": "Success",
@@ -2095,6 +2103,8 @@
     },
     "generateSQL": "Generate SQL",
     "migration": {
+      "outcomeUnknown": "The result could not be confirmed. Do not retry this batch yet. Reconnect and check the affected rows before preparing a new batch.",
+      "previewChanged": "Pending changes have changed. Close this preview and generate it again before applying.",
       "title": "Migration Script",
       "generating": "Generating script...",
       "statements": "{{count}} statement(s)",
@@ -2553,7 +2563,19 @@
     "side": {
       "left": "left",
       "right": "right"
-    }
+    },
+    "incompleteComparison": "Incomplete comparison",
+    "noMatchingRows": "No rows match this filter",
+    "noObservedDifferences": "No differences observed in the compared data",
+    "warnings": {
+      "ambiguousKeys": "Duplicate keys: remaining rows are paired in source order.",
+      "uncomparedColumns": "Some columns are not compared.",
+      "noCommonColumns": "Column names differ: comparison uses their positions.",
+      "missingKeyColumns": "Selected key columns are unavailable.",
+      "maskedColumns": "Masked values cannot be fully compared.",
+      "truncated": "Only the loaded rows are compared."
+    },
+    "retry": "Retry"
   },
   "virtualRelations": {
     "title": "Virtual Relations",
@@ -3163,6 +3185,7 @@
     "driftCheckHint": "Compare the live schema against the baseline to detect out-of-band changes.",
     "driftTitle": "Schema drift",
     "driftNone": "No drift — the schema matches the baseline",
+    "schemaEnumerationIncomplete": "Schema capture is incomplete. Check the connection and database, then retry before comparing or generating a migration.",
     "captureIncomplete": "Captured with {{count}} table(s) skipped (describe failed)",
     "close": "Close",
     "tableAdded": "Added",
@@ -3391,9 +3414,15 @@
     "leave": "Leave workspace"
   },
   "timeTravel": {
+    "rollbackIncompleteCapture": "Incomplete capture: the row or its primary key could not be verified. Rollback skipped.",
+    "retry": "Refresh",
+    "requestFailed": "Unable to complete this history request. Please retry.",
+    "scopeHint": "History is limited to this connection. Older records with an unknown connection are preserved but hidden.",
     "viewHistory": "View data history",
     "title": "Data Time-Travel",
     "timeline": {
+      "events": "{{count}} event",
+      "events_other": "{{count}} events",
       "title": "Timeline",
       "noEvents": "No mutations recorded for this table",
       "loadMore": "Load more events",

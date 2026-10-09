@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: BUSL-1.1
 
-import { useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { ProductionConfirmDialog } from '@/components/Guard/ProductionConfirmDialog';
@@ -11,6 +11,7 @@ import {
   withoutRule,
   withRule,
 } from '@/lib/masking';
+import { captureWorkspaceScope } from '@/lib/stores/workspaceStore';
 import type { ConnectionMasking, Environment } from '@/lib/tauri';
 import { useLicense } from '@/providers/LicenseProvider';
 import { useSessionContext } from '@/providers/SessionProvider';
@@ -40,15 +41,35 @@ export function useColumnMasking({
   const { savedConnections, refreshSidebar } = useSessionContext();
   const { projectId } = useWorkspace();
   const { isFeatureEnabled } = useLicense();
-  const [pendingRemoval, setPendingRemoval] = useState<string | null>(null);
+  const savedConnection = savedConnections.find(connection => connection.id === connectionId);
+  const [pendingRemoval, setPendingRemoval] = useState<(() => void) | null>(null);
+  const context = useMemo(
+    () => ({ projectId, connectionId, tableName, savedConnection }),
+    [projectId, connectionId, tableName, savedConnection]
+  );
+  const current = useRef<typeof context | null>(context);
+  current.current = context;
+  const busy = useRef(false);
+  useEffect(() => {
+    current.current = context;
+    setPendingRemoval(null);
+    return () => {
+      current.current = null;
+    };
+  }, [context]);
+  function captureContext() {
+    const inWorkspace = captureWorkspaceScope(projectId);
+    return () => current.current === context && inWorkspace();
+  }
 
-  const masking =
-    savedConnections.find(connection => connection.id === connectionId)?.masking ?? EMPTY_MASKING;
+  const masking = savedConnection?.masking ?? EMPTY_MASKING;
 
-  async function save(next: ConnectionMasking, message: string) {
-    if (!connectionId) return;
+  async function save(next: ConnectionMasking, message: string, isCurrent = captureContext()) {
+    if (!connectionId || !savedConnection || !isCurrent() || busy.current) return;
+    busy.current = true;
     try {
       const result = await setConnectionMasking(projectId, connectionId, next);
+      if (!isCurrent()) return;
       if (!result.success) throw new Error(result.error);
       refreshSidebar();
       if (onChanged) {
@@ -58,19 +79,25 @@ export function useColumnMasking({
         toast.success(t('grid.masking.appliedNextRun'));
       }
     } catch (error) {
+      if (!isCurrent()) return;
       toast.error(error instanceof Error && error.message ? error.message : t('common.error'));
+    } finally {
+      busy.current = false;
     }
   }
 
-  function remove(column: string) {
+  function remove(column: string, isCurrent = captureContext()) {
     const rule = findRule(masking, tableName, column);
-    if (rule) void save(withoutRule(masking, rule), t('grid.masking.removed'));
+    if (rule) void save(withoutRule(masking, rule), t('grid.masking.removed'), isCurrent);
   }
 
   function toggle(column: string) {
+    // Missing metadata is not an empty policy that can safely be overwritten.
+    if (!savedConnection) return;
     if (findRule(masking, tableName, column)) {
       if (environment === 'production') {
-        setPendingRemoval(column);
+        const isCurrent = captureContext();
+        setPendingRemoval(() => () => remove(column, isCurrent));
       } else {
         remove(column);
       }
@@ -86,7 +113,7 @@ export function useColumnMasking({
     ? {
         hasRule: column => Boolean(findRule(masking, tableName, column)),
         isMasked: column => maskedColumns.has(column),
-        canAdd: isFeatureEnabled('column_masking'),
+        canAdd: Boolean(savedConnection) && isFeatureEnabled('column_masking'),
         toggle,
       }
     : undefined;
@@ -99,7 +126,7 @@ export function useColumnMasking({
       confirmationLabel={confirmationLabel}
       confirmLabel={t('connection.masking.removeConfirmLabel')}
       onConfirm={() => {
-        if (pendingRemoval) remove(pendingRemoval);
+        pendingRemoval?.();
         setPendingRemoval(null);
       }}
       onOpenChange={open => {

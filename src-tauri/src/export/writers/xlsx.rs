@@ -45,6 +45,13 @@ impl XlsxWriter {
                     .write_boolean(row, col, *b)
                     .map_err(|e| e.to_string())?;
             }
+            // Excel only guarantees 15 decimal digits for numeric cells.
+            // Store larger identifiers as text rather than changing their value.
+            Value::Int(i) if !(-999_999_999_999_999..=999_999_999_999_999).contains(i) => {
+                worksheet
+                    .write_string(row, col, i.to_string())
+                    .map_err(|e| e.to_string())?;
+            }
             Value::Int(i) => {
                 worksheet
                     .write_number(row, col, *i as f64)
@@ -155,5 +162,113 @@ impl ExportWriter for XlsxWriter {
 
     fn bytes_written(&self) -> u64 {
         self.bytes_written
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Read;
+
+    fn xml(archive: &mut zip::ZipArchive<std::fs::File>, name: &str) -> String {
+        let mut content = String::new();
+        archive
+            .by_name(name)
+            .unwrap()
+            .read_to_string(&mut content)
+            .unwrap();
+        content
+    }
+
+    #[tokio::test]
+    async fn large_integers_remain_exact_text_in_the_generated_workbook() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("exact.xlsx");
+        let columns = vec![ColumnInfo {
+            name: "id".into(),
+            data_type: "BIGINT".into(),
+            nullable: true,
+            masked: false,
+        }];
+        let mut writer = XlsxWriter::new(path.to_string_lossy().into_owned());
+        writer.write_header(&columns).await.unwrap();
+        for value in [
+            999_999_999_999_999,
+            1_000_000_000_000_001,
+            9_007_199_254_740_993,
+            i64::MAX,
+            i64::MIN,
+        ] {
+            writer
+                .write_row(
+                    &columns,
+                    &Row {
+                        values: vec![Value::Int(value)],
+                    },
+                )
+                .await
+                .unwrap();
+        }
+        writer.finish().await.unwrap();
+        let mut archive = zip::ZipArchive::new(std::fs::File::open(&path).unwrap()).unwrap();
+        let sheet = xml(&mut archive, "xl/worksheets/sheet1.xml");
+        let strings = xml(&mut archive, "xl/sharedStrings.xml");
+        assert!(sheet.contains("<v>999999999999999</v>"));
+        for (row, value) in [
+            (3, "1000000000000001"),
+            (4, "9007199254740993"),
+            (5, "9223372036854775807"),
+            (6, "-9223372036854775808"),
+        ] {
+            assert!(
+                sheet.contains(&format!("<c r=\"A{row}\" t=\"s\">")),
+                "large integer is stored as text at row {row}"
+            );
+            assert!(strings.contains(&format!("<t>{value}</t>")));
+        }
+        assert_eq!(
+            writer.bytes_written(),
+            std::fs::metadata(path).unwrap().len()
+        );
+    }
+
+    #[tokio::test]
+    async fn text_decimals_and_formula_like_values_are_preserved_without_formulas() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("text.xlsx");
+        let columns = vec![ColumnInfo {
+            name: "value".into(),
+            data_type: "TEXT".into(),
+            nullable: true,
+            masked: false,
+        }];
+        let mut writer = XlsxWriter::new(path.to_string_lossy().into_owned());
+        writer.write_header(&columns).await.unwrap();
+        for value in [
+            Value::Text("0.123456789012345678901234567890".into()),
+            Value::Text("=1+1".into()),
+            Value::Text("••••••".into()),
+            Value::Null,
+            Value::Bool(true),
+        ] {
+            writer
+                .write_row(
+                    &columns,
+                    &Row {
+                        values: vec![value],
+                    },
+                )
+                .await
+                .unwrap();
+        }
+        writer.finish().await.unwrap();
+        let mut archive = zip::ZipArchive::new(std::fs::File::open(path).unwrap()).unwrap();
+        let sheet = xml(&mut archive, "xl/worksheets/sheet1.xml");
+        let strings = xml(&mut archive, "xl/sharedStrings.xml");
+        assert!(strings.contains("0.123456789012345678901234567890"));
+        assert!(strings.contains("=1+1"));
+        assert!(strings.contains("••••••"));
+        assert!(!sheet.contains("<f>"));
+        assert!(sheet.contains("t=\"b\"><v>1</v>"));
     }
 }

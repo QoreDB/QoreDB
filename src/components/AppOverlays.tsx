@@ -6,7 +6,7 @@ import { CrashReportOverlay } from '@/components/Crash/CrashReportOverlay';
 import { ProActivationDialog } from '@/components/License/ProActivationDialog';
 import { NewsletterPromptModal } from '@/components/Newsletter/NewsletterPromptModal';
 import { OnboardingModal } from '@/components/Onboarding/OnboardingModal';
-import { QueryLibraryModal } from '@/components/Query/QueryLibraryModal';
+import { DeferredQueryLibraryModal as QueryLibraryModal } from '@/components/Query/DeferredQueryLibraryModal';
 import { FulltextSearchPanel } from '@/components/Search/FulltextSearchPanel';
 import {
   type CommandItem,

@@ -45,8 +45,8 @@ pub struct ChangelogStore {
     file_line_count: AtomicUsize,
     /// True only when the cache covers the whole successfully loaded journal.
     cache_complete: AtomicBool,
-    /// Never guess a destructive retention policy after a configuration read error.
-    retention_config_valid: AtomicBool,
+    /// An unreadable policy must not be replaced by default capture/privacy rules.
+    config_valid: AtomicBool,
 }
 
 impl ChangelogStore {
@@ -66,7 +66,7 @@ impl ChangelogStore {
             config: RwLock::new(TimeTravelConfig::default()),
             file_line_count: AtomicUsize::new(0),
             cache_complete: AtomicBool::new(false),
-            retention_config_valid: AtomicBool::new(true),
+            config_valid: AtomicBool::new(true),
         };
 
         store.load_config_from_disk();
@@ -75,8 +75,22 @@ impl ChangelogStore {
         store
     }
 
-    pub fn get_config(&self) -> TimeTravelConfig {
-        self.config.read().clone()
+    pub fn get_config(&self) -> Result<TimeTravelConfig, String> {
+        let _file_guard = self.file_lock.lock();
+        if !self.config_valid.load(Ordering::Relaxed) {
+            // Settings can retry after the original file has been restored.
+            self.load_config_from_disk();
+        }
+        self.require_valid_config()?;
+        Ok(self.config.read().clone())
+    }
+
+    fn require_valid_config(&self) -> Result<(), String> {
+        if self.config_valid.load(Ordering::Relaxed) {
+            Ok(())
+        } else {
+            Err("Time-travel configuration is unreadable; restore it and retry in settings".into())
+        }
     }
 
     pub fn update_config(&self, config: TimeTravelConfig) -> Result<(), String> {
@@ -86,7 +100,7 @@ impl ChangelogStore {
         crate::atomic_write::write_atomic(&self.config_path, &json)
             .map_err(|error| format!("Failed to save time-travel config: {error}"))?;
         *self.config.write() = config.clone();
-        self.retention_config_valid.store(true, Ordering::Relaxed);
+        self.config_valid.store(true, Ordering::Relaxed);
         // Configuration and journal are separate files. A failed cleanup is
         // reported, while the saved policy remains available for the next retry.
         self.enforce_retention_locked(&config, Utc::now())
@@ -94,7 +108,7 @@ impl ChangelogStore {
     }
 
     pub fn is_enabled(&self) -> bool {
-        self.config.read().enabled
+        self.config_valid.load(Ordering::Relaxed) && self.config.read().enabled
     }
 
     /// Check if a table is excluded from capture.
@@ -108,6 +122,9 @@ impl ChangelogStore {
 
     /// Check if capture should happen for the given environment.
     pub fn should_capture(&self, table_name: &str, environment: &str) -> bool {
+        if !self.config_valid.load(Ordering::Relaxed) {
+            return false;
+        }
         let config = self.config.read();
         if !config.enabled {
             return false;
@@ -127,19 +144,25 @@ impl ChangelogStore {
 
     fn load_config_from_disk(&self) {
         let result = match fs::read_to_string(&self.config_path) {
-            Ok(content) => serde_json::from_str::<TimeTravelConfig>(&content)
-                .map_err(|error| format!("Failed to parse time-travel config: {error}")),
+            Ok(content) => serde_json::from_str::<TimeTravelConfig>(&content).map_err(|error| {
+                format!(
+                    "Failed to parse time-travel config at line {}, column {}",
+                    error.line(),
+                    error.column()
+                )
+            }),
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => return,
             Err(error) => Err(format!("Failed to read time-travel config: {error}")),
         };
         match result {
             Ok(config) => {
                 *self.config.write() = config;
+                self.config_valid.store(true, Ordering::Relaxed);
                 debug!("Loaded time-travel config");
             }
             Err(error) => {
-                self.retention_config_valid.store(false, Ordering::Relaxed);
-                warn!("{error}; automatic retention is suspended");
+                self.config_valid.store(false, Ordering::Relaxed);
+                warn!("{error}; capture, history access and automatic retention are suspended");
             }
         }
     }
@@ -155,7 +178,7 @@ impl ChangelogStore {
         masking: Option<&qore_core::masking::ConnectionMasking>,
     ) {
         let _file_guard = self.file_lock.lock();
-        if !self.is_enabled() {
+        if !self.should_capture(&entry.table_name, &entry.environment) {
             return;
         }
         HistoryPrivacy::new(&self.config.read().sensitive_columns, masking).protect(&mut entry);
@@ -236,6 +259,7 @@ impl ChangelogStore {
     }
 
     fn visit_entries(&self, mut visit: impl FnMut(&ChangelogEntry)) -> Result<(), String> {
+        self.require_valid_config()?;
         if self.cache_complete.load(Ordering::Relaxed) {
             for entry in self.entries.read().iter() {
                 visit(entry);
@@ -356,7 +380,8 @@ impl ChangelogStore {
     }
 
     /// Keep only timestamps and ordinals while choosing a page: a large offset
-    /// must not retain skipped row images. Both passes and the count share one lock.
+    /// must not retain skipped row images. Callers hold file_lock before reading
+    /// the privacy policy, through both pagination passes and the count.
     fn select_entries(
         &self,
         privacy: &HistoryPrivacy<'_>,
@@ -364,7 +389,6 @@ impl ChangelogStore {
         limit: usize,
         offset: usize,
     ) -> Result<(Vec<ChangelogEntry>, usize), String> {
-        let _file_guard = self.file_lock.lock();
         let positions = self.matching_positions(matches)?;
         let count = positions.len();
         let entries =
@@ -404,6 +428,9 @@ impl ChangelogStore {
         table: &str,
         key: &std::collections::HashMap<String, serde_json::Value>,
     ) -> bool {
+        if !self.config_valid.load(Ordering::Relaxed) {
+            return false;
+        }
         HistoryPrivacy::new(
             &self.config.read().sensitive_columns,
             scope.masking.as_ref(),
@@ -430,6 +457,7 @@ impl ChangelogStore {
         table_name: &str,
         filter: &ChangelogFilter,
     ) -> Result<(Vec<TimelineEvent>, usize), String> {
+        let _file_guard = self.file_lock.lock();
         let privacy = HistoryPrivacy::new(
             &self.config.read().sensitive_columns,
             scope.masking.as_ref(),
@@ -489,6 +517,7 @@ impl ChangelogStore {
         scope: &ChangelogScope,
         filter: &ChangelogFilter,
     ) -> Result<Vec<ChangelogEntry>, String> {
+        let _file_guard = self.file_lock.lock();
         let privacy = HistoryPrivacy::new(
             &self.config.read().sensitive_columns,
             scope.masking.as_ref(),
@@ -511,6 +540,8 @@ impl ChangelogStore {
         primary_key: &std::collections::HashMap<String, serde_json::Value>,
         limit: Option<usize>,
     ) -> Result<Vec<ChangelogEntry>, String> {
+        let _file_guard = self.file_lock.lock();
+        self.require_valid_config()?;
         let privacy = HistoryPrivacy::new(
             &self.config.read().sensitive_columns,
             scope.masking.as_ref(),
@@ -537,6 +568,7 @@ impl ChangelogStore {
         scope: &ChangelogScope,
         entry_id: &uuid::Uuid,
     ) -> Result<Option<ChangelogEntry>, String> {
+        let _file_guard = self.file_lock.lock();
         let privacy = HistoryPrivacy::new(
             &self.config.read().sensitive_columns,
             scope.masking.as_ref(),
@@ -714,6 +746,7 @@ impl ChangelogStore {
         timestamp: DateTime<Utc>,
     ) -> Result<Option<std::collections::HashMap<String, serde_json::Value>>, String> {
         let _file_guard = self.file_lock.lock();
+        self.require_valid_config()?;
         let privacy = HistoryPrivacy::new(
             &self.config.read().sensitive_columns,
             scope.masking.as_ref(),
@@ -1075,7 +1108,7 @@ mod tests {
         );
         let ns = entry.namespace.clone();
         store.record(entry.clone());
-        let mut config = store.get_config();
+        let mut config = store.get_config().unwrap();
         config.sensitive_columns.push("lookup".into());
         store.update_config(config).unwrap();
         let search = ChangelogFilter {
@@ -1473,14 +1506,14 @@ mod tests {
         let tmp = TempDir::new().unwrap();
         let store = ChangelogStore::new(tmp.path().to_path_buf());
 
-        let mut config = store.get_config();
+        let mut config = store.get_config().unwrap();
         config.retention_days = 7;
         config.enabled = false;
         store.update_config(config).unwrap();
 
         // Reload from disk
         let store2 = ChangelogStore::new(tmp.path().to_path_buf());
-        let config2 = store2.get_config();
+        let config2 = store2.get_config().unwrap();
         assert_eq!(config2.retention_days, 7);
         assert!(!config2.enabled);
     }
@@ -1493,13 +1526,13 @@ mod tests {
         assert!(store.should_capture("users", "development"));
 
         // Disable
-        let mut config = store.get_config();
+        let mut config = store.get_config().unwrap();
         config.enabled = false;
         store.update_config(config).unwrap();
         assert!(!store.should_capture("users", "development"));
 
         // Re-enable, production only
-        let mut config = store.get_config();
+        let mut config = store.get_config().unwrap();
         config.enabled = true;
         config.production_only = true;
         store.update_config(config).unwrap();
@@ -1507,7 +1540,7 @@ mod tests {
         assert!(store.should_capture("users", "production"));
 
         // Excluded table
-        let mut config = store.get_config();
+        let mut config = store.get_config().unwrap();
         config.production_only = false;
         config.excluded_tables = vec!["migrations".to_string()];
         store.update_config(config).unwrap();
@@ -2350,7 +2383,7 @@ mod tests {
         )
         .unwrap();
         let store = ChangelogStore::new(dir.path().into());
-        let config = store.get_config();
+        let config = store.get_config().unwrap();
         store
             .update_config(TimeTravelConfig {
                 retention_days: 0,
@@ -2696,7 +2729,7 @@ mod tests {
                 })
                 .is_err()
         );
-        assert!(store.get_config().enabled);
+        assert!(store.get_config().unwrap().enabled);
     }
 
     #[test]
@@ -2771,6 +2804,302 @@ mod tests {
     }
 
     #[test]
+    fn profile_late_capture_respects_new_exclusions_and_environment_policy() {
+        for production_only in [false, true] {
+            let dir = TempDir::new().unwrap();
+            let store = ChangelogStore::new(dir.path().into());
+            let entry = history_fixture(1).pop().unwrap();
+            assert!(store.should_capture(&entry.table_name, &entry.environment));
+            store
+                .update_config(TimeTravelConfig {
+                    production_only,
+                    excluded_tables: if production_only {
+                        vec![]
+                    } else {
+                        vec![entry.table_name.clone()]
+                    },
+                    ..Default::default()
+                })
+                .unwrap();
+            // The mutation was prepared before the settings changed.
+            store.record(entry);
+            assert!(!store.log_path.exists());
+            assert!(store.entries.read().is_empty());
+        }
+    }
+
+    #[test]
+    fn profile_v0139_history_and_custom_policy_survive_reopening() {
+        let dir = TempDir::new().unwrap();
+        // Literal pre-upgrade schema: no connection_id or workspace_id in v0.1.39.
+        let legacy = serde_json::json!({
+            "id": "c15477e3-87ef-41f9-9b1e-2ba24d73e381",
+            "timestamp": "2025-01-01T00:00:00Z",
+            "session_id": "test-session",
+            "driver_id": "postgres",
+            "namespace": {"database": "testdb", "schema": "public"},
+            "table_name": "users",
+            "operation": "insert",
+            "primary_key": {"id": 9007199254740993_i64},
+            "before": null,
+            "after": {"id": 9007199254740993_i64, "private_note": "synthetic-legacy-secret"},
+            "changed_columns": [],
+            "connection_name": "Legacy fixture",
+            "environment": "production"
+        });
+        let config = br#"{"enabled":false,"max_entries":12345,"retention_days":0,"max_file_size_mb":0,"excluded_tables":["sessions"],"production_only":true,"sensitive_columns":["private_note"]}"#;
+        let journal = format!("{legacy}\n");
+        fs::write(dir.path().join("time-travel.json"), config).unwrap();
+        fs::write(dir.path().join("changelog.jsonl"), &journal).unwrap();
+        for _ in 0..2 {
+            let store = ChangelogStore::new(dir.path().into());
+            let restored = store.get_config().unwrap();
+            assert_eq!(
+                serde_json::to_value(&restored).unwrap(),
+                serde_json::from_slice::<serde_json::Value>(config).unwrap()
+            );
+            assert!(!store.should_capture("users", "production"));
+            store.enforce_retention().unwrap();
+            let entries = store
+                .get_entries(&scope(), &ChangelogFilter::default())
+                .unwrap();
+            assert_eq!(entries.len(), 1);
+            assert!(entries[0].connection_id.is_none());
+            assert!(entries[0].workspace_id.is_none());
+            assert_eq!(entries[0].primary_key["id"], 9007199254740993_i64);
+            assert_eq!(
+                entries[0].after.as_ref().unwrap()["private_note"],
+                "[REDACTED]"
+            );
+            let reconnected = ChangelogScope {
+                session_id: "new-session-after-upgrade".into(),
+                ..scope()
+            };
+            assert!(
+                store
+                    .get_entries(&reconnected, &ChangelogFilter::default())
+                    .unwrap()
+                    .is_empty()
+            );
+            assert_eq!(fs::read(&store.config_path).unwrap(), config);
+            assert_eq!(fs::read_to_string(&store.log_path).unwrap(), journal);
+        }
+        let store = ChangelogStore::new(dir.path().into());
+        let mut restored = store.get_config().unwrap();
+        restored.enabled = true;
+        store.update_config(restored).unwrap();
+        let store = ChangelogStore::new(dir.path().into());
+        assert!(store.should_capture("users", "production"));
+        assert!(!store.should_capture("users", "development"));
+        assert!(!store.should_capture("sessions", "production"));
+        assert_eq!(
+            store.get_config().unwrap().sensitive_columns,
+            ["private_note"]
+        );
+        assert_eq!(fs::read_to_string(&store.log_path).unwrap(), journal);
+    }
+
+    #[test]
+    fn profile_pending_reads_use_the_restored_privacy_policy() {
+        use std::sync::{Arc, Barrier, mpsc};
+        use std::time::Duration as StdDuration;
+
+        let dir = TempDir::new().unwrap();
+        let mut entry = history_fixture(1).pop().unwrap();
+        entry.primary_key = HashMap::from([("lookup".into(), serde_json::json!("profile-secret"))]);
+        write_history(&dir, [entry.clone()]);
+        fs::write(dir.path().join("time-travel.json"), b"{broken").unwrap();
+        let store = Arc::new(ChangelogStore::new(dir.path().into()));
+        let ready = Arc::new(Barrier::new(4));
+        let (completed, results) = mpsc::channel();
+        // Hold the same lock as settings recovery while history requests queue.
+        let journal = store.file_lock.lock();
+        let readers: Vec<_> = (0..3)
+            .map(|kind| {
+                let store = Arc::clone(&store);
+                let ready = Arc::clone(&ready);
+                let completed = completed.clone();
+                let entry = entry.clone();
+                std::thread::spawn(move || {
+                    ready.wait();
+                    let result = match kind {
+                        0 => store
+                            .get_entries(&scope(), &ChangelogFilter::default())
+                            .map(|value| serde_json::to_string(&value).unwrap()),
+                        1 => store
+                            .get_timeline_page(
+                                &scope(),
+                                &entry.namespace,
+                                "users",
+                                &ChangelogFilter::default(),
+                            )
+                            .map(|value| serde_json::to_string(&value).unwrap()),
+                        _ => store
+                            .get_entry(&scope(), &entry.id)
+                            .map(|value| serde_json::to_string(&value).unwrap()),
+                    };
+                    completed.send(result).unwrap();
+                })
+            })
+            .collect();
+        ready.wait();
+        assert!(results.recv_timeout(StdDuration::from_millis(100)).is_err());
+        fs::write(
+            &store.config_path,
+            serde_json::to_vec(&TimeTravelConfig {
+                sensitive_columns: vec!["lookup".into(), "name".into()],
+                ..Default::default()
+            })
+            .unwrap(),
+        )
+        .unwrap();
+        store.load_config_from_disk();
+        drop(journal);
+        for reader in readers {
+            reader.join().unwrap();
+        }
+        for _ in 0..3 {
+            let result = results
+                .recv_timeout(StdDuration::from_secs(1))
+                .unwrap()
+                .unwrap();
+            assert!(
+                !result.contains("profile-secret"),
+                "A queued read used the default policy after recovery"
+            );
+            assert!(
+                !result.contains("retained"),
+                "A queued read ignored the restored sensitive columns"
+            );
+        }
+    }
+
+    #[test]
+    fn invalid_profile_config_recovers_only_after_a_readable_policy_is_restored() {
+        let dir = TempDir::new().unwrap();
+        write_history(&dir, history_fixture(1));
+        let config_path = dir.path().join("time-travel.json");
+        fs::write(&config_path, b"{broken").unwrap();
+        let store = ChangelogStore::new(dir.path().into());
+        let original = fs::read(&store.log_path).unwrap();
+        assert!(store.get_config().is_err());
+        assert_eq!(fs::read(&config_path).unwrap(), b"{broken");
+        fs::remove_file(&config_path).unwrap();
+        assert!(store.get_config().is_err());
+        assert!(!store.is_enabled());
+        let config = TimeTravelConfig {
+            enabled: false,
+            retention_days: 0,
+            sensitive_columns: vec!["name".into()],
+            ..Default::default()
+        };
+        fs::write(&config_path, serde_json::to_vec(&config).unwrap()).unwrap();
+        assert!(!store.get_config().unwrap().enabled);
+        assert!(!store.is_enabled());
+        let entries = store
+            .get_entries(&scope(), &ChangelogFilter::default())
+            .unwrap();
+        assert_eq!(entries[0].after.as_ref().unwrap()["name"], "[REDACTED]");
+        assert_eq!(fs::read(&store.log_path).unwrap(), original);
+    }
+
+    #[test]
+    fn invalid_profile_config_cannot_resume_capture_with_default_privacy() {
+        for unreadable in [false, true] {
+            let dir = TempDir::new().unwrap();
+            write_history(&dir, history_fixture(1));
+            let config_path = dir.path().join("time-travel.json");
+            if unreadable {
+                fs::create_dir(&config_path).unwrap();
+            } else {
+                fs::write(&config_path, b"{broken").unwrap();
+            }
+            let store = ChangelogStore::new(dir.path().into());
+            let original = fs::read(&store.log_path).unwrap();
+            let mut entry = history_fixture(1).pop().unwrap();
+            entry.after = Some(HashMap::from([(
+                "private_note".into(),
+                serde_json::json!("synthetic-confidential-value"),
+            )]));
+            store.record(entry);
+            assert_eq!(fs::read(&store.log_path).unwrap(), original);
+            assert!(!store.is_enabled());
+            assert!(!store.should_capture("users", "production"));
+            assert!(store.enforce_retention().is_err());
+        }
+    }
+
+    #[test]
+    fn invalid_profile_config_cannot_expose_history_using_default_privacy() {
+        let dir = TempDir::new().unwrap();
+        let entry = history_fixture(1).pop().unwrap();
+        write_history(&dir, [entry.clone()]);
+        fs::write(dir.path().join("time-travel.json"), b"{broken").unwrap();
+        let store = ChangelogStore::new(dir.path().into());
+        let ns = &entry.namespace;
+        let filter = ChangelogFilter::default();
+        let outcomes = [
+            ("entry", store.get_entry(&scope(), &entry.id).is_err()),
+            ("entries", store.get_entries(&scope(), &filter).is_err()),
+            ("export", store.export(&scope(), &filter).is_err()),
+            (
+                "timeline",
+                store
+                    .get_timeline_page(&scope(), ns, "users", &filter)
+                    .is_err(),
+            ),
+            (
+                "count",
+                store
+                    .get_timeline_count(&scope(), ns, "users", &filter)
+                    .is_err(),
+            ),
+            (
+                "row history",
+                store
+                    .get_row_history(&scope(), ns, "users", &entry.primary_key, None)
+                    .is_err(),
+            ),
+            (
+                "row state",
+                store
+                    .get_row_state_at(&scope(), ns, "users", &entry.primary_key, Utc::now())
+                    .is_err(),
+            ),
+            (
+                "rollback",
+                store
+                    .get_rollback_entries(
+                        &scope(),
+                        ns,
+                        "users",
+                        entry.timestamp - Duration::seconds(1),
+                    )
+                    .is_err(),
+            ),
+            (
+                "diff",
+                store
+                    .compute_temporal_diff(
+                        &scope(),
+                        ns,
+                        "users",
+                        entry.timestamp - Duration::seconds(1),
+                        Utc::now(),
+                        None,
+                    )
+                    .is_err(),
+            ),
+        ];
+        let exposed: Vec<_> = outcomes.into_iter().filter(|(_, denied)| !denied).collect();
+        assert!(
+            exposed.is_empty(),
+            "Unreadable privacy policy accepted by {exposed:?}"
+        );
+        assert!(!store.can_identify_row(&scope(), "users", &entry.primary_key));
+    }
+
+    #[test]
     fn retention_policy_invalid_config_suspends_cleanup_until_a_valid_save() {
         let dir = TempDir::new().unwrap();
         let mut entry = history_fixture(1).pop().unwrap();
@@ -2781,7 +3110,7 @@ mod tests {
         let original = fs::read(&store.log_path).unwrap();
         assert!(store.enforce_retention().is_err());
         assert_eq!(fs::read(&store.log_path).unwrap(), original);
-        assert!(store.get_entry(&scope(), &entry.id).unwrap().is_some());
+        assert!(store.get_entry(&scope(), &entry.id).is_err());
         store.update_config(TimeTravelConfig::default()).unwrap();
         assert!(fs::read(&store.log_path).unwrap().is_empty());
     }
@@ -2806,7 +3135,7 @@ mod tests {
         let saved: TimeTravelConfig =
             serde_json::from_slice(&fs::read(&store.config_path).unwrap()).unwrap();
         assert_eq!(saved.max_entries, 1);
-        assert_eq!(store.get_config().max_entries, 1);
+        assert_eq!(store.get_config().unwrap().max_entries, 1);
         fs::remove_dir(blocked).unwrap();
         store.enforce_retention().unwrap();
         assert!(fs::read(&store.log_path).unwrap().is_empty());

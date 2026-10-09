@@ -135,12 +135,34 @@ try {
   await page.getByRole('alert').waitFor();
   assert.equal(await days.isDisabled(), true);
   assert.equal(await save.isDisabled(), true);
-  await page.evaluate(() => (window.__settings.failRead = false));
+  await page.evaluate(() => {
+    window.__settings.failRead = false;
+    window.__settings.config = {
+      ...window.__settings.config,
+      enabled: false,
+      retention_days: 0,
+      excluded_tables: ['sessions'],
+      sensitive_columns: ['restored_private_note'],
+    };
+  });
   await page.getByRole('button', { name: 'Refresh', exact: true }).click();
   await page.waitForFunction(() => !document.querySelector('#time-travel-retention').matches(':disabled'));
-  assert.equal(await days.inputValue(), '30');
+  assert.equal(await days.inputValue(), '0');
+  assert.equal(await exclusions.inputValue(), 'sessions');
+  assert.equal(await page.getByRole('checkbox').first().isChecked(), false);
   assert.equal((await writes()).length, 0);
   console.log('PASS failed initial load never saves defaults and can be retried');
+
+  await days.fill('14');
+  await save.click();
+  await page.waitForFunction(() => window.__settings.calls.some(c => c.command === 'update_time_travel_config'));
+  const [restoredWrite] = await writes();
+  assert.equal(restoredWrite.args.config.enabled, false);
+  assert.deepEqual(restoredWrite.args.config.excluded_tables, ['sessions']);
+  assert.deepEqual(restoredWrite.args.config.sensitive_columns, ['restored_private_note']);
+  await page.evaluate(() => (window.__settings.pendingWrite = false));
+  await page.waitForFunction(() => window.__settings.config.retention_days === 14);
+  console.log('PASS recovery and subsequent saves preserve the restored privacy policy');
 
   await page.goto(url.href + '&core=1');
   await page.waitForFunction(() => !!document.querySelector('main'));

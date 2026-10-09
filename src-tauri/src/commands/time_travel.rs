@@ -544,11 +544,14 @@ pub mod pro {
             Arc::clone(&state.changelog_store)
         };
 
-        Ok(TimeTravelConfigResponse {
-            success: true,
-            config: changelog_store.get_config(),
-            error: None,
+        run_history_io(move || {
+            Ok(TimeTravelConfigResponse {
+                success: true,
+                config: changelog_store.get_config()?,
+                error: None,
+            })
         })
+        .await
     }
 
     #[tauri::command]
@@ -567,7 +570,7 @@ pub mod pro {
 
             Ok(TimeTravelConfigResponse {
                 success: true,
-                config: changelog_store.get_config(),
+                config: changelog_store.get_config()?,
                 error: None,
             })
         })

@@ -83,6 +83,8 @@ that every check passes on the current checkout.
   enregistrements cloisonnés, commandes périmées refusées et erreurs de nettoyage.
 - [v0.1.40 exports, 2026-10-09](tests/V0_1_40_EXPORTS_2026-10-09.md):
   exact XLSX/Parquet values and explicit conversion failures.
+- [v0.1.40 profils Time Travel, 2026-10-09](tests/V0_1_40_PROFILE_HISTORY_2026-10-09.md):
+  réglages illisibles, récupération, captures tardives et compatibilité du journal v0.1.39.
 
 ## Proposals and ongoing plans
 

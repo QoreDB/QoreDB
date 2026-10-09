@@ -23,7 +23,7 @@ impl ChangelogStore {
         config: &TimeTravelConfig,
         now: DateTime<Utc>,
     ) -> Result<(), String> {
-        if !self.retention_config_valid.load(Ordering::Relaxed) {
+        if !self.config_valid.load(Ordering::Relaxed) {
             return Err("Retention requires a readable time-travel configuration".into());
         }
         let cutoff = (config.retention_days != 0).then(|| {

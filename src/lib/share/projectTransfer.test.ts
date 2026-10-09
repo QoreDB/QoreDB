@@ -70,6 +70,90 @@ beforeEach(() => {
 });
 afterEach(() => vi.unstubAllGlobals());
 
+it('round-trips local and passwordless connection formats exported by the app', async () => {
+  for (const config of [
+    { driver: 'sqlite', host: '/synthetic/fixture.db', port: 0 },
+    { driver: 'duckdb', host: '/synthetic/fixture.duckdb', port: 0 },
+    { driver: 'redis', host: 'localhost', port: 6379 },
+    { driver: 'clickhouse', host: 'localhost', port: 8123 },
+    {
+      driver: 'sqlserver',
+      host: 'localhost',
+      port: 1433,
+      mssql_auth: 'windows_integrated' as const,
+    },
+  ]) {
+    const data = payload();
+    data.connections = [{ ...connection, ...config, username: '' }];
+    const result = await importProjectExportV1(data, { projectId: 'a' });
+    expect(result.connectionsImported, config.driver).toBe(1);
+    expect(ipc.saveConnection).toHaveBeenLastCalledWith(
+      expect.objectContaining({ ...config, username: '' })
+    );
+  }
+});
+
+it('does not retry a licence-rejected import without its masking rules', async () => {
+  const data = payload();
+  data.connections[0] = {
+    ...connection,
+    masking: {
+      rules: [{ table: 'items', column: 'email', mode: 'hidden' }],
+      mask_detected_columns: false,
+    },
+  };
+  ipc.saveConnection.mockResolvedValue({
+    success: false,
+    error: 'Column masking requires a QoreDB Pro license',
+  });
+  const result = await importProjectExportV1(data, { projectId: 'a' });
+  expect(result.connectionsImported).toBe(0);
+  expect(result.connectionsSkipped).toBe(1);
+  expect(ipc.saveConnection).toHaveBeenCalledTimes(1);
+  expect(ipc.saveConnection).toHaveBeenCalledWith(
+    expect.objectContaining({ masking: data.connections[0].masking })
+  );
+});
+
+it('preserves exported safety and transport metadata without importing secrets', async () => {
+  const data = payload();
+  const metadata = {
+    ssl_mode: 'verify-full',
+    ssl_ca_cert: '/synthetic/ca.pem',
+    options: { application_name: 'qualification' },
+    mssql_auth: 'sql_password' as const,
+    clickhouse_cluster: 'synthetic',
+    search_auth_mode: 'basic' as const,
+    masking: {
+      rules: [{ table: 'items', column: 'email', mode: 'hidden' as const }],
+      mask_detected_columns: true,
+    },
+    proxy: {
+      proxy_type: 'socks5',
+      host: 'localhost',
+      port: 1080,
+      username: 'synthetic',
+      connect_timeout_secs: 10,
+    },
+  };
+  data.connections = [
+    {
+      ...connection,
+      ...metadata,
+      password: 'must-not-import',
+      proxy: { ...metadata.proxy, password: 'must-not-import' },
+    } as SavedConnection,
+  ];
+  await importProjectExportV1(data, { projectId: 'a' });
+  expect(ipc.saveConnection).toHaveBeenCalledWith(
+    expect.objectContaining({
+      ...metadata,
+      password: '',
+      proxy: expect.objectContaining({ ...metadata.proxy, password: undefined }),
+    })
+  );
+});
+
 it('rejects an export if its originating workspace changed during connection loading', async () => {
   let resolve!: (connections: SavedConnection[]) => void;
   ipc.listSavedConnections.mockReturnValueOnce(

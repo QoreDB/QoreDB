@@ -18,12 +18,20 @@ jobs:
 
       - name: Get version
         id: version
+        env:
+          REQUESTED_VERSION: ${{ inputs.version }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          GH_TOKEN: ${{ github.token }}
         run: |
-          if [ -n "${{ github.event.inputs.version }}" ]; then
-            VERSION="${{ github.event.inputs.version }}"
+          if [ -n "$REQUESTED_VERSION" ]; then
+            VERSION="$REQUESTED_VERSION"
+          elif [ -n "$RELEASE_TAG" ]; then
+            VERSION="${RELEASE_TAG#v}"
           else
-            VERSION="${GITHUB_REF_NAME#v}"
+            TAG=$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName --jq .tagName)
+            VERSION="${TAG#v}"
           fi
+          [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || exit 1
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
           echo "Publishing qoredb-bin ${VERSION} to AUR"
 

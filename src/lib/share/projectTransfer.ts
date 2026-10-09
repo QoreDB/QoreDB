@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import i18n from '../../i18n';
+import { Driver } from '../connection/drivers';
 import type { QueryLibraryExportV1 } from '../query/queryLibrary';
 import { exportLibrary, importLibrary, validateLibraryImport } from '../query/queryLibrary';
 import { captureWorkspaceScope } from '../stores/workspaceStore';
@@ -37,34 +38,8 @@ function asNumber(value: unknown): number | undefined {
   return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
 }
 
-/** Wire-compatible engines import as themselves, not as their base driver. */
-const TRANSFERABLE_DRIVERS = [
-  'postgres',
-  'yugabytedb',
-  'mysql',
-  'planetscale',
-  'tidb',
-  'starrocks',
-  'doris',
-  'singlestore',
-  'mongodb',
-  'documentdb',
-  'dragonfly',
-  'keydb',
-  'garnet',
-  'azuresql',
-  'synapse',
-  'cassandra',
-  'scylladb',
-  'keyspaces',
-  'snowflake',
-  'bigquery',
-] as const;
-
-type TransferableDriver = (typeof TRANSFERABLE_DRIVERS)[number];
-
-function isSupportedDriver(driver: unknown): driver is TransferableDriver {
-  return TRANSFERABLE_DRIVERS.includes(driver as TransferableDriver);
+function isSupportedDriver(driver: unknown): driver is Driver {
+  return typeof driver === 'string' && Object.values(Driver).includes(driver as Driver);
 }
 
 function makeImportedName(baseName: string, existingNames: Set<string>): string {
@@ -160,7 +135,16 @@ export async function importProjectExportV1(
     const readOnly = asBoolean(raw.read_only);
     const ssl = asBoolean(raw.ssl);
 
-    if (!name || !isSupportedDriver(driver) || !host || !port || !username) {
+    if (
+      !name ||
+      !isSupportedDriver(driver) ||
+      !host ||
+      port === undefined ||
+      !Number.isInteger(port) ||
+      port < 0 ||
+      port > 65535 ||
+      username === undefined
+    ) {
       connectionsSkipped += 1;
       continue;
     }
@@ -183,44 +167,27 @@ export async function importProjectExportV1(
     const pool_min_connections = asNumber(raw.pool_min_connections);
     const pool_acquire_timeout_secs = asNumber(raw.pool_acquire_timeout_secs);
 
-    const sshTunnelRaw = isRecord(raw.ssh_tunnel) ? raw.ssh_tunnel : undefined;
-    const ssh_tunnel = sshTunnelRaw
-      ? (() => {
-          const host = asString(sshTunnelRaw.host)?.trim();
-          const port = asNumber(sshTunnelRaw.port);
-          const username = asString(sshTunnelRaw.username)?.trim();
-          const auth_type = asString(sshTunnelRaw.auth_type)?.trim();
-          const key_path = asString(sshTunnelRaw.key_path);
-          const host_key_policy = asString(sshTunnelRaw.host_key_policy)?.trim();
-          const proxy_jump = asString(sshTunnelRaw.proxy_jump)?.trim();
-          const connect_timeout_secs = asNumber(sshTunnelRaw.connect_timeout_secs) ?? 10;
-          const keepalive_interval_secs = asNumber(sshTunnelRaw.keepalive_interval_secs) ?? 30;
-          const keepalive_count_max = asNumber(sshTunnelRaw.keepalive_count_max) ?? 3;
-
-          const allowedHostKeyPolicies = new Set(['accept_new', 'strict', 'insecure_no_check']);
-          const resolvedHostKeyPolicy =
-            host_key_policy && allowedHostKeyPolicies.has(host_key_policy)
-              ? host_key_policy
-              : 'accept_new';
-
-          if (!host || !port || !username || !auth_type) return undefined;
-
-          return {
-            host,
-            port,
-            username,
-            auth_type,
-            key_path: key_path || undefined,
-            host_key_policy: resolvedHostKeyPolicy,
-            proxy_jump: proxy_jump || undefined,
-            connect_timeout_secs,
-            keepalive_interval_secs,
-            keepalive_count_max,
+    // Keep exported transport/privacy fields. Rust validates their shape and licence;
+    // dropping them here could silently weaken TLS or remove masking on import.
+    const metadata = raw as unknown as SavedConnection;
+    const ssh_tunnel =
+      metadata.ssh_tunnel == null
+        ? undefined
+        : {
+            ...metadata.ssh_tunnel,
+            password: undefined,
+            key_passphrase: undefined,
           };
-        })()
-      : undefined;
+    const proxy =
+      metadata.proxy == null
+        ? undefined
+        : {
+            ...metadata.proxy,
+            password: undefined,
+          };
 
     const result = await saveConnection({
+      ...metadata,
       id,
       name: resolvedName,
       driver,
@@ -237,6 +204,7 @@ export async function importProjectExportV1(
       pool_acquire_timeout_secs: pool_acquire_timeout_secs ?? undefined,
       project_id: input.projectId,
       ssh_tunnel,
+      proxy,
     });
     assertCurrent();
 

@@ -508,6 +508,7 @@
     "close": "Cerrar"
   },
   "library": {
+    "invalidData": "No se puede leer la biblioteca. No se han reemplazado datos. Restaura datos válidos y actualiza.",
     "itemLimit": "La biblioteca admite hasta {{count}} consultas. Elimina algunas antes de añadir más. No se ha cambiado nada.",
     "folderLimit": "La biblioteca admite hasta {{count}} carpetas. Elimina algunas antes de añadir más. No se ha cambiado nada.",
     "title": "Biblioteca de consultas",

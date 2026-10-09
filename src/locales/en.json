@@ -537,6 +537,7 @@
     "close": "Close"
   },
   "library": {
+    "invalidData": "Unable to read the library. No data was replaced. Restore valid data, then refresh.",
     "itemLimit": "The library is limited to {{count}} queries. Remove some queries before adding more. Nothing was changed.",
     "folderLimit": "The library is limited to {{count}} folders. Remove some folders before adding more. Nothing was changed.",
     "title": "Query Library",

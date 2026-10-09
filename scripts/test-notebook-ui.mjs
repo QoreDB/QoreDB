@@ -255,6 +255,20 @@ try {
     assert.equal(await page.evaluate(() => window.__notebook.notebook.metadata.title), 'Synthetic notebook');
     assert.equal(await page.evaluate(() => window.__toasts.filter(t => t.type === 'error').length), 1);
   });
+  await check('invalid chart configuration cannot replace the current notebook', async () => {
+    await page.evaluate(() => {
+      const data = structuredClone(window.__notebook.notebook);
+      data.metadata.title = 'Invalid imported chart';
+      data.cells[0].type = 'chart';
+      data.cells[0].config = {chartConfig:{sourceLabel:'a',type:'bar',xColumn:'id',yColumns:'invalid'}};
+      window.__files['/invalid-chart.qnb'] = JSON.stringify(data);
+      window.__fileState.openPath = '/invalid-chart.qnb';
+      return window.__notebook.openFromFile();
+    });
+    assert.equal(await page.evaluate(() => window.__notebook.notebook.metadata.title), 'Synthetic notebook');
+    assert.equal(await page.evaluate(() => window.__notebook.notebook.cells[0].type), 'sql');
+    assert.equal(await page.evaluate(() => window.__toasts.filter(t => t.type === 'error').length), 1);
+  });
   for (const limited of ['masked', 'truncated']) {
     await check(limited + ' sources cannot dispatch a dependent mutation', async () => {
       await page.evaluate(limited => { window.__ipc[limited] = true; window.__notebook.updateCellSource('b', 'DELETE FROM users WHERE id = $a.id'); return window.__notebook.executeAll(); }, limited);

@@ -508,6 +508,7 @@
     "close": "Schließen"
   },
   "library": {
+    "invalidData": "Die Bibliothek kann nicht gelesen werden. Es wurden keine Daten ersetzt. Stellen Sie gültige Daten wieder her und aktualisieren Sie die Ansicht.",
     "itemLimit": "Die Bibliothek ist auf {{count}} Abfragen begrenzt. Entfernen Sie Abfragen, bevor Sie weitere hinzufügen. Es wurde nichts geändert.",
     "folderLimit": "Die Bibliothek ist auf {{count}} Ordner begrenzt. Entfernen Sie Ordner, bevor Sie weitere hinzufügen. Es wurde nichts geändert.",
     "title": "Abfragebibliothek",

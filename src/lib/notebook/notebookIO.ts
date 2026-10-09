@@ -101,6 +101,42 @@ function parseNotebook(raw: string): QoreNotebook {
       return invalid();
     ids.add(cell.id);
     if (cell.config != null && !isRecord(cell.config)) return invalid();
+    if (isRecord(cell.config)) {
+      const config = cell.config;
+      if (
+        (config.label != null && typeof config.label !== 'string') ||
+        ['collapsed', 'pinned', 'hideSource'].some(
+          key => config[key] != null && typeof config[key] !== 'boolean'
+        ) ||
+        (config.maxRows != null &&
+          (typeof config.maxRows !== 'number' ||
+            !Number.isSafeInteger(config.maxRows) ||
+            config.maxRows < 0))
+      )
+        return invalid();
+      if (config.namespace != null) {
+        const namespace = config.namespace;
+        if (
+          !isRecord(namespace) ||
+          typeof namespace.database !== 'string' ||
+          (namespace.schema != null && typeof namespace.schema !== 'string')
+        )
+          return invalid();
+      }
+      if (config.chartConfig != null) {
+        const chart = config.chartConfig;
+        if (
+          !isRecord(chart) ||
+          typeof chart.sourceLabel !== 'string' ||
+          !['bar', 'line', 'pie', 'scatter'].includes(String(chart.type)) ||
+          typeof chart.xColumn !== 'string' ||
+          !Array.isArray(chart.yColumns) ||
+          chart.yColumns.some(column => typeof column !== 'string') ||
+          (chart.title != null && typeof chart.title !== 'string')
+        )
+          return invalid();
+      }
+    }
   }
   for (const variable of Object.values(notebook.variables)) {
     if (

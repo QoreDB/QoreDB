@@ -537,6 +537,7 @@
     "close": "Fermer"
   },
   "library": {
+    "invalidData": "Impossible de lire la bibliothèque. Aucune donnée remplacée. Restaurez des données valides, puis actualisez.",
     "itemLimit": "La bibliothèque est limitée à {{count}} requêtes. Supprimez-en avant d’en ajouter. Aucune modification effectuée.",
     "folderLimit": "La bibliothèque est limitée à {{count}} dossiers. Supprimez-en avant d’en ajouter. Aucune modification effectuée.",
     "title": "Bibliothèque de requêtes",

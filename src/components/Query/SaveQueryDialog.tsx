@@ -67,6 +67,7 @@ export function SaveQueryDialog({
   const { t } = useTranslation();
   const projectId = useWorkspaceStore(state => state.projectId);
   const [origin, setOrigin] = useState(projectId);
+  const [readError, setReadError] = useState(false);
   const [folders, setFolders] = useState<QueryFolder[]>([]);
   const [title, setTitle] = useState('');
   const [tagsRaw, setTagsRaw] = useState('');
@@ -85,7 +86,13 @@ export function SaveQueryDialog({
       return;
     }
     if (origin !== projectId) return;
-    setFolders(listFolders());
+    try {
+      setFolders(listFolders());
+      setReadError(false);
+    } catch {
+      setFolders([]);
+      setReadError(true);
+    }
     setTitle((defaultTitle ?? inferTitleFromQuery(initialQuery)).trim());
     setTagsRaw('');
     setIsFavorite(false);
@@ -143,6 +150,11 @@ export function SaveQueryDialog({
           <DialogTitle>{t('library.saveTitle')}</DialogTitle>
         </DialogHeader>
 
+        {readError && (
+          <div role="alert" className="text-sm text-error">
+            {t('library.invalidData')}
+          </div>
+        )}
         <div className="grid gap-4 py-2">
           <div className="grid gap-2">
             <Label htmlFor="ql-title">{t('library.fields.title')}</Label>
@@ -295,7 +307,10 @@ export function SaveQueryDialog({
           <Button variant="outline" onClick={close}>
             {t('common.cancel')}
           </Button>
-          <Button onClick={handleSave} disabled={!title.trim() || !initialQuery.trim()}>
+          <Button
+            onClick={handleSave}
+            disabled={readError || !title.trim() || !initialQuery.trim()}
+          >
             {t('library.save')}
           </Button>
         </DialogFooter>

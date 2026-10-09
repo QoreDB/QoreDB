@@ -19,7 +19,7 @@ await page.route('**/node_modules/.vite/deps/@tauri-apps_plugin-fs.js*', route =
   contentType: 'application/javascript', body: `export async function readTextFile() {
     if (window.__backend.holdRead) await new Promise(resolve => window.__backend.releaseRead = resolve);
     window.__backend.readReturned = true;
-    return JSON.stringify({version:1, folders:[], items:[{title:'Imported A', query:'SELECT 42', tags:[]}]});
+    return window.__backend.importRaw ?? JSON.stringify({version:1, folders:[], items:[{title:'Imported A', query:'SELECT 42', tags:[]}]});
   }
   export async function writeTextFile() {}`,
 }));
@@ -41,7 +41,7 @@ await page.addInitScript(() => {
       if (command === 'detect_workspace') return null;
       if (command === 'get_active_workspace') return info(backend.project);
       if (command === 'get_workspace_project_id') return backend.project;
-      if (command === 'list_recent_workspaces') return [];
+      if (command === 'list_recent_workspaces' || command === 'list_saved_connections') return [];
       if (command === 'ws_get_query_library' || command === 'ws_save_query_library') {
         if (args.projectId !== backend.project) throw new Error('Workspace mismatch');
         if (command === 'ws_get_query_library') {
@@ -237,6 +237,94 @@ try {
   await page.getByText('Loaded later in B', {exact:true}).waitFor();
   passed++;
   console.log('PASS an already visible library refreshes after a delayed disk read');
+  await reset();
+  await page.evaluate(async () => {
+    await window.__library.flushWorkspaceLibrary();
+    window.__validCache = localStorage.getItem('qoredb_query_library_v1_a');
+    localStorage.setItem('qoredb_query_library_v1_a', '{"folders":');
+    window.__dialogs.library(true);
+  });
+  await page.getByRole('alert').waitFor();
+  assert.equal(await page.getByRole('button', {name:'Import', exact:true}).isDisabled(), true);
+  assert.equal(await page.getByRole('button', {name:'Export', exact:true}).isDisabled(), true);
+  assert.equal(await page.evaluate(() => localStorage.getItem('qoredb_query_library_v1_a')), '{"folders":');
+  await page.evaluate(() => localStorage.setItem('qoredb_query_library_v1_a', window.__validCache));
+  await page.getByRole('button', {name:'Refresh', exact:true}).click();
+  await page.getByText('Keep A', {exact:true}).waitFor();
+  assert.equal(await page.getByRole('alert').count(), 0);
+  passed++;
+  console.log('PASS unreadable cache is preserved, visibly blocked, and recoverable after restoration');
+
+  await reset();
+  await page.evaluate(async () => {
+    await window.__library.flushWorkspaceLibrary();
+    window.__validDisk = window.__backend.files.a;
+    window.__backend.files.a = {version:1, folders:[], items:[{id:'bad',title:'Bad',query:'SELECT 1',tags:42}]};
+    window.__dialogs.library(true);
+  });
+  await page.getByRole('button', {name:'Refresh', exact:true}).click();
+  await page.getByRole('alert').waitFor();
+  assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('qoredb_query_library_v1_a')).items[0].title), 'Keep A');
+  assert.equal(await page.evaluate(() => {
+    try { window.__library.addItem({title:'Must fail',query:'SELECT 2'}); return false; } catch { return true; }
+  }), true);
+  await page.evaluate(() => { window.__backend.files.a = window.__validDisk; });
+  await page.getByRole('button', {name:'Refresh', exact:true}).click();
+  await page.getByText('Keep A', {exact:true}).waitFor();
+  assert.equal(await page.getByRole('button', {name:'Import', exact:true}).isDisabled(), false);
+  passed++;
+  console.log('PASS malformed disk data cannot replace the cache; refresh recovers after repair');
+
+  await reset();
+  await page.evaluate(async () => {
+    await window.__library.flushWorkspaceLibrary();
+    window.__validCache = localStorage.getItem('qoredb_query_library_v1_a');
+    window.__backend.importRaw = JSON.stringify({version:1,folders:[],items:[{title:'Valid',query:'SELECT 1'}, {title:'Invalid',query:''}]});
+    window.__dialogs.library(true);
+  });
+  await page.getByRole('button', {name:'Import', exact:true}).click();
+  await page.waitForFunction(() => window.__toasts.some(t => t.type === 'error'));
+  assert.equal(await page.evaluate(() => localStorage.getItem('qoredb_query_library_v1_a') === window.__validCache), true);
+  assert.equal(await page.evaluate(() => window.__toasts.some(t => t.type === 'success')), false);
+  passed++;
+  console.log('PASS malformed import produces an error without a partial import');
+
+  await reset();
+  await page.evaluate(async () => {
+    await window.__library.flushWorkspaceLibrary();
+    localStorage.setItem('qoredb_query_library_v1_a', 'null');
+    window.__dialogs.save(true);
+  });
+  await page.getByRole('alert').waitFor();
+  assert.equal(await page.getByRole('button', {name:'Save', exact:true}).isDisabled(), true);
+  assert.equal(await page.evaluate(() => localStorage.getItem('qoredb_query_library_v1_a')), 'null');
+  passed++;
+  console.log('PASS the save dialog reports corrupt data and prevents an overwrite');
+  await reset();
+  await page.evaluate(() => window.__dialogs.search(true));
+  const searchBox = page.locator('input').first();
+  await searchBox.fill('Keep');
+  await page.getByText('Keep A', {exact:true}).waitFor();
+  await page.evaluate(async () => {
+    localStorage.setItem('qoredb_query_library_v1_b', 'null');
+    await window.__workspace.switchWorkspace('/b/.qoredb');
+  });
+  await page.waitForFunction(() => window.__workspace.projectId === 'b' && !window.__workspace.isLoading);
+  await searchBox.fill('Keep');
+  assert.equal(await page.getByText('Keep A', {exact:true}).count(), 0);
+  passed++;
+  console.log('PASS global search clears old project results when the new library is unreadable');
+  await reset();
+  await page.evaluate(async () => {
+    await window.__library.flushWorkspaceLibrary();
+    window.__backend.files.a = {version:1, folders:{}, items:[]};
+    try { await window.__library.syncWorkspaceLibrary(); } catch {}
+    await window.__workspace.switchWorkspace('/b/.qoredb');
+  });
+  assert.equal(await page.evaluate(() => window.__workspace.projectId), 'b');
+  assert.deepEqual(await page.evaluate(() => window.__backend.files.a.folders), {});
+  passed++;
+  console.log('PASS an unreadable disk library does not trap workspace switching when no edits need saving');
   assert.deepEqual(errors, []);
   console.log(`${passed} workspace library scenarios passed (Chromium, mocked native IPC).`);
 } finally {

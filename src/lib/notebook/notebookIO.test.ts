@@ -34,8 +34,22 @@ describe('notebook file round trips (native plugins replaced by Node file IO)', 
       createCell('sql', 'SELECT 9007199254740993;'),
       createCell('mongo', '{"find":"users"}'),
       createCell('markdown', 'Notes'),
+      createCell('chart'),
     ];
     notebook.cells[0].config = { label: 'numbers', namespace: { database: 'fixture' } };
+    notebook.cells[3].config = {
+      collapsed: false,
+      pinned: true,
+      hideSource: false,
+      maxRows: 100,
+      chartConfig: {
+        sourceLabel: 'numbers',
+        type: 'bar',
+        xColumn: 'x',
+        yColumns: ['y'],
+        title: 'Values',
+      },
+    };
     notebook.cells[0].lastResult = {
       type: 'table',
       columns: [],
@@ -155,4 +169,25 @@ describe('notebook file round trips (native plugins replaced by Node file IO)', 
     expect(html).not.toContain('<script>');
     expect(exportToHtml(notebook)).not.toContain('onerror');
   });
+});
+
+it.each([
+  { config: { namespace: { database: 42 } } },
+  { config: { label: { invalid: true } } },
+  {
+    config: {
+      chartConfig: { sourceLabel: 'a', type: 'bar', xColumn: 'x', yColumns: 'not-an-array' },
+    },
+  },
+  { config: { chartConfig: { sourceLabel: 'a', type: 'unknown', xColumn: 'x', yColumns: [] } } },
+  { config: { chartConfig: { sourceLabel: 'a', type: 'bar', xColumn: 'x', yColumns: [42] } } },
+  { config: { pinned: 'false' } },
+  { config: { maxRows: -1 } },
+])('rejects invalid persisted cell configuration before opening: %j', async patch => {
+  const notebook = createEmptyNotebook();
+  Object.assign(notebook.cells[0], patch);
+  const path = join(directory, 'invalid-nested.qnb');
+  await writeFile(path, JSON.stringify(notebook));
+  dialog.open.mockResolvedValue(path);
+  await expect(openNotebookFromFile()).rejects.toThrow();
 });

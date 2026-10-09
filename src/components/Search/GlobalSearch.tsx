@@ -100,8 +100,9 @@ export function GlobalSearch({
       try {
         setLibraryItems(listItems());
         setLibraryFolders(listFolders());
-      } catch (err) {
-        console.error(err);
+      } catch {
+        setLibraryItems([]);
+        setLibraryFolders([]);
       }
     }
   }, [isOpen, buildDefaultResults, projectId]);

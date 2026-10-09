@@ -90,6 +90,9 @@ that every check passes on the current checkout.
 - [v0.1.40 intégrité de la bibliothèque, 2026-10-09](tests/V0_1_40_LIBRARY_INTEGRITY_2026-10-09.md):
   capacité sans suppression silencieuse, fichiers complets, actions périmées et nombres MCP exacts.
 
+- [v0.1.40 données locales invalides, 2026-10-09](tests/V0_1_40_LOCAL_DATA_VALIDATION_2026-10-09.md):
+  bibliothèques préservées, imports refusés sans perte et configurations de notebooks validées.
+
 ## Proposals and ongoing plans
 
 Files under `todo/` can mix delivered work with unfinished items. Inspect their

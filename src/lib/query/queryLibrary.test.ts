@@ -14,7 +14,7 @@ function activate(project: string) {
   setActiveWorkspace({ path: `/${project}/.qoredb`, source: 'manual' } as WorkspaceInfo, project);
 }
 
-beforeEach(() => {
+beforeEach(async () => {
   vi.useFakeTimers();
   storage.clear();
   vi.stubGlobal('localStorage', {
@@ -24,7 +24,12 @@ beforeEach(() => {
   vi.resetAllMocks();
   ipc.wsSaveQueryLibrary.mockResolvedValue(true);
   ipc.wsGetQueryLibrary.mockResolvedValue({ version: 1, folders: [], items: [] });
+  activate('b');
+  await library.syncWorkspaceLibrary();
   activate('a');
+  await library.syncWorkspaceLibrary();
+  storage.clear();
+  ipc.wsGetQueryLibrary.mockClear();
 });
 afterEach(() => {
   vi.clearAllTimers();
@@ -98,7 +103,10 @@ it.each([
   await expect(library.flushWorkspaceLibrary()).rejects.toThrow();
   expect(storage.get(key('a'))).toBe(unsaved);
   expect(JSON.parse(unsaved ?? '{}').pendingSync).toBe(true);
-  ipc.wsGetQueryLibrary.mockImplementation(async () => JSON.parse(storage.get(key('a')) ?? '{}'));
+  ipc.wsGetQueryLibrary.mockImplementation(async () => ({
+    version: 1,
+    ...JSON.parse(storage.get(key('a')) ?? '{}'),
+  }));
   await library.syncWorkspaceLibrary();
   expect(ipc.wsSaveQueryLibrary).toHaveBeenCalledTimes(2);
   expect(library.listItems()[0].query).toBe('SELECT 9007199254740993');
@@ -205,7 +213,7 @@ it('ignores an older disk response when a newer reload has completed', async () 
   ipc.wsGetQueryLibrary.mockResolvedValue({
     version: 1,
     folders: [],
-    items: [{ id: 'new', title: 'New' }],
+    items: [{ id: 'new', title: 'New', query: 'SELECT 1' }],
   });
   await library.syncWorkspaceLibrary();
   read.resolve({ version: 1, folders: [], items: [{ id: 'old', title: 'Old' }] });
@@ -304,4 +312,123 @@ it('imports at the exact limit and merges a matching folder without duplicating 
   expect(library.listFolders()).toEqual([folder]);
   expect(library.listItems()[0].folderId).toBe(folder.id);
   expect(library.listItems()).toHaveLength(300);
+});
+
+it.each([
+  '{"folders":',
+  '',
+  'null',
+  '{"folders":{},"items":[]}',
+])('preserves unreadable local data instead of replacing it: %s', raw => {
+  storage.set(key('a'), raw);
+  expect(() => library.addItem({ title: 'New', query: 'SELECT 1' })).toThrow();
+  expect(storage.get(key('a'))).toBe(raw);
+  expect(() => library.exportLibrary()).toThrow();
+});
+
+it('refuses a partially malformed import instead of silently dropping queries', () => {
+  const original = JSON.stringify(fullLibrary(1));
+  storage.set(key('a'), original);
+  const payload = {
+    version: 1,
+    exportedAt: 0,
+    folders: [],
+    items: [fullLibrary(1).items[0], { title: 'Lost query', query: '' }],
+  };
+  expect(() => library.importLibrary(payload as library.QueryLibraryExportV1)).toThrow();
+  expect(storage.get(key('a'))).toBe(original);
+});
+
+it('does not replace local data with a malformed workspace response', async () => {
+  const original = JSON.stringify(fullLibrary(1));
+  storage.set(key('a'), original);
+  ipc.wsGetQueryLibrary.mockResolvedValue({
+    version: 1,
+    folders: [],
+    items: [{ id: 'bad', title: 'Invalid', query: 'SELECT 1', tags: 42 }],
+  });
+  await expect(library.syncWorkspaceLibrary()).rejects.toThrow();
+  expect(storage.get(key('a'))).toBe(original);
+});
+
+it('rejects duplicate identities and undefined imported folder references', () => {
+  const original = JSON.stringify(fullLibrary(1));
+  storage.set(key('a'), original);
+  const folder = { id: 'same', name: 'A', createdAt: 0, updatedAt: 0 };
+  expect(() =>
+    library.importLibrary({
+      version: 1,
+      exportedAt: 0,
+      folders: [folder, { ...folder, name: 'B' }],
+      items: [],
+    })
+  ).toThrow();
+  expect(() =>
+    library.importLibrary({
+      version: 1,
+      exportedAt: 0,
+      folders: [],
+      items: [{ ...fullLibrary(1).items[0], folderId: 'missing' }],
+    })
+  ).toThrow();
+  expect(storage.get(key('a'))).toBe(original);
+});
+
+it('blocks writes after a disk read failure and recovers when valid data is restored', async () => {
+  const original = JSON.stringify(fullLibrary(1));
+  storage.set(key('a'), original);
+  ipc.wsGetQueryLibrary.mockRejectedValueOnce(new Error('Synthetic read failure'));
+  await expect(library.syncWorkspaceLibrary()).rejects.toThrow();
+  expect(() => library.addItem({ title: 'New', query: 'SELECT 1' })).toThrow();
+  // Workspace transitions can proceed when there is nothing to save.
+  await library.flushWorkspaceLibrary();
+  expect(storage.get(key('a'))).toBe(original);
+  expect(ipc.wsSaveQueryLibrary).not.toHaveBeenCalled();
+  ipc.wsGetQueryLibrary.mockResolvedValue({ version: 1, ...fullLibrary(2) });
+  await library.syncWorkspaceLibrary();
+  expect(library.listItems()).toHaveLength(2);
+  library.addItem({ title: 'Recovered', query: 'SELECT 3' });
+  expect(library.listItems()).toHaveLength(3);
+});
+
+it('retains pending changes made during a failed disk read and flushes them on retry', async () => {
+  let reject!: (error: Error) => void;
+  ipc.wsGetQueryLibrary.mockReturnValueOnce(
+    new Promise((_resolve, fail) => {
+      reject = fail;
+    })
+  );
+  const sync = library.syncWorkspaceLibrary();
+  const failure = expect(sync).rejects.toThrow();
+  await vi.waitFor(() => expect(ipc.wsGetQueryLibrary).toHaveBeenCalled());
+  library.addItem({ title: 'Pending', query: 'SELECT 42' });
+  reject(new Error('Synthetic read failure'));
+  await failure;
+  const pending = storage.get(key('a'));
+  await expect(library.flushWorkspaceLibrary()).rejects.toThrow();
+  expect(storage.get(key('a'))).toBe(pending);
+  ipc.wsGetQueryLibrary.mockResolvedValue({ version: 1, folders: [], items: [] });
+  await library.syncWorkspaceLibrary();
+  expect(library.listItems()[0].title).toBe('Pending');
+  expect(ipc.wsSaveQueryLibrary.mock.lastCall?.[0].items[0].title).toBe('Pending');
+});
+
+it('accepts legacy optional fields and variable names without altering the original cache', () => {
+  const original = JSON.stringify({
+    folders: [],
+    items: [
+      {
+        id: 'legacy',
+        title: 'Legacy',
+        query: 'SELECT $n',
+        variables: { n: { type: 'number', defaultValue: '9007199254740993' } },
+      },
+    ],
+  });
+  storage.set(key('a'), original);
+  const item = library.listItems()[0];
+  expect(item.tags).toEqual([]);
+  expect(item.variables?.n.name).toBe('n');
+  expect(item.variables?.n.defaultValue).toBe('9007199254740993');
+  expect(storage.get(key('a'))).toBe(original);
 });

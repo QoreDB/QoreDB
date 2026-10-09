@@ -5,6 +5,12 @@ import type { NotebookVariable } from '../notebook/notebookTypes';
 import { redactQuery } from '../redaction';
 import { getWorkspaceState } from '../stores/workspaceStore';
 import { wsGetQueryLibrary, wsSaveQueryLibrary } from '../tauri';
+import {
+  invalidLibrary,
+  parseLibraryExport,
+  parseStoredLibrary,
+  type QueryLibraryState,
+} from './queryLibraryValidation';
 
 /**
  * A parameter placeholder (`{{name}}` / `$name`) defined on a saved query.
@@ -45,11 +51,6 @@ const STORAGE_KEY_PREFIX = 'qoredb_query_library_v1';
 const MAX_ITEMS = 300;
 const MAX_FOLDERS = 100;
 
-interface QueryLibraryState {
-  folders: QueryFolder[];
-  items: QueryLibraryItem[];
-}
-
 function now(): number {
   return Date.now();
 }
@@ -77,17 +78,15 @@ function getStorageKey(projectId = getWorkspaceState().projectId): string {
   return projectId === 'default' ? STORAGE_KEY_PREFIX : `${STORAGE_KEY_PREFIX}_${projectId}`;
 }
 
+const unreadableProjects = new Set<string>();
+
 function readState(): QueryLibraryState {
+  if (unreadableProjects.has(getWorkspaceState().projectId)) return invalidLibrary();
   try {
     const raw = localStorage.getItem(getStorageKey());
-    if (!raw) return { folders: [], items: [] };
-    const parsed = JSON.parse(raw) as Partial<QueryLibraryState>;
-    return {
-      folders: Array.isArray(parsed.folders) ? parsed.folders : [],
-      items: Array.isArray(parsed.items) ? parsed.items : [],
-    };
+    return raw === null ? { folders: [], items: [] } : parseStoredLibrary(raw);
   } catch {
-    return { folders: [], items: [] };
+    return invalidLibrary();
   }
 }
 
@@ -135,6 +134,12 @@ function writeState(next: QueryLibraryState): void {
 export async function flushWorkspaceLibrary(
   projectId = getWorkspaceState().projectId
 ): Promise<void> {
+  if (unreadableProjects.has(projectId)) {
+    const raw = localStorage.getItem(getStorageKey(projectId));
+    // Leaving a project is safe when it requires no write to its unreadable file.
+    if (raw === null || !parseStoredLibrary(raw).pendingSync) return;
+    return invalidLibrary();
+  }
   clearTimeout(syncTimers.get(projectId));
   syncTimers.delete(projectId);
   const previous = saves.get(projectId);
@@ -147,8 +152,8 @@ export async function flushWorkspaceLibrary(
   const save = async () => {
     while (true) {
       const raw = localStorage.getItem(key);
-      if (!raw) return;
-      const state = JSON.parse(raw) as QueryLibraryState & { pendingSync?: boolean };
+      if (raw === null) return;
+      const state = parseStoredLibrary(raw);
       if (!state.pendingSync) return;
       const saved = await wsSaveQueryLibrary(
         {
@@ -181,20 +186,40 @@ export async function syncWorkspaceLibrary(): Promise<void> {
   if (!activeWorkspace || activeWorkspace.source === 'default') return;
   const load = Symbol();
   loads.set(projectId, load);
+  let reading = false;
   try {
-    await flushWorkspaceLibrary(projectId);
+    if (!unreadableProjects.has(projectId)) await flushWorkspaceLibrary(projectId);
     const key = getStorageKey(projectId);
     const before = localStorage.getItem(key);
+    reading = true;
     const data = await wsGetQueryLibrary(projectId);
     if (
-      data &&
       loads.get(projectId) === load &&
       getWorkspaceState().projectId === projectId &&
       localStorage.getItem(key) === before
     ) {
-      localStorage.setItem(key, JSON.stringify({ folders: data.folders, items: data.items }));
+      const validated = parseLibraryExport(data, false);
+      const local = before === null ? null : parseStoredLibrary(before);
+      unreadableProjects.delete(projectId);
+      if (local?.pendingSync) {
+        reading = false;
+        await flushWorkspaceLibrary(projectId);
+        notifyLibraryChanged();
+        return;
+      }
+      localStorage.setItem(
+        key,
+        JSON.stringify({ folders: validated.folders, items: validated.items })
+      );
       notifyLibraryChanged();
     }
+  } catch (error) {
+    if (!reading) throw error;
+    if (loads.get(projectId) === load && getWorkspaceState().projectId === projectId) {
+      unreadableProjects.add(projectId);
+      notifyLibraryChanged();
+    }
+    return invalidLibrary();
   } finally {
     if (loads.get(projectId) === load) loads.delete(projectId);
   }
@@ -420,13 +445,11 @@ export function exportLibrary(options?: { redact?: boolean }): QueryLibraryExpor
   };
 }
 
-export function importLibrary(payload: QueryLibraryExportV1): {
+export function importLibrary(input: unknown): {
   foldersImported: number;
   itemsImported: number;
 } {
-  if (payload.version !== 1) {
-    throw new Error('Unsupported library export version');
-  }
+  const payload = parseLibraryExport(input);
 
   const state = readState();
   const folderNameToId = new Map<string, string>();

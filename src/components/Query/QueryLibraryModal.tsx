@@ -42,6 +42,7 @@ import {
   type QueryLibraryExportV1,
   type QueryLibraryItem,
   subscribeQueryLibrary,
+  syncWorkspaceLibrary,
   updateItem,
 } from '@/lib/query/queryLibrary';
 import { confirmDialog } from '@/lib/stores/confirmStore';
@@ -102,6 +103,7 @@ function WorkspaceQueryLibraryModal({
 
   const { t } = useTranslation();
   const { isFeatureEnabled } = useLicense();
+  const [readError, setReadError] = useState(false);
   const [folders, setFolders] = useState<QueryFolder[]>([]);
   const [items, setItems] = useState<QueryLibraryItem[]>([]);
   const [folderFilter, setFolderFilter] = useState<string>('__all__');
@@ -131,8 +133,15 @@ function WorkspaceQueryLibraryModal({
   }, [favoritesOnly, folderFilter, search, tag]);
 
   const reload = useCallback(() => {
-    setFolders(listFolders());
-    setItems(listItems(listOptions));
+    try {
+      setFolders(listFolders());
+      setItems(listItems(listOptions));
+      setReadError(false);
+    } catch {
+      setFolders([]);
+      setItems([]);
+      setReadError(true);
+    }
   }, [listOptions]);
 
   useEffect(() => {
@@ -141,10 +150,14 @@ function WorkspaceQueryLibraryModal({
     return subscribeQueryLibrary(reload);
   }, [isOpen, reload]);
 
-  useEffect(() => {
-    if (!isOpen) return;
-    setItems(listItems(listOptions));
-  }, [isOpen, listOptions]);
+  async function refresh() {
+    try {
+      await syncWorkspaceLibrary();
+    } catch {
+      toast.error(t('library.updateError'));
+    }
+    reload();
+  }
 
   function handleCreateFolder() {
     if (!isCurrent()) return;
@@ -369,7 +382,7 @@ function WorkspaceQueryLibraryModal({
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={reload}
+                onClick={refresh}
                 className="h-8 w-8"
                 aria-label={t('library.refresh')}
               >
@@ -382,6 +395,7 @@ function WorkspaceQueryLibraryModal({
                 variant="ghost"
                 size="icon"
                 onClick={handleImport}
+                disabled={readError}
                 className="h-8 w-8"
                 aria-label={t('library.import')}
               >
@@ -393,6 +407,7 @@ function WorkspaceQueryLibraryModal({
                 variant="ghost"
                 size="icon"
                 onClick={handleExport}
+                disabled={readError}
                 className="h-8 w-8"
                 aria-label={t('library.export')}
               >
@@ -412,7 +427,7 @@ function WorkspaceQueryLibraryModal({
               variant="outline"
               size="sm"
               onClick={handleCreateFolder}
-              disabled={!newFolderName.trim()}
+              disabled={readError || !newFolderName.trim()}
               className="h-8"
             >
               <FolderPlus size={14} className="mr-1" />
@@ -438,7 +453,11 @@ function WorkspaceQueryLibraryModal({
           </div>
 
           <div className="flex-1 overflow-auto">
-            {items.length === 0 ? (
+            {readError ? (
+              <div role="alert" className="p-4 text-sm text-error">
+                {t('library.invalidData')}
+              </div>
+            ) : items.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-48 text-muted-foreground">
                 <Folder size={32} className="mb-2 opacity-50" />
                 <p className="text-sm">{t('library.empty')}</p>

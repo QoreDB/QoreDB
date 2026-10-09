@@ -11,15 +11,20 @@ import { importFromMarkdown, importFromSql } from './notebookImport';
 import { loadDraft, openNotebookFromFile, saveDraft, saveNotebookToFile } from './notebookIO';
 import { createCell, createEmptyNotebook } from './notebookTypes';
 
+const native = vi.hoisted(() => ({ invoke: vi.fn() }));
+vi.mock('@tauri-apps/api/core', () => native);
 const dialog = vi.hoisted(() => ({ open: vi.fn(), save: vi.fn() }));
 vi.mock('@tauri-apps/plugin-dialog', () => dialog);
 vi.mock('@tauri-apps/plugin-fs', () => ({
   readTextFile: (path: string) => readFile(path, 'utf8'),
-  writeTextFile: (path: string, content: string) => writeFile(path, content, 'utf8'),
 }));
 let directory: string;
 beforeEach(async () => {
   directory = await mkdtemp(join(tmpdir(), 'qore-notebook-'));
+  native.invoke.mockImplementation(async (command, { path, contents }) => {
+    expect(command).toBe('write_text_file_atomic');
+    await writeFile(path, contents, 'utf8');
+  });
 });
 afterEach(async () => {
   vi.clearAllMocks();
@@ -190,4 +195,37 @@ it.each([
   await writeFile(path, JSON.stringify(notebook));
   dialog.open.mockResolvedValue(path);
   await expect(openNotebookFromFile()).rejects.toThrow();
+});
+
+it('awaits publication, propagates a rejected save and permits retry without changing the notebook', async () => {
+  const notebook = createEmptyNotebook('Replacement');
+  const path = join(directory, 'existing.qnb');
+  await writeFile(path, 'previous');
+  let reject!: (error: Error) => void;
+  native.invoke.mockImplementationOnce(
+    () =>
+      new Promise((_, fail) => {
+        reject = fail;
+      })
+  );
+  let completed = false;
+  const pending = saveNotebookToFile(notebook, path).then(value => {
+    completed = true;
+    return value;
+  });
+  expect(completed).toBe(false);
+  expect(await readFile(path, 'utf8')).toBe('previous');
+  reject(new Error('publication failed'));
+  await expect(pending).rejects.toThrow('publication failed');
+  expect(completed).toBe(false);
+  expect(await readFile(path, 'utf8')).toBe('previous');
+  expect(notebook.metadata.title).toBe('Replacement');
+  await expect(saveNotebookToFile(notebook, path)).resolves.toBe(path);
+  expect(JSON.parse(await readFile(path, 'utf8')).metadata.title).toBe('Replacement');
+});
+
+it('cancelled Save As never invokes file publication', async () => {
+  dialog.save.mockResolvedValue(null);
+  await expect(saveNotebookToFile(createEmptyNotebook(), null)).resolves.toBeNull();
+  expect(native.invoke).not.toHaveBeenCalled();
 });

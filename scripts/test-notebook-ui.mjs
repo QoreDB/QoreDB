@@ -60,6 +60,12 @@ await page.addInitScript(() => {
     transformCallback: () => 1,
     invoke: async (command, args) => {
       window.__ipc.calls.push({ command, args });
+      if (command === 'write_text_file_atomic') {
+        if (window.__fileState.holdWrite) await new Promise(resolve => window.__fileState.pendingWrite = resolve);
+        if (window.__fileState.failWrite) throw new Error('Synthetic publication failure');
+        window.__files[args.path] = args.contents;
+        return;
+      }
       if (command === 'plugin:dialog|save') return window.__fileState.savePath;
       if (command === 'plugin:dialog|open') return window.__fileState.openPath;
       if (command === 'cancel_query') return { success: true };
@@ -239,6 +245,31 @@ try {
     await page.evaluate(() => { window.__fileState.savePath = '/synthetic.qnb'; window.__fileState.failWrite = true; return window.__notebook.save(); });
     assert.equal(await page.evaluate(() => window.__notebook.isDirty), true);
     assert.equal(await page.evaluate(() => window.__files['/synthetic.qnb']), undefined);
+  });
+  await check('publication failure retains the previous file, dirty state and draft; retry commits before success', async () => {
+    await page.evaluate(() => window.__notebook.save());
+    const previous = await page.evaluate(() => window.__files['/synthetic.qnb']);
+    await page.evaluate(() => {
+      window.__toasts = [];
+      window.__notebook.setTitle('Replacement');
+      localStorage.setItem('qnb_draft_fixture', 'retained draft');
+      window.__fileState.failWrite = true;
+      return window.__notebook.save();
+    });
+    assert.equal(await page.evaluate(() => window.__files['/synthetic.qnb']), previous);
+    assert.equal(await page.evaluate(() => window.__notebook.isDirty), true);
+    assert.equal(await page.evaluate(() => window.__toasts.filter(t => t.type === 'success').length), 0);
+    assert.equal(await page.evaluate(() => window.__toasts.filter(t => t.type === 'error').length), 1);
+    await page.evaluate(() => { window.__fileState.failWrite = false; window.__fileState.holdWrite = true; void window.__notebook.save(); });
+    await page.waitForFunction(() => window.__fileState.pendingWrite);
+    assert.equal(await page.evaluate(() => window.__notebook.isDirty), true);
+    assert.equal(await page.evaluate(() => window.__files['/synthetic.qnb']), previous);
+    assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('qnb_draft_fixture')).metadata.title), 'Replacement');
+    await page.evaluate(() => window.__fileState.pendingWrite());
+    await page.waitForFunction(() => !window.__notebook.isDirty);
+    assert.equal(await page.evaluate(() => JSON.parse(window.__files['/synthetic.qnb']).metadata.title), 'Replacement');
+    assert.equal(await page.evaluate(() => localStorage.getItem('qnb_draft_fixture')), null);
+    assert.equal(await page.evaluate(() => window.__toasts.filter(t => t.type === 'success').length), 1);
   });
   await check('a late save cannot clear dirty state after a workspace change', async () => {
     await page.evaluate(() => { window.__notebook.setTitle('Saved revision'); window.__fileState.holdWrite = true; void window.__notebook.save(); });

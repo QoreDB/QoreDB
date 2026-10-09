@@ -87,6 +87,17 @@ the shared notebook-open hook, project transfer card and connection form, checki
 workspace/session changes, late file reads, confirmations, duplicate actions, errors,
 retry, explicit connection project IDs and cleanup of late sessions.
 Native dialogs, file IO and IPC are simulated; AppLayout itself is not mounted.
+The export checks also inject a rejected/deferred atomic publication and verify
+that success is shown only after publication, with retry after failure.
+The notebook fixture checks the previous file, dirty state and retained draft
+through the same failure/retry lifecycle.
+
+`cargo test --manifest-path src-tauri/Cargo.toml -p qoredb --lib commands::file_output`
+checks the atomic-file command through Tauri's mock IPC runtime with real temporary
+files and production capabilities: missing grants, dialog grants, deny precedence,
+replacement errors and retry. It does not run a native WebView or native dialog.
+Shared failure injection and concurrent/process-exit file checks live in the
+`qore-service` library tests.
 
 The [schema-diff browser check](../../scripts/test-schema-diff-ui.mjs), run with
 `node scripts/test-schema-diff-ui.mjs`, uses the same Vite/Playwright setup.

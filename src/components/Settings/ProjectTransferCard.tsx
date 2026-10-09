@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { open as openDialog, save } from '@tauri-apps/plugin-dialog';
-import { readTextFile, writeTextFile } from '@tauri-apps/plugin-fs';
+import { readTextFile } from '@tauri-apps/plugin-fs';
 import { revealItemInDir } from '@tauri-apps/plugin-opener';
 import { Briefcase, Upload } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
@@ -17,6 +17,7 @@ import {
 } from '@/lib/share/projectTransfer';
 import { confirmDialog } from '@/lib/stores/confirmStore';
 import { captureWorkspaceScope } from '@/lib/stores/workspaceStore';
+import { writeTextFileAtomic } from '@/lib/tauri/fileOutput';
 import { SettingsCard } from './SettingsCard';
 
 interface ProjectTransferCardProps {
@@ -61,7 +62,7 @@ export function ProjectTransferCard({ projectId }: ProjectTransferCardProps) {
       });
       if (!filePath || !isCurrent()) return;
 
-      await writeTextFile(filePath, JSON.stringify(payload, null, 2));
+      await writeTextFileAtomic(filePath, JSON.stringify(payload, null, 2));
       if (!isCurrent()) return;
       revealItemInDir(filePath).catch(() => undefined);
 

@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { open as openDialog, save } from '@tauri-apps/plugin-dialog';
-import { readTextFile, writeTextFile } from '@tauri-apps/plugin-fs';
+import { readTextFile } from '@tauri-apps/plugin-fs';
+import { writeTextFileAtomic } from '@/lib/tauri/fileOutput';
 import { getWorkspaceState } from '../stores/workspaceStore';
 import type { QoreNotebook } from './notebookTypes';
 
@@ -48,7 +49,7 @@ export async function saveNotebookToFile(
     }));
   if (!filePath) return null;
   const content = JSON.stringify(stripForSave(notebook, includeResults), null, 2);
-  await writeTextFile(filePath, content);
+  await writeTextFileAtomic(filePath, content);
   return filePath;
 }
 

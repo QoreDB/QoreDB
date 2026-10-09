@@ -43,6 +43,13 @@ await page.addInitScript(() => {
       if (native.holdDialog) await new Promise(resolve => native.releaseDialog = resolve);
       return '/export.json';
     }
+    if (command === 'write_text_file_atomic') {
+      if (native.holdWrite) await new Promise(resolve => native.releaseWrite = resolve);
+      if (native.failWrite) throw new Error('Synthetic publication failure');
+      window.__files[args.path] = args.contents;
+      window.__writes.push({path:args.path,content:args.contents});
+      return;
+    }
     if (command === 'list_saved_connections') return [];
     if (command === 'save_connection') {
       if (native.holdSave) await new Promise(resolve => native.releaseSave = resolve);
@@ -136,6 +143,26 @@ try {
     await page.evaluate(() => {window.__workspace('b');window.__native.releaseDialog();});
     await page.waitForFunction(() => !document.querySelector('button').disabled);
     assert.deepEqual(await page.evaluate(() => window.__writes),[]);
+  });
+  await check('project export only reports success after publication and permits retry after failure',async () => {
+    await page.evaluate(() => {window.__files['/export.json']='previous';window.__native.failWrite=true;});
+    const button = page.getByRole('button',{name:'Export project',exact:true});
+    await button.click();
+    await page.waitForFunction(() => window.__toasts.some(t=>t.type==='error'));
+    assert.equal(await page.evaluate(() => window.__files['/export.json']),'previous');
+    assert.equal(await page.evaluate(() => window.__toasts.filter(t=>t.type==='success').length),0);
+    assert.equal(await page.evaluate(() => window.__native.calls.filter(c=>c.command==='plugin:opener|reveal_item_in_dir').length),0);
+    await page.evaluate(() => {window.__native.failWrite=false;window.__native.holdWrite=true;});
+    await button.click();
+    await page.waitForFunction(() => window.__native.releaseWrite);
+    assert.equal(await button.isDisabled(),true);
+    assert.equal(await page.evaluate(() => window.__files['/export.json']),'previous');
+    assert.equal(await page.evaluate(() => window.__toasts.filter(t=>t.type==='success').length),0);
+    await page.evaluate(() => window.__native.releaseWrite());
+    await page.waitForFunction(() => window.__toasts.some(t=>t.type==='success'));
+    assert.equal(await page.evaluate(() => JSON.parse(window.__files['/export.json']).type),'qoredb_project');
+    await page.waitForFunction(() => !document.querySelector('button').disabled);
+    assert.equal(await button.isDisabled(),false);
   });
   await check('a valid project import succeeds with one connection and disables overlapping transfer actions',async () => {
     await startImport();

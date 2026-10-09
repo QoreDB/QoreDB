@@ -238,6 +238,7 @@ pub fn run() {
 
     builder
         .invoke_handler(tauri::generate_handler![
+            commands::file_output::write_text_file_atomic,
             // Connection commands
             commands::connection::test_connection,
             commands::connection::test_saved_connection,

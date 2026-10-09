@@ -85,6 +85,8 @@ that every check passes on the current checkout.
   exact XLSX/Parquet values and explicit conversion failures.
 - [v0.1.40 profils Time Travel, 2026-10-09](tests/V0_1_40_PROFILE_HISTORY_2026-10-09.md):
   réglages illisibles, récupération, captures tardives et compatibilité du journal v0.1.39.
+- [v0.1.40 bibliothèque et workspaces, 2026-10-09](tests/V0_1_40_QUERY_LIBRARY_2026-10-09.md):
+  sauvegardes liées au projet, reprise après échec et compatibilité du format v0.1.39.
 
 ## Proposals and ongoing plans
 

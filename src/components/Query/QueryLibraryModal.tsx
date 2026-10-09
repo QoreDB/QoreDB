@@ -141,9 +141,13 @@ export function QueryLibraryModal({ isOpen, onClose, onSelectQuery }: QueryLibra
       }))
     )
       return;
-    deleteFolder(folderFilter);
-    setFolderFilter('__all__');
-    reload();
+    try {
+      deleteFolder(folderFilter);
+      setFolderFilter('__all__');
+      reload();
+    } catch {
+      toast.error(t('library.updateError'));
+    }
   }
 
   async function handleExport() {
@@ -204,8 +208,12 @@ export function QueryLibraryModal({ isOpen, onClose, onSelectQuery }: QueryLibra
       !(await confirmDialog({ description: t('library.deleteItemConfirm', { title: item.title }) }))
     )
       return;
-    deleteItem(item.id);
-    reload();
+    try {
+      deleteItem(item.id);
+      reload();
+    } catch {
+      toast.error(t('library.updateError'));
+    }
   }
 
   function handleUseItem(item: QueryLibraryItem) {

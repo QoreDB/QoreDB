@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import i18n from '../../i18n';
 import type { NotebookVariable } from '../notebook/notebookTypes';
 import { redactQuery } from '../redaction';
 import { getWorkspaceState } from '../stores/workspaceStore';
-import { wsSaveQueryLibrary } from '../tauri';
+import { wsGetQueryLibrary, wsSaveQueryLibrary } from '../tauri';
 
 /**
  * A parameter placeholder (`{{name}}` / `$name`) defined on a saved query.
@@ -72,8 +73,7 @@ export function parseTags(raw: string): string[] {
   return unique.slice(0, 12);
 }
 
-function getStorageKey(): string {
-  const { projectId } = getWorkspaceState();
+function getStorageKey(projectId = getWorkspaceState().projectId): string {
   return projectId === 'default' ? STORAGE_KEY_PREFIX : `${STORAGE_KEY_PREFIX}_${projectId}`;
 }
 
@@ -91,38 +91,98 @@ function readState(): QueryLibraryState {
   }
 }
 
-let syncTimer: ReturnType<typeof setTimeout> | null = null;
+const syncTimers = new Map<string, ReturnType<typeof setTimeout>>();
+const saves = new Map<string, Promise<void>>();
+const loads = new Map<string, symbol>();
 const SYNC_DEBOUNCE_MS = 1000;
 
 function writeState(next: QueryLibraryState): void {
-  localStorage.setItem(getStorageKey(), JSON.stringify(next));
+  const { projectId, activeWorkspace, isLoading } = getWorkspaceState();
+  if (isLoading) throw new Error(i18n.t('common.loading'));
+  const pendingSync = !!activeWorkspace && activeWorkspace.source !== 'default';
+  localStorage.setItem(getStorageKey(projectId), JSON.stringify({ ...next, pendingSync }));
 
-  const { activeWorkspace } = getWorkspaceState();
-  if (activeWorkspace && activeWorkspace.source !== 'default') {
-    if (syncTimer) clearTimeout(syncTimer);
-    syncTimer = setTimeout(() => {
-      syncTimer = null;
-      wsSaveQueryLibrary({
-        version: 1,
-        folders: next.folders,
-        items: next.items,
-      }).catch(() => {
-        // Silent fail — localStorage is the source of truth during the session
-      });
-    }, SYNC_DEBOUNCE_MS);
+  if (pendingSync) {
+    clearTimeout(syncTimers.get(projectId));
+    syncTimers.set(
+      projectId,
+      setTimeout(() => {
+        syncTimers.delete(projectId);
+        void flushWorkspaceLibrary(projectId).catch(() => {
+          // Keep the pending flag across restarts; loading from disk must not erase unsaved edits.
+          console.warn('Query library sync failed; local changes retained.');
+        });
+      }, SYNC_DEBOUNCE_MS)
+    );
   }
 }
 
-/**
- * Loads the workspace query library into localStorage for the current session.
- * Called by WorkspaceProvider when a file-based workspace is activated.
- */
-export function loadWorkspaceLibrary(data: { folders: unknown[]; items: unknown[] }): void {
-  const state: QueryLibraryState = {
-    folders: Array.isArray(data.folders) ? (data.folders as QueryFolder[]) : [],
-    items: Array.isArray(data.items) ? (data.items as QueryLibraryItem[]) : [],
+/** Finish all local edits for this project before changing the backend workspace. */
+export async function flushWorkspaceLibrary(
+  projectId = getWorkspaceState().projectId
+): Promise<void> {
+  clearTimeout(syncTimers.get(projectId));
+  syncTimers.delete(projectId);
+  const previous = saves.get(projectId);
+  if (previous) {
+    await previous;
+    return flushWorkspaceLibrary(projectId);
+  }
+
+  const key = getStorageKey(projectId);
+  const save = async () => {
+    while (true) {
+      const raw = localStorage.getItem(key);
+      if (!raw) return;
+      const state = JSON.parse(raw) as QueryLibraryState & { pendingSync?: boolean };
+      if (!state.pendingSync) return;
+      const saved = await wsSaveQueryLibrary(
+        {
+          version: 1,
+          folders: state.folders,
+          items: state.items,
+        },
+        projectId
+      );
+      if (!saved) throw new Error('Query library was not saved');
+      if (localStorage.getItem(key) === raw) {
+        localStorage.setItem(key, JSON.stringify({ folders: state.folders, items: state.items }));
+        return;
+      }
+      // A new edit arrived during IO; serialize its write after the older snapshot.
+    }
   };
-  localStorage.setItem(getStorageKey(), JSON.stringify(state));
+  const pending = save();
+  saves.set(projectId, pending);
+  try {
+    await pending;
+  } finally {
+    saves.delete(projectId);
+  }
+}
+
+/** A late disk read must not replace another project's library or newer local edits. */
+export async function syncWorkspaceLibrary(): Promise<void> {
+  const { projectId, activeWorkspace } = getWorkspaceState();
+  if (!activeWorkspace || activeWorkspace.source === 'default') return;
+  const load = Symbol();
+  loads.set(projectId, load);
+  try {
+    await flushWorkspaceLibrary(projectId);
+    const key = getStorageKey(projectId);
+    const before = localStorage.getItem(key);
+    const data = await wsGetQueryLibrary(projectId);
+    if (
+      data &&
+      loads.get(projectId) === load &&
+      getWorkspaceState().projectId === projectId &&
+      localStorage.getItem(key) === before
+    ) {
+      localStorage.setItem(key, JSON.stringify({ folders: data.folders, items: data.items }));
+    }
+  } finally {
+    if (loads.get(projectId) === load) loads.delete(projectId);
+  }
 }
 
 export function listFolders(): QueryFolder[] {

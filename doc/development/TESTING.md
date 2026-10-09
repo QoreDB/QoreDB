@@ -242,3 +242,25 @@ and hook with simulated IPC: workspace switch/return, stale status and previews,
 late actions, exact workspace/run targets and retry after cancellation failure.
 It uses the same Vite server and browser environment overrides. This does not
 exercise native Tauri command dispatch or real database connections.
+
+### Isolated native profile qualification (Linux)
+
+The tracked helpers exercise real WebKitGTK/Tauri IPC, the OS keyring and SQLite.
+They require a graphical session, `dbus-run-session`, `gnome-keyring-daemon` and
+`secret-tool`. Generate a new disposable directory; never point them at a user
+profile. Build the production frontend with `pnpm exec vite build`, then a debug
+desktop binary with `tauri/custom-protocol` (optionally `pro`). Follow the DuckDB
+runtime prerequisites above. In separate terminals:
+
+```bash
+python scripts/prepare-native-qualification.py .perf/native-profile
+bash scripts/launch-native-qualification.sh .perf/native-profile /absolute/path/to/debug/qoredb
+QOREDB_INSPECTOR_URL=http://127.0.0.1:9333 node scripts/qualify-native-profile.mjs .perf/native-profile
+```
+
+The launcher isolates XDG directories, D-Bus and credentials. The assertions
+expect Core rights, including when compiled with Pro; they do not forge a licence.
+The native inspector must be available; release binaries may expose no target.
+This script does not automate all GUI dialogs or seed browser preferences.
+Record manual UI, browser-state, installed-package and paid-licence results
+separately, as in the [dated qualification report](../tests/V0_1_40_NATIVE_QUALIFICATION_2026-10-10.md).

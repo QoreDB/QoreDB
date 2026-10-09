@@ -102,6 +102,10 @@ that every check passes on the current checkout.
 - [v0.1.40 publication atomique des fichiers, 2026-10-09](tests/V0_1_40_ATOMIC_FILES_2026-10-09.md):
   connexions, notebooks QNB et exports JSON ; erreurs, temporaires, reprise et limites de durabilité.
 
+- [v0.1.40 qualification native Linux, 2026-10-10](tests/V0_1_40_NATIVE_QUALIFICATION_2026-10-10.md):
+  reprise synthétique v0.1.39, vrais IPC/keyring/SQLite/PostgreSQL, corrections de transfert
+  et packaging ; AppImage en échec, installation et licences payantes non qualifiées.
+
 ## Proposals and ongoing plans
 
 Files under `todo/` can mix delivered work with unfinished items. Inspect their

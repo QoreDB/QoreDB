@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: BUSL-1.1
 
 import { useState } from 'react';
-import { setActiveWorkspace } from '/src/lib/stores/workspaceStore';
 import { createRoot } from 'react-dom/client';
+import { setActiveWorkspace } from '/src/lib/stores/workspaceStore';
 import '/src/i18n';
 import { useReplay } from '/src/hooks/useReplay';
 
@@ -14,6 +14,10 @@ function Fixture() {
   };
   const replay = useReplay(session);
   window.__replay = replay;
-  return <pre id="state">{JSON.stringify({ slug: replay.activeSlug, report: replay.report, runs: replay.runs })}</pre>;
+  return (
+    <pre id="state">
+      {JSON.stringify({ slug: replay.activeSlug, report: replay.report, runs: replay.runs })}
+    </pre>
+  );
 }
 createRoot(document.getElementById('root')).render(<Fixture />);

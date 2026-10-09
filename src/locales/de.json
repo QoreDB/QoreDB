@@ -508,6 +508,8 @@
     "close": "Schließen"
   },
   "library": {
+    "itemLimit": "Die Bibliothek ist auf {{count}} Abfragen begrenzt. Entfernen Sie Abfragen, bevor Sie weitere hinzufügen. Es wurde nichts geändert.",
+    "folderLimit": "Die Bibliothek ist auf {{count}} Ordner begrenzt. Entfernen Sie Ordner, bevor Sie weitere hinzufügen. Es wurde nichts geändert.",
     "title": "Abfragebibliothek",
     "open": "Bibliothek",
     "save": "Speichern",

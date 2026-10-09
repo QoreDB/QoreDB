@@ -87,6 +87,8 @@ that every check passes on the current checkout.
   réglages illisibles, récupération, captures tardives et compatibilité du journal v0.1.39.
 - [v0.1.40 bibliothèque et workspaces, 2026-10-09](tests/V0_1_40_QUERY_LIBRARY_2026-10-09.md):
   sauvegardes liées au projet, reprise après échec et compatibilité du format v0.1.39.
+- [v0.1.40 intégrité de la bibliothèque, 2026-10-09](tests/V0_1_40_LIBRARY_INTEGRITY_2026-10-09.md):
+  capacité sans suppression silencieuse, fichiers complets, actions périmées et nombres MCP exacts.
 
 ## Proposals and ongoing plans
 

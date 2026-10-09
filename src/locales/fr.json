@@ -537,6 +537,8 @@
     "close": "Fermer"
   },
   "library": {
+    "itemLimit": "La bibliothèque est limitée à {{count}} requêtes. Supprimez-en avant d’en ajouter. Aucune modification effectuée.",
+    "folderLimit": "La bibliothèque est limitée à {{count}} dossiers. Supprimez-en avant d’en ajouter. Aucune modification effectuée.",
     "title": "Bibliothèque de requêtes",
     "open": "Bibliothèque",
     "save": "Sauvegarder",

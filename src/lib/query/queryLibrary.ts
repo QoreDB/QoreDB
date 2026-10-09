@@ -91,6 +91,19 @@ function readState(): QueryLibraryState {
   }
 }
 
+const listeners = new Set<() => void>();
+
+export function subscribeQueryLibrary(listener: () => void): () => void {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+}
+
+function notifyLibraryChanged() {
+  for (const listener of listeners) listener();
+}
+
 const syncTimers = new Map<string, ReturnType<typeof setTimeout>>();
 const saves = new Map<string, Promise<void>>();
 const loads = new Map<string, symbol>();
@@ -101,6 +114,7 @@ function writeState(next: QueryLibraryState): void {
   if (isLoading) throw new Error(i18n.t('common.loading'));
   const pendingSync = !!activeWorkspace && activeWorkspace.source !== 'default';
   localStorage.setItem(getStorageKey(projectId), JSON.stringify({ ...next, pendingSync }));
+  notifyLibraryChanged();
 
   if (pendingSync) {
     clearTimeout(syncTimers.get(projectId));
@@ -179,6 +193,7 @@ export async function syncWorkspaceLibrary(): Promise<void> {
       localStorage.getItem(key) === before
     ) {
       localStorage.setItem(key, JSON.stringify({ folders: data.folders, items: data.items }));
+      notifyLibraryChanged();
     }
   } finally {
     if (loads.get(projectId) === load) loads.delete(projectId);
@@ -191,20 +206,19 @@ export function listFolders(): QueryFolder[] {
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 
-export function createFolder(name: string): QueryFolder {
+function prepareFolder(state: QueryLibraryState, name: string): QueryFolder {
   const trimmed = name.trim();
   if (!trimmed) {
     throw new Error('Folder name is required');
   }
 
-  const state = readState();
   const exists = state.folders.some(f => f.name.toLowerCase() === trimmed.toLowerCase());
   if (exists) {
     return state.folders.find(f => f.name.toLowerCase() === trimmed.toLowerCase()) as QueryFolder;
   }
 
   if (state.folders.length >= MAX_FOLDERS) {
-    throw new Error('Too many folders');
+    throw new Error(i18n.t('library.folderLimit', { count: MAX_FOLDERS }));
   }
 
   const folder: QueryFolder = {
@@ -214,11 +228,16 @@ export function createFolder(name: string): QueryFolder {
     updatedAt: now(),
   };
 
-  writeState({
-    ...state,
-    folders: [...state.folders, folder],
-  });
+  state.folders.push(folder);
 
+  return folder;
+}
+
+export function createFolder(name: string): QueryFolder {
+  const state = readState();
+  const count = state.folders.length;
+  const folder = prepareFolder(state, name);
+  if (state.folders.length !== count) writeState(state);
   return folder;
 }
 
@@ -307,6 +326,7 @@ export function addItem(input: {
   title: string;
   query: string;
   folderId?: string | null;
+  newFolderName?: string;
   tags?: string[];
   isFavorite?: boolean;
   driver?: string;
@@ -325,7 +345,10 @@ export function addItem(input: {
     id: generateId('ql'),
     title,
     query,
-    folderId: input.folderId ?? null,
+    folderId:
+      input.newFolderName !== undefined
+        ? prepareFolder(state, input.newFolderName).id
+        : (input.folderId ?? null),
     tags: Array.from(new Set((input.tags ?? []).map(normalizeTag).filter(Boolean))).slice(0, 12),
     isFavorite: input.isFavorite ?? false,
     driver: input.driver,
@@ -335,10 +358,10 @@ export function addItem(input: {
     updatedAt: now(),
   };
 
-  const nextItems = [item, ...state.items];
-  if (nextItems.length > MAX_ITEMS) {
-    nextItems.splice(MAX_ITEMS);
+  if (state.items.length >= MAX_ITEMS) {
+    throw new Error(i18n.t('library.itemLimit', { count: MAX_ITEMS }));
   }
+  const nextItems = [item, ...state.items];
 
   writeState({ ...state, items: nextItems });
   return item;
@@ -417,7 +440,7 @@ export function importLibrary(payload: QueryLibraryExportV1): {
     if (!name) continue;
     const existingId = folderNameToId.get(name.toLowerCase());
     if (existingId) continue;
-    if (state.folders.length + importedFolders.length >= MAX_FOLDERS) break;
+
     const created: QueryFolder = {
       id: generateId('folder'),
       name,
@@ -438,7 +461,6 @@ export function importLibrary(payload: QueryLibraryExportV1): {
 
   const importedItems: QueryLibraryItem[] = [];
   for (const item of payload.items ?? []) {
-    if (state.items.length + importedItems.length >= MAX_ITEMS) break;
     const title = (item?.title ?? '').trim();
     const query = item?.query ?? '';
     if (!title || !query.trim()) continue;
@@ -459,9 +481,15 @@ export function importLibrary(payload: QueryLibraryExportV1): {
     });
   }
 
+  if (state.items.length + importedItems.length > MAX_ITEMS) {
+    throw new Error(i18n.t('library.itemLimit', { count: MAX_ITEMS }));
+  }
+  if (state.folders.length + importedFolders.length > MAX_FOLDERS) {
+    throw new Error(i18n.t('library.folderLimit', { count: MAX_FOLDERS }));
+  }
   writeState({
     folders: [...state.folders, ...importedFolders],
-    items: [...importedItems, ...state.items].slice(0, MAX_ITEMS),
+    items: [...importedItems, ...state.items],
   });
 
   return { foldersImported: importedFolders.length, itemsImported: importedItems.length };

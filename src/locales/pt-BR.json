@@ -508,6 +508,8 @@
     "close": "Fechar"
   },
   "library": {
+    "itemLimit": "A biblioteca permite até {{count}} consultas. Exclua algumas antes de adicionar mais. Nada foi alterado.",
+    "folderLimit": "A biblioteca permite até {{count}} pastas. Exclua algumas antes de adicionar mais. Nada foi alterado.",
     "title": "Biblioteca de Consultas",
     "open": "Biblioteca",
     "save": "Salvar",

@@ -537,6 +537,8 @@
     "close": "Close"
   },
   "library": {
+    "itemLimit": "The library is limited to {{count}} queries. Remove some queries before adding more. Nothing was changed.",
+    "folderLimit": "The library is limited to {{count}} folders. Remove some folders before adding more. Nothing was changed.",
     "title": "Query Library",
     "open": "Library",
     "save": "Save",

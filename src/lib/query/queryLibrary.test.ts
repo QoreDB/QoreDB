@@ -212,3 +212,96 @@ it('ignores an older disk response when a newer reload has completed', async () 
   await old;
   expect(library.listItems()[0].id).toBe('new');
 });
+
+function fullLibrary(count: number) {
+  return {
+    folders: [],
+    items: Array.from({ length: count }, (_, i) => ({
+      id: `query-${i}`,
+      title: `Query ${i}`,
+      query: `SELECT ${i}`,
+      tags: [],
+      isFavorite: true,
+      createdAt: i,
+      updatedAt: i,
+    })),
+  };
+}
+
+it('refuses a new query at capacity without silently deleting the oldest saved query', () => {
+  const original = JSON.stringify(fullLibrary(300));
+  storage.set(key('a'), original);
+  expect(() => library.addItem({ title: 'Extra', query: 'SELECT 301' })).toThrow();
+  expect(storage.get(key('a'))).toBe(original);
+});
+
+it('rejects an import that exceeds capacity without partially importing it', () => {
+  const original = JSON.stringify(fullLibrary(299));
+  storage.set(key('a'), original);
+  expect(() => library.importLibrary({ version: 1, exportedAt: 0, ...fullLibrary(2) })).toThrow();
+  expect(storage.get(key('a'))).toBe(original);
+});
+
+it('does not trim oversized legacy libraries during import', () => {
+  const original = JSON.stringify(fullLibrary(301));
+  storage.set(key('a'), original);
+  expect(() =>
+    library.importLibrary({ version: 1, exportedAt: 0, folders: [], items: [] })
+  ).toThrow();
+  expect(storage.get(key('a'))).toBe(original);
+});
+
+it('rejects too many imported folders without orphaning their queries', () => {
+  const original = JSON.stringify({ folders: [], items: [] });
+  storage.set(key('a'), original);
+  const folders = Array.from({ length: 101 }, (_, i) => ({
+    id: `f${i}`,
+    name: `Folder ${i}`,
+    createdAt: 0,
+    updatedAt: 0,
+  }));
+  expect(() =>
+    library.importLibrary({
+      version: 1,
+      exportedAt: 0,
+      folders,
+      items: [{ ...fullLibrary(1).items[0], folderId: 'f100' }],
+    })
+  ).toThrow();
+  expect(storage.get(key('a'))).toBe(original);
+});
+
+it('saves a query and its new folder together, and leaves neither behind on failure', () => {
+  const original = JSON.stringify(fullLibrary(300));
+  storage.set(key('a'), original);
+  expect(() =>
+    library.addItem({ title: 'Extra', query: 'SELECT 301', newFolderName: 'New folder' })
+  ).toThrow();
+  expect(storage.get(key('a'))).toBe(original);
+  storage.set(key('a'), JSON.stringify(fullLibrary(299)));
+  const item = library.addItem({
+    title: 'Last slot',
+    query: 'SELECT 299',
+    newFolderName: 'New folder',
+  });
+  expect(library.listFolders()).toHaveLength(1);
+  expect(item.folderId).toBe(library.listFolders()[0].id);
+  expect(library.listItems()).toHaveLength(300);
+});
+
+it('imports at the exact limit and merges a matching folder without duplicating it', () => {
+  storage.set(key('a'), JSON.stringify(fullLibrary(299)));
+  library.createFolder('Existing');
+  const folder = library.listFolders()[0];
+  expect(
+    library.importLibrary({
+      version: 1,
+      exportedAt: 0,
+      folders: [{ ...folder, id: 'imported' }],
+      items: [{ ...fullLibrary(1).items[0], folderId: 'imported' }],
+    })
+  ).toEqual({ itemsImported: 1, foldersImported: 0 });
+  expect(library.listFolders()).toEqual([folder]);
+  expect(library.listItems()[0].folderId).toBe(folder.id);
+  expect(library.listItems()).toHaveLength(300);
+});

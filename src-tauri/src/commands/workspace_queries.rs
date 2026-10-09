@@ -2,7 +2,6 @@
 
 //! Read/write the query library stored in `.qoredb/queries/library.json`.
 
-use std::fs;
 use tauri::State;
 
 use qore_service::workspace::query_library::{self, WorkspaceQueryLibrary};
@@ -74,19 +73,8 @@ fn save_library(
         return Ok(false);
     }
 
-    let queries_dir = ws.path.join("queries");
-    fs::create_dir_all(&queries_dir).map_err(|e| {
-        EngineError::internal(format!("Failed to create queries dir: {}", e)).to_string()
-    })?;
-
-    let content = serde_json::to_string_pretty(library)
-        .map_err(|e| EngineError::internal(format!("Serialization error: {}", e)).to_string())?;
-
-    let library_path = queries_dir.join("library.json");
-    write_registry.register_with_auto_unregister(library_path.clone());
-    fs::write(&library_path, content).map_err(|e| {
-        EngineError::internal(format!("Failed to write library: {}", e)).to_string()
-    })?;
+    write_registry.register_with_auto_unregister(ws.path.join("queries/library.json"));
+    query_library::write(&ws.path, library).map_err(|e| EngineError::internal(e).to_string())?;
 
     Ok(true)
 }
@@ -95,6 +83,7 @@ fn save_library(
 mod tests {
     use super::*;
     use serde_json::json;
+    use std::fs;
     use tempfile::TempDir;
 
     #[tokio::test]

@@ -508,6 +508,8 @@
     "close": "Cerrar"
   },
   "library": {
+    "itemLimit": "La biblioteca admite hasta {{count}} consultas. Elimina algunas antes de añadir más. No se ha cambiado nada.",
+    "folderLimit": "La biblioteca admite hasta {{count}} carpetas. Elimina algunas antes de añadir más. No se ha cambiado nada.",
     "title": "Biblioteca de consultas",
     "open": "Biblioteca",
     "save": "Guardar",

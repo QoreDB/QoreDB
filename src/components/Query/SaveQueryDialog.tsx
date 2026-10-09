@@ -26,12 +26,13 @@ import {
 import { extractVariableReferences } from '@/lib/notebook/notebookVariables';
 import {
   addItem,
-  createFolder,
   listFolders,
   parseTags,
   type QueryFolder,
   type QueryVariable,
 } from '@/lib/query/queryLibrary';
+
+import { getWorkspaceState, useWorkspaceStore } from '@/lib/stores/workspaceStore';
 
 const VARIABLE_TYPES: QueryVariable['type'][] = ['text', 'number', 'date', 'select'];
 
@@ -64,6 +65,8 @@ export function SaveQueryDialog({
   defaultFolderId = null,
 }: SaveQueryDialogProps) {
   const { t } = useTranslation();
+  const projectId = useWorkspaceStore(state => state.projectId);
+  const [origin, setOrigin] = useState(projectId);
   const [folders, setFolders] = useState<QueryFolder[]>([]);
   const [title, setTitle] = useState('');
   const [tagsRaw, setTagsRaw] = useState('');
@@ -77,7 +80,11 @@ export function SaveQueryDialog({
   const detectedVars = useMemo(() => extractVariableReferences(initialQuery), [initialQuery]);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      setOrigin(projectId);
+      return;
+    }
+    if (origin !== projectId) return;
     setFolders(listFolders());
     setTitle((defaultTitle ?? inferTitleFromQuery(initialQuery)).trim());
     setTagsRaw('');
@@ -88,7 +95,11 @@ export function SaveQueryDialog({
     setVariableDefs(
       Object.fromEntries(detectedVars.map(name => [name, { name, type: 'text' } as QueryVariable]))
     );
-  }, [open, defaultFolderId, defaultTitle, initialQuery, detectedVars]);
+  }, [open, defaultFolderId, defaultTitle, initialQuery, detectedVars, projectId, origin]);
+
+  useEffect(() => {
+    if (open && origin !== projectId) onOpenChange(false);
+  }, [open, origin, projectId, onOpenChange]);
 
   function updateVarDef(name: string, patch: Partial<QueryVariable>) {
     setVariableDefs(prev => ({
@@ -101,21 +112,15 @@ export function SaveQueryDialog({
     onOpenChange(false);
   }
 
-  function resolveFolderId(): string | null {
-    if (folderMode === 'new') {
-      const created = createFolder(newFolderName);
-      return created.id;
-    }
-    return folderId ?? null;
-  }
-
   function handleSave() {
+    const workspace = getWorkspaceState();
+    if (workspace.projectId !== origin || workspace.isLoading) return;
     try {
-      const resolvedFolderId = resolveFolderId();
       addItem({
         title,
         query: initialQuery,
-        folderId: resolvedFolderId,
+        folderId: folderMode === 'existing' ? folderId : null,
+        newFolderName: folderMode === 'new' ? newFolderName : undefined,
         tags: parsedTags,
         isFavorite,
         driver,
@@ -132,7 +137,7 @@ export function SaveQueryDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open && origin === projectId} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>{t('library.saveTitle')}</DialogTitle>

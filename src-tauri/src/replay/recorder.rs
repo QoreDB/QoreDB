@@ -46,6 +46,7 @@ pub struct RecordingOptions {
     pub secret_patterns: Vec<String>,
 }
 
+#[derive(Clone)]
 struct RecordingSession {
     run_id: String,
     name: String,
@@ -142,8 +143,23 @@ impl Recorder {
             .unwrap_or(0)
     }
 
-    pub fn status(&self) -> Option<RecordingStatus> {
-        self.session.read().as_ref().map(|s| RecordingStatus {
+    pub fn status(&self, project: &str) -> Option<RecordingStatus> {
+        self.session
+            .read()
+            .as_ref()
+            .filter(|s| s.project_id == project)
+            .map(Self::session_status)
+    }
+
+    fn require_target(s: &RecordingSession, project: &str, run_id: &str) -> Result<(), String> {
+        if s.project_id != project || s.run_id != run_id {
+            return Err("Recording is no longer available in this workspace".into());
+        }
+        Ok(())
+    }
+
+    fn session_status(s: &RecordingSession) -> RecordingStatus {
+        RecordingStatus {
             run_id: s.run_id.clone(),
             name: s.name.clone(),
             started_at: s.started_at.clone(),
@@ -157,7 +173,7 @@ impl Recorder {
             mutation_count: s.entries.iter().filter(|e| e.is_mutation).count(),
             secrets_detected: s.flagged.len(),
             secret_policy: s.secret_policy,
-        })
+        }
     }
 
     /// Starts a recording. Value capture is refused in production unless the
@@ -171,7 +187,8 @@ impl Recorder {
         environment: String,
         allow_production_capture: bool,
     ) -> Result<RecordingStatus, String> {
-        if self.session.read().is_some() {
+        let mut guard = self.session.write();
+        if guard.is_some() {
             return Err("A recording is already in progress".to_string());
         }
 
@@ -213,8 +230,9 @@ impl Recorder {
             flagged: Vec::new(),
         };
 
-        *self.session.write() = Some(session);
-        Ok(self.status().expect("session was just installed"))
+        let status = Self::session_status(&session);
+        *guard = Some(session);
+        Ok(status)
     }
 
     /// Records one completed query. Silently returns when no recording is live,
@@ -315,8 +333,10 @@ impl Recorder {
     /// Ends the recording and hands back the set plus the baseline run it
     /// captured. `None` when nothing was recording.
     pub fn stop(&self) -> Option<(ReplaySet, RunMeta)> {
-        let mut session = self.session.write().take()?;
+        self.session.write().take().map(Self::snapshot)
+    }
 
+    fn snapshot(mut session: RecordingSession) -> (ReplaySet, RunMeta) {
         // Redacting is the caller's explicit choice: it makes the set
         // shareable without reservation and unreplayable in the same move,
         // which is why the set carries the fact.
@@ -331,6 +351,7 @@ impl Recorder {
         let entry_count = session.entries.len();
         let set = ReplaySet {
             version: REPLAY_SET_VERSION,
+            baseline_run_id: Some(session.run_id.clone()),
             name: session.name.clone(),
             created_at: session.started_at.clone(),
             source: ReplaySource {
@@ -350,28 +371,59 @@ impl Recorder {
             set_name: session.name,
             started_at: session.started_at,
             finished_at: Some(chrono::Utc::now().to_rfc3339()),
+            cancelled: false,
             connection_label: session.connection_label,
             driver_id: session.driver_id,
             environment: session.environment,
             capture_mode: session.capture_mode,
             capture_stopped_reason: session.stop_reason,
             is_baseline: true,
+            reference_generation: false,
             captured_bytes: session.captured_bytes,
             entry_count,
         };
 
-        Some((set, run))
+        (set, run)
+    }
+
+    /// Consumes a recording only once its destination has been persisted.
+    pub fn finish<T>(
+        &self,
+        project: &str,
+        run_id: &str,
+        persist: impl FnOnce(&std::path::Path, &ReplaySet, RunMeta) -> Result<T, String>,
+    ) -> Result<T, String> {
+        let mut guard = self.session.write();
+        let session = guard.as_ref().ok_or("No recording in progress")?;
+        Self::require_target(session, project, run_id)?;
+        let path = session.workspace_path.clone();
+        let (set, run) = Self::snapshot(session.clone());
+        let saved = persist(&path, &set, run)?;
+        *guard = None;
+        Ok(saved)
     }
 
     /// Drops a recording without producing a set.
-    pub fn cancel(&self) -> Option<String> {
-        self.session.write().take().map(|s| s.run_id)
+    pub fn cancel(
+        &self,
+        project: &str,
+        run_id: &str,
+        cleanup: impl FnOnce(&str) -> Result<(), String>,
+    ) -> Result<(), String> {
+        let mut guard = self.session.write();
+        let session = guard.as_ref().ok_or("No recording in progress")?;
+        Self::require_target(session, project, run_id)?;
+        cleanup(&session.run_id)?;
+        *guard = None;
+        Ok(())
     }
 
     /// Drops a recorded entry, and the rows captured for it: leaving them on
     /// disk would keep values the user explicitly removed from the set.
     pub fn discard_preview(
         &self,
+        project: &str,
+        run_id: &str,
         index: usize,
         capture_store: &CaptureStore,
     ) -> Result<(), String> {
@@ -379,12 +431,13 @@ impl Recorder {
         let session = guard
             .as_mut()
             .ok_or_else(|| "No recording in progress".to_string())?;
+        Self::require_target(session, project, run_id)?;
         if index >= session.entries.len() {
             return Err("No such recorded entry".to_string());
         }
+        capture_store.delete_entry(&session.run_id, &session.entries[index].id)?;
         let removed = session.entries.remove(index);
         session.flagged.retain(|id| id != &removed.id);
-        let _ = capture_store.delete_entry(&session.run_id, &removed.id);
         for (position, entry) in session.entries.iter_mut().enumerate() {
             entry.order = position as u32 + 1;
         }
@@ -393,33 +446,42 @@ impl Recorder {
 
     /// Drops every recorded mutation and its captured rows, and returns how
     /// many were removed.
-    pub fn discard_mutations(&self, capture_store: &CaptureStore) -> Result<usize, String> {
+    pub fn discard_mutations(
+        &self,
+        project: &str,
+        run_id: &str,
+        capture_store: &CaptureStore,
+    ) -> Result<usize, String> {
         let mut guard = self.session.write();
         let session = guard
             .as_mut()
             .ok_or_else(|| "No recording in progress".to_string())?;
+        Self::require_target(session, project, run_id)?;
 
-        let before = session.entries.len();
-        session.entries.retain(|entry| {
-            if !entry.is_mutation {
-                return true;
+        let mut removed = 0;
+        let mut index = 0;
+        while index < session.entries.len() {
+            if !session.entries[index].is_mutation {
+                index += 1;
+                continue;
             }
-            let _ = capture_store.delete_entry(&session.run_id, &entry.id);
-            false
-        });
-        let kept: Vec<String> = session.entries.iter().map(|e| e.id.clone()).collect();
-        session.flagged.retain(|id| kept.contains(id));
-        for (position, entry) in session.entries.iter_mut().enumerate() {
-            entry.order = position as u32 + 1;
+            capture_store.delete_entry(&session.run_id, &session.entries[index].id)?;
+            let entry = session.entries.remove(index);
+            session.flagged.retain(|id| id != &entry.id);
+            for (position, entry) in session.entries.iter_mut().enumerate() {
+                entry.order = position as u32 + 1;
+            }
+            removed += 1;
         }
-        Ok(before - session.entries.len())
+        Ok(removed)
     }
 
     /// `(order, preview, is_mutation, looks_like_secret)` per recorded entry.
-    pub fn recorded_previews(&self) -> Vec<(u32, String, bool, bool)> {
+    pub fn recorded_previews(&self, project: &str, run_id: &str) -> Vec<(u32, String, bool, bool)> {
         self.session
             .read()
             .as_ref()
+            .filter(|s| s.project_id == project && s.run_id == run_id)
             .map(|s| {
                 s.entries
                     .iter()
@@ -442,6 +504,232 @@ mod tests {
     use super::*;
     use crate::engine::types::{ColumnInfo, Row, Value};
     use crate::interceptor::{Environment, QueryOperationType, QuerySource};
+
+    fn current_id(recorder: &Recorder) -> String {
+        recorder.status("default").unwrap().run_id
+    }
+
+    #[test]
+    fn foreign_workspace_cannot_read_or_modify_recording() {
+        let (capture, dir) = store();
+        let recorder = Recorder::new();
+        let status = recorder
+            .start(
+                options(CaptureMode::Full),
+                "postgres".into(),
+                None,
+                "staging".into(),
+                false,
+            )
+            .unwrap();
+        recorder.record(
+            &context("SELECT 1"),
+            None,
+            &exec(true, 1.0),
+            Some(&sample_result(1)),
+            &capture,
+        );
+        assert!(recorder.status("other").is_none());
+        assert!(
+            recorder
+                .recorded_previews("other", &status.run_id)
+                .is_empty()
+        );
+        assert!(
+            recorder
+                .discard_preview("other", &status.run_id, 0, &capture)
+                .is_err()
+        );
+        assert!(
+            recorder
+                .discard_mutations("other", &status.run_id, &capture)
+                .is_err()
+        );
+        assert!(
+            recorder
+                .finish::<()>("other", &status.run_id, |_, _, _| panic!(
+                    "must not publish"
+                ))
+                .is_err()
+        );
+        assert!(
+            recorder
+                .cancel("other", &status.run_id, |_| panic!("must not delete"))
+                .is_err()
+        );
+        assert_eq!(recorder.status("default").unwrap().entry_count, 1);
+        assert_eq!(
+            recorder.recorded_previews("default", &status.run_id).len(),
+            1
+        );
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn stale_recording_id_cannot_modify_a_new_recording_in_the_same_workspace() {
+        let (capture, dir) = store();
+        let recorder = Recorder::new();
+        let old = recorder
+            .start(
+                options(CaptureMode::Full),
+                "postgres".into(),
+                None,
+                "staging".into(),
+                false,
+            )
+            .unwrap();
+        recorder.cancel("default", &old.run_id, |_| Ok(())).unwrap();
+        let new = recorder
+            .start(
+                options(CaptureMode::Full),
+                "postgres".into(),
+                None,
+                "staging".into(),
+                false,
+            )
+            .unwrap();
+        recorder.record(
+            &context("SELECT 2"),
+            None,
+            &exec(true, 1.0),
+            Some(&sample_result(1)),
+            &capture,
+        );
+        assert!(
+            recorder
+                .recorded_previews("default", &old.run_id)
+                .is_empty()
+        );
+        assert!(
+            recorder
+                .discard_preview("default", &old.run_id, 0, &capture)
+                .is_err()
+        );
+        assert!(
+            recorder
+                .discard_mutations("default", &old.run_id, &capture)
+                .is_err()
+        );
+        assert!(
+            recorder
+                .finish::<()>("default", &old.run_id, |_, _, _| panic!("must not publish"))
+                .is_err()
+        );
+        assert!(
+            recorder
+                .cancel("default", &old.run_id, |_| panic!("must not delete"))
+                .is_err()
+        );
+        assert_eq!(recorder.status("default").unwrap().run_id, new.run_id);
+        assert_eq!(recorder.status("default").unwrap().entry_count, 1);
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn cleanup_errors_keep_the_recording_available_and_are_reported() {
+        let (capture, dir) = store();
+        let recorder = Recorder::new();
+        let status = recorder
+            .start(
+                options(CaptureMode::Full),
+                "postgres".into(),
+                None,
+                "staging".into(),
+                false,
+            )
+            .unwrap();
+        recorder.record(
+            &context("SELECT 1"),
+            None,
+            &exec(true, 1.0),
+            Some(&sample_result(1)),
+            &capture,
+        );
+        assert!(
+            recorder
+                .cancel("default", &status.run_id, |_| Err(
+                    "synthetic cleanup failure".into()
+                ))
+                .is_err()
+        );
+        assert_eq!(recorder.status("default").unwrap().entry_count, 1);
+        let entry_id = recorder.session.read().as_ref().unwrap().entries[0]
+            .id
+            .clone();
+        let path = capture
+            .root()
+            .join(&status.run_id)
+            .join(format!("{entry_id}.json"));
+        std::fs::remove_file(&path).unwrap();
+        std::fs::create_dir(&path).unwrap();
+        assert!(
+            recorder
+                .discard_preview("default", &status.run_id, 0, &capture)
+                .is_err()
+        );
+        assert_eq!(recorder.status("default").unwrap().entry_count, 1);
+        recorder
+            .cancel("default", &status.run_id, |id| capture.delete_run(id))
+            .unwrap();
+        assert!(recorder.status("default").is_none());
+        assert!(!capture.root().join(&status.run_id).exists());
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn mutation_cleanup_failure_keeps_remaining_entries_consistent() {
+        let (capture, dir) = store();
+        let recorder = Recorder::new();
+        let mut options = options(CaptureMode::Full);
+        options.record_mutations = true;
+        let status = recorder
+            .start(options, "postgres".into(), None, "staging".into(), false)
+            .unwrap();
+        for _ in 0..2 {
+            let mut query = context("UPDATE synthetic SET id = 1 RETURNING id");
+            query.is_mutation = true;
+            query.operation_type = QueryOperationType::Update;
+            recorder.record(
+                &query,
+                None,
+                &exec(true, 1.0),
+                Some(&sample_result(1)),
+                &capture,
+            );
+        }
+        let remaining_id = recorder.session.read().as_ref().unwrap().entries[1]
+            .id
+            .clone();
+        let path = capture
+            .root()
+            .join(&status.run_id)
+            .join(format!("{remaining_id}.json"));
+        std::fs::remove_file(&path).unwrap();
+        std::fs::create_dir(&path).unwrap();
+        assert!(
+            recorder
+                .discard_mutations("default", &status.run_id, &capture)
+                .is_err()
+        );
+        assert_eq!(recorder.status("default").unwrap().entry_count, 1);
+        assert_eq!(
+            recorder.recorded_previews("default", &status.run_id)[0].0,
+            1
+        );
+        assert_eq!(
+            recorder.session.read().as_ref().unwrap().entries[0].id,
+            remaining_id
+        );
+        std::fs::remove_dir(&path).unwrap();
+        assert_eq!(
+            recorder
+                .discard_mutations("default", &status.run_id, &capture)
+                .unwrap(),
+            1
+        );
+        assert_eq!(recorder.status("default").unwrap().entry_count, 0);
+        std::fs::remove_dir_all(dir).unwrap();
+    }
 
     fn context(query: &str) -> QueryContext {
         QueryContext {
@@ -515,6 +803,133 @@ mod tests {
     fn store() -> (CaptureStore, std::path::PathBuf) {
         let dir = std::env::temp_dir().join(format!("qoredb_recorder_{}", uuid::Uuid::new_v4()));
         (CaptureStore::new(dir.clone()), dir)
+    }
+
+    #[test]
+    fn failed_finish_keeps_recording_and_captures_for_retry() {
+        let (capture, dir) = store();
+        let recorder = Recorder::new();
+        recorder
+            .start(
+                options(CaptureMode::Full),
+                "postgres".into(),
+                None,
+                "staging".into(),
+                false,
+            )
+            .unwrap();
+        recorder.record(
+            &context("SELECT 1"),
+            None,
+            &exec(true, 10.0),
+            Some(&sample_result(3)),
+            &capture,
+        );
+        let run_id = recorder.status("default").unwrap().run_id;
+        let failed: Result<(), _> =
+            recorder.finish("default", &current_id(&recorder), |_, set, run| {
+                assert_eq!(set.entries.len(), 1);
+                assert!(capture.has_entry(&run.run_id, &set.entries[0].id));
+                Err("synthetic disk error".into())
+            });
+        assert!(failed.is_err());
+        assert!(recorder.is_recording(), "failed save must be retryable");
+        assert_eq!(recorder.status("default").unwrap().run_id, run_id);
+        recorder
+            .finish("default", &current_id(&recorder), |_, set, run| {
+                assert_eq!(set.entries.len(), 1);
+                assert_eq!(
+                    capture
+                        .load_entry(&run.run_id, &set.entries[0].id)?
+                        .rows
+                        .len(),
+                    3
+                );
+                Ok(())
+            })
+            .unwrap();
+        assert!(!recorder.is_recording());
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn real_save_error_can_be_retried_without_losing_or_redacting_live_queries() {
+        let dir = tempfile::tempdir().unwrap();
+        let capture = CaptureStore::new(dir.path().join("captures"));
+        let workspace = dir.path().join("workspace");
+        std::fs::write(&workspace, "blocks directory creation").unwrap();
+        let recorder = Recorder::new();
+        let mut options = options(CaptureMode::Full);
+        options.workspace_path = workspace.clone();
+        options.secret_policy = SecretPolicy::Redact;
+        recorder
+            .start(options, "postgres".into(), None, "staging".into(), false)
+            .unwrap();
+        recorder.record(
+            &context(&secret_query()),
+            None,
+            &exec(true, 1.0),
+            Some(&sample_result(1)),
+            &capture,
+        );
+        let previews = recorder.recorded_previews("default", &current_id(&recorder));
+        let save = || {
+            recorder.finish("default", &current_id(&recorder), |path, set, mut run| {
+                run.set_slug = "retry".into();
+                capture.save_run_meta(&run)?;
+                crate::replay::store::ReplaySetStore::new(path).create("retry", set)?;
+                Ok(run.run_id)
+            })
+        };
+        assert!(save().is_err());
+        assert_eq!(
+            recorder.recorded_previews("default", &current_id(&recorder)),
+            previews
+        );
+        assert!(recorder.is_recording());
+        std::fs::remove_file(&workspace).unwrap();
+        let run_id = save().unwrap();
+        let set = crate::replay::store::ReplaySetStore::new(&workspace)
+            .load("retry")
+            .unwrap();
+        assert!(set.redacted);
+        assert!(!set.entries[0].query.contains(&sample_key()));
+        assert_eq!(set.baseline_run_id, Some(run_id.clone()));
+        assert!(capture.has_entry(&run_id, &set.entries[0].id));
+        assert!(!recorder.is_recording());
+    }
+
+    #[test]
+    fn concurrent_starts_cannot_replace_a_successful_recording() {
+        for _ in 0..32 {
+            let recorder = std::sync::Arc::new(Recorder::new());
+            let barrier = std::sync::Arc::new(std::sync::Barrier::new(8));
+            let handles: Vec<_> = (0..8)
+                .map(|_| {
+                    let recorder = recorder.clone();
+                    let barrier = barrier.clone();
+                    std::thread::spawn(move || {
+                        barrier.wait();
+                        recorder.start(
+                            options(CaptureMode::MetadataOnly),
+                            "postgres".into(),
+                            None,
+                            "staging".into(),
+                            false,
+                        )
+                    })
+                })
+                .collect();
+            let accepted: Vec<_> = handles
+                .into_iter()
+                .filter_map(|handle| handle.join().unwrap().ok())
+                .collect();
+            assert_eq!(accepted.len(), 1, "only one start may own the recorder");
+            assert_eq!(
+                recorder.status("default").unwrap().run_id,
+                accepted[0].run_id
+            );
+        }
     }
 
     #[test]
@@ -605,7 +1020,9 @@ mod tests {
             status.capture_stopped_reason,
             Some(CaptureStopReason::ProductionPolicy)
         );
-        recorder.cancel();
+        recorder
+            .cancel("default", &current_id(&recorder), |_| Ok(()))
+            .unwrap();
 
         let status = recorder
             .start(
@@ -641,8 +1058,10 @@ mod tests {
             Some(&first),
             &capture,
         );
-        let one_entry_bytes = recorder.status().unwrap().captured_bytes;
-        recorder.cancel();
+        let one_entry_bytes = recorder.status("default").unwrap().captured_bytes;
+        recorder
+            .cancel("default", &current_id(&recorder), |_| Ok(()))
+            .unwrap();
         assert!(one_entry_bytes > 0);
 
         let mut opts = options(CaptureMode::Full);
@@ -762,8 +1181,10 @@ mod tests {
         recorder.record(&context("SELECT 2"), None, &exec(true, 1.0), None, &capture);
         recorder.record(&context("SELECT 3"), None, &exec(true, 1.0), None, &capture);
 
-        recorder.discard_preview(1, &capture).unwrap();
-        let previews = recorder.recorded_previews();
+        recorder
+            .discard_preview("default", &current_id(&recorder), 1, &capture)
+            .unwrap();
+        let previews = recorder.recorded_previews("default", &current_id(&recorder));
         assert_eq!(previews.len(), 2);
         assert_eq!(previews[0].0, 1);
         assert_eq!(previews[1].0, 2);
@@ -807,7 +1228,7 @@ mod tests {
             &capture,
         );
 
-        let status = recorder.status().unwrap();
+        let status = recorder.status("default").unwrap();
         assert_eq!(status.ignored_other_session, 1);
         assert_eq!(status.entry_count, 1);
 
@@ -854,10 +1275,10 @@ mod tests {
             &capture,
         );
 
-        let status = recorder.status().unwrap();
+        let status = recorder.status("default").unwrap();
         assert_eq!(status.secrets_detected, 1, "only the credential is flagged");
 
-        let previews = recorder.recorded_previews();
+        let previews = recorder.recorded_previews("default", &current_id(&recorder));
         assert!(previews[0].3, "the api_key query is flagged");
         assert!(!previews[1].3, "the harmless literal is not");
 
@@ -919,7 +1340,7 @@ mod tests {
             &capture,
         );
 
-        assert_eq!(recorder.status().unwrap().secrets_detected, 0);
+        assert_eq!(recorder.status("default").unwrap().secrets_detected, 0);
         let (set, _) = recorder.stop().unwrap();
         assert!(set.entries[0].query.contains("hunter2"));
 
@@ -964,7 +1385,7 @@ mod tests {
             &capture,
         );
 
-        let status = recorder.status().unwrap();
+        let status = recorder.status("default").unwrap();
         assert_eq!(status.entry_count, 1);
         assert_eq!(status.excluded_mutations, 1);
 
@@ -999,9 +1420,14 @@ mod tests {
             Some(&sample_result(2)),
             &capture,
         );
-        assert_eq!(recorder.status().unwrap().mutation_count, 1);
+        assert_eq!(recorder.status("default").unwrap().mutation_count, 1);
 
-        assert_eq!(recorder.discard_mutations(&capture).unwrap(), 1);
+        assert_eq!(
+            recorder
+                .discard_mutations("default", &current_id(&recorder), &capture)
+                .unwrap(),
+            1
+        );
 
         let (set, run) = recorder.stop().unwrap();
         assert_eq!(set.entries.len(), 1);

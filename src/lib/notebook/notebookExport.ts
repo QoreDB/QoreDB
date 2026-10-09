@@ -14,7 +14,12 @@ export function exportToMarkdown(notebook: QoreNotebook, includeResults = false)
     if (cell.type === 'markdown') {
       parts.push(cell.source);
     } else if (cell.type === 'sql' || cell.type === 'mongo') {
-      parts.push(`\`\`\`sql\n${cell.source}\n\`\`\``);
+      let fenceLength = 3;
+      for (const match of cell.source.matchAll(/`+/g)) {
+        fenceLength = Math.max(fenceLength, match[0].length + 1);
+      }
+      const fence = '`'.repeat(fenceLength);
+      parts.push(`${fence}${cell.type}\n${cell.source}\n${fence}`);
       if (includeResults && cell.lastResult) {
         const table = resultToMarkdownTable(cell.lastResult);
         if (table) parts.push(table);

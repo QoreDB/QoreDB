@@ -1,7 +1,14 @@
 // SPDX-License-Identifier: BUSL-1.1
 
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { ArrowLeftRight, CheckCircle2, GitCompare, MinusCircle, PlusCircle } from 'lucide-react';
+import {
+  AlertTriangle,
+  ArrowLeftRight,
+  CheckCircle2,
+  GitCompare,
+  MinusCircle,
+  PlusCircle,
+} from 'lucide-react';
 import { useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -41,64 +48,91 @@ export function DiffResultsGrid({ diffResult, filteredRows }: DiffResultsGridPro
     );
   }
 
-  if (filteredRows.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center h-64 text-muted-foreground">
-        <CheckCircle2 size={48} className="mb-4 opacity-50" />
-        <p className="text-sm">{t('diff.noDifferences')}</p>
-      </div>
-    );
-  }
-
   const { columns } = diffResult;
+  const hasDifferences =
+    diffResult.stats.added + diffResult.stats.removed + diffResult.stats.modified > 0;
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      <div
-        className="flex items-center bg-muted/50 border-b border-border shrink-0"
-        style={{ height: HEADER_HEIGHT }}
-      >
-        <div className="w-10 shrink-0 flex items-center justify-center border-r border-border">
-          <span className="sr-only">Status</span>
-        </div>
-        {columns.map((col, i) => (
-          <div
-            key={i}
-            className="flex-1 min-w-[120px] px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider truncate border-r border-border last:border-r-0"
-            title={`${col.name} (${col.data_type})`}
-          >
-            {col.name}
-          </div>
-        ))}
-      </div>
-
-      <div ref={parentRef} className="flex-1 overflow-auto">
+      {diffResult.incomplete && (
         <div
-          style={{
-            height: `${rowVirtualizer.getTotalSize()}px`,
-            width: '100%',
-            position: 'relative',
-          }}
+          role="status"
+          className="flex items-start gap-2 p-3 text-sm text-warning border-b border-border shrink-0"
         >
-          {rowVirtualizer.getVirtualItems().map(virtualRow => {
-            const row = filteredRows[virtualRow.index];
-            return (
-              <DiffRowComponent
-                key={row.rowKey}
-                row={row}
-                style={{
-                  position: 'absolute',
-                  top: 0,
-                  left: 0,
-                  width: '100%',
-                  height: `${virtualRow.size}px`,
-                  transform: `translateY(${virtualRow.start}px)`,
-                }}
-              />
-            );
-          })}
+          <AlertTriangle size={16} className="mt-0.5 shrink-0" />
+          <div>
+            <p>{t('diff.incompleteComparison')}</p>
+            {diffResult.warnings.map(warning => (
+              <p key={warning}>{t(`diff.warnings.${warning}`)}</p>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
+      {filteredRows.length === 0 ? (
+        <div className="flex flex-col items-center justify-center h-64 text-muted-foreground">
+          {diffResult.incomplete || hasDifferences ? (
+            <GitCompare size={48} className="mb-4 opacity-50" />
+          ) : (
+            <CheckCircle2 size={48} className="mb-4 opacity-50" />
+          )}
+          <p className="text-sm">
+            {t(
+              hasDifferences
+                ? 'diff.noMatchingRows'
+                : diffResult.incomplete
+                  ? 'diff.noObservedDifferences'
+                  : 'diff.noDifferences'
+            )}
+          </p>
+        </div>
+      ) : (
+        <>
+          <div
+            className="flex items-center bg-muted/50 border-b border-border shrink-0"
+            style={{ height: HEADER_HEIGHT }}
+          >
+            <div className="w-10 shrink-0 flex items-center justify-center border-r border-border">
+              <span className="sr-only">{t('federation.status')}</span>
+            </div>
+            {columns.map((col, i) => (
+              <div
+                key={i}
+                className="flex-1 min-w-[120px] px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider truncate border-r border-border last:border-r-0"
+                title={`${col.name} (${col.data_type})`}
+              >
+                {col.name}
+              </div>
+            ))}
+          </div>
+          <div ref={parentRef} className="flex-1 overflow-auto">
+            <div
+              style={{
+                height: `${rowVirtualizer.getTotalSize()}px`,
+                width: '100%',
+                position: 'relative',
+              }}
+            >
+              {rowVirtualizer.getVirtualItems().map(virtualRow => {
+                const row = filteredRows[virtualRow.index];
+                return (
+                  <DiffRowComponent
+                    key={row.rowKey}
+                    row={row}
+                    style={{
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      width: '100%',
+                      height: `${virtualRow.size}px`,
+                      transform: `translateY(${virtualRow.start}px)`,
+                    }}
+                  />
+                );
+              })}
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }

@@ -380,6 +380,23 @@ impl SessionManager {
             .clone()
     }
 
+    /// Workspace-scoped operations must reject sessions with unknown origins too.
+    pub async fn require_workspace(
+        &self,
+        session_id: SessionId,
+        workspace_id: &str,
+    ) -> EngineResult<()> {
+        if !workspace_id.is_empty()
+            && self.workspace_id(session_id).await.as_deref() == Some(workspace_id)
+        {
+            Ok(())
+        } else {
+            Err(EngineError::internal(
+                "Session does not belong to the active workspace",
+            ))
+        }
+    }
+
     /// Bind once, before publishing the session: an active-workspace switch must
     /// not relabel pending writes or sessions kept open by another surface.
     pub async fn bind_workspace(
@@ -866,6 +883,37 @@ mod tests {
             },
         );
         id
+    }
+
+    #[tokio::test]
+    async fn workspace_operations_require_a_live_session_with_known_matching_origin() {
+        let manager = SessionManager::new(Arc::new(DriverRegistry::new()));
+        let session = workspace_session(&manager, "same-id").await;
+        assert!(manager.require_workspace(session, "default").await.is_err());
+        assert!(manager.require_workspace(session, "").await.is_err());
+        manager
+            .bind_workspace(session, "workspace-a")
+            .await
+            .unwrap();
+        assert!(
+            manager
+                .require_workspace(session, "workspace-a")
+                .await
+                .is_ok()
+        );
+        assert!(
+            manager
+                .require_workspace(session, "workspace-b")
+                .await
+                .is_err()
+        );
+        manager.sessions.write().await.remove(&session);
+        assert!(
+            manager
+                .require_workspace(session, "workspace-a")
+                .await
+                .is_err()
+        );
     }
 
     #[tokio::test]

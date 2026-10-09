@@ -447,28 +447,57 @@ fn bool_literal(value: bool, dialect: ParamDialect) -> &'static str {
 }
 
 async fn resolve_session(state: &ApiState, connection_id: &str) -> Result<SessionId, ApiError> {
-    if let Some(existing) = state.sessions.lock().await.get(connection_id).copied() {
+    resolve_session_with_config(state, connection_id, || {
+        load_saved_config(
+            &state.project_id,
+            state.workspace_connections_dir.as_deref(),
+            connection_id,
+            &state.storage_dir,
+        )
+    })
+    .await
+}
+
+async fn resolve_session_with_config(
+    state: &ApiState,
+    connection_id: &str,
+    load_config: impl FnOnce() -> Result<
+        (
+            qore_core::types::ConnectionConfig,
+            qore_core::masking::ConnectionMasking,
+        ),
+        String,
+    >,
+) -> Result<SessionId, ApiError> {
+    // Keep cache lookup and publication together: concurrent first requests must
+    // not open untracked sessions. Query execution happens outside this lock.
+    let mut sessions = state.sessions.lock().await;
+    if let Some(existing) = sessions.get(connection_id).copied() {
         if state.session_manager.session_exists(existing).await {
             return Ok(existing);
         }
         // Stale cache entry (session was closed elsewhere) — drop it and
         // re-open below.
-        state.sessions.lock().await.remove(connection_id);
+        sessions.remove(connection_id);
     }
 
-    let (config, masking) = load_saved_config(
-        &state.project_id,
-        state.workspace_connections_dir.as_deref(),
-        connection_id,
-        &state.storage_dir,
-    )
-    .map_err(ApiError::BadGateway)?;
+    let (config, masking) = load_config().map_err(ApiError::BadGateway)?;
 
     let session_id = state
         .session_manager
         .connect(config)
         .await
         .map_err(|e| ApiError::BadGateway(e.sanitized_message()))?;
+    if let Err(error) = state
+        .session_manager
+        .bind_workspace(session_id, &state.project_id)
+        .await
+    {
+        if let Err(cleanup_error) = state.session_manager.disconnect(session_id).await {
+            tracing::warn!(error = %cleanup_error.sanitized_message(), "Failed to disconnect unbound Instant API session");
+        }
+        return Err(ApiError::BadGateway(error.sanitized_message()));
+    }
     state
         .session_manager
         .set_saved_connection_identity(
@@ -482,11 +511,7 @@ async fn resolve_session(state: &ApiState, connection_id: &str) -> Result<Sessio
         .set_masking(session_id, &masking)
         .await;
 
-    state
-        .sessions
-        .lock()
-        .await
-        .insert(connection_id.to_string(), session_id);
+    sessions.insert(connection_id.to_string(), session_id);
     Ok(session_id)
 }
 
@@ -606,6 +631,260 @@ mod tests {
             created_at: "".into(),
             updated_at: "".into(),
         }
+    }
+
+    fn session_state(tmp: &tempfile::TempDir) -> ApiState {
+        let mut registry = qore_core::registry::DriverRegistry::new();
+        registry.register(Arc::new(qore_drivers::drivers::sqlite::SqliteDriver::new()));
+        ApiState {
+            store: Arc::new(EndpointStore::new(tmp.path().to_path_buf()).unwrap()),
+            limiter: Arc::new(RateLimiter::default_capacity()),
+            session_manager: Arc::new(SessionManager::new(Arc::new(registry))),
+            sessions: Arc::new(Mutex::new(HashMap::new())),
+            project_id: "api-workspace".into(),
+            storage_dir: tmp.path().to_path_buf(),
+            workspace_connections_dir: None,
+            started_at: Arc::new(Instant::now()),
+            openapi_base_url: Arc::new(OnceLock::new()),
+        }
+    }
+
+    fn sqlite_config(tmp: &tempfile::TempDir) -> qore_core::types::ConnectionConfig {
+        qore_core::types::ConnectionConfig {
+            driver: "sqlite".into(),
+            host: tmp.path().join("api.db").to_string_lossy().into_owned(),
+            ..Default::default()
+        }
+    }
+
+    #[tokio::test]
+    async fn expired_cached_session_recovers_without_locking_itself() {
+        let tmp = tempfile::tempdir().unwrap();
+        let state = session_state(&tmp);
+        state
+            .sessions
+            .lock()
+            .await
+            .insert("connection".into(), SessionId::new());
+        let result = tokio::time::timeout(
+            std::time::Duration::from_secs(2),
+            resolve_session_with_config(&state, "connection", || {
+                Err("synthetic missing connection".into())
+            }),
+        )
+        .await
+        .expect("expired session must not deadlock");
+        assert!(matches!(result, Err(ApiError::BadGateway(_))));
+        assert!(state.sessions.lock().await.is_empty());
+    }
+
+    #[tokio::test]
+    async fn simultaneous_requests_share_one_api_session() {
+        let tmp = tempfile::tempdir().unwrap();
+        let state = session_state(&tmp);
+        let config = sqlite_config(&tmp);
+        let (first, second) = tokio::join!(
+            resolve_session_with_config(&state, "connection", || Ok((
+                config.clone(),
+                Default::default()
+            ))),
+            resolve_session_with_config(&state, "connection", || Ok((
+                config.clone(),
+                Default::default()
+            ))),
+        );
+        let first = first.unwrap();
+        let second = second.unwrap();
+        state.session_manager.disconnect(first).await.unwrap();
+        if second != first {
+            state.session_manager.disconnect(second).await.unwrap();
+        }
+        assert_eq!(first, second, "concurrent opens must not leak a session");
+    }
+
+    #[tokio::test]
+    async fn api_sessions_receive_only_their_workspaces_masking_updates() {
+        use qore_core::masking::{ConnectionMasking, HIDDEN_VALUE, MaskMode, MaskingRule};
+        let tmp = tempfile::tempdir().unwrap();
+        let state = session_state(&tmp);
+        let session = resolve_session_with_config(&state, "copied-id", || {
+            Ok((sqlite_config(&tmp), Default::default()))
+        })
+        .await
+        .unwrap();
+        let mut other = state.clone();
+        other.project_id = "other-workspace".into();
+        other.sessions = Arc::new(Mutex::new(HashMap::new()));
+        let other_session = resolve_session_with_config(&other, "copied-id", || {
+            Ok((sqlite_config(&tmp), Default::default()))
+        })
+        .await
+        .unwrap();
+        let rules = ConnectionMasking {
+            rules: vec![MaskingRule {
+                table: "".into(),
+                column: "secret".into(),
+                mode: MaskMode::Hidden,
+            }],
+            mask_detected_columns: false,
+        };
+        state
+            .session_manager
+            .update_connection_masking(&state.project_id, "copied-id", &rules)
+            .await;
+        let driver = state.session_manager.get_driver(session).await.unwrap();
+        let mut result = driver
+            .execute(
+                session,
+                "SELECT 'synthetic-private-value' AS secret",
+                QueryId::new(),
+            )
+            .await
+            .unwrap();
+        qore_service::query::apply_masking(&state.session_manager, session, None, &mut result)
+            .await;
+        assert_eq!(result.rows[0].values[0].to_json(), json!(HIDDEN_VALUE));
+        assert!(state.session_manager.masking(other_session).await.is_none());
+        assert_eq!(
+            state.session_manager.workspace_id(session).await.as_deref(),
+            Some("api-workspace")
+        );
+        state.session_manager.disconnect(session).await.unwrap();
+        state
+            .session_manager
+            .disconnect(other_session)
+            .await
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn sqlite_handler_authenticates_masks_caps_and_rejects_mutations() {
+        use qore_core::masking::{ConnectionMasking, HIDDEN_VALUE, MaskMode, MaskingRule};
+        let tmp = tempfile::tempdir().unwrap();
+        let state = session_state(&tmp);
+        let session = resolve_session_with_config(&state, "connection", || {
+            Ok((sqlite_config(&tmp), Default::default()))
+        })
+        .await
+        .unwrap();
+        let token = super::super::auth::issue_token().unwrap();
+        state.store.create("rows".into(), "connection".into(),
+            "SELECT 9007199254740993 AS id, 'synthetic-private' AS secret UNION ALL SELECT 2, 'second'".into(),
+            vec![], QueryShape::Rows, 1, token.hash.clone()).unwrap();
+        let call = |name: &str, headers| {
+            handle_endpoint(
+                State(state.clone()),
+                Path(name.to_owned()),
+                Query(HashMap::new()),
+                headers,
+            )
+        };
+        assert!(matches!(
+            call("rows", HeaderMap::new()).await,
+            Err(ApiError::Unauthorized)
+        ));
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            axum::http::header::AUTHORIZATION,
+            "Bearer invalid-synthetic-token".parse().unwrap(),
+        );
+        assert!(matches!(
+            call("rows", headers.clone()).await,
+            Err(ApiError::Forbidden)
+        ));
+        headers.insert(
+            axum::http::header::AUTHORIZATION,
+            format!("Bearer {}", token.value).parse().unwrap(),
+        );
+        state
+            .session_manager
+            .update_connection_masking(
+                &state.project_id,
+                "connection",
+                &ConnectionMasking {
+                    rules: vec![MaskingRule {
+                        table: "".into(),
+                        column: "secret".into(),
+                        mode: MaskMode::Hidden,
+                    }],
+                    mask_detected_columns: false,
+                },
+            )
+            .await;
+        let response = call("rows", headers.clone()).await.unwrap();
+        let body = axum::body::to_bytes(response.into_body(), 16_384)
+            .await
+            .unwrap();
+        let data: JsonValue = serde_json::from_slice(&body).unwrap();
+        assert_eq!(data["data"][0]["secret"], json!(HIDDEN_VALUE));
+        assert_eq!(data["data"][0]["id"], json!(9_007_199_254_740_993_i64));
+        assert_eq!(data["count"], json!(1));
+        assert_eq!(data["truncated"], json!(true));
+        let driver = state.session_manager.get_driver(session).await.unwrap();
+        driver
+            .execute(
+                session,
+                "CREATE TABLE protected (id INTEGER); INSERT INTO protected VALUES (1)",
+                QueryId::new(),
+            )
+            .await
+            .unwrap();
+        state
+            .store
+            .create(
+                "mutation".into(),
+                "connection".into(),
+                "DELETE FROM protected".into(),
+                vec![],
+                QueryShape::Rows,
+                1,
+                token.hash,
+            )
+            .unwrap();
+        assert!(matches!(
+            call("mutation", headers).await,
+            Err(ApiError::BadRequest(_))
+        ));
+        let remaining = driver
+            .execute(session, "SELECT COUNT(*) FROM protected", QueryId::new())
+            .await
+            .unwrap();
+        assert_eq!(remaining.rows[0].values[0].to_json(), json!(1));
+        state.session_manager.disconnect(session).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn invalid_workspace_does_not_publish_or_leak_a_session() {
+        let tmp = tempfile::tempdir().unwrap();
+        let mut state = session_state(&tmp);
+        state.project_id.clear();
+        let result = resolve_session_with_config(&state, "connection", || {
+            Ok((sqlite_config(&tmp), Default::default()))
+        })
+        .await;
+        assert!(matches!(result, Err(ApiError::BadGateway(_))));
+        assert!(state.sessions.lock().await.is_empty());
+        assert!(state.session_manager.list_sessions().await.is_empty());
+    }
+
+    #[tokio::test]
+    async fn failed_connection_allows_an_explicit_retry() {
+        let tmp = tempfile::tempdir().unwrap();
+        let state = session_state(&tmp);
+        let mut config = sqlite_config(&tmp);
+        config.driver = "missing-driver".into();
+        assert!(
+            resolve_session_with_config(&state, "connection", || Ok((config, Default::default())))
+                .await
+                .is_err()
+        );
+        assert!(state.sessions.lock().await.is_empty());
+        let session = resolve_session_with_config(&state, "connection", || {
+            Ok((sqlite_config(&tmp), Default::default()))
+        })
+        .await
+        .unwrap();
+        state.session_manager.disconnect(session).await.unwrap();
     }
 
     #[test]

@@ -655,6 +655,7 @@
     "clearAll": "모든 결과 지우기",
     "cancelExecution": "취소",
     "executionStopped": "실행이 취소되었습니다",
+    "referenceUnavailable": "{{reference}}을(를) 사용할 수 없습니다. 원본 결과는 최신이며 완전하고, 마스킹이나 모호함이 없어야 합니다.",
     "allCellsExecuted": "모든 셀이 실행되었습니다",
     "save": "노트북 저장",
     "saveAs": "다른 이름으로 저장...",
@@ -714,6 +715,7 @@
     "aiCellInserted": "아래에 SQL 셀을 삽입했습니다"
   },
   "replay": {
+    "cancelledReport": "재실행이 취소되었습니다. 실행된 쿼리는 보존되며, 진행 중이던 쿼리는 완료되었을 수 있습니다.",
     "title": "쿼리 리플레이",
     "openLab": "쿼리 리플레이 열기",
     "setName": "세트 이름",
@@ -845,6 +847,7 @@
       "acceptBody": "세트의 기대값이 이 실행에서 관측된 값으로 대체됩니다. 이후 재생은 이것과 비교됩니다."
     },
     "skipReason": {
+      "cancelled": "재실행 취소됨",
       "mutation_excluded": "변경 쿼리는 재생에서 제외됨",
       "mutation_production_blocked": "변경 쿼리는 프로덕션에서 재생되지 않습니다"
     }
@@ -2508,7 +2511,19 @@
     "side": {
       "left": "왼쪽",
       "right": "오른쪽"
-    }
+    },
+    "incompleteComparison": "불완전한 비교",
+    "noMatchingRows": "이 필터에 일치하는 행이 없습니다",
+    "noObservedDifferences": "비교한 데이터에서 차이가 발견되지 않았습니다",
+    "warnings": {
+      "ambiguousKeys": "키가 중복됩니다. 나머지 행은 원본 순서대로 대응됩니다.",
+      "uncomparedColumns": "일부 열은 비교되지 않습니다.",
+      "noCommonColumns": "열 이름이 달라 위치를 기준으로 비교합니다.",
+      "missingKeyColumns": "선택한 키 열이 없습니다.",
+      "maskedColumns": "마스킹된 값은 완전히 비교할 수 없습니다.",
+      "truncated": "불러온 행만 비교합니다."
+    },
+    "retry": "다시 시도"
   },
   "virtualRelations": {
     "title": "가상 관계",
@@ -3117,6 +3132,7 @@
     "driftCheckHint": "라이브 스키마를 베이스라인과 비교하여 외부 변경을 감지합니다.",
     "driftTitle": "스키마 드리프트",
     "driftNone": "드리프트 없음 — 스키마가 베이스라인과 일치합니다",
+    "schemaEnumerationIncomplete": "스키마 캡처가 불완전합니다. 연결과 데이터베이스를 확인하고 비교하거나 마이그레이션을 생성하기 전에 다시 시도하세요.",
     "captureIncomplete": "{{count}}개 테이블을 건너뛰고 캡처했습니다(설명 실패)",
     "close": "닫기",
     "tableAdded": "추가됨",

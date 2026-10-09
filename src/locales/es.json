@@ -655,6 +655,7 @@
     "clearAll": "Limpiar todos los resultados",
     "cancelExecution": "Cancelar",
     "executionStopped": "Ejecución cancelada",
+    "referenceUnavailable": "No se puede usar {{reference}}. El resultado de origen debe estar actualizado, completo, sin enmascarar y sin ambigüedad.",
     "allCellsExecuted": "Todas las celdas ejecutadas",
     "save": "Guardar notebook",
     "saveAs": "Guardar como...",
@@ -714,6 +715,7 @@
     "aiCellInserted": "Celda SQL insertada debajo"
   },
   "replay": {
+    "cancelledReport": "Reproducción cancelada. Se conservan las consultas ejecutadas; la consulta en curso puede haber terminado.",
     "title": "Reproducción de consultas",
     "openLab": "Abrir la reproducción de consultas",
     "setName": "Nombre del conjunto",
@@ -854,6 +856,7 @@
       "acceptBody": "Las expectativas del conjunto se sustituyen por lo observado en esta ejecución. Las siguientes se compararán con ella."
     },
     "skipReason": {
+      "cancelled": "Reproducción cancelada",
       "mutation_excluded": "Mutación excluida de la reproducción",
       "mutation_production_blocked": "Las mutaciones nunca se reproducen contra producción"
     }
@@ -2517,7 +2520,19 @@
     "side": {
       "left": "izquierda",
       "right": "derecha"
-    }
+    },
+    "incompleteComparison": "Comparación incompleta",
+    "noMatchingRows": "Ninguna fila coincide con este filtro",
+    "noObservedDifferences": "No se observaron diferencias en los datos comparados",
+    "warnings": {
+      "ambiguousKeys": "Claves duplicadas: las filas restantes se emparejan en el orden de origen.",
+      "uncomparedColumns": "Algunas columnas no se comparan.",
+      "noCommonColumns": "Los nombres de columna difieren: comparación por posición.",
+      "missingKeyColumns": "Faltan columnas clave seleccionadas.",
+      "maskedColumns": "Los valores enmascarados no se pueden comparar por completo.",
+      "truncated": "Solo se comparan las filas cargadas."
+    },
+    "retry": "Reintentar"
   },
   "virtualRelations": {
     "title": "Relaciones virtuales",
@@ -3127,6 +3142,7 @@
     "driftCheckHint": "Compara el esquema en vivo con la referencia para detectar cambios externos.",
     "driftTitle": "Desviación de esquema",
     "driftNone": "Sin desviación — el esquema coincide con la referencia",
+    "schemaEnumerationIncomplete": "La captura del esquema está incompleta. Compruebe la conexión y la base de datos y reintente antes de comparar o generar una migración.",
     "captureIncomplete": "Capturado con {{count}} tabla(s) omitida(s) (fallo al describir)",
     "close": "Cerrar",
     "tableAdded": "Añadida",

@@ -85,9 +85,127 @@ pub fn atomic_write(path: &Path, contents: &[u8]) -> std::io::Result<()> {
     std::fs::rename(&tmp, path)
 }
 
+/// A private sibling file, published only once its writer has closed successfully.
+/// Dropping an unpublished output preserves the destination and removes the staging file.
+pub struct PendingOutput {
+    destination: PathBuf,
+    staging: PathBuf,
+}
+
+impl PendingOutput {
+    pub fn new(destination: &Path) -> std::io::Result<Self> {
+        let parent = destination.parent().unwrap_or_else(|| Path::new("."));
+        let staging = parent.join(format!(".qoredb-{}.partial", uuid::Uuid::new_v4()));
+        let mut options = std::fs::OpenOptions::new();
+        options.write(true).create_new(true);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::OpenOptionsExt;
+            options.mode(0o600);
+        }
+        options.open(&staging)?;
+        Ok(Self {
+            destination: destination.to_owned(),
+            staging,
+        })
+    }
+
+    pub fn path(&self) -> &Path {
+        &self.staging
+    }
+
+    pub fn commit(self) -> std::io::Result<()> {
+        // A sibling rename never exposes partially written contents. Do not delete
+        // the destination first: a failed replacement must preserve its contents.
+        std::fs::rename(&self.staging, &self.destination)
+    }
+
+    /// Publishes a new file without overwriting a concurrently created target.
+    pub fn commit_new(self) -> std::io::Result<()> {
+        // Linking the completed sibling is atomic and refuses existing targets.
+        // Drop removes the staging name; unsupported filesystems return an error.
+        std::fs::hard_link(&self.staging, &self.destination)
+    }
+}
+
+impl Drop for PendingOutput {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_file(&self.staging);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn publishing_new_output_never_replaces_an_existing_destination() {
+        let dir = tempfile::tempdir().unwrap();
+        let destination = dir.path().join("new");
+        let first = PendingOutput::new(&destination).unwrap();
+        let second = PendingOutput::new(&destination).unwrap();
+        std::fs::write(first.path(), "first complete file").unwrap();
+        std::fs::write(second.path(), "second complete file").unwrap();
+        first.commit_new().unwrap();
+        assert!(second.commit_new().is_err());
+        assert_eq!(
+            std::fs::read_to_string(destination).unwrap(),
+            "first complete file"
+        );
+        assert_eq!(std::fs::read_dir(dir.path()).unwrap().count(), 1);
+    }
+
+    #[test]
+    fn pending_outputs_are_unique_and_discarded_without_touching_destination() {
+        let dir = tempfile::tempdir().unwrap();
+        let destination = dir.path().join("export");
+        std::fs::write(&destination, "previous").unwrap();
+        let first = PendingOutput::new(&destination).unwrap();
+        let second = PendingOutput::new(&destination).unwrap();
+        assert_ne!(first.path(), second.path());
+        std::fs::write(first.path(), "partial").unwrap();
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            assert_eq!(
+                std::fs::metadata(first.path())
+                    .unwrap()
+                    .permissions()
+                    .mode()
+                    & 0o777,
+                0o600
+            );
+        }
+        drop(first);
+        drop(second);
+        assert_eq!(std::fs::read_to_string(destination).unwrap(), "previous");
+        assert_eq!(std::fs::read_dir(dir.path()).unwrap().count(), 1);
+    }
+
+    #[test]
+    fn pending_output_replaces_only_on_commit() {
+        let dir = tempfile::tempdir().unwrap();
+        let destination = dir.path().join("export");
+        std::fs::write(&destination, "previous").unwrap();
+        let output = PendingOutput::new(&destination).unwrap();
+        std::fs::write(output.path(), "complete").unwrap();
+        assert_eq!(std::fs::read_to_string(&destination).unwrap(), "previous");
+        output.commit().unwrap();
+        assert_eq!(std::fs::read_to_string(destination).unwrap(), "complete");
+        assert_eq!(std::fs::read_dir(dir.path()).unwrap().count(), 1);
+    }
+
+    #[test]
+    fn failed_commit_preserves_destination_and_cleans_staging_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let destination = dir.path().join("directory");
+        std::fs::create_dir(&destination).unwrap();
+        let output = PendingOutput::new(&destination).unwrap();
+        let staging = output.path().to_owned();
+        assert!(output.commit().is_err());
+        assert!(destination.is_dir());
+        assert!(!staging.exists());
+    }
 
     #[test]
     fn paths_share_the_same_root() {

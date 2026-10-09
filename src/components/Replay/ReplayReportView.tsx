@@ -144,6 +144,11 @@ export function ReplayReportView({
         )}
       </div>
 
+      {report.run.cancelled && (
+        <p role="status" className="text-xs text-warning">
+          {t('replay.cancelledReport')}
+        </p>
+      )}
       <p className="text-xs text-muted-foreground">
         {coverage}
         {report.run.capture_stopped_reason && (

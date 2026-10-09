@@ -35,6 +35,7 @@ pub const MUTATION_PRODUCTION_BLOCKED: &str = "Mutations are never replayed agai
 pub const CODE_MUTATION_EXCLUDED: &str = "mutation_excluded";
 pub const CODE_MUTATION_PRODUCTION_BLOCKED: &str = "mutation_production_blocked";
 pub const CANCELLED: &str = "Replay cancelled";
+pub const CODE_CANCELLED: &str = "cancelled";
 pub const SET_IS_REDACTED: &str =
     "This replay set was recorded with redaction: its queries cannot be replayed";
 pub const SAME_CONNECTION: &str = "A/B replay needs two different connections";
@@ -95,6 +96,12 @@ pub async fn run_set(
         return Err(SET_IS_REDACTED.to_string());
     }
 
+    services
+        .session_manager
+        .require_workspace(session, project_id)
+        .await
+        .map_err(|e| e.sanitized_message())?;
+
     let driver = services
         .session_manager
         .get_driver(session)
@@ -119,12 +126,14 @@ pub async fn run_set(
         set_name: set.name.clone(),
         started_at: chrono::Utc::now().to_rfc3339(),
         finished_at: None,
+        cancelled: false,
         connection_label: connection_label.clone(),
         driver_id: driver_id.clone(),
         environment: environment_label.clone(),
         capture_mode: options.capture_mode,
         capture_stopped_reason: None,
         is_baseline: false,
+        reference_generation: false,
         captured_bytes: 0,
         entry_count: set.entries.len(),
     };
@@ -150,16 +159,18 @@ pub async fn run_set(
     let mut results = Vec::with_capacity(total);
 
     for (index, entry) in set.entries.iter().enumerate() {
-        if cancel.load(Ordering::Relaxed) {
-            return Err(CANCELLED.to_string());
-        }
-
         on_progress(ReplayProgress {
             run_id: run_id.clone(),
             completed: index,
             total,
             current_query_preview: query_preview(&entry.query),
         });
+
+        if cancel.load(Ordering::SeqCst) {
+            run.cancelled = true;
+            results.push(skipped(entry, CANCELLED, Some(CODE_CANCELLED)));
+            continue;
+        }
 
         if let Some((code, reason)) = excluded.get(&entry.id) {
             results.push(skipped(entry, reason, Some(code)));
@@ -210,7 +221,19 @@ pub async fn run_set(
             }
         }
 
+        // Preflight can await locks and interceptors. Recheck before dispatch.
+        if cancel.load(Ordering::SeqCst) {
+            run.cancelled = true;
+            results.push(skipped(entry, CANCELLED, Some(CODE_CANCELLED)));
+            continue;
+        }
         let query_id = services.query_manager.register(session).await;
+        if cancel.load(Ordering::SeqCst) {
+            services.query_manager.finish(query_id).await;
+            run.cancelled = true;
+            results.push(skipped(entry, CANCELLED, Some(CODE_CANCELLED)));
+            continue;
+        }
         let outcome = service_query::execute(
             services.query_manager,
             services.query_cache,
@@ -316,6 +339,9 @@ pub async fn run_set(
         });
     }
 
+    // Keep the actual outcome of an in-flight query, including a mutation that
+    // committed before cancellation was noticed. Cancellation is not rollback.
+    run.cancelled |= cancel.load(Ordering::SeqCst);
     on_progress(ReplayProgress {
         run_id: run_id.clone(),
         completed: total,
@@ -325,7 +351,6 @@ pub async fn run_set(
 
     run.finished_at = Some(chrono::Utc::now().to_rfc3339());
     capture_store.save_run_meta(&run)?;
-    let _ = capture_store.prune(set_slug, options.run_retention);
 
     let summary = summarize(results.iter().map(|r| r.verdict));
 
@@ -336,6 +361,13 @@ pub async fn run_set(
         summary,
     };
     capture_store.save_report(&run_id, &report)?;
+    if let Err(error) = capture_store.prune(
+        set_slug,
+        options.run_retention,
+        set.baseline_run_id.as_deref(),
+    ) {
+        tracing::warn!(%error, "replay retention failed");
+    }
 
     Ok(report)
 }
@@ -399,6 +431,14 @@ pub async fn run_ab(
     if left_session == right_session {
         return Err(SAME_CONNECTION.to_string());
     }
+    // Validate both targets before either side can execute a mutation.
+    for session in [left_session, right_session] {
+        services
+            .session_manager
+            .require_workspace(session, project_id)
+            .await
+            .map_err(|e| e.sanitized_message())?;
+    }
 
     // Decide the exclusions for both sides up front. Running them in sequence
     // and merging afterwards would let one side execute a mutation the other
@@ -412,17 +452,6 @@ pub async fn run_ab(
     }
 
     let total = set.entries.len() * 2;
-    let mut done = 0usize;
-    let forward =
-        |progress: ReplayProgress, done: &mut usize, on: &mut dyn FnMut(ReplayProgress)| {
-            *done += 1;
-            on(ReplayProgress {
-                completed: (*done).min(total),
-                total,
-                ..progress
-            });
-        };
-
     let left = run_set(
         ReplayServices { ..services },
         left_session,
@@ -435,7 +464,7 @@ pub async fn run_ab(
         None,
         &excluded,
         cancel,
-        |p| forward(p, &mut done, &mut on_progress),
+        |p| on_progress(ReplayProgress { total, ..p }),
     )
     .await?;
 
@@ -451,7 +480,13 @@ pub async fn run_ab(
         Some(left.run.run_id.clone()),
         &excluded,
         cancel,
-        |p| forward(p, &mut done, &mut on_progress),
+        |p| {
+            on_progress(ReplayProgress {
+                completed: set.entries.len() + p.completed,
+                total,
+                ..p
+            })
+        },
     )
     .await?;
 
@@ -537,6 +572,10 @@ mod tests {
             })
             .await
             .expect("mock connect");
+        session_manager
+            .bind_workspace(session, "default")
+            .await
+            .unwrap();
 
         let capture_dir =
             std::env::temp_dir().join(format!("qoredb_runner_{}", uuid::Uuid::new_v4()));
@@ -582,6 +621,7 @@ mod tests {
     fn set_with(entries: Vec<ReplayEntry>) -> ReplaySet {
         ReplaySet {
             version: REPLAY_SET_VERSION,
+            baseline_run_id: None,
             name: "checkout".to_string(),
             created_at: "2026-08-21T10:00:00Z".to_string(),
             source: ReplaySource {
@@ -879,7 +919,10 @@ mod tests {
         )
         .await;
 
-        assert_eq!(outcome.unwrap_err(), CANCELLED);
+        let report = outcome.unwrap();
+        assert!(report.run.cancelled);
+        assert_eq!(report.summary.skipped, 2);
+        assert!(harness.captures.load_report(&report.run.run_id).is_ok());
         assert!(driver.calls().is_empty());
     }
 }

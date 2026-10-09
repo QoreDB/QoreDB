@@ -62,8 +62,27 @@ that every check passes on the current checkout.
   session-bound history origin, scoped masking updates and workspace-bound deletion confirmations.
 - [v0.1.40 retention policy, 2026-10-04](tests/V0_1_40_RETENTION_POLICY_2026-10-04.md):
   scheduled duration/count/size cleanup, durable settings errors and explicit settings saves.
+- [v0.1.40 Pro workflows, 2026-10-06](tests/V0_1_40_PRO_WORKFLOWS_2026-10-06.md):
+  single-pass notebook references, exact numeric literals and faithful Visual Diff results.
 - [Driver limitations](tests/DRIVER_LIMITATIONS.md): coverage boundaries,
   unsupported operations, and mock/live distinctions.
+- [v0.1.40 notebooks, 2026-10-08](tests/V0_1_40_NOTEBOOKS_2026-10-08.md):
+  reference invalidation, execution lifecycle and file round trips.
+- [v0.1.40 Data API, 2026-10-08](tests/V0_1_40_DATA_API_2026-10-08.md):
+  workspace masking, expired sessions and concurrent connection opening.
+- [v0.1.40 schema captures, 2026-10-08](tests/V0_1_40_SCHEMA_DIFF_2026-10-08.md):
+  fail-closed enumeration, complete baselines and comparison-session cleanup.
+
+- [v0.1.40 Replay Lab, 2026-10-08](tests/V0_1_40_REPLAY_2026-10-08.md):
+  PostgreSQL cancellation, report retention, late responses, workspace targets
+  and complementary live PostgreSQL/Time Travel checks.
+
+- [v0.1.40 références Replay, 2026-10-09](tests/V0_1_40_REPLAY_2026-10-09.md):
+  acceptation atomique des attentes, captures historiques et rétention.
+- [v0.1.40 workspaces Replay, 2026-10-09](tests/V0_1_40_REPLAY_WORKSPACES_2026-10-09.md):
+  enregistrements cloisonnés, commandes périmées refusées et erreurs de nettoyage.
+- [v0.1.40 exports, 2026-10-09](tests/V0_1_40_EXPORTS_2026-10-09.md):
+  exact XLSX/Parquet values and explicit conversion failures.
 
 ## Proposals and ongoing plans
 

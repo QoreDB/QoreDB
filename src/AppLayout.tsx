@@ -98,7 +98,6 @@ import { useWebviewGuards } from './hooks/useWebviewGuards';
 import { Driver, getDriverMetadata } from './lib/connection/drivers';
 import { buildQualifiedTableName } from './lib/ddl';
 import { getDocsUrl, getDriverDocsPath, getSiteUrl } from './lib/externalLinks';
-import { openNotebookFromFile, setPendingNotebook } from './lib/notebook/notebookIO';
 import { notify } from './lib/notify';
 import { splitContributionId } from './lib/plugins';
 import type { HistoryEntry } from './lib/query/history';
@@ -365,6 +364,9 @@ export function AppLayout() {
   const handleOpenNotebook = useCallback(async () => {
     if (!sessionId) return;
     try {
+      const { openNotebookFromFile, setPendingNotebook } = await import(
+        './lib/notebook/notebookIO'
+      );
       const nbResult = await openNotebookFromFile();
       if (nbResult) {
         setPendingNotebook(nbResult.path, nbResult.notebook);
@@ -837,6 +839,9 @@ export function AppLayout() {
           case 'cmd_open_notebook':
             if (sessionId) {
               try {
+                const { openNotebookFromFile, setPendingNotebook } = await import(
+                  './lib/notebook/notebookIO'
+                );
                 const nbResult = await openNotebookFromFile();
                 if (nbResult) {
                   setPendingNotebook(nbResult.path, nbResult.notebook);
@@ -1296,6 +1301,7 @@ function AppContent({
   onCreateEvent,
   onOpenSequenceSource,
 }: AppContentProps) {
+  const { projectId } = useWorkspace();
   if (!sessionId) {
     return (
       <WelcomeScreen
@@ -1454,7 +1460,7 @@ function AppContent({
       <div className="flex-1 min-h-0 flex flex-col">
         <LicenseGate feature="query_replay">
           <ReplayTab
-            key={activeTab.id}
+            key={`${projectId}:${sessionId}:${activeTab.id}`}
             sessionId={sessionId}
             environment={activeConnection?.environment}
             connectionName={activeConnection?.name}

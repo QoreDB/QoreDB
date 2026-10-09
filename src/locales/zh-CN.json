@@ -655,6 +655,7 @@
     "clearAll": "清除所有结果",
     "cancelExecution": "取消",
     "executionStopped": "执行已取消",
+    "referenceUnavailable": "无法使用 {{reference}}。源结果必须是最新、完整、未掩码且无歧义的。",
     "allCellsExecuted": "所有单元格已执行",
     "save": "保存笔记本",
     "saveAs": "另存为…",
@@ -714,6 +715,7 @@
     "aiCellInserted": "已在下方插入 SQL 单元格"
   },
   "replay": {
+    "cancelledReport": "重放已取消。已执行的查询会保留；正在执行的查询可能已完成。",
     "title": "查询重放",
     "openLab": "打开查询重放",
     "setName": "集合名称",
@@ -845,6 +847,7 @@
       "acceptBody": "集合的预期值将被本次重放观察到的值取代，之后的重放将与其比较。"
     },
     "skipReason": {
+      "cancelled": "重放已取消",
       "mutation_excluded": "写操作已排除在重放之外",
       "mutation_production_blocked": "写操作永不在生产环境重放"
     }
@@ -2508,7 +2511,19 @@
     "side": {
       "left": "左侧",
       "right": "右侧"
-    }
+    },
+    "incompleteComparison": "比较不完整",
+    "noMatchingRows": "没有符合此筛选条件的行",
+    "noObservedDifferences": "比较的数据中未发现差异",
+    "warnings": {
+      "ambiguousKeys": "键重复：其余行按来源顺序配对。",
+      "uncomparedColumns": "部分列未参与比较。",
+      "noCommonColumns": "列名不同：按列位置比较。",
+      "missingKeyColumns": "所选键列缺失。",
+      "maskedColumns": "无法完整比较已遮蔽的值。",
+      "truncated": "仅比较已加载的行。"
+    },
+    "retry": "重试"
   },
   "virtualRelations": {
     "title": "虚拟关系",
@@ -3117,6 +3132,7 @@
     "driftCheckHint": "将实时架构与基线对比，检测带外变更。",
     "driftTitle": "架构漂移",
     "driftNone": "无漂移 — 架构与基线一致",
+    "schemaEnumerationIncomplete": "架构捕获不完整。请检查连接和数据库，然后重试，再进行比较或生成迁移。",
     "captureIncomplete": "已捕获，跳过 {{count}} 个表（描述失败）",
     "close": "关闭",
     "tableAdded": "新增",

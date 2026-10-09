@@ -70,7 +70,7 @@ import { DangerConfirmDialog } from '../Guard/DangerConfirmDialog';
 import { OverrideLimitsDialog, type OverrideLimitsKind } from '../Guard/OverrideLimitsDialog';
 import { ProductionConfirmDialog } from '../Guard/ProductionConfirmDialog';
 import { QueryHistory } from '../History/QueryHistory';
-import { QueryLibraryModal } from './QueryLibraryModal';
+import { DeferredQueryLibraryModal as QueryLibraryModal } from './DeferredQueryLibraryModal';
 import { QueryPanelEditor } from './QueryPanelEditor';
 import { QueryPanelResults, type QueryResultEntry } from './QueryPanelResults';
 import { QueryPanelToolbar } from './QueryPanelToolbar';

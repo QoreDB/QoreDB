@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Button } from '@/components/ui/button';
@@ -58,6 +58,7 @@ export function QueryVariablesPrompt({
   const { t } = useTranslation();
   const definitions = useMemo(() => resolveDefinitions(query, variables), [query, variables]);
   const [values, setValues] = useState<Record<string, string>>({});
+  const returnFocusRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -71,6 +72,7 @@ export function QueryVariablesPrompt({
   const allFilled = definitions.every(def => (values[def.name] ?? '').trim().length > 0);
 
   function handleSubmit() {
+    if (!allFilled) return;
     const resolved: Record<string, QueryVariable> = {};
     for (const def of definitions) {
       resolved[def.name] = { ...def, currentValue: values[def.name] };
@@ -81,58 +83,79 @@ export function QueryVariablesPrompt({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle>{t('library.variables.promptTitle', { title })}</DialogTitle>
-        </DialogHeader>
+      <DialogContent
+        className="max-w-md"
+        onOpenAutoFocus={() => {
+          returnFocusRef.current =
+            document.activeElement instanceof HTMLElement ? document.activeElement : null;
+        }}
+        onCloseAutoFocus={event => {
+          if (returnFocusRef.current?.isConnected) {
+            event.preventDefault();
+            returnFocusRef.current.focus();
+          }
+        }}
+      >
+        <form
+          onSubmit={event => {
+            event.preventDefault();
+            handleSubmit();
+          }}
+          className="grid gap-4"
+        >
+          <DialogHeader>
+            <DialogTitle>{t('library.variables.promptTitle', { title })}</DialogTitle>
+          </DialogHeader>
 
-        <div className="grid gap-4 py-2">
-          {definitions.map(def => (
-            <div key={def.name} className="grid gap-2">
-              <Label htmlFor={`qv-${def.name}`}>
-                {def.name}
-                {def.description ? (
-                  <span className="ml-2 font-normal text-xs text-muted-foreground">
-                    {def.description}
-                  </span>
-                ) : null}
-              </Label>
-              {def.type === 'select' && def.options && def.options.length > 0 ? (
-                <Select
-                  value={values[def.name] ?? ''}
-                  onValueChange={value => setValues(prev => ({ ...prev, [def.name]: value }))}
-                >
-                  <SelectTrigger id={`qv-${def.name}`}>
-                    <SelectValue placeholder={t('library.variables.selectPlaceholder')} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {def.options.map(option => (
-                      <SelectItem key={option} value={option}>
-                        {option}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              ) : (
-                <Input
-                  id={`qv-${def.name}`}
-                  type={def.type === 'number' ? 'number' : def.type === 'date' ? 'date' : 'text'}
-                  value={values[def.name] ?? ''}
-                  onChange={e => setValues(prev => ({ ...prev, [def.name]: e.target.value }))}
-                />
-              )}
-            </div>
-          ))}
-        </div>
+          <div className="grid gap-4 py-2">
+            {definitions.map(def => (
+              <div key={def.name} className="grid gap-2">
+                <Label htmlFor={`qv-${def.name}`}>
+                  {def.name}
+                  {def.description ? (
+                    <span className="ml-2 font-normal text-xs text-muted-foreground">
+                      {def.description}
+                    </span>
+                  ) : null}
+                </Label>
+                {def.type === 'select' && def.options && def.options.length > 0 ? (
+                  <Select
+                    value={values[def.name] ?? ''}
+                    onValueChange={value => setValues(prev => ({ ...prev, [def.name]: value }))}
+                  >
+                    <SelectTrigger id={`qv-${def.name}`}>
+                      <SelectValue placeholder={t('library.variables.selectPlaceholder')} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {def.options.map(option => (
+                        <SelectItem key={option} value={option}>
+                          {option}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <Input
+                    id={`qv-${def.name}`}
+                    type={def.type === 'number' ? 'number' : def.type === 'date' ? 'date' : 'text'}
+                    step={def.type === 'number' ? 'any' : undefined}
+                    value={values[def.name] ?? ''}
+                    onChange={e => setValues(prev => ({ ...prev, [def.name]: e.target.value }))}
+                  />
+                )}
+              </div>
+            ))}
+          </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            {t('common.cancel')}
-          </Button>
-          <Button onClick={handleSubmit} disabled={!allFilled}>
-            {t('library.variables.apply')}
-          </Button>
-        </DialogFooter>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+              {t('common.cancel')}
+            </Button>
+            <Button type="submit" disabled={!allFilled}>
+              {t('library.variables.apply')}
+            </Button>
+          </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
   );

@@ -655,6 +655,7 @@
     "clearAll": "すべての結果をクリア",
     "cancelExecution": "キャンセル",
     "executionStopped": "実行がキャンセルされました",
+    "referenceUnavailable": "{{reference}} は使用できません。参照元の結果は最新かつ完全で、マスキングや曖昧さがない必要があります。",
     "allCellsExecuted": "すべてのセルを実行しました",
     "save": "ノートブックを保存",
     "saveAs": "名前を付けて保存...",
@@ -714,6 +715,7 @@
     "aiCellInserted": "下にSQLセルを挿入しました"
   },
   "replay": {
+    "cancelledReport": "再実行をキャンセルしました。実行済みのクエリは保持されます。実行中のクエリは完了した可能性があります。",
     "title": "クエリリプレイ",
     "openLab": "クエリリプレイを開く",
     "setName": "セット名",
@@ -845,6 +847,7 @@
       "acceptBody": "セットの期待値はこの実行で観測された値に置き換わります。以降の再生はこれと比較されます。"
     },
     "skipReason": {
+      "cancelled": "再実行をキャンセルしました",
       "mutation_excluded": "変更クエリは再生から除外されました",
       "mutation_production_blocked": "変更クエリは本番環境では再生されません"
     }
@@ -2508,7 +2511,19 @@
     "side": {
       "left": "左",
       "right": "右"
-    }
+    },
+    "incompleteComparison": "不完全な比較",
+    "noMatchingRows": "このフィルターに一致する行はありません",
+    "noObservedDifferences": "比較したデータに差分は見つかりませんでした",
+    "warnings": {
+      "ambiguousKeys": "キーが重複しています。残りの行はソースの順序で対応付けられます。",
+      "uncomparedColumns": "一部の列は比較されていません。",
+      "noCommonColumns": "列名が異なるため、列の位置で比較しています。",
+      "missingKeyColumns": "選択したキー列がありません。",
+      "maskedColumns": "マスクされた値は完全には比較できません。",
+      "truncated": "読み込まれた行のみを比較しています。"
+    },
+    "retry": "再試行"
   },
   "virtualRelations": {
     "title": "仮想リレーション",
@@ -3117,6 +3132,7 @@
     "driftCheckHint": "ライブスキーマをベースラインと比較し、範囲外の変更を検出します。",
     "driftTitle": "スキーマのドリフト",
     "driftNone": "ドリフトなし — スキーマはベースラインと一致しています",
+    "schemaEnumerationIncomplete": "スキーマの取得が不完全です。接続とデータベースを確認し、比較やマイグレーション生成の前に再試行してください。",
     "captureIncomplete": "{{count}} 個のテーブルをスキップして取得しました（記述に失敗）",
     "close": "閉じる",
     "tableAdded": "追加",

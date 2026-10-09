@@ -26,7 +26,7 @@ use sqlx::pool::PoolConnection;
 use sqlx::sqlite::{
     Sqlite, SqliteColumn, SqliteConnectOptions, SqlitePool, SqlitePoolOptions, SqliteRow,
 };
-use sqlx::{Column, Row, TypeInfo, ValueRef};
+use sqlx::{Column, Executor, Row, TypeInfo, ValueRef};
 use tokio::sync::{Mutex, RwLock};
 
 use qore_core::cursor::KeysetPlan;
@@ -797,6 +797,28 @@ impl DataEngine for SqliteDriver {
                     break;
                 }
             }
+        }
+
+        drop(stream);
+        if !columns_sent && stream_error.is_none() && !sender.is_closed() {
+            // An empty result still has a schema. Describe only this fallback;
+            // populated results keep the runtime types used by their decoders.
+            let description = (&mut *conn)
+                .describe(query)
+                .await
+                .map_err(|e| EngineError::execution_error(e.to_string()))?;
+            let columns = description
+                .columns()
+                .iter()
+                .enumerate()
+                .map(|(index, column)| ColumnInfo {
+                    name: column.name().into(),
+                    data_type: column.type_info().name().into(),
+                    nullable: description.nullable(index).unwrap_or(true),
+                    masked: false,
+                })
+                .collect();
+            let _ = sender.send(StreamEvent::Columns(columns)).await;
         }
 
         if !batch.is_empty() {
@@ -1933,6 +1955,69 @@ impl DataEngine for SqliteDriver {
 mod tests {
     use super::*;
     use tempfile::tempdir;
+
+    #[tokio::test]
+    async fn test_empty_stream_reports_columns_before_done() {
+        let driver = SqliteDriver::new();
+        let dir = tempdir().unwrap();
+        let config = ConnectionConfig {
+            options: Default::default(),
+            driver: "sqlite".to_string(),
+            host: dir
+                .path()
+                .join("empty-stream.db")
+                .to_string_lossy()
+                .to_string(),
+            port: 0,
+            username: String::new(),
+            password: String::new(),
+            database: None,
+            ssl: false,
+            ssl_mode: None,
+            environment: "development".to_string(),
+            read_only: false,
+            ssh_tunnel: None,
+            pool_acquire_timeout_secs: None,
+            pool_max_connections: None,
+            pool_min_connections: None,
+            proxy: None,
+            mssql_auth: None,
+            clickhouse_cluster: None,
+            search_auth_mode: None,
+            ssl_ca_cert: None,
+        };
+        let session = driver.connect(&config).await.unwrap();
+        driver
+            .execute(
+                session,
+                "CREATE TABLE empty_fixture (id INTEGER NOT NULL, amount TEXT)",
+                QueryId::new(),
+            )
+            .await
+            .unwrap();
+        let (sender, mut receiver) = tokio::sync::mpsc::channel(4);
+        driver
+            .execute_stream(
+                session,
+                "SELECT id AS identifier, amount FROM empty_fixture",
+                QueryId::new(),
+                sender,
+            )
+            .await
+            .unwrap();
+        let Some(StreamEvent::Columns(columns)) = receiver.recv().await else {
+            panic!("empty results must start with column metadata");
+        };
+        assert_eq!(columns.len(), 2);
+        assert_eq!(columns[0].name, "identifier");
+        assert_eq!(columns[0].data_type, "INTEGER");
+        assert!(!columns[0].nullable);
+        assert_eq!(columns[1].name, "amount");
+        assert_eq!(columns[1].data_type, "TEXT");
+        assert!(matches!(receiver.recv().await, Some(StreamEvent::Done(0))));
+        assert!(receiver.recv().await.is_none());
+        driver.disconnect(session).await.unwrap();
+    }
 
     #[tokio::test]
     async fn test_inline_update_readback_observes_triggers_and_exact_composite_key() {

@@ -655,6 +655,7 @@
     "clearAll": "Alle Ergebnisse löschen",
     "cancelExecution": "Abbrechen",
     "executionStopped": "Ausführung abgebrochen",
+    "referenceUnavailable": "{{reference}} kann nicht verwendet werden. Das Quellergebnis muss aktuell, vollständig, unmaskiert und eindeutig sein.",
     "allCellsExecuted": "Alle Zellen ausgeführt",
     "save": "Notebook speichern",
     "saveAs": "Speichern unter…",
@@ -714,6 +715,7 @@
     "aiCellInserted": "SQL-Zelle unten eingefügt"
   },
   "replay": {
+    "cancelledReport": "Wiedergabe abgebrochen. Ausgeführte Abfragen bleiben erhalten; eine laufende Abfrage kann beendet worden sein.",
     "title": "Query-Replay",
     "openLab": "Query-Replay öffnen",
     "setName": "Name des Sets",
@@ -854,6 +856,7 @@
       "acceptBody": "Die Erwartungen des Sets werden durch das ersetzt, was dieser Lauf beobachtet hat. Spätere Läufe vergleichen damit."
     },
     "skipReason": {
+      "cancelled": "Wiedergabe abgebrochen",
       "mutation_excluded": "Mutation vom Abspielen ausgeschlossen",
       "mutation_production_blocked": "Mutationen werden nie gegen Produktion abgespielt"
     }
@@ -2517,7 +2520,19 @@
     "side": {
       "left": "links",
       "right": "rechts"
-    }
+    },
+    "incompleteComparison": "Unvollständiger Vergleich",
+    "noMatchingRows": "Keine Zeilen für diesen Filter",
+    "noObservedDifferences": "Keine Unterschiede in den verglichenen Daten festgestellt",
+    "warnings": {
+      "ambiguousKeys": "Doppelte Schlüssel: übrige Zeilen werden in Quellreihenfolge zugeordnet.",
+      "uncomparedColumns": "Einige Spalten werden nicht verglichen.",
+      "noCommonColumns": "Spaltennamen unterscheiden sich: Vergleich nach Position.",
+      "missingKeyColumns": "Ausgewählte Schlüsselspalten fehlen.",
+      "maskedColumns": "Maskierte Werte können nicht vollständig verglichen werden.",
+      "truncated": "Nur geladene Zeilen werden verglichen."
+    },
+    "retry": "Erneut versuchen"
   },
   "virtualRelations": {
     "title": "Virtuelle Relationen",
@@ -3127,6 +3142,7 @@
     "driftCheckHint": "Vergleicht das Live-Schema mit der Baseline, um Änderungen außerhalb zu erkennen.",
     "driftTitle": "Schema-Drift",
     "driftNone": "Kein Drift — das Schema entspricht der Baseline",
+    "schemaEnumerationIncomplete": "Die Schemaerfassung ist unvollständig. Prüfen Sie Verbindung und Datenbank und versuchen Sie es vor dem Vergleich oder der Migrationserstellung erneut.",
     "captureIncomplete": "Erfasst, {{count}} Tabelle(n) übersprungen (Beschreibung fehlgeschlagen)",
     "close": "Schließen",
     "tableAdded": "Hinzugefügt",

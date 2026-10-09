@@ -260,10 +260,8 @@ export function DiffConfigPanel({
         <div className="flex items-start gap-2 text-sm text-warning">
           <AlertTriangle size={14} className="mt-0.5 shrink-0" />
           <span>
-            {t('diff.truncatedWarning', {
-              limit: rowLimit.toLocaleString(),
-              sides: truncatedSides.map(side => t(`diff.side.${side}`)).join(' / '),
-            })}
+            {t('diff.warnings.truncated')} (
+            {truncatedSides.map(side => t(`diff.side.${side}`)).join(' / ')})
           </span>
         </div>
       )}

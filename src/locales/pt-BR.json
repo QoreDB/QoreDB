@@ -655,6 +655,7 @@
     "clearAll": "Limpar todos os resultados",
     "cancelExecution": "Cancelar",
     "executionStopped": "Execução cancelada",
+    "referenceUnavailable": "Não é possível usar {{reference}}. O resultado de origem deve estar atualizado, completo, sem mascaramento e sem ambiguidade.",
     "allCellsExecuted": "Todas as células executadas",
     "save": "Salvar notebook",
     "saveAs": "Salvar como...",
@@ -714,6 +715,7 @@
     "aiCellInserted": "Célula SQL inserida abaixo"
   },
   "replay": {
+    "cancelledReport": "Reprodução cancelada. As consultas executadas são preservadas; a consulta em andamento pode ter terminado.",
     "title": "Reexecução de consultas",
     "openLab": "Abrir a reexecução de consultas",
     "setName": "Nome do conjunto",
@@ -854,6 +856,7 @@
       "acceptBody": "As expectativas do conjunto são substituídas pelo que esta execução observou. As próximas serão comparadas com ela."
     },
     "skipReason": {
+      "cancelled": "Reprodução cancelada",
       "mutation_excluded": "Mutação excluída da reprodução",
       "mutation_production_blocked": "Mutações nunca são reproduzidas em produção"
     }
@@ -2517,7 +2520,19 @@
     "side": {
       "left": "esquerda",
       "right": "direita"
-    }
+    },
+    "incompleteComparison": "Comparação incompleta",
+    "noMatchingRows": "Nenhuma linha corresponde a este filtro",
+    "noObservedDifferences": "Nenhuma diferença observada nos dados comparados",
+    "warnings": {
+      "ambiguousKeys": "Chaves duplicadas: as linhas restantes são associadas na ordem de origem.",
+      "uncomparedColumns": "Algumas colunas não são comparadas.",
+      "noCommonColumns": "Os nomes das colunas diferem: comparação por posição.",
+      "missingKeyColumns": "Faltam colunas-chave selecionadas.",
+      "maskedColumns": "Valores mascarados não podem ser comparados integralmente.",
+      "truncated": "Somente as linhas carregadas são comparadas."
+    },
+    "retry": "Tentar novamente"
   },
   "virtualRelations": {
     "title": "Relações Virtuais",
@@ -3127,6 +3142,7 @@
     "driftCheckHint": "Compara o esquema ativo com a baseline para detectar mudanças externas.",
     "driftTitle": "Desvio de esquema",
     "driftNone": "Sem desvio — o esquema corresponde à baseline",
+    "schemaEnumerationIncomplete": "A captura do esquema está incompleta. Verifique a conexão e o banco de dados e tente novamente antes de comparar ou gerar uma migração.",
     "captureIncomplete": "Capturado com {{count}} tabela(s) ignorada(s) (falha ao descrever)",
     "close": "Fechar",
     "tableAdded": "Adicionada",

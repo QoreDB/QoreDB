@@ -59,6 +59,36 @@ validation, typing multiple exclusions and an unavailable feature. IPC and
 licence state are simulated only inside the fixture; no application history
 is read or deleted.
 
+The [Pro workflow browser check](../../scripts/test-pro-workflows-ui.mjs) uses
+the same Vite/Playwright setup. Run `node scripts/test-pro-workflows-ui.mjs`.
+It checks the real diff grid's ambiguity and empty/filter states in English
+and French, and deferred query-variable dialog loading with exact numeric SQL.
+The library fixture uses isolated browser storage and a simulated Pro provider;
+it does not execute SQL or activate a licence. Its screenshot is written to
+`.perf/pro-workflows-ui.png`. It does not validate native IPC or WebView behavior.
+The [diff-source lifecycle check](../../scripts/test-diff-sources-ui.mjs), run
+with `node scripts/test-diff-sources-ui.mjs`, mounts the real source hook with
+simulated IPC. It covers stale responses, refresh, limits, snapshot errors,
+shared and late sessions, explicit retry, and workspace changes. It never opens
+a database or reads application snapshots.
+
+The [notebook lifecycle check](../../scripts/test-notebook-ui.mjs) uses the same
+Vite/Playwright setup: `node scripts/test-notebook-ui.mjs`. It mounts the real
+notebook hook and checks sequential references, transitive invalidation,
+cancellation, context changes, undo/redo, save races, import confirmation and
+reopening. IPC, native dialogs and browser file storage are simulated. It also
+mounts AppOverlays with unrelated panels mocked to check deferred query-library
+loading and retained search state. The pure `notebookIO.test.ts` suite separately
+writes and rereads temporary QNB/HTML files using Node adapters, not Tauri plugins.
+
+The [schema-diff browser check](../../scripts/test-schema-diff-ui.mjs), run with
+`node scripts/test-schema-diff-ui.mjs`, uses the same Vite/Playwright setup.
+It mounts the real viewer with simulated IPC to check incomplete capture errors,
+partial comparison wording, valid empty schemas and late-session cleanup. A
+French error screenshot is saved to `.perf/schema-diff-incomplete.png`. No DDL or
+live database is involved; the pure `schemaCapture.test.ts` checks pagination
+failures, collisions and refusal of incomplete baselines separately.
+
 `pnpm test` runs `test:ts` followed by `test:rust`. The latter runs `cargo test`
 in `src-tauri`, whose root is also the `qoredb` package. It does not run all
 workspace members' unit tests. Use explicit `-p` for changed crates. A workspace
@@ -177,3 +207,20 @@ When reporting a failure, include the command, the useful error excerpt, whether
 it predates the change, and which behavior remains unverified. Successful targeted
 checks are sufficient when the acceptance criteria are covered and no new risk
 justifies a broader run.
+
+### Replay report UI
+
+With the Vite development server running, `node scripts/test-replay-ui.mjs`
+checks the real report component with synthetic results, including cancellation,
+coverage and French rendering, then the real Replay hook with simulated IPC for
+late responses, context changes and mutation callbacks. Use the same `QOREDB_PLAYWRIGHT_MODULE`,
+`QOREDB_CHROMIUM_EXECUTABLE` and `QOREDB_UI_BASE_URL` overrides as the other
+browser fixtures. This is not a native Tauri test. The real PostgreSQL runner
+check is `QOREDB_TEST_POSTGRES_REQUIRED=true cargo test --manifest-path
+src-tauri/Cargo.toml -p qoredb --features pro --test replay_e2e -- --test-threads=1`.
+
+`node scripts/test-replay-workspaces-ui.mjs` exercises the recording indicator
+and hook with simulated IPC: workspace switch/return, stale status and previews,
+late actions, exact workspace/run targets and retry after cancellation failure.
+It uses the same Vite server and browser environment overrides. This does not
+exercise native Tauri command dispatch or real database connections.

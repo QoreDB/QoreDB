@@ -64,6 +64,7 @@ export interface CellResult {
   columns?: ColumnInfo[];
   rows?: Row[];
   totalRows?: number;
+  truncated?: boolean;
   affectedRows?: number;
   documents?: object[];
   error?: string;

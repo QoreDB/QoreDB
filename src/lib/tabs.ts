@@ -27,6 +27,7 @@ export interface DiffSource {
   query?: string;
   snapshotId?: string;
   result?: QueryResult;
+  truncated?: boolean;
 }
 
 export interface OpenTab {

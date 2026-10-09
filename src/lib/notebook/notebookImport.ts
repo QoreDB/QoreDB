@@ -7,7 +7,10 @@ import { createCell, createEmptyNotebook, type QoreNotebook } from './notebookTy
  * Splits by semicolons (respecting quoted strings) into SQL cells.
  */
 export function importFromSql(content: string, title?: string): QoreNotebook {
-  const statements = splitSqlStatements(content);
+  // Complex dialect constructs need the engine's parser. Keep the whole script
+  // rather than splitting a comment, quoted identifier or procedural body.
+  const complex = /--|\/\*|\$\w*\$|`|\[|\bBEGIN\b/i.test(content);
+  const statements = complex ? [content] : splitSqlStatements(content);
   const nb = createEmptyNotebook(title ?? 'Imported SQL');
   nb.cells = statements.map(s => createCell('sql', s.trim()));
   if (nb.cells.length === 0) nb.cells = [createCell('sql')];
@@ -23,35 +26,45 @@ export function importFromMarkdown(content: string, title?: string): QoreNoteboo
   const cells: ReturnType<typeof createCell>[] = [];
 
   const lines = content.split('\n');
-  let currentMarkdown = '';
-  let inCodeBlock = false;
-  let codeContent = '';
+  let currentMarkdown: string[] = [];
+  let codeContent: string[] = [];
+  let fence: { marker: string; length: number; type?: 'sql' | 'mongo' } | undefined;
+  const flushMarkdown = () => {
+    if (currentMarkdown.join('\n').trim())
+      cells.push(createCell('markdown', currentMarkdown.join('\n').trim()));
+    currentMarkdown = [];
+  };
 
   for (const line of lines) {
-    if (!inCodeBlock && /^```(?:sql|mongo)?\s*$/i.test(line)) {
-      if (currentMarkdown.trim()) {
-        cells.push(createCell('markdown', currentMarkdown.trim()));
-        currentMarkdown = '';
-      }
-      inCodeBlock = true;
-      codeContent = '';
-    } else if (inCodeBlock && line.startsWith('```')) {
-      cells.push(createCell('sql', codeContent.trim()));
-      inCodeBlock = false;
-      codeContent = '';
-    } else if (inCodeBlock) {
-      codeContent += (codeContent ? '\n' : '') + line;
+    const match = /^ {0,3}(`{3,}|~{3,})(.*)$/.exec(line);
+    if (!fence && match) {
+      const language = match[2].trim().toLowerCase();
+      const type =
+        language === 'mongo' ? 'mongo' : language === 'sql' || !language ? 'sql' : undefined;
+      fence = { marker: match[1][0], length: match[1].length, type };
+      if (type) {
+        flushMarkdown();
+        codeContent = [];
+      } else currentMarkdown.push(line);
+    } else if (
+      fence &&
+      match &&
+      match[1][0] === fence.marker &&
+      match[1].length >= fence.length &&
+      !match[2].trim()
+    ) {
+      if (fence.type) cells.push(createCell(fence.type, codeContent.join('\n')));
+      else currentMarkdown.push(line);
+      fence = undefined;
+      codeContent = [];
+    } else if (fence?.type) {
+      codeContent.push(line);
     } else {
-      currentMarkdown += (currentMarkdown ? '\n' : '') + line;
+      currentMarkdown.push(line);
     }
   }
-
-  if (inCodeBlock && codeContent.trim()) {
-    cells.push(createCell('sql', codeContent.trim()));
-  }
-  if (currentMarkdown.trim()) {
-    cells.push(createCell('markdown', currentMarkdown.trim()));
-  }
+  if (fence?.type && codeContent.length) cells.push(createCell(fence.type, codeContent.join('\n')));
+  flushMarkdown();
 
   nb.cells = cells.length > 0 ? cells : [createCell('sql')];
   return nb;

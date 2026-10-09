@@ -13,7 +13,7 @@ import {
   Upload,
   X,
 } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { UpgradePrompt } from '@/components/License/UpgradePrompt';
@@ -46,7 +46,10 @@ import {
 import { confirmDialog } from '@/lib/stores/confirmStore';
 import { cn } from '@/lib/utils';
 import { useLicense } from '@/providers/LicenseProvider';
-import { QueryVariablesPrompt } from './QueryVariablesPrompt';
+
+const QueryVariablesPrompt = lazy(() =>
+  import('./QueryVariablesPrompt').then(module => ({ default: module.QueryVariablesPrompt }))
+);
 
 interface QueryLibraryModalProps {
   isOpen: boolean;
@@ -443,7 +446,7 @@ export function QueryLibraryModal({ isOpen, onClose, onSelectQuery }: QueryLibra
                       )}
                     </div>
 
-                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
                       <Button
                         variant="ghost"
                         size="icon"
@@ -471,20 +474,22 @@ export function QueryLibraryModal({ isOpen, onClose, onSelectQuery }: QueryLibra
         </div>
       </div>
       {varPromptItem && (
-        <QueryVariablesPrompt
-          open={!!varPromptItem}
-          onOpenChange={open => {
-            if (!open) setVarPromptItem(null);
-          }}
-          title={varPromptItem.title}
-          query={varPromptItem.query}
-          variables={varPromptItem.variables}
-          onSubmit={resolved => {
-            onSelectQuery(resolved);
-            setVarPromptItem(null);
-            onClose();
-          }}
-        />
+        <Suspense fallback={null}>
+          <QueryVariablesPrompt
+            open={!!varPromptItem}
+            onOpenChange={open => {
+              if (!open) setVarPromptItem(null);
+            }}
+            title={varPromptItem.title}
+            query={varPromptItem.query}
+            variables={varPromptItem.variables}
+            onSubmit={resolved => {
+              onSelectQuery(resolved);
+              setVarPromptItem(null);
+              onClose();
+            }}
+          />
+        </Suspense>
       )}
     </>
   );

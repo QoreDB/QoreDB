@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import i18n from '@/i18n';
+import { captureWorkspaceScope } from '@/lib/stores/workspaceStore';
 import { invoke } from '@/lib/transport';
 import type {
   ConnectionConfig,
@@ -61,7 +63,26 @@ export async function connectSavedConnection(
   projectId: string,
   connectionId: string
 ): Promise<ConnectionResponse> {
-  return invoke('connect_saved_connection', { projectId, connectionId });
+  const isCurrent = captureWorkspaceScope(projectId);
+  const contextChanged = () => new Error(i18n.t('common.contextChanged'));
+  if (!isCurrent()) throw contextChanged();
+  const result = await invoke<ConnectionResponse>('connect_saved_connection', {
+    projectId,
+    connectionId,
+  });
+  if (!isCurrent()) {
+    // A late native connection still exists even though no caller may adopt it.
+    if (result.session_id) {
+      try {
+        const closed = await disconnect(result.session_id);
+        if (!closed.success) throw new Error('Disconnect failed');
+      } catch {
+        console.warn('Failed to close a connection opened in an inactive workspace.');
+      }
+    }
+    throw contextChanged();
+  }
+  return result;
 }
 
 export async function disconnect(sessionId: string): Promise<ConnectionResponse> {

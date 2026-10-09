@@ -15,6 +15,7 @@ import { useTranslation } from 'react-i18next';
 import type { DatabaseBrowserTab } from '@/components/Browser/DatabaseBrowser';
 import type { TableBrowserTab } from '@/components/Browser/TableBrowser';
 import { useRecovery } from '@/hooks/useRecovery';
+import { useSavedConnections } from '@/hooks/useSavedConnections';
 import { Driver } from '@/lib/connection/drivers';
 import {
   type CrashRecoverySnapshot,
@@ -141,8 +142,6 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [driver, setDriver] = useState<Driver>(Driver.Postgres);
   const [driverCapabilities, setDriverCapabilities] = useState<DriverCapabilities | null>(null);
   const [activeConnection, setActiveConnection] = useState<SavedConnection | null>(null);
-  const [hasConnections, setHasConnections] = useState(false);
-  const [savedConnections, setSavedConnections] = useState<SavedConnection[]>([]);
   const [connectionHealth, setConnectionHealth] = useState<ConnectionHealth>('healthy');
   const [sidebarRefreshTrigger, setSidebarRefreshTrigger] = useState(0);
   const [schemaRefreshTrigger, setSchemaRefreshTrigger] = useState(0);
@@ -160,18 +159,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   const recovery = useRecovery();
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: sidebarRefreshTrigger is a refresh-counter trigger, not consumed in the effect body
-  useEffect(() => {
-    listSavedConnections(projectId)
-      .then(saved => {
-        setSavedConnections(saved);
-        setHasConnections(saved.length > 0);
-      })
-      .catch(() => {
-        setSavedConnections([]);
-        setHasConnections(false);
-      });
-  }, [projectId, sidebarRefreshTrigger]);
+  const { connections: savedConnections } = useSavedConnections(sidebarRefreshTrigger);
+  const hasConnections = savedConnections.length > 0;
 
   useEffect(() => {
     const handler = () => setSidebarRefreshTrigger(prev => prev + 1);

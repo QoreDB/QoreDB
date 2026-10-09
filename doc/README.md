@@ -96,6 +96,9 @@ that every check passes on the current checkout.
 - [v0.1.40 transferts et ouverture de fichiers, 2026-10-09](tests/V0_1_40_FILE_OPERATIONS_2026-10-09.md):
   transferts liés au workspace, validation préalable et ouvertures de notebooks périmées abandonnées.
 
+- [v0.1.40 coffre et workspaces, 2026-10-09](tests/V0_1_40_VAULT_WORKSPACES_2026-10-09.md):
+  commandes liées au projet demandé, confirmations et listes isolées, sessions tardives écartées.
+
 ## Proposals and ongoing plans
 
 Files under `todo/` can mix delivered work with unfinished items. Inspect their

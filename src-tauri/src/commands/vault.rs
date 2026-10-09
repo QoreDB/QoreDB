@@ -49,21 +49,14 @@ async fn refresh_session_masking(
         .await;
 }
 
-/// Determines if the active workspace is file-based and returns its connection store.
-/// Returns None if the default workspace is active (use VaultStorage instead).
-pub(crate) async fn get_workspace_store(
-    ws_manager: &State<'_, SharedWorkspaceManager>,
-) -> Option<WorkspaceConnectionStore> {
-    get_workspace_context(ws_manager).await.1
-}
-
-/// Resolve the store and its trusted identity from the same workspace snapshot.
-/// A switch after this point cannot change the origin of the operation.
+/// Resolve storage and identity together for one requested workspace.
+/// A switch after resolution cannot redirect the returned store.
 pub(crate) async fn get_workspace_context(
-    ws_manager: &State<'_, SharedWorkspaceManager>,
-) -> (String, Option<WorkspaceConnectionStore>) {
+    ws_manager: &SharedWorkspaceManager,
+    requested_project_id: &str,
+) -> Result<(String, Option<WorkspaceConnectionStore>), String> {
     let mgr = ws_manager.lock().await;
-    workspace_context(&mgr)
+    require_workspace(workspace_context(&mgr), requested_project_id)
 }
 
 fn workspace_context(
@@ -386,7 +379,7 @@ pub async fn save_connection(
     };
 
     let (workspace_id, workspace_store) =
-        require_workspace(get_workspace_context(&ws_manager).await, &input_project_id)?;
+        get_workspace_context(&ws_manager, &input_project_id).await?;
     let result = match workspace_store {
         Some(ws_store) => {
             let stored = ws_store.get_connection(&connection.id).ok();
@@ -468,7 +461,8 @@ pub async fn set_connection_exposed(
         });
     }
 
-    let result = match get_workspace_store(&ws_manager).await {
+    let (_, workspace_store) = get_workspace_context(&ws_manager, &project_id).await?;
+    let result = match workspace_store {
         Some(ws_store) => ws_store
             .get_connection(&connection_id)
             .and_then(|mut connection| {
@@ -529,7 +523,7 @@ pub async fn set_connection_masking(
         Ok(connection)
     };
 
-    let (workspace_id, workspace_store) = get_workspace_context(&ws_manager).await;
+    let (workspace_id, workspace_store) = get_workspace_context(&ws_manager, &project_id).await?;
     let result = match workspace_store {
         Some(ws_store) => ws_store
             .get_connection(&connection_id)
@@ -595,8 +589,7 @@ pub async fn list_saved_connections(
     }
     drop(state);
 
-    let (_, workspace_store) =
-        require_workspace(get_workspace_context(&ws_manager).await, &project_id)?;
+    let (_, workspace_store) = get_workspace_context(&ws_manager, &project_id).await?;
     if let Some(ws_store) = workspace_store {
         return ws_store
             .list_connections()
@@ -629,7 +622,8 @@ pub async fn delete_saved_connection(
     }
     drop(app_state);
 
-    let result = match get_workspace_store(&ws_manager).await {
+    let (_, workspace_store) = get_workspace_context(&ws_manager, &project_id).await?;
+    let result = match workspace_store {
         Some(ws_store) => ws_store.delete_connection(&connection_id),
         None => {
             let storage_dir = app
@@ -674,7 +668,8 @@ pub async fn duplicate_saved_connection(
     }
     drop(app_state);
 
-    let result = match get_workspace_store(&ws_manager).await {
+    let (_, workspace_store) = get_workspace_context(&ws_manager, &project_id).await?;
+    let result = match workspace_store {
         Some(ws_store) => ws_store.duplicate_connection(&connection_id),
         None => {
             let storage_dir = app
@@ -743,7 +738,8 @@ pub async fn get_connection_credentials(
     );
     drop(app_state);
 
-    let result = match get_workspace_store(&ws_manager).await {
+    let (_, workspace_store) = get_workspace_context(&ws_manager, &project_id).await?;
+    let result = match workspace_store {
         Some(ws_store) => ws_store.get_credentials(&connection_id),
         None => {
             let storage_dir = app
@@ -773,6 +769,68 @@ pub async fn get_connection_credentials(
 #[cfg(test)]
 mod workspace_context_tests {
     use super::*;
+
+    #[tokio::test]
+    async fn requested_workspace_resolution_rejects_stale_operations() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let mut manager = crate::workspace::WorkspaceManager::new(dir.path().join("config"));
+        let a = manager
+            .create_workspace(&dir.path().join("a"), "A")
+            .unwrap();
+        let origin_a = manager.project_id();
+        let b = manager
+            .create_workspace(&dir.path().join("b"), "B")
+            .unwrap();
+        let origin_b = manager.project_id();
+        for workspace in [&a, &b] {
+            std::fs::write(
+                workspace.path.join("connections/same-id.json"),
+                b"synthetic sentinel",
+            )
+            .unwrap();
+        }
+        let shared = std::sync::Arc::new(tokio::sync::Mutex::new(manager));
+        assert!(get_workspace_context(&shared, &origin_a).await.is_err());
+        assert!(get_workspace_context(&shared, "default").await.is_err());
+        assert!(get_workspace_context(&shared, &origin_b).await.is_ok());
+        shared.lock().await.switch_to_default();
+        assert!(get_workspace_context(&shared, &origin_b).await.is_err());
+        assert!(
+            get_workspace_context(&shared, "default")
+                .await
+                .unwrap()
+                .1
+                .is_none()
+        );
+        for workspace in [&a, &b] {
+            assert_eq!(
+                std::fs::read(workspace.path.join("connections/same-id.json")).unwrap(),
+                b"synthetic sentinel"
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn queued_workspace_resolution_checks_the_project_after_acquiring_the_lock() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let mut manager = crate::workspace::WorkspaceManager::new(dir.path().join("config"));
+        manager
+            .create_workspace(&dir.path().join("a"), "A")
+            .unwrap();
+        let origin_a = manager.project_id();
+        let shared = std::sync::Arc::new(tokio::sync::Mutex::new(manager));
+        let mut guard = shared.lock().await;
+        let pending = get_workspace_context(&shared, &origin_a);
+        tokio::pin!(pending);
+        tokio::select! {
+            biased;
+            _ = &mut pending => panic!("resolution must wait for the workspace lock"),
+            _ = tokio::task::yield_now() => {}
+        }
+        guard.create_workspace(&dir.path().join("b"), "B").unwrap();
+        drop(guard);
+        assert!(pending.await.is_err());
+    }
 
     #[test]
     fn requested_connection_project_must_match_the_resolved_workspace() {

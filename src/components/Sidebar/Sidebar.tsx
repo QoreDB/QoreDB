@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { ChevronUp, Database, Globe, Plus, Search, ShieldCheck, Sparkles } from 'lucide-react';
-import { forwardRef, useCallback, useEffect, useMemo, useState } from 'react';
+import { forwardRef, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { FounderBadge } from '@/components/License/FounderBadge';
@@ -14,6 +14,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { useSavedConnections } from '@/hooks/useSavedConnections';
 import { useTheme } from '@/hooks/useTheme';
 import {
   reconcileFavoriteConnectionIds,
@@ -40,7 +41,6 @@ import {
   type Collection,
   connectSavedConnection,
   type DatabaseEvent,
-  listSavedConnections,
   type Namespace,
   type RelationFilter,
   type Routine,
@@ -122,7 +122,11 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(function Sidebar(
   }: SidebarProps,
   ref
 ) {
-  const [connections, setConnections] = useState<SavedConnection[]>([]);
+  const {
+    connections,
+    status: connectionsStatus,
+    refresh: loadConnections,
+  } = useSavedConnections();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [connecting, setConnecting] = useState<string | null>(null);
@@ -144,21 +148,12 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(function Sidebar(
   const restoreTarget = useModalStore(s => s.restoreTarget);
   const importSqlTarget = useModalStore(s => s.importSqlTarget);
 
-  const loadConnections = useCallback(async () => {
-    try {
-      const saved = await listSavedConnections(projectId);
-      setConnections(saved);
-      setFavoriteConnectionIds(
-        reconcileFavoriteConnectionIds(saved.map(connection => connection.id))
-      );
-    } catch (err) {
-      console.error('Failed to load connections:', err);
-    }
-  }, [projectId]);
-
   useEffect(() => {
-    loadConnections();
-  }, [loadConnections]);
+    if (connectionsStatus !== 'ready') return;
+    setFavoriteConnectionIds(
+      reconcileFavoriteConnectionIds(connections.map(connection => connection.id))
+    );
+  }, [connections, connectionsStatus]);
 
   useEffect(() => {
     if (connectedConnectionId) {

@@ -32,16 +32,16 @@ pub struct SessionListItem {
 /// Resolves configuration, display name, masking and the backend workspace origin.
 ///
 /// File-based workspaces keep connections in their own `.qoredb/connections/`
-/// directory, so isolation is by directory and the flat-vault `project_id` guard
-/// does not apply there. The default workspace shares a single `connections.json`
-/// across projects, so that branch still enforces the guard.
+/// directory; the requested project must match the resolved backend workspace.
+/// Stored metadata may retain a legacy project label. The default workspace shares
+/// a single `connections.json` across projects, so that branch still checks metadata.
 pub(crate) async fn resolve_saved_connection(
     app: &AppHandle,
     ws_manager: &State<'_, SharedWorkspaceManager>,
     project_id: &str,
     connection_id: &str,
 ) -> Result<(ConnectionConfig, String, ConnectionMasking, String), String> {
-    let (workspace_id, workspace_store) = get_workspace_context(ws_manager).await;
+    let (workspace_id, workspace_store) = get_workspace_context(ws_manager, project_id).await?;
     if let Some(ws_store) = workspace_store {
         let saved = ws_store
             .get_connection(connection_id)

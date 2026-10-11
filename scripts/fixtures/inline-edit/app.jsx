@@ -6,6 +6,7 @@ import '/src/i18n';
 import { DataGrid } from '/src/components/Grid/DataGrid';
 import { TooltipProvider } from '/src/components/ui/tooltip';
 import { useInfiniteTableData } from '/src/hooks/useInfiniteTableData';
+import { ShortcutProvider } from '/src/providers/ShortcutProvider';
 
 const ns = { database: 'fixture', schema: 'public' };
 const pk = ['id'];
@@ -80,7 +81,9 @@ function Fixture() {
 createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <TooltipProvider>
-      <Fixture />
+      <ShortcutProvider>
+        <Fixture />
+      </ShortcutProvider>
     </TooltipProvider>
   </React.StrictMode>
 );

@@ -256,7 +256,7 @@ fn duckdb_value_to_qoredb(row: &::duckdb::Row<'_>, idx: usize) -> ::duckdb::Resu
 /// QoreDB scalar representation (128-bit integers, decimals, temporal values,
 /// intervals and enums) use their lossless textual form. Nested values remain
 /// structured as arrays / JSON objects.
-fn duckdb_owned_value_to_qoredb(value: DuckValue) -> Value {
+pub fn duckdb_owned_value_to_qoredb(value: DuckValue) -> Value {
     match value {
         DuckValue::Null => Value::Null,
         DuckValue::Boolean(value) => Value::Bool(value),
@@ -376,7 +376,8 @@ fn format_time(unit: TimeUnit, value: i64) -> String {
         .unwrap_or_else(|| format!("{value} {unit:?}"))
 }
 
-fn logical_type_name(logical_type: &LogicalTypeHandle) -> String {
+/// SQL type metadata shared by the native driver and the federation engine.
+pub fn logical_type_name(logical_type: &LogicalTypeHandle) -> String {
     if let Some(alias) = logical_type.get_alias() {
         if !alias.is_empty() {
             return alias;

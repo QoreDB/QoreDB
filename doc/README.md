@@ -106,6 +106,10 @@ that every check passes on the current checkout.
   reprise synthétique v0.1.39, vrais IPC/keyring/SQLite/PostgreSQL, corrections de transfert
   et packaging ; AppImage en échec, installation et licences payantes non qualifiées.
 
+- [v0.1.40 packaging, matrice et clavier, 2026-10-11](tests/V0_1_40_PACKAGING_MATRIX_UX_2026-10-11.md):
+  AppImage et AUR, fidélité de la fédération, moteurs réels supplémentaires,
+  conflit Échap et mesures natives ; limites de qualification explicites.
+
 ## Proposals and ongoing plans
 
 Files under `todo/` can mix delivered work with unfinished items. Inspect their

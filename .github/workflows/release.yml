@@ -172,6 +172,8 @@ jobs:
         uses: tauri-apps/tauri-action@v0
         timeout-minutes: 60
         env:
+          # Cargo strips our binaries; linuxdeploy's bundled strip rejects RELR libraries.
+          NO_STRIP: "1"
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}

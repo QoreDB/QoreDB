@@ -12,8 +12,10 @@ const page = await browser.newPage({ viewport: { width: 1200, height: 750 } });
 const errors = [];
 const requests = [];
 page.on('request', request => requests.push(request.url()));
-page.on('pageerror', error => errors.push(error.message));
+page.on('pageerror', error => errors.push(error.stack ?? error.message));
 const providers = {
+  TabProvider:
+    'export const useTabContext = () => ({activeTabId:"fixture-table",activeTab:{type:"table"},queryDrafts:{},closeTab(){window.__closedTabs=(window.__closedTabs??0)+1},openTab(){}});',
   SessionProvider:
     'export const useSessionContext = () => ({savedConnections:[],refreshSidebar(){}});',
   WorkspaceProvider:
@@ -118,7 +120,9 @@ try {
     await page.waitForFunction(n => window.__fixture.data.loadedRows === n, count);
   }
   const scroller = page.locator('[data-datagrid] > div').filter({ has: page.locator('table') });
-  await scroller.evaluate(el => (el.scrollTop = 7000));
+  // Keep the edited row away from the viewport edge so focus scrolling does
+  // not depend on the one-pixel difference between the input and cell heights.
+  await scroller.evaluate(el => (el.scrollTop = 7300));
   const row = page
     .locator('tr')
     .filter({
@@ -166,6 +170,23 @@ try {
     1
   );
   console.log('PASS F2 and Escape restore focus without writing');
+  assert.equal(await page.evaluate(() => window.__closedTabs ?? 0), 0,
+    'Escape consumed by the cell must not close its tab');
+  await page.evaluate(() => document.activeElement.dispatchEvent(new KeyboardEvent('keydown', {
+    key: 'Escape', bubbles: true, cancelable: true, isComposing: true,
+  })));
+  assert.equal(await page.evaluate(() => window.__closedTabs ?? 0), 0,
+    'IME composition must not trigger global shortcuts');
+  await page.locator('#outside').focus();
+  await page.keyboard.press('?');
+  await page.getByRole('dialog').waitFor();
+  await page.keyboard.press('Escape');
+  await page.getByRole('dialog').waitFor({ state: 'detached' });
+  assert.equal(await page.evaluate(() => window.__closedTabs ?? 0), 0,
+    'Escape closes the keyboard help without closing its tab');
+  await page.keyboard.press('Escape');
+  assert.equal(await page.evaluate(() => window.__closedTabs ?? 0), 1,
+    'Unconsumed Escape still closes the active tab');
   await cell.press('Enter');
   await input.fill('blur saved');
   await page.locator('#outside').click();

@@ -14,6 +14,8 @@ import sqlite3
 import sys
 
 
+if len(sys.argv) not in (2, 3) or (len(sys.argv) == 3 and sys.argv[2] != "--large-grid"):
+    raise SystemExit("Usage: prepare-native-qualification.py TARGET [--large-grid]")
 root = Path(sys.argv[1]).resolve()
 root.mkdir(parents=True, exist_ok=False)
 stamp = "2026-09-24T12:00:00Z"
@@ -40,6 +42,12 @@ with sqlite3.connect(db_path) as db:
         (1, "Avant mise à jour", "synthetic@example.invalid", 9007199254740993),
         (2, "Deuxième", "other@example.invalid", 42),
     ])
+    if "--large-grid" in sys.argv[2:]:
+        db.execute("CREATE TABLE large_grid(id INTEGER PRIMARY KEY, label TEXT NOT NULL, amount INTEGER NOT NULL, payload TEXT NOT NULL)")
+        db.executemany("INSERT INTO large_grid VALUES (?, ?, ?, ?)", (
+            (i, f"Row {i:06d}", 9007199254740993, "x" * 1024)
+            for i in range(1, 100001)
+        ))
 
 library = {"version": 1, "folders": [{"id": "legacy-folder", "name": "Qualification", "createdAt": 1, "updatedAt": 1}],
            "items": [{"id": "legacy-query", "title": "Requête conservée", "query": "SELECT * FROM items WHERE id = {{id}}", "folderId": "legacy-folder", "tags": ["qualification"], "isFavorite": True, "driver": "sqlite", "variables": {"id": {"name": "id", "type": "number", "defaultValue": "1"}}, "createdAt": 1, "updatedAt": 1}]}

@@ -195,7 +195,7 @@ async fn prepare_duckdb(
     let engine = DuckDbEngine::new()?;
 
     for (source, result) in plan.sources.iter().zip(source_results.iter()) {
-        engine.create_temp_table(&source.table_ref.local_alias, &result.columns)?;
+        engine.create_temp_table(&source.table_ref.local_alias, &result.columns, &result.rows)?;
         engine.insert_batch(&source.table_ref.local_alias, &result.rows, &result.columns)?;
     }
     engine.disable_external_access()?;

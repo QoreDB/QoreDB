@@ -264,3 +264,18 @@ The native inspector must be available; release binaries may expose no target.
 This script does not automate all GUI dialogs or seed browser preferences.
 Record manual UI, browser-state, installed-package and paid-licence results
 separately, as in the [dated qualification report](../tests/V0_1_40_NATIVE_QUALIFICATION_2026-10-10.md).
+
+For the large-grid scenario, add `--large-grid` when preparing the disposable
+profile. This seeds 100,000 SQLite rows without launching the app. Once the
+`large_grid` table is open in an explicitly selected native test session, run
+`node scripts/qualify-native-grid.mjs /absolute/path/to/disposable-profile` with
+the inspector URL above. The helper edits only the synthetic fixture and checks
+scroll position, selection, focus and Escape after a propagation delay. It does
+not launch the application. GUI qualification requires an appropriate test
+display; do not automate repeated application launches on a working desktop.
+
+`python scripts/measure-native-process.py PID` samples an existing Linux process
+and its descendants without opening a window. It reports raw RSS/PSS and CPU
+values; it does not establish a performance budget or a baseline comparison.
+See the [packaging, matrix and keyboard report](../tests/V0_1_40_PACKAGING_MATRIX_UX_2026-10-11.md)
+for the completed checks and remaining native qualification.

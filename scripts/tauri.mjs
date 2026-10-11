@@ -35,6 +35,11 @@ const tauriBin = createRequire(import.meta.url).resolve(
 );
 const result = spawnSync(process.execPath, [tauriBin, ...args], {
   stdio: "inherit",
+  // Cargo already strips release binaries. linuxdeploy's older strip cannot
+  // read RELR relocations in libraries shipped by recent Linux distributions.
+  env: process.platform === "linux" && cliArgs.some(arg => arg === "build" || arg === "bundle")
+    ? { ...process.env, NO_STRIP: "1" }
+    : process.env,
 });
 
 if (result.error) {

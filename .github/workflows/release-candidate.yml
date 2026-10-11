@@ -21,7 +21,7 @@ concurrency:
 jobs:
   build:
     # Signing secrets are only available to branches in this repository.
-    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
+    if: github.event_name == 'workflow_dispatch' || (github.event.pull_request.head.repo.full_name == github.repository && startsWith(github.head_ref, 'feat/v0-'))
     strategy:
       fail-fast: false
       matrix:
@@ -47,6 +47,7 @@ jobs:
         with:
           workspaces: './src-tauri -> target'
           key: candidate-${{ matrix.target }}
+          cache-on-failure: true
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
@@ -72,7 +73,7 @@ jobs:
           cp "target/$TARGET/release/qore$ext" "binaries/qore-$TARGET$ext"
           cp "target/$TARGET/release/qore-mcp$ext" "binaries/qore-mcp-$TARGET$ext"
           if [ "$TARGET" = "$(rustc -vV | sed -n 's/^host: //p')" ]; then
-            "target/$TARGET/release/qore$ext" --version
+            "target/$TARGET/release/qore$ext" --help
             "target/$TARGET/release/qore-mcp$ext" --help
           else
             echo "Cross-compiled tools: runtime check requires a matching host."

@@ -279,3 +279,15 @@ and its descendants without opening a window. It reports raw RSS/PSS and CPU
 values; it does not establish a performance budget or a baseline comparison.
 See the [packaging, matrix and keyboard report](../tests/V0_1_40_PACKAGING_MATRIX_UX_2026-10-11.md)
 for the completed checks and remaining native qualification.
+
+For a desktop-independent Linux WebView session, build
+`scripts/fixtures/native-offscreen/Dockerfile`. It provides Xvfb, software
+rendering and a keyring in a disposable container. Bind only the qualification
+scripts read-only, the selected AppImage read-only and the synthetic profile
+read-write. Do not bind `/tmp/.X11-unix`, a Wayland socket or any host display
+credentials. Run the existing launcher under `xvfb-run`; setting
+`APPIMAGE_EXTRACT_AND_RUN=1` avoids requiring FUSE. Publish the inspector only on
+host loopback, for example `127.0.0.1:9343:9333`, with its container listener on
+`0.0.0.0:9333`. One launch suffices for the profile, grid and idle-memory checks.
+The virtual renderer is a functional test environment; its timings do not prove
+physical-desktop performance. The dated report records the observed runtime.

@@ -26,7 +26,15 @@ try {
   for (const file of walk(resolve(directory))) {
     if (!file.endsWith('.sig')) continue;
     const bundle = file.slice(0, -4);
-    const name = basename(bundle);
+    let name = basename(bundle);
+    // Tauri's local macOS archives share a basename; tauri-action adds the
+    // architecture when uploading release assets. Preserve that public naming.
+    if (name.endsWith('.app.tar.gz') && !/aarch64|arm64|x64|x86_64/i.test(name)) {
+      const target = bundle.match(/(aarch64|x86_64)-apple-darwin/);
+      if (!target) throw new Error(`Cannot infer macOS architecture for ${bundle}`);
+      const suffix = target[1] === 'aarch64' ? 'aarch64' : 'x64';
+      name = name.replace('.app.tar.gz', `_${suffix}.app.tar.gz`);
+    }
     if (!platformKeys(name)) continue;
     const signature = readFileSync(file, 'utf8').trim();
     const decoded = join(scratch, 'artifact.minisig');

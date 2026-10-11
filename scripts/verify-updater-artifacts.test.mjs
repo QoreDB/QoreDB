@@ -29,7 +29,10 @@ test('verifies real signatures and rejects changed bytes or a different trust ro
     plugins: { updater: { pubkey: readFileSync(pub).toString('base64') } },
   }));
   config();
-  const names = ['QoreDB_aarch64.app.tar.gz', 'QoreDB_x64.app.tar.gz', 'QoreDB_0.1.40_amd64.AppImage', 'QoreDB_0.1.40_x64.msi'];
+  const names = ['aarch64-apple-darwin/QoreDB.app.tar.gz', 'x86_64-apple-darwin/QoreDB.app.tar.gz', 'QoreDB_0.1.40_amd64.AppImage', 'QoreDB_0.1.40_x64.msi'];
+  for (const target of ['aarch64-apple-darwin', 'x86_64-apple-darwin']) {
+    mkdirSync(join(root, 'artifacts', target));
+  }
   for (const name of names) {
     const file = join(root, 'artifacts', name);
     writeFileSync(file, 'synthetic signed artifact');
@@ -38,6 +41,9 @@ test('verifies real signatures and rejects changed bytes or a different trust ro
   }
   const verify = () => spawnSync(process.execPath, [join(root, 'scripts/verify-updater-artifacts.mjs'), join(root, 'artifacts'), join(root, 'latest.json')], { encoding: 'utf8' });
   assert.equal(verify().status, 0);
+  const manifest = JSON.parse(readFileSync(join(root, 'latest.json'), 'utf8'));
+  assert.match(manifest.platforms['darwin-aarch64'].url, /QoreDB_aarch64\.app\.tar\.gz$/);
+  assert.match(manifest.platforms['darwin-x86_64'].url, /QoreDB_x64\.app\.tar\.gz$/);
   const changed = join(root, 'artifacts', names[0]);
   writeFileSync(changed, 'tampered artifact');
   assert.match(verify().stderr, /Invalid updater signature/);

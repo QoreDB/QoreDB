@@ -163,3 +163,41 @@ runners GitHub, contrôle la signature système macOS et vérifie ensuite la mat
 updater complète. Il conserve des artefacts Actions ; il ne publie ni release,
 ni tag, ni endpoint updater. Son résultat doit être lu avant de déclarer le
 candidat signé. Les recettes graphiques et mesures natives restent distinctes.
+
+### Recette native isolée du candidat
+
+La nouvelle recette utilise un seul lancement de l'AppImage local `0.1.40` dans
+un conteneur Arch avec Xvfb et rendu logiciel. Aucun socket X11/Wayland de l'hôte
+n'est monté ; seuls les scripts et l'AppImage en lecture seule, ainsi que le
+profil synthétique en lecture-écriture, sont accessibles. L'inspecteur est
+publié sur `127.0.0.1:9343`. La fenêtre virtuelle est fermée proprement après
+les contrôles et le conteneur est supprimé automatiquement.
+
+- Les 42 assertions de profil natif passent sur l'AppImage final local.
+- La grille de 100 000 lignes conserve 500 lignes chargées, position, sélection
+  et focus pendant 30 éditions. Échap conserve la valeur et l'onglet ouvert,
+  y compris après le délai de propagation. La base SQLite relue contient
+  `Native edit 29` et l'entier exact attendu.
+- Latence mesurée : médiane 104 ms, p95 179 ms. Ce sont des événements DOM dans
+  WebKit avec polling de 10 ms, sur écran virtuel ; aucune référence comparable
+  n'est disponible pour déclarer un budget natif respecté.
+- Une session de mémoire/CPU, après 30 s de repos puis 60 échantillons à une
+  seconde : RSS médian/pic 853 516 288 octets, CPU moyen 0,0162 % d'un cœur.
+  La grille reste ouverte. RSS inclut les pages partagées de chaque processus.
+  Cela ne remplace pas les cinq sessions comparatives du protocole complet.
+- Les sept contrôles CLI/MCP sur les exécutables de cette AppImage passent :
+  découverte, lectures exactes/masquées et refus des mutations.
+- L'updater natif confirme la version courante `0.1.40` et ne propose pas de
+  rétrogradation vers `0.1.39` lors du contrôle normal. Un appel de qualification
+  autorisant explicitement la recherche de l'ancienne version télécharge ses
+  160 037 368 octets et valide sa signature via le vrai plugin ; aucune
+  installation n'est demandée. Ce test couvre transport et vérification, pas
+  le remplacement de `0.1.39` par le nouveau candidat signé.
+
+L'image de test installe Xvfb 21.1.25 et glibc 2.44 ; l'AppImage utilise ses
+bibliothèques embarquées. Les nouveautés sont aussi vérifiées dans Chromium
+sans fenêtre visible : ouverture après migration de version, chargement différé,
+fermeture par bouton/Échap et réouverture sans second téléchargement du module.
+Les quatre contrôles habituels GitHub (Frontend, Backend, Core et Pro) du commit
+`6150192` passent. La qualification signée est suivie séparément dans le
+[run candidat](https://github.com/QoreDB/QoreDB/actions/runs/38151218125).

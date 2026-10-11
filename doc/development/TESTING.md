@@ -285,9 +285,24 @@ For a desktop-independent Linux WebView session, build
 rendering and a keyring in a disposable container. Bind only the qualification
 scripts read-only, the selected AppImage read-only and the synthetic profile
 read-write. Do not bind `/tmp/.X11-unix`, a Wayland socket or any host display
-credentials. Run the existing launcher under `xvfb-run`; setting
+credentials. Start the container with `--init` so Xvfb's readiness signal is
+handled normally, then run the existing launcher under `xvfb-run`; setting
 `APPIMAGE_EXTRACT_AND_RUN=1` avoids requiring FUSE. Publish the inspector only on
 host loopback, for example `127.0.0.1:9343:9333`, with its container listener on
 `0.0.0.0:9333`. One launch suffices for the profile, grid and idle-memory checks.
 The virtual renderer is a functional test environment; its timings do not prove
 physical-desktop performance. The dated report records the observed runtime.
+
+To exercise an unpublished Linux updater candidate, the disposable container
+can run `scripts/fixtures/native-offscreen/updater-proxy.py PROFILE APPIMAGE`.
+It serves only the staged `PROFILE/updater.json` and `/candidate.AppImage` through
+a localhost CONNECT proxy; it does not forward traffic. Supply a disposable CA
+in `proxy.crt` and a separate server certificate/key in `proxy-server.crt` and
+`proxy-server.key`, signed by that CA for `github.com`. Set `SSL_CERT_FILE` only
+for the disposable app and pass `http://127.0.0.1:9880` as the updater proxy.
+Never install this CA into the host trust store. Use the candidate's actual
+signature with the application's unchanged updater public key. First verify
+that mismatched bytes/signature are rejected without replacing the installed
+AppImage, then install the valid pair and restart once to verify the version
+and existing synthetic profile. The installed AppImage must be writable inside
+the disposable profile; the source candidate stays read-only.

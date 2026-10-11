@@ -3,8 +3,10 @@
 ## Périmètre
 
 Départ : `8d163ee359dfe12ecd660c495101d576854f2fbe`, avec seulement
-`HANDOFF.md` non suivi. Les changements décrits sont locaux. Aucun bump, tag,
-publication, activation de licence ou changement du profil personnel.
+`HANDOFF.md` non suivi. Les premières sections décrivent le lot initial, encore
+en version de travail 0.1.39. La section « Préparation du candidat 0.1.40 »
+décrit ensuite le bump, les commits poussés et les recettes du paquet signé.
+Aucun tag, publication, activation de licence ou changement du profil personnel.
 
 Critères : produire et démarrer l'AppImage ; préserver les outils du paquet
 AUR et leurs protections ; qualifier des moteurs supplémentaires ; reproduire
@@ -39,8 +41,9 @@ version de travail `0.1.39` : ce ne sont pas des releases v0.1.40 publiées.
 Cette installation utilise les bibliothèques de l'hôte : la résolution de
 dépendances et les scripts système sont désactivés dans la racine jetable
 (`-Udd --noscriptlet --disable-sandbox`). Ce n'est pas une installation Arch
-vierge ni une installation Debian. L'installation `.deb` sur Debian/Ubuntu,
-les signatures de production et l'auto-updater réel restent non exécutés.
+vierge ni une installation Debian. À ce premier point d'arrêt, l'installation
+`.deb` sur Debian/Ubuntu, les signatures de production et l'auto-updater réel
+restent non exécutés ; leur recette ultérieure figure à la fin du rapport.
 Un build Arch ne démontre pas la compatibilité avec les distributions plus
 anciennes ; le workflow de distribution conserve son environnement Ubuntu.
 
@@ -199,5 +202,70 @@ bibliothèques embarquées. Les nouveautés sont aussi vérifiées dans Chromium
 sans fenêtre visible : ouverture après migration de version, chargement différé,
 fermeture par bouton/Échap et réouverture sans second téléchargement du module.
 Les quatre contrôles habituels GitHub (Frontend, Backend, Core et Pro) du commit
-`6150192` passent. La qualification signée est suivie séparément dans le
-[run candidat](https://github.com/QoreDB/QoreDB/actions/runs/38151218125).
+`a3f4396` passent. La qualification signée est suivie séparément dans le
+[run candidat](https://github.com/QoreDB/QoreDB/actions/runs/38152875613).
+
+### Installation et updater sur Ubuntu 22.04
+
+Le `.deb` officiel 0.1.39 s'installe avec ses dépendances dans un conteneur
+Ubuntu 22.04 vierge. Les deux outils démarrent avec `--help` et aucune dépendance
+partagée ne manque au desktop ou aux outils. La version installée est vérifiée
+par `dpkg-query` avant la mise à niveau.
+
+Une seconde instance de conteneur, avec Xvfb et rendu logiciel, ouvre l'AppImage
+officielle 0.1.39 sur un profil synthétique. Elle utilise le vrai plugin updater
+et un proxy local limité à un manifeste de qualification et son AppImage. Une
+autorité TLS jetable est limitée à ce processus ; aucune confiance de l'hôte,
+clé publique updater ou URL publiée n'est modifiée.
+
+Le manifeste annonce 0.1.40, mais un premier essai associe volontairement
+l'AppImage locale à une signature d'un autre contenu : le téléchargement natif
+est refusé avec `The signature verification failed`. La version courante reste
+0.1.39 et le SHA-256 de l'AppImage installée reste identique.
+
+Le build Linux du commit `a3f4396` réussit. Les signatures de son AppImage et de
+son `.deb` sont vérifiées avec Minisign contre la clé embarquée avant recette.
+Le vrai updater télécharge les 161 245 688 octets de l'AppImage 0.1.40, vérifie
+sa signature et remplace l'installation. Le fichier installé a exactement le
+SHA-256 du candidat signé :
+`58ebc186bc418ee5ff5ddcfb05329ba9372e76c386d5eacf6ae182ed2a28f1ce`.
+
+Après fermeture propre et un seul redémarrage dans Xvfb, la version retournée
+par Tauri est `0.1.40` et le même manifeste ne repropose aucune mise à jour.
+Les 42 assertions natives passent avec le profil conservé, notamment le
+trousseau, le coffre, les connexions, les instantanés, les masques et les droits
+Core. La fenêtre est ensuite fermée et le conteneur supprimé.
+
+Dans l'autre conteneur Ubuntu, `apt-get install` du `.deb` signé remplace
+0.1.39 par 0.1.40. Les deux outils passent `--help`, les trois exécutables
+n'ont aucune bibliothèque manquante selon `ldd` et les licences Apache/BSL sont
+présentes dans `/usr/lib/QoreDB/licenses`. Le conteneur est arrêté après recette.
+Ces contrôles couvrent l'AppImage et le `.deb` Linux x86_64 ; ils ne prouvent pas
+une installation graphique Windows/macOS ou Microsoft Store.
+
+Le PKGBUILD est enfin copié dans un répertoire jetable avec version 0.1.40 et
+SHA-256 réel du `.deb` signé. `makepkg --nodeps --cleanbuild --force` réussit ;
+les trois exécutables et les deux licences du paquet AUR sont identiques aux
+fichiers du `.deb`. Ce dernier contrôle porte sur la construction et le contenu,
+sans nouvelle installation graphique. Les fichiers AUR suivis restent sur la
+version publiée : le workflow AUR les actualise depuis les assets de release.
+
+### Résultat de la matrice signée
+
+Le [run 38152875613](https://github.com/QoreDB/QoreDB/actions/runs/38152875613)
+se termine avec succès sur le commit `a3f4396` : Linux x86_64, Windows x86_64,
+macOS Intel et Apple Silicon. Sur les deux macOS, `codesign --verify --deep
+--strict` passe et `spctl` accepte l'application avec `Notarized Developer ID`.
+Le contrôle d'exécution des outils est passé sur les runners correspondant à
+leur architecture ; il est explicitement ignoré pour la compilation croisée.
+
+Le job final passe ses trois tests et vérifie les sept paquets updater contre
+la clé publique embarquée : deux archives macOS, MSI, NSIS, AppImage, `.deb`
+et RPM. Le manifeste 0.1.40 contient les onze clés de plateforme et de format
+attendues. Les paquets et le manifeste sont conservés comme artefacts Actions
+pendant 14 jours. Leurs URLs de future release ne sont pas encore publiées.
+
+La préparation et la recette Linux sont terminées. Restent non qualifiés :
+parcours positifs avec une vraie licence Pro, interfaces/installations
+Windows/macOS, Microsoft Store, matrice cloud complète et protocole comparatif
+complet de performance native. Aucun tag, merge ou publication n'est effectué.

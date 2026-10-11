@@ -53,7 +53,8 @@ Note : le **Package Family Name** est dérivé automatiquement de `Identity.Name
    vérité ; `tauri.conf.json` la référence directement. Le script synchronise
    les manifests Cargo du desktop et des deux outils. Actualiser `Cargo.lock`
    avec Cargo et vérifier les trois versions avant de commiter.
-2. Qualifier le candidat dans une pull request du dépôt. Le workflow
+2. Qualifier le candidat dans une pull request du dépôt dont la branche source
+   commence par `feat/v0-`, ou déclencher manuellement le workflow. Le workflow
    [Signed release candidate](../../.github/workflows/release-candidate.yml)
    compile Linux, Windows et macOS ARM/Intel avec les secrets de signature.
    Il conserve les paquets dans les artefacts Actions pendant 14 jours,

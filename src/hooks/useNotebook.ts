@@ -10,7 +10,11 @@ import type { Driver } from '../lib/connection/drivers';
 import { loadContract, runContract } from '../lib/contracts';
 import { exportToHtml, exportToMarkdown } from '../lib/notebook/notebookExport';
 import { importFromMarkdown, importFromSql } from '../lib/notebook/notebookImport';
-import { resolveInterCellReferences } from '../lib/notebook/notebookInterCellRef';
+import {
+  findUnavailableReference,
+  invalidateNotebookDependents,
+  resolveNotebookReferences,
+} from '../lib/notebook/notebookInterCellRef';
 import {
   clearDraft,
   consumePendingNotebook,
@@ -29,7 +33,7 @@ import {
   type NotebookVariable,
   type QoreNotebook,
 } from '../lib/notebook/notebookTypes';
-import { extractVariableReferences, substituteVariables } from '../lib/notebook/notebookVariables';
+import { useWorkspaceStore } from '../lib/stores/workspaceStore';
 import { cancelQuery, executeQuery, type Namespace } from '../lib/tauri';
 import { useNotebookHistory } from './useNotebookHistory';
 
@@ -93,19 +97,38 @@ export interface UseNotebookReturn {
   setTitle: (title: string) => void;
 }
 
+function withoutResults(notebook: QoreNotebook): QoreNotebook {
+  return {
+    ...notebook,
+    cells: notebook.cells.map(cell => ({
+      ...cell,
+      lastResult: undefined,
+      executionState: 'idle',
+      executionCount: 0,
+      executedAt: undefined,
+      executionTimeMs: undefined,
+    })),
+  };
+}
+
 export function useNotebook(options: UseNotebookOptions): UseNotebookReturn {
   const { tabId, sessionId, namespace, initialPath, initialQuery, onDirtyChange } = options;
   const { t } = useTranslation();
+  const projectId = useWorkspaceStore(state => state.projectId);
 
+  const restoredDraftRef = useRef(false);
   const [notebook, setNotebook] = useState<QoreNotebook>(() => {
     // Priority: provided notebook > pending (opened from file menu) > draft > new with initialQuery > empty
-    if (options.initialNotebook) return options.initialNotebook;
+    if (options.initialNotebook) return withoutResults(options.initialNotebook);
     if (initialPath) {
       const pending = consumePendingNotebook(initialPath);
-      if (pending) return pending;
+      if (pending) return withoutResults(pending);
     }
     const draft = loadDraft(tabId);
-    if (draft) return draft;
+    if (draft) {
+      restoredDraftRef.current = true;
+      return withoutResults(draft);
+    }
     if (initialQuery) {
       const nb = createEmptyNotebook();
       nb.cells[0].source = initialQuery;
@@ -115,22 +138,65 @@ export function useNotebook(options: UseNotebookOptions): UseNotebookReturn {
   });
 
   const [path, setPath] = useState<string | null>(initialPath ?? null);
-  const [isDirty, setIsDirty] = useState(false);
+  const [isDirty, setDirtyState] = useState(restoredDraftRef.current);
+  const dirtyRef = useRef(restoredDraftRef.current);
+  const setIsDirty = useCallback((dirty: boolean) => {
+    dirtyRef.current = dirty;
+    setDirtyState(dirty);
+  }, []);
+  const fileOperationRef = useRef(false);
+  const contextEpochRef = useRef(0);
   const [focusedCellId, setFocusedCell] = useState<string | null>(notebook.cells[0]?.id ?? null);
   const [executingCellId, setExecutingCellId] = useState<string | null>(null);
 
   const notebookRef = useRef(notebook);
-  notebookRef.current = notebook;
 
   const onDirtyChangeRef = useRef(onDirtyChange);
   onDirtyChangeRef.current = onDirtyChange;
 
   const history = useNotebookHistory();
+  const clearHistory = history.clear;
 
   // Abort controller for batch execution (Run All / Run From Here)
   const abortRef = useRef<AbortController | null>(null);
   // Track the current queryId for cancellation
-  const activeQueryIdRef = useRef<string | null>(null);
+  const activeExecutionRef = useRef<{ cellId: string; sessionId: string; queryId?: string } | null>(
+    null
+  );
+
+  const stopExecution = useCallback(() => {
+    abortRef.current?.abort();
+    abortRef.current = null;
+    const active = activeExecutionRef.current;
+    activeExecutionRef.current = null;
+    if (active?.queryId) cancelQuery(active.sessionId, active.queryId).catch(() => {});
+    setExecutingCellId(null);
+  }, []);
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: each context boundary invalidates results and pending work
+  useEffect(() => {
+    contextEpochRef.current++;
+    // Results belong to one execution context, including its current safety policy.
+    stopExecution();
+    clearHistory();
+    const next = withoutResults(notebookRef.current);
+    notebookRef.current = next;
+    setNotebook(next);
+    return () => {
+      contextEpochRef.current++;
+      stopExecution();
+    };
+  }, [
+    sessionId,
+    namespace?.database,
+    namespace?.schema,
+    projectId,
+    clearHistory,
+    options.dialect,
+    options.environment,
+    options.readOnly,
+    stopExecution,
+  ]);
 
   // --- Sync dirty state ---
   useEffect(() => {
@@ -144,7 +210,10 @@ export function useNotebook(options: UseNotebookOptions): UseNotebookReturn {
         saveDraft(tabId, notebookRef.current);
       }
     }, 30_000);
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+      if (dirtyRef.current) saveDraft(tabId, notebookRef.current);
+    };
   }, [tabId, isDirty]);
 
   // --- Helpers ---
@@ -153,30 +222,44 @@ export function useNotebook(options: UseNotebookOptions): UseNotebookReturn {
     (updater: (prev: QoreNotebook) => QoreNotebook) => {
       // Push current state for undo BEFORE updating (outside setNotebook to avoid nested setState)
       history.pushState(notebookRef.current);
-      setNotebook(prev => {
-        const next = updater(prev);
-        return next;
-      });
+      const prev = notebookRef.current;
+      const next = invalidateNotebookDependents(prev, updater(prev));
+      notebookRef.current = next;
+      const active = activeExecutionRef.current;
+      if (
+        active &&
+        (!next.cells.some(cell => cell.id === active.cellId) ||
+          ['idle', 'stale'].includes(
+            next.cells.find(cell => cell.id === active.cellId)?.executionState ?? 'idle'
+          ))
+      ) {
+        stopExecution();
+      }
+      setNotebook(next);
       setIsDirty(true);
     },
-    [history]
+    [history, stopExecution, setIsDirty]
   );
 
   const undo = useCallback(() => {
     const restored = history.undo(notebookRef.current);
     if (restored) {
-      setNotebook(restored);
+      stopExecution();
+      notebookRef.current = withoutResults(restored);
+      setNotebook(notebookRef.current);
       setIsDirty(true);
     }
-  }, [history]);
+  }, [history, stopExecution, setIsDirty]);
 
   const redo = useCallback(() => {
     const restored = history.redo(notebookRef.current);
     if (restored) {
-      setNotebook(restored);
+      stopExecution();
+      notebookRef.current = withoutResults(restored);
+      setNotebook(notebookRef.current);
       setIsDirty(true);
     }
-  }, [history]);
+  }, [history, stopExecution, setIsDirty]);
 
   const updateCell = useCallback(
     (cellId: string, updater: (cell: NotebookCell) => NotebookCell) => {
@@ -263,15 +346,7 @@ export function useNotebook(options: UseNotebookOptions): UseNotebookReturn {
 
   const updateCellSource = useCallback(
     (cellId: string, source: string) => {
-      updateCell(cellId, cell => {
-        // Mark as stale if was previously executed
-        const wasExecuted = cell.executionState === 'success' || cell.executionState === 'error';
-        return {
-          ...cell,
-          source,
-          executionState: wasExecuted ? ('stale' as CellExecutionState) : cell.executionState,
-        };
-      });
+      updateCell(cellId, cell => ({ ...cell, source }));
     },
     [updateCell]
   );
@@ -290,6 +365,9 @@ export function useNotebook(options: UseNotebookOptions): UseNotebookReturn {
       }
       if (signal?.aborted) return;
 
+      const execution = { cellId, sessionId };
+      activeExecutionRef.current = execution;
+      const isCurrent = () => activeExecutionRef.current === execution && !signal?.aborted;
       setExecutingCellId(cellId);
       setFocusedCell(cellId);
       updateCell(cellId, c => ({
@@ -300,9 +378,9 @@ export function useNotebook(options: UseNotebookOptions): UseNotebookReturn {
       const startTime = performance.now();
       try {
         const source = await loadContract(name);
-        if (signal?.aborted) return;
+        if (!isCurrent()) return;
         const run = await runContract(sessionId, source);
-        if (signal?.aborted) return;
+        if (!isCurrent()) return;
 
         const totalTimeMs = Math.round(performance.now() - startTime);
         const success = run.fail_count === 0 && run.error_count === 0;
@@ -322,7 +400,7 @@ export function useNotebook(options: UseNotebookOptions): UseNotebookReturn {
           throw new Error(t('contracts.errors.runFailed'));
         }
       } catch (err) {
-        if (signal?.aborted) return;
+        if (!isCurrent()) return;
         const errorMessage = err instanceof Error ? err.message : String(err);
         const current = notebookRef.current.cells.find(c => c.id === cellId);
         if (current?.executionState === 'running') {
@@ -337,7 +415,10 @@ export function useNotebook(options: UseNotebookOptions): UseNotebookReturn {
         }
         throw err;
       } finally {
-        setExecutingCellId(null);
+        if (activeExecutionRef.current === execution) {
+          activeExecutionRef.current = null;
+          setExecutingCellId(null);
+        }
       }
     },
     [sessionId, updateCell, t]
@@ -362,7 +443,9 @@ export function useNotebook(options: UseNotebookOptions): UseNotebookReturn {
       if (signal?.aborted) return;
 
       const queryId = crypto.randomUUID();
-      activeQueryIdRef.current = queryId;
+      const execution = { cellId, sessionId, queryId };
+      activeExecutionRef.current = execution;
+      const isCurrent = () => activeExecutionRef.current === execution && !signal?.aborted;
       setExecutingCellId(cellId);
       setFocusedCell(cellId);
       updateCell(cellId, c => ({
@@ -373,16 +456,26 @@ export function useNotebook(options: UseNotebookOptions): UseNotebookReturn {
       const startTime = performance.now();
 
       try {
+        const unavailable = findUnavailableReference(
+          cell.source,
+          notebookRef.current.cells,
+          cell.type
+        );
+        if (unavailable)
+          throw new Error(t('notebook.referenceUnavailable', { reference: unavailable }));
         const cellNamespace = cell.config?.namespace ?? namespace ?? undefined;
-        let resolvedSource = substituteVariables(cell.source, notebookRef.current.variables);
-        resolvedSource = resolveInterCellReferences(resolvedSource, notebookRef.current.cells);
+        const resolvedSource = resolveNotebookReferences(
+          cell.source,
+          notebookRef.current.variables,
+          notebookRef.current.cells
+        );
         const response = await executeQuery(sessionId, resolvedSource, {
           namespace: cellNamespace,
           queryId,
           recordable: true,
         });
 
-        if (signal?.aborted) return;
+        if (!isCurrent()) return;
 
         const totalTimeMs = Math.round(performance.now() - startTime);
 
@@ -392,6 +485,7 @@ export function useNotebook(options: UseNotebookOptions): UseNotebookReturn {
             columns: response.result.columns,
             rows: response.result.rows,
             totalRows: response.result.rows.length,
+            truncated: response.truncated,
             affectedRows: response.result.affected_rows,
           };
 
@@ -430,7 +524,7 @@ export function useNotebook(options: UseNotebookOptions): UseNotebookReturn {
           throw new Error(response.error ?? t('query.unknownError'));
         }
       } catch (err) {
-        if (signal?.aborted) return;
+        if (!isCurrent()) return;
 
         const errorMessage = err instanceof Error ? err.message : String(err);
         // Only update cell if it wasn't already updated (i.e. it was a caught exception, not a re-throw from above)
@@ -447,8 +541,10 @@ export function useNotebook(options: UseNotebookOptions): UseNotebookReturn {
         }
         throw err;
       } finally {
-        activeQueryIdRef.current = null;
-        setExecutingCellId(null);
+        if (activeExecutionRef.current === execution) {
+          activeExecutionRef.current = null;
+          setExecutingCellId(null);
+        }
       }
     },
     [sessionId, namespace, updateCell, t, executeContractCell]
@@ -456,6 +552,7 @@ export function useNotebook(options: UseNotebookOptions): UseNotebookReturn {
 
   const executeCell = useCallback(
     async (cellId: string) => {
+      if (activeExecutionRef.current || abortRef.current) return;
       try {
         await executeSingleCell(cellId);
       } catch {
@@ -467,6 +564,7 @@ export function useNotebook(options: UseNotebookOptions): UseNotebookReturn {
 
   const executeBatch = useCallback(
     async (cellIds: string[], continueOnError: boolean) => {
+      if (activeExecutionRef.current || abortRef.current) return;
       if (!sessionId) {
         toast.error(t('query.noConnectionError'));
         return;
@@ -474,6 +572,7 @@ export function useNotebook(options: UseNotebookOptions): UseNotebookReturn {
 
       const abort = new AbortController();
       abortRef.current = abort;
+      let failed = false;
 
       try {
         for (const cellId of cellIds) {
@@ -487,15 +586,16 @@ export function useNotebook(options: UseNotebookOptions): UseNotebookReturn {
           try {
             await executeSingleCell(cellId, abort.signal);
           } catch {
+            failed = true;
             if (!continueOnError) break;
           }
         }
 
-        if (!abort.signal.aborted) {
+        if (!abort.signal.aborted && !failed) {
           toast.success(t('notebook.allCellsExecuted'));
         }
       } finally {
-        abortRef.current = null;
+        if (abortRef.current === abort) abortRef.current = null;
       }
     },
     [sessionId, executeSingleCell, t]
@@ -521,17 +621,8 @@ export function useNotebook(options: UseNotebookOptions): UseNotebookReturn {
   );
 
   const cancelExecution = useCallback(() => {
-    // Signal the batch loop to stop
-    abortRef.current?.abort();
-    abortRef.current = null;
-
-    // Cancel the in-flight query
-    if (sessionId && activeQueryIdRef.current) {
-      cancelQuery(sessionId, activeQueryIdRef.current).catch(() => {});
-    }
-
-    // Reset currently executing cell to error/cancelled state
-    const currentCellId = executingCellId;
+    const currentCellId = activeExecutionRef.current?.cellId;
+    stopExecution();
     if (currentCellId) {
       updateCell(currentCellId, c => ({
         ...c,
@@ -542,9 +633,10 @@ export function useNotebook(options: UseNotebookOptions): UseNotebookReturn {
     }
 
     toast.info(t('notebook.executionStopped'));
-  }, [sessionId, executingCellId, updateCell, t]);
+  }, [stopExecution, updateCell, t]);
 
   const clearAllResults = useCallback(() => {
+    stopExecution();
     updateNotebook(nb => ({
       ...nb,
       cells: nb.cells.map(cell => ({
@@ -556,7 +648,7 @@ export function useNotebook(options: UseNotebookOptions): UseNotebookReturn {
         executionTimeMs: undefined,
       })),
     }));
-  }, [updateNotebook]);
+  }, [updateNotebook, stopExecution]);
 
   // --- Cell advanced operations ---
 
@@ -632,16 +724,7 @@ export function useNotebook(options: UseNotebookOptions): UseNotebookReturn {
           [name]: { ...variable, currentValue: value },
         };
 
-        // Mark cells referencing this variable as stale
-        const cells = nb.cells.map(cell => {
-          if (cell.type !== 'sql' && cell.type !== 'mongo') return cell;
-          if (cell.executionState !== 'success' && cell.executionState !== 'error') return cell;
-          const refs = extractVariableReferences(cell.source);
-          if (!refs.includes(name)) return cell;
-          return { ...cell, executionState: 'stale' as CellExecutionState };
-        });
-
-        return { ...nb, variables: updatedVariables, cells };
+        return { ...nb, variables: updatedVariables };
       });
     },
     [updateNotebook]
@@ -669,82 +752,101 @@ export function useNotebook(options: UseNotebookOptions): UseNotebookReturn {
 
   // --- File operations ---
 
-  const save = useCallback(async () => {
-    try {
-      const savedPath = await saveNotebookToFile(notebookRef.current, path);
-      if (savedPath) {
+  const saveToPath = useCallback(
+    async (targetPath: string | null) => {
+      if (fileOperationRef.current) return;
+      fileOperationRef.current = true;
+      const snapshot = notebookRef.current;
+      const epoch = contextEpochRef.current;
+      try {
+        const savedPath = await saveNotebookToFile(snapshot, targetPath);
+        if (!savedPath || contextEpochRef.current !== epoch) return;
         setPath(savedPath);
-        setIsDirty(false);
-        clearDraft(tabId);
+        if (notebookRef.current === snapshot) {
+          setIsDirty(false);
+          clearDraft(tabId);
+        } else {
+          // The file contains the captured revision; newer edits still need saving.
+          saveDraft(tabId, notebookRef.current);
+        }
         toast.success(t('notebook.saved'));
+      } catch {
+        if (contextEpochRef.current === epoch) toast.error(t('notebook.saveError'));
+      } finally {
+        fileOperationRef.current = false;
       }
-    } catch {
-      toast.error(t('notebook.saveError'));
-    }
-  }, [path, tabId, t]);
+    },
+    [tabId, t, setIsDirty]
+  );
 
-  const saveAs = useCallback(async () => {
-    try {
-      const savedPath = await saveNotebookToFile(notebookRef.current, null);
-      if (savedPath) {
-        setPath(savedPath);
-        setIsDirty(false);
-        clearDraft(tabId);
-        toast.success(t('notebook.saved'));
+  const save = useCallback(() => saveToPath(path), [path, saveToPath]);
+  const saveAs = useCallback(() => saveToPath(null), [saveToPath]);
+
+  const replaceFromFile = useCallback(
+    async (importing: boolean) => {
+      if (fileOperationRef.current) return;
+      fileOperationRef.current = true;
+      const snapshot = notebookRef.current;
+      const epoch = contextEpochRef.current;
+      try {
+        if (dirtyRef.current) {
+          const confirmed = await confirmDialog({ description: t('notebook.unsavedChanges') });
+          if (!confirmed) return;
+        }
+        let replacement: QoreNotebook;
+        let replacementPath: string | null;
+        if (importing) {
+          const filePath = await openDialog({
+            multiple: false,
+            filters: [
+              { name: 'SQL files', extensions: ['sql'] },
+              { name: 'Markdown files', extensions: ['md'] },
+            ],
+          });
+          if (!filePath || Array.isArray(filePath)) return;
+          const content = await readTextFile(filePath);
+          const fileName =
+            filePath
+              .split(/[/\\]/)
+              .pop()
+              ?.replace(/\.[^.]+$/, '') ?? 'Imported';
+          replacement = filePath.toLowerCase().endsWith('.sql')
+            ? importFromSql(content, fileName)
+            : importFromMarkdown(content, fileName);
+          replacementPath = null;
+        } else {
+          const result = await openNotebookFromFile();
+          if (!result) return;
+          replacement = result.notebook;
+          replacementPath = result.path;
+        }
+        if (contextEpochRef.current !== epoch) return;
+        if (notebookRef.current !== snapshot) {
+          toast.error(t('notebook.unsavedChanges'));
+          return;
+        }
+        stopExecution();
+        clearHistory();
+        const next = withoutResults(replacement);
+        notebookRef.current = next;
+        setNotebook(next);
+        setPath(replacementPath);
+        setFocusedCell(next.cells[0]?.id ?? null);
+        setIsDirty(importing);
+        if (importing) saveDraft(tabId, next);
+        else clearDraft(tabId);
+        toast.success(t(importing ? 'notebook.importSuccess' : 'notebook.open'));
+      } catch {
+        if (contextEpochRef.current === epoch) toast.error(t('notebook.openError'));
+      } finally {
+        fileOperationRef.current = false;
       }
-    } catch {
-      toast.error(t('notebook.saveError'));
-    }
-  }, [tabId, t]);
+    },
+    [tabId, t, clearHistory, stopExecution, setIsDirty]
+  );
 
-  const openFromFile = useCallback(async () => {
-    try {
-      if (isDirty) {
-        const confirmed = await confirmDialog({ description: t('notebook.unsavedChanges') });
-        if (!confirmed) return;
-      }
-      const result = await openNotebookFromFile();
-      if (!result) return;
-      setNotebook(result.notebook);
-      setPath(result.path);
-      setIsDirty(false);
-      clearDraft(tabId);
-      toast.success(t('notebook.open'));
-    } catch {
-      toast.error(t('notebook.openError'));
-    }
-  }, [isDirty, tabId, t]);
-
-  const importFromFile = useCallback(async () => {
-    try {
-      const filePath = await openDialog({
-        multiple: false,
-        filters: [
-          { name: 'SQL files', extensions: ['sql'] },
-          { name: 'Markdown files', extensions: ['md'] },
-        ],
-      });
-      if (!filePath || Array.isArray(filePath)) return;
-
-      const content = await readTextFile(filePath);
-      const isSql = filePath.endsWith('.sql');
-      const fileName =
-        filePath
-          .split('/')
-          .pop()
-          ?.replace(/\.[^.]+$/, '') ?? 'Imported';
-      const imported = isSql
-        ? importFromSql(content, fileName)
-        : importFromMarkdown(content, fileName);
-
-      setNotebook(imported);
-      setPath(null);
-      setIsDirty(true);
-      toast.success(t('notebook.importSuccess'));
-    } catch {
-      toast.error(t('notebook.openError'));
-    }
-  }, [t]);
+  const openFromFile = useCallback(() => replaceFromFile(false), [replaceFromFile]);
+  const importFromFile = useCallback(() => replaceFromFile(true), [replaceFromFile]);
 
   const exportToFile = useCallback(
     async (format: 'markdown' | 'html', includeResults = false) => {

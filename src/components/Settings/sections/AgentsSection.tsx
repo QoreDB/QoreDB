@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { Bot, Check, ChevronRight, Copy } from 'lucide-react';
-import { type ReactNode, useEffect, useState } from 'react';
+import { type ReactNode, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { getDriverMetadata } from '@/lib/connection/drivers';
+import { captureWorkspaceScope } from '@/lib/stores/workspaceStore';
 import {
   getMcpBinaryStatus,
   getSafetyPolicy,
@@ -196,17 +197,32 @@ function ConnectionExposure({
 }) {
   const { t } = useTranslation();
   const [pending, setPending] = useState<string | null>(null);
+  const mounted = useRef(true);
+  const busy = useRef(false);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
 
   async function toggle(connection: SavedConnection, exposed: boolean) {
+    const inWorkspace = captureWorkspaceScope(projectId);
+    const isCurrent = () => mounted.current && inWorkspace();
+    if (!isCurrent() || busy.current) return;
+    busy.current = true;
     setPending(connection.id);
     try {
       const result = await setConnectionExposed(projectId, connection.id, exposed);
+      if (!isCurrent()) return;
       if (!result.success) throw new Error(result.error);
       onChanged();
     } catch (error) {
+      if (!isCurrent()) return;
       toast.error(error instanceof Error && error.message ? error.message : String(error));
     } finally {
-      setPending(null);
+      busy.current = false;
+      if (mounted.current) setPending(null);
     }
   }
 
@@ -235,7 +251,7 @@ function ConnectionExposure({
           <Switch
             aria-label={t('settings.agents.connections.toggle')}
             checked={connection.expose_to_agents ?? false}
-            disabled={pending === connection.id}
+            disabled={pending !== null}
             onCheckedChange={checked => toggle(connection, checked)}
           />
         </li>

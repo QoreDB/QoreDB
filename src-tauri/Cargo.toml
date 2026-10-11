@@ -76,7 +76,7 @@ duckdb = "1.4"
 
 [package]
 name = "qoredb"
-version = "0.1.39"
+version = "0.1.40"
 description = "Next gen DB Client"
 authors = ["Raphaël Plassart <raphael.plassart@gmail.com>"]
 edition = "2024"
@@ -229,6 +229,7 @@ strip = "symbols"
 codegen-units = 1
 
 [dev-dependencies]
+tauri = { version = "2", features = ["test"] }
 tempfile = "3.24.0"
 wat = "1.0"
 wiremock = "0.6"

@@ -11,6 +11,8 @@
  */
 
 import type { RowData as GridRowData } from '@/components/Grid/utils/dataGridUtils';
+import { toExactValue } from './query/exactInt';
+import { isExactNumericType, isIntegerType, survivesDouble } from './query/numericPrecision';
 import type { SandboxChangeDto } from './sandbox/sandboxTypes';
 import type { Namespace, TableSchema, RowData as TauriRowData, Value } from './tauri';
 
@@ -112,6 +114,14 @@ export function coerceValueForColumn(raw: string, dataType: string): Value {
   ) {
     if (raw.trim() === '') return raw;
     const n = Number(raw);
+    if (Number.isFinite(n) && isExactNumericType(dt)) {
+      // Reuse the integer wire envelope; exact decimals stay text until the
+      // driver can validate them, rather than silently sending rounded digits.
+      if (isIntegerType(dt) && !Number.isSafeInteger(n) && /^[+-]?\d+$/.test(raw.trim())) {
+        return toExactValue(raw);
+      }
+      if (!survivesDouble(raw)) return raw;
+    }
     return Number.isFinite(n) ? n : raw;
   }
 

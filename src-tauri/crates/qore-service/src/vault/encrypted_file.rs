@@ -211,33 +211,38 @@ fn write_file(path: &PathBuf, file: &VaultFile) -> EngineResult<()> {
     }
     let content = serde_json::to_string(file)
         .map_err(|e| EngineError::internal(format!("Failed to serialize vault: {e}")))?;
-    let tmp = path.with_extension("tmp");
-    std::fs::write(&tmp, content)
-        .map_err(|e| EngineError::internal(format!("Failed to write vault file: {e}")))?;
-    restrict_permissions(&tmp);
-    std::fs::rename(&tmp, path)
-        .map_err(|e| EngineError::internal(format!("Failed to commit vault file: {e}")))?;
-    Ok(())
+    crate::paths::atomic_write(path, content.as_bytes())
+        .map_err(|e| EngineError::internal(format!("Failed to write vault file: {e}")))
 }
-
-#[cfg(unix)]
-fn restrict_permissions(path: &PathBuf) {
-    use std::os::unix::fs::PermissionsExt;
-    if let Err(e) = std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600)) {
-        tracing::warn!(
-            "Failed to restrict vault file permissions to 0600 ({}): {e}",
-            path.display()
-        );
-    }
-}
-
-#[cfg(not(unix))]
-fn restrict_permissions(_path: &PathBuf) {}
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use tempfile::TempDir;
+
+    #[test]
+    fn failed_encrypted_publication_preserves_credentials_and_retries() -> EngineResult<()> {
+        use crate::paths::{WriteFailure, fail_next_write};
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("vault.enc");
+        let provider = EncryptedFileProvider::new(path.clone(), "synthetic passphrase")?;
+        for failure in [
+            WriteFailure::PartialWrite,
+            WriteFailure::Sync,
+            WriteFailure::Publish,
+        ] {
+            provider.set_password("svc", "user", "previous")?;
+            let previous = std::fs::read(&path).unwrap();
+            fail_next_write(failure);
+            assert!(provider.set_password("svc", "user", "replacement").is_err());
+            assert_eq!(std::fs::read(&path).unwrap(), previous);
+            assert_eq!(provider.get_password("svc", "user")?, "previous");
+            assert_eq!(std::fs::read_dir(dir.path()).unwrap().count(), 1);
+            provider.set_password("svc", "user", "replacement")?;
+            assert_eq!(provider.get_password("svc", "user")?, "replacement");
+        }
+        Ok(())
+    }
 
     #[test]
     fn roundtrip_persists_across_instances() -> EngineResult<()> {

@@ -49,29 +49,32 @@ Note : le **Package Family Name** est dérivé automatiquement de `Identity.Name
 
 ### Publier une release
 
-1. **Bump les versions** dans :
-   - `src-tauri/tauri.conf.json` → `version`
-   - `src-tauri/Cargo.toml` → `version`
-   - `package.json` → `version`
+1. Préparer la version avec `pnpm bump`. `package.json` est la source de
+   vérité ; `tauri.conf.json` la référence directement. Le script synchronise
+   les manifests Cargo du desktop et des deux outils. Actualiser `Cargo.lock`
+   avec Cargo et vérifier les trois versions avant de commiter.
+2. Qualifier le candidat dans une pull request du dépôt dont la branche source
+   commence par `feat/v0-`, ou déclencher manuellement le workflow. Le workflow
+   [Signed release candidate](../../.github/workflows/release-candidate.yml)
+   compile Linux, Windows et macOS ARM/Intel avec les secrets de signature.
+   Il conserve les paquets dans les artefacts Actions pendant 14 jours,
+   sans créer de release ni publier de mise à jour.
+3. Le job final vérifie les signatures de tous les paquets updater contre la
+   clé publique embarquée et exige les quatre plateformes. Il conserve un
+   `candidate-latest.json` de contrôle. Ce manifeste utilise les futures URLs
+   de release : ce n'est pas un endpoint de téléchargement utilisable.
+4. Terminer la recette d'installation et de mise à jour ainsi que les mesures
+   natives. Une compilation signée réussie ne démontre pas ces parcours.
+5. Seulement lorsque la publication est décidée, pousser le tag `vX.Y.Z` du
+   commit qualifié. Le [workflow Release](../../.github/workflows/release.yml)
+   construit les distributions, les signatures updater, les SBOM et checksums,
+   puis publie automatiquement la release après assemblage de `latest.json`.
+   Le draft intermédiaire n'est pas une étape d'approbation manuelle.
 
-2. **Commit et tag** :
-
-   ```bash
-   git add .
-   git commit -m "chore: bump version to X.Y.Z"
-   git tag vX.Y.Z
-   git push && git push --tags
-   ```
-
-3. **GitHub Actions** fait le reste automatiquement :
-   - Build sur macOS (ARM + Intel), Windows, Linux
-   - Signe tous les artefacts
-   - Crée une **release draft** avec tous les fichiers
-
-4. **Finaliser** :
-   - Aller sur [Releases](https://github.com/QoreDB/QoreDB/releases)
-   - Éditer le draft, ajouter des notes de version
-   - Publier la release
+Les signatures updater sont distinctes des signatures système. macOS utilise
+les secrets Apple et sa signature est contrôlée dans le workflow candidat ;
+le MSIX du workflow Release est signé si son certificat est configuré. Le
+workflow candidat ne qualifie pas le Microsoft Store ni une installation réelle.
 
 ### Plateformes générées
 
@@ -79,8 +82,8 @@ Note : le **Package Family Name** est dérivé automatiquement de `Identity.Name
 | -------------------- | --------------------------------------------------------------- |
 | macOS ARM (M1/M2/M3) | `.dmg`, `.app.tar.gz`, `.app.tar.gz.sig`                        |
 | macOS Intel          | `.dmg`, `.app.tar.gz`, `.app.tar.gz.sig`                        |
-| Windows              | `.msi`, `.exe`, `.nsis.zip`, `.nsis.zip.sig`                    |
-| Linux                | `.deb`, `.AppImage`, `.AppImage.tar.gz`, `.AppImage.tar.gz.sig` |
+| Windows              | `.msi`, `.exe`, signatures updater associées                    |
+| Linux                | `.deb`, `.rpm`, `.AppImage`, signatures updater associées |
 | Arch Linux (AUR)     | `qoredb-bin` (publié automatiquement à la release)              |
 
 ### Distribution AUR (Arch Linux)
@@ -167,7 +170,23 @@ L'app vérifie les mises à jour via :
 https://github.com/QoreDB/QoreDB/releases/latest/download/latest.json
 ```
 
-Le fichier `latest.json` est généré automatiquement par `tauri-action`.
+Le fichier `latest.json` est assemblé une seule fois par
+[scripts/updater-json.mjs](../../scripts/updater-json.mjs), après les quatre builds.
+Le script refuse une plateforme manquante, une cible en double, une signature
+absente ou un tag incompatible avec la version du checkout. Les signatures sont
+intégrées au manifeste avant suppression des fichiers `.sig` de la release.
+
+Pour contrôler localement des paquets signés sans lancer QoreDB :
+
+```bash
+node --test scripts/updater-manifest.test.mjs scripts/verify-updater-artifacts.test.mjs
+node scripts/verify-updater-artifacts.mjs /chemin/paquets candidate-latest.json
+```
+
+Le vérificateur nécessite [Minisign](https://jedisct1.github.io/minisign/) dans le
+PATH, ou `MINISIGN_BIN` pointant vers son exécutable. Les tests cryptographiques
+sont explicitement ignorés si cet outil manque ; le workflow candidat l'installe.
+Le vérificateur n'envoie aucun fichier et ne modifie pas le profil utilisateur.
 
 ### Fichiers clés
 

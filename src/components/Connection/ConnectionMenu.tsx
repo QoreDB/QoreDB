@@ -56,7 +56,7 @@ export function ConnectionMenu({
   onDisconnect,
 }: ConnectionMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteAction, setDeleteAction] = useState<(() => Promise<void>) | null>(null);
   const { t } = useTranslation();
 
   const { testing, deleting, duplicating, handleTest, handleEdit, handleDelete, handleDuplicate } =
@@ -66,7 +66,7 @@ export function ConnectionMenu({
       onDeleted,
       onAfterAction: () => {
         setIsOpen(false);
-        setShowDeleteConfirm(false);
+        setDeleteAction(null);
       },
     });
 
@@ -159,7 +159,7 @@ export function ConnectionMenu({
             onSelect={event => {
               event.preventDefault();
               setIsOpen(false);
-              setShowDeleteConfirm(true);
+              setDeleteAction(() => handleDelete);
             }}
             disabled={deleting}
           >
@@ -169,7 +169,12 @@ export function ConnectionMenu({
         </DropdownMenuContent>
       </DropdownMenu>
 
-      <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+      <Dialog
+        open={deleteAction !== null}
+        onOpenChange={open => {
+          if (!open) setDeleteAction(null);
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{t('connection.menu.delete')}</DialogTitle>
@@ -180,14 +185,17 @@ export function ConnectionMenu({
             </p>
           </div>
           <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setShowDeleteConfirm(false)}
-              disabled={deleting}
-            >
+            <Button variant="outline" onClick={() => setDeleteAction(null)} disabled={deleting}>
               {t('common.cancel')}
             </Button>
-            <Button variant="destructive" onClick={handleDelete} disabled={deleting}>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                void deleteAction?.();
+                setDeleteAction(null);
+              }}
+              disabled={deleting}
+            >
               {deleting ? (
                 <Loader2 size={14} className="animate-spin mr-2" />
               ) : (

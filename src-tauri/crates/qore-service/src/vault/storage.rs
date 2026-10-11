@@ -84,18 +84,9 @@ impl VaultStorage {
             EngineError::internal(format!("Failed to serialize connections: {}", e))
         })?;
 
-        fs::write(&path, content).map_err(|e| {
+        crate::paths::atomic_write(&path, content.as_bytes()).map_err(|e| {
             EngineError::internal(format!("Failed to write connections file: {}", e))
         })?;
-        // Connection metadata (host, username, ssh.key_path) is sensitive — keep
-        // it readable only by the current user.
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt;
-            if let Err(e) = fs::set_permissions(&path, fs::Permissions::from_mode(0o600)) {
-                tracing::warn!("Failed to restrict permissions on {}: {e}", path.display());
-            }
-        }
 
         Ok(())
     }
@@ -256,6 +247,31 @@ mod tests {
     };
     use tempfile::TempDir;
     use uuid::Uuid;
+
+    #[test]
+    fn failed_metadata_publication_preserves_file_and_allows_retry() {
+        use crate::paths::{WriteFailure, fail_next_write};
+        let dir = TempDir::new().unwrap();
+        let storage =
+            VaultStorage::new("test", dir.path().to_owned(), Box::new(MockProvider::new()));
+        let path = storage.connections_file_path();
+        // Whitespace makes successful serialization observably different, while
+        // retaining an existing valid connections document.
+        for failure in [
+            WriteFailure::PartialWrite,
+            WriteFailure::Sync,
+            WriteFailure::Publish,
+        ] {
+            fs::write(&path, b"[  ]").unwrap();
+            fail_next_write(failure);
+            assert!(storage.save_connections_file(&[]).is_err());
+            assert_eq!(fs::read(&path).unwrap(), b"[  ]");
+            assert_eq!(fs::read_dir(dir.path()).unwrap().count(), 1);
+            storage.save_connections_file(&[]).unwrap();
+            assert_eq!(fs::read(&path).unwrap(), b"[]");
+            assert!(storage.list_connections_full().unwrap().is_empty());
+        }
+    }
 
     #[test]
     fn save_list_delete_roundtrip() -> EngineResult<()> {

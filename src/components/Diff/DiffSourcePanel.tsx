@@ -41,6 +41,7 @@ export interface DiffSourceState {
   snapshotId?: string;
   snapshotName?: string;
   result?: QueryResult;
+  truncated?: boolean;
   loading: boolean;
   connecting: boolean;
   namespacesLoading: boolean;
@@ -338,6 +339,21 @@ export function DiffSourcePanel({
           <AlertCircle size={14} className="shrink-0 mt-0.5" />
           <span className="break-all">{source.connectionError || source.error}</span>
         </div>
+      )}
+      {(source.connectionError || source.error) && (
+        <Button
+          type="button"
+          variant="secondary"
+          size="sm"
+          disabled={disabled || source.loading || source.connecting}
+          onClick={() => {
+            if (source.connectionError && source.connectionId)
+              onConnectionChange(source.connectionId);
+            else onExecute();
+          }}
+        >
+          {t('diff.retry')}
+        </Button>
       )}
     </div>
   );

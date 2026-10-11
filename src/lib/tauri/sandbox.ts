@@ -29,6 +29,8 @@ export interface FailedChange {
 export interface ApplySandboxResult {
   success: boolean;
   applied_count: number;
+  applied_indices: number[];
+  outcome_unknown: boolean;
   error?: string;
   failed_changes: FailedChange[];
 }
@@ -47,7 +49,25 @@ export async function generateMigrationSql(
 export async function applySandboxChanges(
   sessionId: string,
   changes: SandboxChangeDto[],
-  useTransaction: boolean = true
+  useTransaction: boolean = true,
+  acknowledgedDangerous: boolean = false
 ): Promise<ApplySandboxResult> {
-  return invoke('apply_sandbox_changes', { sessionId, changes, useTransaction });
+  try {
+    return await invoke('apply_sandbox_changes', {
+      sessionId,
+      changes,
+      useTransaction,
+      acknowledgedDangerous,
+    });
+  } catch (error) {
+    // A lost IPC response does not establish whether the server committed the batch.
+    return {
+      success: false,
+      applied_count: 0,
+      applied_indices: [],
+      outcome_unknown: true,
+      error: error instanceof Error ? error.message : String(error),
+      failed_changes: [],
+    };
+  }
 }

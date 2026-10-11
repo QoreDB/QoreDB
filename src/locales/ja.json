@@ -508,6 +508,9 @@
     "close": "閉じる"
   },
   "library": {
+    "invalidData": "ライブラリを読み込めません。データは置き換えられていません。有効なデータを復元してから更新してください。",
+    "itemLimit": "ライブラリには最大{{count}}件のクエリを保存できます。追加する前に既存のクエリを削除してください。変更は行われませんでした。",
+    "folderLimit": "ライブラリには最大{{count}}個のフォルダーを保存できます。追加する前に既存のフォルダーを削除してください。変更は行われませんでした。",
     "title": "クエリライブラリ",
     "open": "ライブラリ",
     "save": "保存",
@@ -655,6 +658,7 @@
     "clearAll": "すべての結果をクリア",
     "cancelExecution": "キャンセル",
     "executionStopped": "実行がキャンセルされました",
+    "referenceUnavailable": "{{reference}} は使用できません。参照元の結果は最新かつ完全で、マスキングや曖昧さがない必要があります。",
     "allCellsExecuted": "すべてのセルを実行しました",
     "save": "ノートブックを保存",
     "saveAs": "名前を付けて保存...",
@@ -714,6 +718,7 @@
     "aiCellInserted": "下にSQLセルを挿入しました"
   },
   "replay": {
+    "cancelledReport": "再実行をキャンセルしました。実行済みのクエリは保持されます。実行中のクエリは完了した可能性があります。",
     "title": "クエリリプレイ",
     "openLab": "クエリリプレイを開く",
     "setName": "セット名",
@@ -845,6 +850,7 @@
       "acceptBody": "セットの期待値はこの実行で観測された値に置き換わります。以降の再生はこれと比較されます。"
     },
     "skipReason": {
+      "cancelled": "再実行をキャンセルしました",
       "mutation_excluded": "変更クエリは再生から除外されました",
       "mutation_production_blocked": "変更クエリは本番環境では再生されません"
     }
@@ -1366,6 +1372,7 @@
     "updateConfirmDescription": "{{table}} の {{column}} を更新しようとしています。",
     "updateConfirmLabel": "値を更新",
     "updateSuccess": "行を更新しました",
+    "updateReloaded": "変更を保存しました。表示の整合性を保つため、テーブルを再読み込みしています。",
     "updateError": "行の更新に失敗しました",
     "updateNoPrimaryKey": "インライン編集には主キーが必要です",
     "pinColumnLeft": "左に固定",
@@ -1541,6 +1548,7 @@
     "loadingOptions": "オプションを読み込み中..."
   },
   "common": {
+    "contextChanged": "コンテキストが変更されました。操作をやり直してください。",
     "loading": "読み込み中...",
     "error": "エラー",
     "success": "成功",
@@ -2047,6 +2055,8 @@
     },
     "generateSQL": "SQL を生成",
     "migration": {
+      "outcomeUnknown": "結果を確認できませんでした。このバッチを再実行しないでください。再接続して対象の行を確認してから、新しいバッチを準備してください。",
+      "previewChanged": "保留中の変更が更新されました。このプレビューを閉じ、適用する前に再生成してください。",
       "title": "マイグレーションスクリプト",
       "generating": "スクリプトを生成中...",
       "statements": "{{count}} ステートメント",
@@ -2505,7 +2515,19 @@
     "side": {
       "left": "左",
       "right": "右"
-    }
+    },
+    "incompleteComparison": "不完全な比較",
+    "noMatchingRows": "このフィルターに一致する行はありません",
+    "noObservedDifferences": "比較したデータに差分は見つかりませんでした",
+    "warnings": {
+      "ambiguousKeys": "キーが重複しています。残りの行はソースの順序で対応付けられます。",
+      "uncomparedColumns": "一部の列は比較されていません。",
+      "noCommonColumns": "列名が異なるため、列の位置で比較しています。",
+      "missingKeyColumns": "選択したキー列がありません。",
+      "maskedColumns": "マスクされた値は完全には比較できません。",
+      "truncated": "読み込まれた行のみを比較しています。"
+    },
+    "retry": "再試行"
   },
   "virtualRelations": {
     "title": "仮想リレーション",
@@ -3114,6 +3136,7 @@
     "driftCheckHint": "ライブスキーマをベースラインと比較し、範囲外の変更を検出します。",
     "driftTitle": "スキーマのドリフト",
     "driftNone": "ドリフトなし — スキーマはベースラインと一致しています",
+    "schemaEnumerationIncomplete": "スキーマの取得が不完全です。接続とデータベースを確認し、比較やマイグレーション生成の前に再試行してください。",
     "captureIncomplete": "{{count}} 個のテーブルをスキップして取得しました（記述に失敗）",
     "close": "閉じる",
     "tableAdded": "追加",
@@ -3342,9 +3365,14 @@
     "leave": "離れる"
   },
   "timeTravel": {
+    "rollbackIncompleteCapture": "不完全な記録：行または主キーを確認できませんでした。ロールバックをスキップしました。",
+    "retry": "更新",
+    "requestFailed": "履歴のリクエストを完了できませんでした。再試行してください。",
+    "scopeHint": "この接続の履歴のみを表示します。接続を特定できない古い記録は保持されますが、表示されません。",
     "viewHistory": "View data history",
     "title": "Data Time-Travel",
     "timeline": {
+      "events": "{{count}} 件のイベント",
       "title": "Timeline",
       "noEvents": "No mutations recorded for this table",
       "loadMore": "Load more events",

@@ -5,6 +5,9 @@
 // of them race: a job can 404 on an asset another one just replaced, and
 // platform entries get lost. One job, one write.
 
+import { readFileSync } from 'node:fs';
+import { buildManifest, platformKeys } from './updater-manifest.mjs';
+
 const token = process.env.GITHUB_TOKEN;
 const repo = process.env.REPO;
 const tag = process.env.TAG;
@@ -17,7 +20,8 @@ for (const [name, value] of Object.entries({ token, repo, tag, releaseId })) {
   }
 }
 
-const version = tag.replace(/^v/, '');
+const version = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')).version;
+if (tag !== `v${version}`) throw new Error('Release tag and package version disagree');
 const api = 'https://api.github.com';
 
 async function gh(url, { method = 'GET', accept = 'application/vnd.github+json', body } = {}) {
@@ -39,23 +43,8 @@ async function gh(url, { method = 'GET', accept = 'application/vnd.github+json',
   return response;
 }
 
-/** Platform keys an updater bundle answers to, or null if it is not updatable. */
-function platformKeys(bundleName) {
-  const arch = /aarch64|arm64/i.test(bundleName) ? 'aarch64' : 'x86_64';
-
-  if (bundleName.endsWith('.app.tar.gz')) return [`darwin-${arch}`, `darwin-${arch}-app`];
-  if (bundleName.endsWith('.AppImage')) return [`linux-${arch}`, `linux-${arch}-appimage`];
-  if (bundleName.endsWith('.deb')) return [`linux-${arch}-deb`];
-  if (bundleName.endsWith('.rpm')) return [`linux-${arch}-rpm`];
-  // The MSI is the default Windows target, matching what tauri-action produced
-  // until now — switching it would silently change which installer users get.
-  if (bundleName.endsWith('.msi')) return [`windows-${arch}`, `windows-${arch}-msi`];
-  if (bundleName.endsWith('.exe')) return [`windows-${arch}-nsis`];
-
-  return null;
-}
-
 const release = await (await gh(`/repos/${repo}/releases/${releaseId}`)).json();
+if (release.tag_name !== tag) throw new Error('Release ID does not match the requested tag');
 
 const assets = [];
 for (let page = 1; ; page += 1) {
@@ -66,7 +55,7 @@ for (let page = 1; ; page += 1) {
   if (batch.length < 100) break;
 }
 
-const platforms = {};
+const entries = [];
 for (const asset of assets) {
   if (!asset.name.endsWith('.sig')) continue;
 
@@ -89,23 +78,11 @@ for (const asset of assets) {
     ).text()
   ).trim();
 
-  const entry = {
-    signature,
-    url: `https://github.com/${repo}/releases/download/${tag}/${bundleName}`,
-  };
-  for (const key of keys) platforms[key] = entry;
+  entries.push({ name: bundleName, signature });
 }
 
-if (Object.keys(platforms).length === 0) {
-  throw new Error('No updater signature found on the release — refusing to publish an empty manifest');
-}
-
-const manifest = {
-  version,
-  notes: release.body ?? '',
-  pub_date: new Date().toISOString(),
-  platforms,
-};
+const manifest = buildManifest({ version, repo, tag, notes: release.body ?? '', entries });
+const { platforms } = manifest;
 
 console.log(`Platforms: ${Object.keys(platforms).sort().join(', ')}`);
 

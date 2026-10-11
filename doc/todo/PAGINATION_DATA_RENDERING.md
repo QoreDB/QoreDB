@@ -660,11 +660,17 @@ unique peut porter sur des colonnes nullables.
 Une ligne modifiée localement peut changer de position dans l'ordre keyset et
 donc réapparaître ou disparaître de la fenêtre.
 
-Constat après lecture du code : le produit ne connaît aujourd'hui qu'une seule
+Constat initial, avant le lot du 4 octobre 2026 : le produit ne connaît qu'une seule
 réponse à une édition. `useInlineEdit` écrit côté serveur puis appelle
 `onRowsUpdated`, que `TableBrowser` branche sur `reload` — le scroll entier est
 jeté et refetché depuis la page 1. Il n'y a aucune mise à jour optimiste : la
 grille dépend de ce rechargement pour afficher la nouvelle valeur.
+
+La [première tranche v0.1.40](../tests/V0_1_40_INLINE_EDIT_2026-10-04.md)
+conserve maintenant les pages après relecture canonique pour les éditions hors
+clé/tri/filtre, sans recherche et avec un ordre stable. Les cas non garantis
+gardent le rechargement décrit ici ; déplacement et sortie de filtre ne sont
+pas traités par une réorganisation locale des pages.
 
 Cette base est **correcte** sous keyset : repartir de zéro ne peut ni dupliquer
 ni sauter de ligne. Elle est en revanche brutale — dix pages parcourues sont

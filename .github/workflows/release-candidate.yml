@@ -1,0 +1,137 @@
+name: Signed release candidate
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/release-candidate.yml'
+      - 'package.json'
+      - 'src/**'
+      - 'src-tauri/**'
+      - 'scripts/updater-*'
+      - 'scripts/verify-updater-*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-candidate-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    # Signing secrets are only available to branches in this repository.
+    if: github.event_name == 'workflow_dispatch' || (github.event.pull_request.head.repo.full_name == github.repository && startsWith(github.head_ref, 'feat/v0-'))
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+          - platform: macos-latest
+            target: aarch64-apple-darwin
+          - platform: macos-latest
+            target: x86_64-apple-darwin
+          - platform: windows-2022
+            target: x86_64-pc-windows-msvc
+    runs-on: ${{ matrix.platform }}
+    timeout-minutes: 90
+    env:
+      PUBLIC_KEY_BASE64: ${{ secrets.PUBLIC_KEY_BASE64 }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: './src-tauri -> target'
+          key: candidate-${{ matrix.target }}
+          cache-on-failure: true
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 'lts/*'
+          cache: pnpm
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libkrb5-dev
+      - run: pnpm install --frozen-lockfile
+      - name: Build packaged command-line tools
+        shell: bash
+        env:
+          TARGET: ${{ matrix.target }}
+        run: |
+          set -euo pipefail
+          cd src-tauri
+          cargo build --locked --release -p qore-cli -p qore-mcp --features duckdb-bundled --target "$TARGET"
+          ext=""
+          case "$TARGET" in *windows*) ext=".exe" ;; esac
+          mkdir -p binaries
+          cp "target/$TARGET/release/qore$ext" "binaries/qore-$TARGET$ext"
+          cp "target/$TARGET/release/qore-mcp$ext" "binaries/qore-mcp-$TARGET$ext"
+          if [ "$TARGET" = "$(rustc -vV | sed -n 's/^host: //p')" ]; then
+            "target/$TARGET/release/qore$ext" --help
+            "target/$TARGET/release/qore-mcp$ext" --help
+          else
+            echo "Cross-compiled tools: runtime check requires a matching host."
+          fi
+      - name: Build signed desktop packages without publishing
+        uses: tauri-apps/tauri-action@v0
+        env:
+          NO_STRIP: '1'
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        with:
+          args: --target ${{ matrix.target }} --features pro,duckdb-bundled --config src-tauri/tauri.sidecar.conf.json --verbose
+      - name: Verify macOS application signature
+        if: runner.os == 'macOS'
+        env:
+          TARGET: ${{ matrix.target }}
+        run: |
+          codesign --verify --deep --strict --verbose=2 "src-tauri/target/$TARGET/release/bundle/macos/QoreDB.app"
+          spctl --assess --type execute --verbose=2 "src-tauri/target/$TARGET/release/bundle/macos/QoreDB.app"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: candidate-${{ matrix.target }}
+          if-no-files-found: error
+          retention-days: 14
+          path: |
+            src-tauri/target/**/bundle/**/*.sig
+            src-tauri/target/**/bundle/**/*.AppImage
+            src-tauri/target/**/bundle/**/*.deb
+            src-tauri/target/**/bundle/**/*.rpm
+            src-tauri/target/**/bundle/**/*.msi
+            src-tauri/target/**/bundle/**/*.exe
+            src-tauri/target/**/bundle/**/*.dmg
+            src-tauri/target/**/bundle/**/*.app.tar.gz
+
+  verify-updater:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 'lts/*'
+      - run: sudo apt-get update && sudo apt-get install -y minisign
+      - run: node --test scripts/updater-manifest.test.mjs scripts/verify-updater-artifacts.test.mjs
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: candidate-*
+          path: candidate-artifacts
+      - name: Verify every signature against the application's updater key
+        run: node scripts/verify-updater-artifacts.mjs candidate-artifacts candidate-latest.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: verified-updater-manifest
+          path: candidate-latest.json
+          retention-days: 14

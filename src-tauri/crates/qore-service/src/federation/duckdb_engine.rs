@@ -12,6 +12,7 @@ use duckdb::{Connection, params_from_iter, types::Value as DuckValue};
 
 use qore_core::error::{EngineError, EngineResult};
 use qore_core::types::{ColumnInfo, QueryResult, Row, Value};
+use qore_drivers::drivers::duckdb::{duckdb_owned_value_to_qoredb, logical_type_name};
 
 /// Batch size for inserting rows into DuckDB temp tables.
 const INSERT_BATCH_SIZE: usize = 1000;
@@ -38,7 +39,12 @@ impl DuckDbEngine {
     }
 
     /// Creates a temporary table with the given schema.
-    pub fn create_temp_table(&self, name: &str, columns: &[ColumnInfo]) -> EngineResult<()> {
+    pub fn create_temp_table(
+        &self,
+        name: &str,
+        columns: &[ColumnInfo],
+        rows: &[Row],
+    ) -> EngineResult<()> {
         if columns.is_empty() {
             return Err(EngineError::validation(format!(
                 "Cannot create temp table '{name}': no columns"
@@ -47,13 +53,24 @@ impl DuckDbEngine {
 
         let col_defs: Vec<String> = columns
             .iter()
-            .map(|c| {
-                let duck_type = map_type_to_duckdb(&c.data_type);
-                format!("\"{}\" {}", c.name, duck_type)
+            .enumerate()
+            .map(|(index, c)| {
+                let duck_type = if c.masked {
+                    "VARCHAR".to_string()
+                } else if is_exact_decimal(&c.data_type) {
+                    exact_decimal_type(c, index, rows)?
+                } else {
+                    map_type_to_duckdb(&c.data_type).to_string()
+                };
+                Ok(format!("\"{}\" {}", c.name.replace('"', "\"\""), duck_type))
             })
-            .collect();
+            .collect::<EngineResult<_>>()?;
 
-        let sql = format!("CREATE TEMP TABLE \"{}\" ({})", name, col_defs.join(", "));
+        let sql = format!(
+            "CREATE TEMP TABLE \"{}\" ({})",
+            name.replace('"', "\"\""),
+            col_defs.join(", ")
+        );
 
         self.conn.execute_batch(&sql).map_err(|e| {
             EngineError::internal(format!("Failed to create temp table '{name}': {e}"))
@@ -76,7 +93,7 @@ impl DuckDbEngine {
         let placeholders: Vec<String> = (1..=columns.len()).map(|i| format!("?{i}")).collect();
         let sql = format!(
             "INSERT INTO \"{}\" VALUES ({})",
-            table,
+            table.replace('"', "\"\""),
             placeholders.join(", ")
         );
 
@@ -151,7 +168,7 @@ impl DuckDbEngine {
                     .column_name(i)
                     .map(|s| s.into())
                     .unwrap_or_else(|_| format!("col_{i}").into()),
-                data_type: "VARCHAR".into(),
+                data_type: logical_type_name(&stmt.column_logical_type(i)).into(),
                 nullable: true,
                 masked: false,
             })
@@ -160,8 +177,11 @@ impl DuckDbEngine {
         let rows_iter = stmt
             .query_map([], |row| {
                 let values: Vec<Value> = (0..column_count)
-                    .map(|i| duckdb_value_to_qoredb(row, i))
-                    .collect();
+                    .map(|i| {
+                        row.get_ref(i)
+                            .map(|value| duckdb_owned_value_to_qoredb(value.to_owned()))
+                    })
+                    .collect::<duckdb::Result<_>>()?;
                 Ok(Row { values })
             })
             .map_err(|e| EngineError::execution_error(format!("Federation query failed: {e}")))?;
@@ -175,6 +195,57 @@ impl DuckDbEngine {
 
         Ok((columns, rows))
     }
+}
+
+fn is_exact_decimal(data_type: &str) -> bool {
+    let lower = data_type.trim().to_ascii_lowercase();
+    matches!(
+        lower.split('(').next().unwrap_or("").trim(),
+        "numeric" | "decimal" | "money"
+    )
+}
+
+/// Infer from the complete fetched column, including scale differences between
+/// rows. DuckDB's Rust decoder uses a 96-bit decimal, so cap precision at 28
+/// digits rather than rounding into DOUBLE or risking a decoder overflow.
+fn exact_decimal_type(column: &ColumnInfo, index: usize, rows: &[Row]) -> EngineResult<String> {
+    let mut integer_digits = 0_i128;
+    let mut scale = 0_i128;
+    for row in rows {
+        let value = row
+            .values
+            .get(index)
+            .ok_or_else(|| EngineError::validation("Federation row has missing columns"))?;
+        let text = match value {
+            Value::Null => continue,
+            Value::Text(text) => text.clone(),
+            Value::Int(value) => value.to_string(),
+            _ => {
+                return Err(EngineError::validation(format!(
+                    "Federation column '{}' requires an exact decimal value",
+                    column.name
+                )));
+            }
+        };
+        let decimal = text.parse::<bigdecimal::BigDecimal>().map_err(|_| {
+            EngineError::validation(format!(
+                "Federation column '{}' contains an unsupported decimal",
+                column.name
+            ))
+        })?;
+        let (_, exponent) = decimal.as_bigint_and_exponent();
+        integer_digits =
+            integer_digits.max((i128::from(decimal.digits()) - i128::from(exponent)).max(0));
+        scale = scale.max(i128::from(exponent).max(0));
+    }
+    let precision = (integer_digits + scale).max(1);
+    if precision > 28 {
+        return Err(EngineError::validation(format!(
+            "Federation column '{}' exceeds the supported exact decimal precision of 28 digits; no rounded result was produced",
+            column.name
+        )));
+    }
+    Ok(format!("DECIMAL({precision},{scale})"))
 }
 
 /// Maps a source database type string to a DuckDB type.
@@ -198,7 +269,6 @@ fn map_type_to_duckdb(data_type: &str) -> &'static str {
         // Float types
         "real" | "float4" | "float" => "FLOAT",
         "double precision" | "double" | "float8" => "DOUBLE",
-        "numeric" | "decimal" | "money" => "DOUBLE",
 
         // String types
         "text" | "character varying" | "varchar" | "char" | "character" | "bpchar" | "citext"
@@ -241,9 +311,6 @@ fn map_type_to_duckdb(data_type: &str) -> &'static str {
             {
                 return "VARCHAR";
             }
-            if normalized.starts_with("numeric") || normalized.starts_with("decimal") {
-                return "DOUBLE";
-            }
             if normalized.starts_with("timestamp") {
                 return "TIMESTAMP";
             }
@@ -272,44 +339,138 @@ fn value_to_duckdb(value: &Value) -> DuckValue {
     }
 }
 
-/// Extracts a value from a DuckDB row and converts it to a QoreDB `Value`.
-fn duckdb_value_to_qoredb(row: &duckdb::Row<'_>, idx: usize) -> Value {
-    if let Ok(v) = row.get::<_, Option<i64>>(idx) {
-        return match v {
-            Some(i) => Value::Int(i),
-            None => Value::Null,
-        };
-    }
-    if let Ok(v) = row.get::<_, Option<f64>>(idx) {
-        return match v {
-            Some(f) => Value::Float(f),
-            None => Value::Null,
-        };
-    }
-    if let Ok(v) = row.get::<_, Option<bool>>(idx) {
-        return match v {
-            Some(b) => Value::Bool(b),
-            None => Value::Null,
-        };
-    }
-    if let Ok(v) = row.get::<_, Option<String>>(idx) {
-        return match v {
-            Some(s) => Value::Text(s),
-            None => Value::Null,
-        };
-    }
-    if let Ok(v) = row.get::<_, Option<Vec<u8>>>(idx) {
-        return match v {
-            Some(b) => Value::Bytes(b),
-            None => Value::Null,
-        };
-    }
-    Value::Null
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn federation_preserves_result_types_and_exact_values() {
+        let engine = DuckDbEngine::new().unwrap();
+        let result = engine.execute_query("SELECT '00123' AS code, 1.25::DOUBLE AS fraction, 123.45::DECIMAL(10,2) AS amount, 18446744073709551615::UBIGINT AS large, DATE '2026-10-11' AS day, NULL AS empty").unwrap();
+        assert_eq!(
+            serde_json::to_value(&result.rows[0].values).unwrap(),
+            serde_json::to_value(vec![
+                Value::Text("00123".into()),
+                Value::Float(1.25),
+                Value::Text("123.45".into()),
+                Value::Text("18446744073709551615".into()),
+                Value::Text("2026-10-11".into()),
+                Value::Null,
+            ])
+            .unwrap()
+        );
+        assert_eq!(result.columns[1].data_type.as_str(), "DOUBLE");
+        let (_, rows) = engine
+            .execute_query_for_stream("SELECT '00123', 1.25::DOUBLE")
+            .unwrap();
+        assert_eq!(
+            serde_json::to_value(&rows[0].values).unwrap(),
+            serde_json::to_value(vec![Value::Text("00123".into()), Value::Float(1.25)]).unwrap()
+        );
+    }
+
+    #[test]
+    fn federation_quotes_source_identifiers() {
+        let engine = DuckDbEngine::new().unwrap();
+        let columns = vec![ColumnInfo {
+            name: "a\"b".into(),
+            data_type: "text".into(),
+            nullable: true,
+            masked: false,
+        }];
+        engine.create_temp_table("t\"x", &columns, &[]).unwrap();
+        engine
+            .insert_batch(
+                "t\"x",
+                &[Row {
+                    values: vec![Value::Text("00123".into())],
+                }],
+                &columns,
+            )
+            .unwrap();
+        let result = engine
+            .execute_query("SELECT \"a\"\"b\" FROM \"t\"\"x\"")
+            .unwrap();
+        assert!(matches!(&result.rows[0].values[0], Value::Text(value) if value == "00123"));
+    }
+
+    #[test]
+    fn federation_does_not_round_decimal_sources() {
+        let engine = DuckDbEngine::new().unwrap();
+        let columns = vec![ColumnInfo {
+            name: "amount".into(),
+            data_type: "numeric".into(),
+            nullable: true,
+            masked: false,
+        }];
+        let rows = vec![Row {
+            values: vec![Value::Text("9007199254740993.123456789".into())],
+        }];
+        engine
+            .create_temp_table("amounts", &columns, &rows)
+            .unwrap();
+        engine.insert_batch("amounts", &rows, &columns).unwrap();
+        let result = engine.execute_query("SELECT amount FROM amounts").unwrap();
+        assert!(
+            matches!(&result.rows[0].values[0], Value::Text(value) if value == "9007199254740993.123456789")
+        );
+    }
+
+    #[test]
+    fn federation_decimal_schema_handles_scale_and_rejects_unsupported_precision() {
+        let column = ColumnInfo {
+            name: "amount".into(),
+            data_type: "DECIMAL(30,10)".into(),
+            nullable: true,
+            masked: false,
+        };
+        let rows = ["1e3", "0.0001", "12.3400"].map(|value| Row {
+            values: vec![Value::Text(value.into())],
+        });
+        assert_eq!(
+            exact_decimal_type(&column, 0, &rows).unwrap(),
+            "DECIMAL(8,4)"
+        );
+        let engine = DuckDbEngine::new().unwrap();
+        engine
+            .create_temp_table("scaled", &[column.clone()], &rows)
+            .unwrap();
+        engine
+            .insert_batch("scaled", &rows, &[column.clone()])
+            .unwrap();
+        assert!(
+            matches!(&engine.execute_query("SELECT SUM(amount) FROM scaled").unwrap().rows[0].values[0], Value::Text(value) if value == "1012.3401")
+        );
+        for value in [
+            "12345678901234567890123456789",
+            "1e100",
+            "0.00000000000000000000000000001",
+            "NaN",
+            "invalid",
+        ] {
+            let rows = [Row {
+                values: vec![Value::Text(value.into())],
+            }];
+            assert!(
+                engine
+                    .create_temp_table("invalid", &[column.clone()], &rows)
+                    .is_err(),
+                "{value}"
+            );
+        }
+        let mut masked = column;
+        masked.masked = true;
+        let rows = [Row {
+            values: vec![Value::Text("••••••".into())],
+        }];
+        engine
+            .create_temp_table("masked", &[masked.clone()], &rows)
+            .unwrap();
+        engine.insert_batch("masked", &rows, &[masked]).unwrap();
+        assert!(
+            matches!(&engine.execute_query("SELECT * FROM masked").unwrap().rows[0].values[0], Value::Text(value) if value == "••••••")
+        );
+    }
 
     #[test]
     fn restricted_engine_reads_temp_tables_but_not_files() {
@@ -325,7 +486,7 @@ mod tests {
             nullable: false,
             masked: false,
         }];
-        engine.create_temp_table("t", &columns).unwrap();
+        engine.create_temp_table("t", &columns, &[]).unwrap();
         engine
             .insert_batch(
                 "t",

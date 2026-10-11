@@ -39,30 +39,49 @@ fn masking_change_allowed(
 
 async fn refresh_session_masking(
     state: &State<'_, SharedState>,
+    workspace_id: &str,
     connection_id: &str,
     masking: &ConnectionMasking,
 ) {
     let session_manager = std::sync::Arc::clone(&state.lock().await.session_manager);
     session_manager
-        .update_connection_masking(connection_id, masking)
+        .update_connection_masking(workspace_id, connection_id, masking)
         .await;
 }
 
-/// Determines if the active workspace is file-based and returns its connection store.
-/// Returns None if the default workspace is active (use VaultStorage instead).
-pub(crate) async fn get_workspace_store(
-    ws_manager: &State<'_, SharedWorkspaceManager>,
-) -> Option<WorkspaceConnectionStore> {
+/// Resolve storage and identity together for one requested workspace.
+/// A switch after resolution cannot redirect the returned store.
+pub(crate) async fn get_workspace_context(
+    ws_manager: &SharedWorkspaceManager,
+    requested_project_id: &str,
+) -> Result<(String, Option<WorkspaceConnectionStore>), String> {
     let mgr = ws_manager.lock().await;
+    require_workspace(workspace_context(&mgr), requested_project_id)
+}
+
+fn workspace_context(
+    mgr: &crate::workspace::WorkspaceManager,
+) -> (String, Option<WorkspaceConnectionStore>) {
+    let project_id = mgr.project_id();
     let ws = mgr.active();
-    if ws.source == WorkspaceSource::Default {
-        return None;
+    let store = (ws.source != WorkspaceSource::Default).then(|| {
+        WorkspaceConnectionStore::new(
+            ws.path.join("connections"),
+            qore_service::workspace::keyring_service(&project_id),
+            Box::new(KeyringProvider::new()),
+        )
+    });
+    (project_id, store)
+}
+
+fn require_workspace(
+    context: (String, Option<WorkspaceConnectionStore>),
+    requested_project_id: &str,
+) -> Result<(String, Option<WorkspaceConnectionStore>), String> {
+    if context.0 != requested_project_id {
+        return Err("Workspace changed; retry the operation in the current workspace".into());
     }
-    Some(WorkspaceConnectionStore::new(
-        ws.path.join("connections"),
-        qore_service::workspace::keyring_service(&mgr.project_id()),
-        Box::new(KeyringProvider::new()),
-    ))
+    Ok(context)
 }
 
 #[derive(Debug, Serialize)]
@@ -359,7 +378,9 @@ pub async fn save_connection(
         project_id: input.project_id,
     };
 
-    let result = match get_workspace_store(&ws_manager).await {
+    let (workspace_id, workspace_store) =
+        get_workspace_context(&ws_manager, &input_project_id).await?;
+    let result = match workspace_store {
         Some(ws_store) => {
             let stored = ws_store.get_connection(&connection.id).ok();
             if keep_exposure {
@@ -409,7 +430,8 @@ pub async fn save_connection(
 
     match result {
         Ok(()) => {
-            refresh_session_masking(&state, &connection.id, &connection.masking).await;
+            refresh_session_masking(&state, &workspace_id, &connection.id, &connection.masking)
+                .await;
             Ok(VaultResponse {
                 success: true,
                 error: None,
@@ -439,7 +461,8 @@ pub async fn set_connection_exposed(
         });
     }
 
-    let result = match get_workspace_store(&ws_manager).await {
+    let (_, workspace_store) = get_workspace_context(&ws_manager, &project_id).await?;
+    let result = match workspace_store {
         Some(ws_store) => ws_store
             .get_connection(&connection_id)
             .and_then(|mut connection| {
@@ -500,7 +523,8 @@ pub async fn set_connection_masking(
         Ok(connection)
     };
 
-    let result = match get_workspace_store(&ws_manager).await {
+    let (workspace_id, workspace_store) = get_workspace_context(&ws_manager, &project_id).await?;
+    let result = match workspace_store {
         Some(ws_store) => ws_store
             .get_connection(&connection_id)
             .map_err(|e| e.sanitized_message())
@@ -537,7 +561,7 @@ pub async fn set_connection_masking(
 
     Ok(match result {
         Ok(()) => {
-            refresh_session_masking(&state, &connection_id, &masking).await;
+            refresh_session_masking(&state, &workspace_id, &connection_id, &masking).await;
             VaultResponse {
                 success: true,
                 error: None,
@@ -565,7 +589,8 @@ pub async fn list_saved_connections(
     }
     drop(state);
 
-    if let Some(ws_store) = get_workspace_store(&ws_manager).await {
+    let (_, workspace_store) = get_workspace_context(&ws_manager, &project_id).await?;
+    if let Some(ws_store) = workspace_store {
         return ws_store
             .list_connections()
             .map_err(|e| e.sanitized_message());
@@ -597,7 +622,8 @@ pub async fn delete_saved_connection(
     }
     drop(app_state);
 
-    let result = match get_workspace_store(&ws_manager).await {
+    let (_, workspace_store) = get_workspace_context(&ws_manager, &project_id).await?;
+    let result = match workspace_store {
         Some(ws_store) => ws_store.delete_connection(&connection_id),
         None => {
             let storage_dir = app
@@ -642,7 +668,8 @@ pub async fn duplicate_saved_connection(
     }
     drop(app_state);
 
-    let result = match get_workspace_store(&ws_manager).await {
+    let (_, workspace_store) = get_workspace_context(&ws_manager, &project_id).await?;
+    let result = match workspace_store {
         Some(ws_store) => ws_store.duplicate_connection(&connection_id),
         None => {
             let storage_dir = app
@@ -711,7 +738,8 @@ pub async fn get_connection_credentials(
     );
     drop(app_state);
 
-    let result = match get_workspace_store(&ws_manager).await {
+    let (_, workspace_store) = get_workspace_context(&ws_manager, &project_id).await?;
+    let result = match workspace_store {
         Some(ws_store) => ws_store.get_credentials(&connection_id),
         None => {
             let storage_dir = app
@@ -735,5 +763,152 @@ pub async fn get_connection_credentials(
             password: None,
             error: Some(e.sanitized_message()),
         }),
+    }
+}
+
+#[cfg(test)]
+mod workspace_context_tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn requested_workspace_resolution_rejects_stale_operations() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let mut manager = crate::workspace::WorkspaceManager::new(dir.path().join("config"));
+        let a = manager
+            .create_workspace(&dir.path().join("a"), "A")
+            .unwrap();
+        let origin_a = manager.project_id();
+        let b = manager
+            .create_workspace(&dir.path().join("b"), "B")
+            .unwrap();
+        let origin_b = manager.project_id();
+        for workspace in [&a, &b] {
+            std::fs::write(
+                workspace.path.join("connections/same-id.json"),
+                b"synthetic sentinel",
+            )
+            .unwrap();
+        }
+        let shared = std::sync::Arc::new(tokio::sync::Mutex::new(manager));
+        assert!(get_workspace_context(&shared, &origin_a).await.is_err());
+        assert!(get_workspace_context(&shared, "default").await.is_err());
+        assert!(get_workspace_context(&shared, &origin_b).await.is_ok());
+        shared.lock().await.switch_to_default();
+        assert!(get_workspace_context(&shared, &origin_b).await.is_err());
+        assert!(
+            get_workspace_context(&shared, "default")
+                .await
+                .unwrap()
+                .1
+                .is_none()
+        );
+        for workspace in [&a, &b] {
+            assert_eq!(
+                std::fs::read(workspace.path.join("connections/same-id.json")).unwrap(),
+                b"synthetic sentinel"
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn queued_workspace_resolution_checks_the_project_after_acquiring_the_lock() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let mut manager = crate::workspace::WorkspaceManager::new(dir.path().join("config"));
+        manager
+            .create_workspace(&dir.path().join("a"), "A")
+            .unwrap();
+        let origin_a = manager.project_id();
+        let shared = std::sync::Arc::new(tokio::sync::Mutex::new(manager));
+        let mut guard = shared.lock().await;
+        let pending = get_workspace_context(&shared, &origin_a);
+        tokio::pin!(pending);
+        tokio::select! {
+            biased;
+            _ = &mut pending => panic!("resolution must wait for the workspace lock"),
+            _ = tokio::task::yield_now() => {}
+        }
+        guard.create_workspace(&dir.path().join("b"), "B").unwrap();
+        drop(guard);
+        assert!(pending.await.is_err());
+    }
+
+    #[test]
+    fn requested_connection_project_must_match_the_resolved_workspace() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let mut manager = crate::workspace::WorkspaceManager::new(dir.path().join("config"));
+        assert!(require_workspace(workspace_context(&manager), "default").is_ok());
+        assert!(require_workspace(workspace_context(&manager), "stale").is_err());
+        let a = manager
+            .create_workspace(&dir.path().join("a"), "A")
+            .unwrap();
+        let origin_a = manager.project_id();
+        let resolved_a = require_workspace(workspace_context(&manager), &origin_a).unwrap();
+        manager
+            .create_workspace(&dir.path().join("b"), "B")
+            .unwrap();
+        assert!(require_workspace(workspace_context(&manager), &origin_a).is_err());
+        assert!(require_workspace(workspace_context(&manager), "default").is_err());
+        assert!(require_workspace(workspace_context(&manager), &manager.project_id()).is_ok());
+        // A store resolved before the switch still reads A, never the active B.
+        let connection = serde_json::json!({
+            "id": "fixture", "name": "A", "driver": "sqlite", "environment": "development",
+            "read_only": true, "host": "fixture.db", "port": 0, "username": "", "ssl": false,
+            "project_id": origin_a
+        });
+        std::fs::write(
+            a.path.join("connections/fixture.json"),
+            serde_json::to_vec(&connection).unwrap(),
+        )
+        .unwrap();
+        assert_eq!(resolved_a.1.unwrap().list_connections().unwrap().len(), 1);
+        let current_b =
+            require_workspace(workspace_context(&manager), &manager.project_id()).unwrap();
+        assert!(current_b.1.unwrap().list_connections().unwrap().is_empty());
+        manager.switch_to_default();
+        assert!(require_workspace(workspace_context(&manager), &origin_a).is_err());
+    }
+
+    #[test]
+    fn connection_store_and_identity_stay_bound_after_workspace_switch() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let mut manager = crate::workspace::WorkspaceManager::new(dir.path().join("config"));
+        let (default_id, default_store) = workspace_context(&manager);
+        assert_eq!(default_id, "default");
+        assert!(default_store.is_none());
+        let write_connection = |workspace: &crate::workspace::types::WorkspaceInfo, name: &str| {
+            let connection = serde_json::json!({
+                "id": "copied-id", "name": name, "driver": "sqlite", "environment": "development",
+                "read_only": false, "host": "fixture.db", "port": 0, "username": "", "ssl": false,
+                "project_id": "default"
+            });
+            std::fs::write(
+                workspace.path.join("connections/copied-id.json"),
+                serde_json::to_vec(&connection).unwrap(),
+            )
+            .unwrap();
+        };
+        let a = manager
+            .create_workspace(&dir.path().join("a"), "Workspace A")
+            .unwrap();
+        write_connection(&a, "Connection A");
+        let (origin_a, store_a) = workspace_context(&manager);
+        let b = manager
+            .create_workspace(&dir.path().join("b"), "Workspace B")
+            .unwrap();
+        write_connection(&b, "Connection B");
+        let (origin_b, store_b) = workspace_context(&manager);
+        assert_ne!(origin_a, origin_b);
+        assert_ne!(origin_a, "default");
+        // Metadata may carry a copied/default project label; backend context owns the origin.
+        assert_eq!(
+            store_a.unwrap().get_connection("copied-id").unwrap().name,
+            "Connection A"
+        );
+        assert_eq!(
+            store_b.unwrap().get_connection("copied-id").unwrap().name,
+            "Connection B"
+        );
+        manager.switch_to(&a.path, WorkspaceSource::Manual).unwrap();
+        assert_eq!(workspace_context(&manager).0, origin_a);
     }
 }

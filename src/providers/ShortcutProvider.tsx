@@ -27,9 +27,10 @@ import { useSessionContext } from './SessionProvider';
 import { useTabContext } from './TabProvider';
 
 function isTextInputTarget(target: EventTarget | null): boolean {
-  if (!(target instanceof HTMLElement)) return false;
-  const tag = target.tagName.toLowerCase();
-  return tag === 'input' || tag === 'textarea' || tag === 'select' || target.isContentEditable;
+  return (
+    target instanceof HTMLElement &&
+    (target.matches('input,textarea,select') || target.isContentEditable)
+  );
 }
 
 export function ShortcutProvider({ children }: { children: ReactNode }) {
@@ -46,10 +47,11 @@ export function ShortcutProvider({ children }: { children: ReactNode }) {
       modal.connectionModalOpen ||
       modal.libraryModalOpen ||
       modal.logsOpen ||
-      modal.auditLogOpen;
+      modal.auditLogOpen ||
+      modal.cheatsheetOpen;
 
-    // Block window-level shortcuts while a dialog overlay is open.
-    if (isOverlayOpen) return;
+    // Editors and dialogs consume Escape/Enter before the event reaches window.
+    if (e.defaultPrevented || e.isComposing || isOverlayOpen) return;
 
     const inTextInput = isTextInputTarget(e.target);
 
@@ -124,12 +126,8 @@ export function ShortcutProvider({ children }: { children: ReactNode }) {
   }
 
   useEffect(() => {
-    function onWindowKeyDown(e: KeyboardEvent) {
-      handleKeyDown(e);
-    }
-
-    window.addEventListener('keydown', onWindowKeyDown);
-    return () => window.removeEventListener('keydown', onWindowKeyDown);
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
   return (

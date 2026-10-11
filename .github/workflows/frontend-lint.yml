@@ -28,6 +28,9 @@ jobs:
       - name: Test repository checks
         run: pnpm test:repo
 
+      - name: Test Linux packaging helpers
+        run: node --test scripts/tauri.test.mjs scripts/aur-package.test.mjs scripts/updater-manifest.test.mjs
+
       - name: Check documentation and source headers
         run: pnpm docs:check
 

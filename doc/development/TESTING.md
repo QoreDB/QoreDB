@@ -4,12 +4,17 @@ Run commands from the repository root unless stated otherwise. Choose checks by
 changed behavior and package. Setup is in [CONTRIBUTING.md](../../CONTRIBUTING.md);
 script definitions live in [package.json](../../package.json).
 
+For hosted databases, follow the [cloud compatibility policy](CLOUD_COMPATIBILITY.md):
+distinguish local engines, simulated responses and live-provider checks. Missing
+cloud accounts do not block v0.1.40; unexecuted scenarios remain unverified.
+
 ## Select the relevant checks
 
 | Change | First checks | Broaden when needed |
 | --- | --- | --- |
 | Documentation or instructions | `pnpm docs:check` | Manually verify changed technical claims against source |
 | Repository checker | `pnpm test:repo` and `pnpm docs:check` | Verify failure fixtures and clean-checkout behavior |
+| Frontend bundle size | `pnpm test:perf`, `pnpm perf:bundle --baseline <reference.json>` | Native startup, process memory/CPU and distribution checks in the release plan |
 | TypeScript utility | `pnpm test:ts path/to/file.test.ts`, `pnpm typecheck` | `pnpm test:ts` for shared behavior |
 | React UI | `pnpm typecheck`, Biome on changed files | Affected tests plus manual Tauri UI flow |
 | Engine types/errors | `cargo test --manifest-path src-tauri/Cargo.toml -p qore-core --lib` | Dependent crates and serialization consumers |
@@ -26,10 +31,131 @@ causes Vitest to run the full suite instead of applying that file filter.
 Vitest uses the Node environment and discovers `src/**/*.test.ts` through
 [vite.config.ts](../../vite.config.ts); it does not currently run DOM component tests.
 
+The optional [inline-edit browser check](../../scripts/test-inline-edit-ui.mjs)
+mounts the real grid and pagination hook in a synthetic fixture. It needs
+Playwright and Chromium installed locally. `QOREDB_PLAYWRIGHT_MODULE` may point
+to an absolute Playwright module path when it is not resolvable from this repo;
+`QOREDB_CHROMIUM_EXECUTABLE` may select an already installed Chromium executable.
+Neither is a production dependency.
+
+```bash
+# Keep this frontend server running in another terminal.
+pnpm exec vite --host 127.0.0.1 --port 1430
+node scripts/test-inline-edit-ui.mjs
+```
+
+`QOREDB_UI_BASE_URL` overrides the default `http://127.0.0.1:1430`.
+The fixture mocks IPC and providers inside its own browser context: it never
+connects to a database, saves a connection, activates a licence or executes an
+export. It checks five retained pages, scroll, selection, keyboard focus, failed
+and late writes, concurrent paging and deferred dialogs. A screenshot is written
+to `.perf/inline-edit-ui.png` (override with `QOREDB_UI_SCREENSHOT`). Do not run a
+Vite production build concurrently: dev-server reloads would reset the fixture.
+This browser check complements the pure reconciliation tests and the SQLite
+driver readback test; it does not validate Tauri IPC or native WebView behavior.
+
+The [Time Travel settings check](../../scripts/test-time-travel-settings-ui.mjs)
+uses the same Vite/Playwright setup and environment variables. Run
+`node scripts/test-time-travel-settings-ui.mjs` against that server. Its synthetic
+fixture mounts the real settings card and checks draft-only typing, explicit
+saves, pending controls, server-returned settings, failures/retries, numeric
+validation, typing multiple exclusions and an unavailable feature. IPC and
+licence state are simulated only inside the fixture; no application history
+is read or deleted.
+
+The [Pro workflow browser check](../../scripts/test-pro-workflows-ui.mjs) uses
+the same Vite/Playwright setup. Run `node scripts/test-pro-workflows-ui.mjs`.
+It checks the real diff grid's ambiguity and empty/filter states in English
+and French, and deferred query-variable dialog loading with exact numeric SQL.
+The library fixture uses isolated browser storage and a simulated Pro provider;
+it does not execute SQL or activate a licence. Its screenshot is written to
+`.perf/pro-workflows-ui.png`. It does not validate native IPC or WebView behavior.
+The [diff-source lifecycle check](../../scripts/test-diff-sources-ui.mjs), run
+with `node scripts/test-diff-sources-ui.mjs`, mounts the real source hook with
+simulated IPC. It covers stale responses, refresh, limits, snapshot errors,
+shared and late sessions, explicit retry, and workspace changes. It never opens
+a database or reads application snapshots.
+
+The [notebook lifecycle check](../../scripts/test-notebook-ui.mjs) uses the same
+Vite/Playwright setup: `node scripts/test-notebook-ui.mjs`. It mounts the real
+notebook hook and checks sequential references, transitive invalidation,
+cancellation, context changes, undo/redo, save races, import confirmation and
+reopening. IPC, native dialogs and browser file storage are simulated. It also
+mounts AppOverlays with unrelated panels mocked to check deferred query-library
+loading and retained search state. The pure `notebookIO.test.ts` suite separately
+writes and rereads temporary QNB/HTML files using Node adapters, not Tauri plugins.
+
+The [file-operation lifecycle check](../../scripts/test-file-operations-ui.mjs),
+run with `node scripts/test-file-operations-ui.mjs`, uses the same setup. It mounts
+the shared notebook-open hook, project transfer card and connection form, checking
+workspace/session changes, late file reads, confirmations, duplicate actions, errors,
+retry, explicit connection project IDs and cleanup of late sessions.
+Native dialogs, file IO and IPC are simulated; AppLayout itself is not mounted.
+The export checks also inject a rejected/deferred atomic publication and verify
+that success is shown only after publication, with retry after failure.
+The notebook fixture checks the previous file, dirty state and retained draft
+through the same failure/retry lifecycle.
+
+`cargo test --manifest-path src-tauri/Cargo.toml -p qoredb --lib commands::file_output`
+checks the atomic-file command through Tauri's mock IPC runtime with real temporary
+files and production capabilities: missing grants, dialog grants, deny precedence,
+replacement errors and retry. It does not run a native WebView or native dialog.
+Shared failure injection and concurrent/process-exit file checks live in the
+`qore-service` library tests.
+
+The [schema-diff browser check](../../scripts/test-schema-diff-ui.mjs), run with
+`node scripts/test-schema-diff-ui.mjs`, uses the same Vite/Playwright setup.
+It mounts the real viewer with simulated IPC to check incomplete capture errors,
+partial comparison wording, valid empty schemas and late-session cleanup. A
+French error screenshot is saved to `.perf/schema-diff-incomplete.png`. No DDL or
+live database is involved; the pure `schemaCapture.test.ts` checks pagination
+failures, collisions and refusal of incomplete baselines separately.
+
 `pnpm test` runs `test:ts` followed by `test:rust`. The latter runs `cargo test`
 in `src-tauri`, whose root is also the `qoredb` package. It does not run all
 workspace members' unit tests. Use explicit `-p` for changed crates. A workspace
 run includes the vendored SQLx package and a much broader dependency/feature set.
+
+## Frontend bundle measurements
+
+Create a reference before changing frontend sources, then compare the candidate:
+
+```bash
+pnpm perf:bundle --output .perf/baseline.json
+pnpm perf:bundle --baseline .perf/baseline.json --output .perf/candidate.json
+pnpm test:perf
+```
+
+The [measurement script](../../scripts/measure-bundle.mjs) runs production Vite
+directly with a manifest, replacing only `.perf/dist/`. It does not run TypeScript,
+version synchronization or the native build. Reports and build outputs live under
+the ignored `.perf/` directory by default. Keep the reference outside `.perf/dist/`
+and explicitly pass it for comparison; without `--baseline`, the report says
+`not-requested`, not that a budget passed. Archive dated evidence under `doc/tests/`
+when using these results for release decisions.
+
+Initial JS/CSS is the deduplicated static import closure of every manifest entry.
+Total JS/CSS includes all emitted JS/CSS files, including those absent from the
+manifest. Other resources and source maps are separate, and unreferenced files
+are listed. Gzip is calculated per file at level 9 and then summed; it differs
+from Vite's displayed gzip sizes and from compressing an installer or directory.
+
+The provisional budgets are zero growth for each initial JS/CSS metric and at
+most 2% growth for each total JS/CSS metric, separately in raw and gzip bytes.
+The comparison exits nonzero on an exceeded budget, invalid reference or manifest,
+missing emitted files, or incompatible build metadata. A zero baseline accepts
+only zero; a new nonzero cost has no defined percentage and fails the budget.
+Commit and dirty status identify the source context; record the actual changes
+in the accompanying evidence. Toolchain, OS/architecture, Vite config, lockfile,
+compression and build-environment fingerprints must match for comparison. The
+JSON stores only hashes of local environment values/files, never their contents.
+
+This is a static frontend weight check. Dynamic imports can execute immediately
+at startup, and the static manifest does not establish WebView traffic, native
+binary/install size, startup latency, RAM or CPU. Complete those scenarios using
+the [v0.1.40 performance protocol](../todo/V0_1_40.md) before claiming release-wide
+performance coverage. The frontend measurement is shared across license states
+only when the frontend build is identical.
 
 ## Focused Rust features
 
@@ -69,6 +195,7 @@ For PostgreSQL, for example:
 docker compose up -d postgres
 docker compose exec -T postgres pg_isready -U qoredb -d testdb
 QOREDB_TEST_POSTGRES_REQUIRED=true cargo test --manifest-path src-tauri/Cargo.toml -p qoredb --test integration_databases postgres_e2e -- --nocapture --test-threads=1
+QOREDB_TEST_POSTGRES_REQUIRED=true cargo test --manifest-path src-tauri/Cargo.toml -p qoredb --features pro --test integration_databases time_travel_capture -- --nocapture
 ```
 
 Wait for readiness before running the test. Read the `Service` mapping and
@@ -102,3 +229,84 @@ When reporting a failure, include the command, the useful error excerpt, whether
 it predates the change, and which behavior remains unverified. Successful targeted
 checks are sufficient when the acceptance criteria are covered and no new risk
 justifies a broader run.
+
+### Replay report UI
+
+With the Vite development server running, `node scripts/test-replay-ui.mjs`
+checks the real report component with synthetic results, including cancellation,
+coverage and French rendering, then the real Replay hook with simulated IPC for
+late responses, context changes and mutation callbacks. Use the same `QOREDB_PLAYWRIGHT_MODULE`,
+`QOREDB_CHROMIUM_EXECUTABLE` and `QOREDB_UI_BASE_URL` overrides as the other
+browser fixtures. This is not a native Tauri test. The real PostgreSQL runner
+check is `QOREDB_TEST_POSTGRES_REQUIRED=true cargo test --manifest-path
+src-tauri/Cargo.toml -p qoredb --features pro --test replay_e2e -- --test-threads=1`.
+
+`node scripts/test-replay-workspaces-ui.mjs` exercises the recording indicator
+and hook with simulated IPC: workspace switch/return, stale status and previews,
+late actions, exact workspace/run targets and retry after cancellation failure.
+It uses the same Vite server and browser environment overrides. This does not
+exercise native Tauri command dispatch or real database connections.
+
+### Isolated native profile qualification (Linux)
+
+The tracked helpers exercise real WebKitGTK/Tauri IPC, the OS keyring and SQLite.
+They require a graphical session, `dbus-run-session`, `gnome-keyring-daemon` and
+`secret-tool`. Generate a new disposable directory; never point them at a user
+profile. Build the production frontend with `pnpm exec vite build`, then a debug
+desktop binary with `tauri/custom-protocol` (optionally `pro`). Follow the DuckDB
+runtime prerequisites above. In separate terminals:
+
+```bash
+python scripts/prepare-native-qualification.py .perf/native-profile
+bash scripts/launch-native-qualification.sh .perf/native-profile /absolute/path/to/debug/qoredb
+QOREDB_INSPECTOR_URL=http://127.0.0.1:9333 node scripts/qualify-native-profile.mjs .perf/native-profile
+```
+
+The launcher isolates XDG directories, D-Bus and credentials. The assertions
+expect Core rights, including when compiled with Pro; they do not forge a licence.
+The native inspector must be available; release binaries may expose no target.
+This script does not automate all GUI dialogs or seed browser preferences.
+Record manual UI, browser-state, installed-package and paid-licence results
+separately, as in the [dated qualification report](../tests/V0_1_40_NATIVE_QUALIFICATION_2026-10-10.md).
+
+For the large-grid scenario, add `--large-grid` when preparing the disposable
+profile. This seeds 100,000 SQLite rows without launching the app. Once the
+`large_grid` table is open in an explicitly selected native test session, run
+`node scripts/qualify-native-grid.mjs /absolute/path/to/disposable-profile` with
+the inspector URL above. The helper edits only the synthetic fixture and checks
+scroll position, selection, focus and Escape after a propagation delay. It does
+not launch the application. GUI qualification requires an appropriate test
+display; do not automate repeated application launches on a working desktop.
+
+`python scripts/measure-native-process.py PID` samples an existing Linux process
+and its descendants without opening a window. It reports raw RSS/PSS and CPU
+values; it does not establish a performance budget or a baseline comparison.
+See the [packaging, matrix and keyboard report](../tests/V0_1_40_PACKAGING_MATRIX_UX_2026-10-11.md)
+for the completed checks and remaining native qualification.
+
+For a desktop-independent Linux WebView session, build
+`scripts/fixtures/native-offscreen/Dockerfile`. It provides Xvfb, software
+rendering and a keyring in a disposable container. Bind only the qualification
+scripts read-only, the selected AppImage read-only and the synthetic profile
+read-write. Do not bind `/tmp/.X11-unix`, a Wayland socket or any host display
+credentials. Start the container with `--init` so Xvfb's readiness signal is
+handled normally, then run the existing launcher under `xvfb-run`; setting
+`APPIMAGE_EXTRACT_AND_RUN=1` avoids requiring FUSE. Publish the inspector only on
+host loopback, for example `127.0.0.1:9343:9333`, with its container listener on
+`0.0.0.0:9333`. One launch suffices for the profile, grid and idle-memory checks.
+The virtual renderer is a functional test environment; its timings do not prove
+physical-desktop performance. The dated report records the observed runtime.
+
+To exercise an unpublished Linux updater candidate, the disposable container
+can run `scripts/fixtures/native-offscreen/updater-proxy.py PROFILE APPIMAGE`.
+It serves only the staged `PROFILE/updater.json` and `/candidate.AppImage` through
+a localhost CONNECT proxy; it does not forward traffic. Supply a disposable CA
+in `proxy.crt` and a separate server certificate/key in `proxy-server.crt` and
+`proxy-server.key`, signed by that CA for `github.com`. Set `SSL_CERT_FILE` only
+for the disposable app and pass `http://127.0.0.1:9880` as the updater proxy.
+Never install this CA into the host trust store. Use the candidate's actual
+signature with the application's unchanged updater public key. First verify
+that mismatched bytes/signature are rejected without replacing the installed
+AppImage, then install the valid pair and restart once to verify the version
+and existing synthetic profile. The installed AppImage must be writable inside
+the disposable profile; the source candidate stays read-only.

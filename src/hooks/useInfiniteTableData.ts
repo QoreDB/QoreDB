@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { type SetStateAction, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import {
@@ -10,6 +10,7 @@ import {
   recordPaginationPage,
 } from '@/lib/diagnostics/paginationMetrics';
 import { estimatePayloadBytes, TAB_PAYLOAD_BUDGET_BYTES } from '@/lib/query/payloadSize';
+import type { TableCellUpdateHandler } from '@/lib/query/tableRowUpdate';
 import type {
   ColumnFilter,
   ColumnInfo,
@@ -38,6 +39,7 @@ interface UseInfiniteTableDataOptions {
   maxOffsetWindow?: number | null;
   /** Unique key the driver may use as a keyset tie-breaker. */
   keysetColumns?: string[];
+  primaryKey?: string[];
   searchMode?: SearchMode;
   filters?: ColumnFilter[];
   enabled?: boolean;
@@ -76,6 +78,7 @@ interface UseInfiniteTableDataReturn {
   reload: () => void;
   /** Like reload(), but forces fresh data even when a valid cache entry exists. */
   refresh: () => void;
+  updateCell: TableCellUpdateHandler;
 }
 
 export function useInfiniteTableData({
@@ -90,11 +93,18 @@ export function useInfiniteTableData({
   searchMode,
   maxOffsetWindow,
   keysetColumns,
+  primaryKey,
   filters,
   enabled = true,
 }: UseInfiniteTableDataOptions): UseInfiniteTableDataReturn {
   const { t } = useTranslation();
-  const [allRows, setAllRows] = useState<Row[]>([]);
+  const [allRows, setRows] = useState<Row[]>([]);
+  const allRowsRef = useRef<Row[]>([]);
+  const setAllRows = useCallback((update: SetStateAction<Row[]>) => {
+    const next = typeof update === 'function' ? update(allRowsRef.current) : update;
+    allRowsRef.current = next;
+    setRows(next);
+  }, []);
   const [columns, setColumns] = useState<ColumnInfo[]>([]);
   const [totalRows, setTotalRows] = useState<number | null>(null);
   const [totalRowsSource, setTotalRowsSource] = useState<TotalRowsSource | null>(null);
@@ -141,6 +151,38 @@ export function useInfiniteTableData({
   const scope = useCallback(() => (scopeRef.current ??= openPaginationScope()), []);
   // Set by refresh() to make the next reload bypass the query cache.
   const bypassCacheRef = useRef(false);
+  const mountedRef = useRef(true);
+  const tableIdentity = JSON.stringify([
+    sessionId,
+    namespace.database,
+    namespace.schema,
+    tableName,
+  ]);
+  const viewIdentity = JSON.stringify([
+    tableIdentity,
+    sortColumn,
+    sortDirection,
+    searchTerm,
+    searchColumns,
+    searchMode,
+    filters,
+    keysetColumns,
+    primaryKey,
+    chunkSize,
+    enabled,
+  ]);
+  const viewIdentityRef = useRef(viewIdentity);
+  viewIdentityRef.current = viewIdentity;
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      generationRef.current += 1;
+      fetchingRef.current = false;
+      countingTotalRef.current = false;
+    };
+  }, []);
 
   // Fired after the first page, never before it: an order of magnitude is
   // worth having, but not at the cost of delaying the rows.
@@ -245,7 +287,7 @@ export function useInfiniteTableData({
 
         setColumns(prev => {
           const newCols = paginated.result.columns;
-          if (newCols.length > 0) return prev.length === 0 ? newCols : prev;
+          if (newCols.length > 0) return isFirstChunk || prev.length === 0 ? newCols : prev;
           return prev;
         });
         if (isFirstChunk && silentRestartRef.current) {
@@ -309,6 +351,7 @@ export function useInfiniteTableData({
     filters,
     scope,
     fetchEstimate,
+    setAllRows,
   ]);
 
   const calculateExactTotal = useCallback(async () => {
@@ -392,43 +435,47 @@ export function useInfiniteTableData({
   // filters have not changed — only the way the next pages will be fetched — so
   // the rows and the total on screen are still the right ones, and blanking
   // them would be a flash with nothing behind it.
-  const reset = useCallback((keepRows = false) => {
-    generationRef.current += 1;
-    currentPageRef.current = 1;
-    nextCursorRef.current = null;
-    keysetColumnsRef.current = undefined;
-    keysetPinnedRef.current = false;
-    fetchingRef.current = false;
-    countingTotalRef.current = false;
-    payloadBytesRef.current = 0;
-    if (keepRows) {
-      silentRestartRef.current = true;
-      setSilentRestartNonce(nonce => nonce + 1);
-    } else {
-      // Cleared with the rows: an exact total kept alone would let the estimate
-      // that follows overwrite a number the user paid a scan for.
-      knownTotalRef.current = null;
-      setAllRows([]);
-      setTotalRows(null);
-      setTotalRowsSource(null);
-      setTotalRowsAsOf(null);
-    }
-    setIsLoading(!keepRows);
-    setIsFetchingMore(false);
-    setIsCountingTotal(false);
-    setIsComplete(false);
-    setWindowExhausted(false);
-    setBudgetExhausted(false);
-    setPaginationStrategy('offset');
-    setOrderingGuarantee('none');
-    setError(null);
-    setExecutionTimeMs(0);
-    setTotalTimeMs(undefined);
-    setCached(false);
-    setCachedAgeMs(undefined);
-  }, []);
+  const reset = useCallback(
+    (keepRows = false) => {
+      generationRef.current += 1;
+      currentPageRef.current = 1;
+      nextCursorRef.current = null;
+      keysetColumnsRef.current = undefined;
+      keysetPinnedRef.current = false;
+      fetchingRef.current = false;
+      countingTotalRef.current = false;
+      payloadBytesRef.current = 0;
+      if (keepRows) {
+        silentRestartRef.current = true;
+        setSilentRestartNonce(nonce => nonce + 1);
+      } else {
+        // Cleared with the rows: an exact total kept alone would let the estimate
+        // that follows overwrite a number the user paid a scan for.
+        knownTotalRef.current = null;
+        setAllRows([]);
+        setTotalRows(null);
+        setTotalRowsSource(null);
+        setTotalRowsAsOf(null);
+      }
+      setIsLoading(!keepRows);
+      setIsFetchingMore(false);
+      setIsCountingTotal(false);
+      setIsComplete(false);
+      setWindowExhausted(false);
+      setBudgetExhausted(false);
+      setPaginationStrategy('offset');
+      setOrderingGuarantee('none');
+      setError(null);
+      setExecutionTimeMs(0);
+      setTotalTimeMs(undefined);
+      setCached(false);
+      setCachedAgeMs(undefined);
+    },
+    [setAllRows]
+  );
 
   // Reset when sort/search/filters change
+  const tableIdentityRef = useRef(tableIdentity);
   const sortColumnRef = useRef(sortColumn);
   const sortDirectionRef = useRef(sortDirection);
   const searchTermRef = useRef(searchTerm);
@@ -437,6 +484,7 @@ export function useInfiniteTableData({
   const filtersRef = useRef(filters);
 
   useEffect(() => {
+    const tableChanged = tableIdentityRef.current !== tableIdentity;
     const sortChanged =
       sortColumnRef.current !== sortColumn || sortDirectionRef.current !== sortDirection;
     const searchChanged = searchTermRef.current !== searchTerm;
@@ -459,8 +507,10 @@ export function useInfiniteTableData({
     searchColumnsRef.current = searchColumns;
     searchModeRef.current = searchMode;
     filtersRef.current = filters;
+    tableIdentityRef.current = tableIdentity;
 
-    if (sortChanged || searchChanged || filtersChanged || scopeChanged) {
+    if (tableChanged) setColumns([]);
+    if (tableChanged || sortChanged || searchChanged || filtersChanged || scopeChanged) {
       bypassCacheRef.current = false;
       reset();
     } else if (keysetBecameAvailable) {
@@ -476,6 +526,7 @@ export function useInfiniteTableData({
     keysetColumns,
     filters,
     reset,
+    tableIdentity,
   ]);
 
   // Auto-fetch first chunk on mount or after reset
@@ -496,6 +547,77 @@ export function useInfiniteTableData({
     bypassCacheRef.current = true;
     reset();
   }, [reset]);
+
+  const updateCell = useCallback<TableCellUpdateHandler>(
+    async (update, acknowledgedDangerous) => {
+      const generation = generationRef.current;
+      const snapshot = {
+        rows: allRowsRef.current,
+        columns,
+        primaryKey,
+        sortColumn,
+        filters,
+        searchTerm,
+        orderingGuarantee,
+      };
+      const isCurrent = () =>
+        mountedRef.current &&
+        generationRef.current === generation &&
+        viewIdentityRef.current === viewIdentity;
+      const { prepareTableRowUpdate, reconcileTableRowUpdate, updateTableRow } = await import(
+        '@/lib/query/tableRowUpdate'
+      );
+      if (!isCurrent()) return { success: false };
+
+      // An older page request can repopulate the backend cache after mutation
+      // invalidation. Keep this walk fresh, including the fallback's first page.
+      bypassCacheRef.current = true;
+      setCached(false);
+      setCachedAgeMs(undefined);
+      return updateTableRow(
+        sessionId,
+        namespace,
+        tableName,
+        update,
+        prepareTableRowUpdate(snapshot, update),
+        {
+          isCurrent,
+          replace: (target, result) => {
+            const replacement = reconcileTableRowUpdate(
+              allRowsRef.current,
+              target,
+              result,
+              payloadBytesRef.current
+            );
+            if (!replacement) return false;
+            payloadBytesRef.current = replacement.payloadBytes;
+            setAllRows(replacement.rows);
+            return true;
+          },
+          reload: () => {
+            refresh();
+            toast.info(t('grid.updateReloaded'));
+          },
+        },
+        acknowledgedDangerous
+      );
+    },
+    [
+      columns,
+      primaryKey,
+      sortColumn,
+      filters,
+      searchTerm,
+      orderingGuarantee,
+      viewIdentity,
+      sessionId,
+      namespace,
+      tableName,
+      refresh,
+      setAllRows,
+      t,
+    ]
+  );
 
   const data = useMemo<QueryResult | null>(() => {
     if (columns.length === 0 && allRows.length === 0) return null;
@@ -530,5 +652,6 @@ export function useInfiniteTableData({
     cancelExactTotal,
     reload,
     refresh,
+    updateCell,
   };
 }

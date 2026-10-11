@@ -408,6 +408,30 @@ pub trait DataEngine: Send + Sync {
         Ok(PaginatedQueryResult::new(result, total, page, page_size))
     }
 
+    /// Opt-in for optional row images around a mutation. Ordinary browsing is
+    /// not sufficient: read failures/cancellation must not abort caller writes.
+    fn supports_safe_row_capture(&self) -> bool {
+        false
+    }
+
+    /// Read optional mutation evidence. Transactional drivers must finish error
+    /// recovery before allowing another command on the same connection, even
+    /// when the caller stops awaiting this future. Unqualified drivers do no I/O.
+    async fn query_table_for_capture(
+        &self,
+        session: SessionId,
+        namespace: &Namespace,
+        table: &str,
+        options: TableQueryOptions,
+    ) -> EngineResult<PaginatedQueryResult> {
+        if !self.supports_safe_row_capture() {
+            return Err(EngineError::not_supported(
+                "Safe row capture is unavailable for this driver",
+            ));
+        }
+        self.query_table(session, namespace, table, options).await
+    }
+
     /// Fetches rows from a referenced table for a given foreign key value.
     ///
     /// Default implementation returns NotSupported. SQL drivers should override.
@@ -553,6 +577,24 @@ pub trait DataEngine: Send + Sync {
         Err(EngineError::not_supported(
             "Insert operations are not supported by this driver",
         ))
+    }
+
+    /// Insert exactly once, optionally returning the requested column values
+    /// from that statement. Unsupported drivers retain the ordinary INSERT
+    /// behavior and return no values; callers must not retry the write to obtain
+    /// them. Values are internal evidence, not a public or post-trigger image.
+    async fn insert_row_returning(
+        &self,
+        session: SessionId,
+        namespace: &Namespace,
+        table: &str,
+        data: &RowData,
+        returning_columns: &[String],
+    ) -> EngineResult<crate::types::RowInsertResult> {
+        let _ = returning_columns;
+        self.insert_row(session, namespace, table, data)
+            .await
+            .map(Into::into)
     }
 
     /// Update a row identified by primary key. `affected_rows` reports how

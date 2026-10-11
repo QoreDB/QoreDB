@@ -17,6 +17,7 @@ pub mod data_generator;
 pub mod driver;
 pub mod export;
 pub mod federation;
+pub mod file_output;
 pub mod fulltext_search;
 pub mod import;
 #[cfg(feature = "pro")]

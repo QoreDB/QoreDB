@@ -44,6 +44,15 @@ production acknowledgement, rate limits, masking, and audit/redaction behavior
 in every affected path. See [production safety](../security/PRODUCTION_SAFETY.md)
 and the [threat model](../security/THREAT_MODEL.md).
 
+Desktop connections bind a workspace identity in `SessionManager` before returning
+the session to the frontend. Time Travel captures use that origin even if the
+active workspace changes while a mutation runs. Reads verify the session's origin
+against the active backend workspace; copied connection IDs are not sufficient.
+Masking updates filter open sessions by both workspace and saved connection.
+Do not derive history ownership from a caller-supplied project label or rename
+legacy captures with unknown origins. See the
+[workspace history evidence](../tests/V0_1_40_WORKSPACE_HISTORY_2026-10-04.md).
+
 ## Common change boundaries
 
 | Change | Other places to inspect |

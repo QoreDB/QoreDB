@@ -3139,3 +3139,7 @@ async fn scylladb_e2e() -> EngineResult<()> {
     driver.disconnect(session).await?;
     Ok(())
 }
+
+#[cfg(feature = "pro")]
+#[path = "integration_databases/time_travel_capture.rs"]
+mod time_travel_capture;

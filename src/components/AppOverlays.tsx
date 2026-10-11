@@ -1,19 +1,18 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { memo, useEffect, useState } from 'react';
+import { lazy, memo, Suspense, useEffect, useState } from 'react';
 import { ConnectionModal } from '@/components/Connection/ConnectionModal';
 import { CrashReportOverlay } from '@/components/Crash/CrashReportOverlay';
 import { ProActivationDialog } from '@/components/License/ProActivationDialog';
 import { NewsletterPromptModal } from '@/components/Newsletter/NewsletterPromptModal';
 import { OnboardingModal } from '@/components/Onboarding/OnboardingModal';
-import { QueryLibraryModal } from '@/components/Query/QueryLibraryModal';
+import { DeferredQueryLibraryModal as QueryLibraryModal } from '@/components/Query/DeferredQueryLibraryModal';
 import { FulltextSearchPanel } from '@/components/Search/FulltextSearchPanel';
 import {
   type CommandItem,
   GlobalSearch,
   type SearchResult,
 } from '@/components/Search/GlobalSearch';
-import { WhatsNewModal } from '@/components/WhatsNew/WhatsNewModal';
 import { getChangelogFor, markVersionSeen, useWhatsNew } from '@/hooks/useWhatsNew';
 import { shouldShowNewsletterPrompt } from '@/lib/newsletter';
 import { isOnboardingCompleted } from '@/lib/onboardingState';
@@ -32,6 +31,9 @@ import { getQueryCount } from '@/lib/usageCounter';
 import { APP_VERSION } from '@/lib/version';
 
 const CONNECTION_MODAL_EXIT_DELAY_MS = 200;
+const WhatsNewModal = lazy(() =>
+  import('@/components/WhatsNew/WhatsNewModal').then(module => ({ default: module.WhatsNewModal }))
+);
 
 interface AppOverlaysProps {
   onConnected: (sessionId: string, connection: SavedConnection) => void;
@@ -127,11 +129,15 @@ export const AppOverlays = memo(function AppOverlays({
         onNavigateToTable={onNavigateToTable}
       />
       {showOnboarding && <OnboardingModal onComplete={() => setShowOnboarding(false)} />}
-      <WhatsNewModal
-        open={whatsNewOpen && !showOnboarding}
-        entry={getChangelogFor(APP_VERSION)}
-        onClose={handleWhatsNewClose}
-      />
+      {whatsNewOpen && !showOnboarding && (
+        <Suspense fallback={null}>
+          <WhatsNewModal
+            open={true}
+            entry={getChangelogFor(APP_VERSION)}
+            onClose={handleWhatsNewClose}
+          />
+        </Suspense>
+      )}
       <NewsletterPromptModal
         open={newsletterPromptOpen && !showOnboarding && !whatsNewOpen}
         onClose={() => setNewsletterPromptOpen(false)}

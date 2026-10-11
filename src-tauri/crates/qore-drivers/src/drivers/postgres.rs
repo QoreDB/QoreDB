@@ -325,6 +325,10 @@ impl DataEngine for PostgresDriver {
         self.execute(session, &query, QueryId::new()).await
     }
 
+    fn supports_safe_row_capture(&self) -> bool {
+        true
+    }
+
     async fn query_table(
         &self,
         session: SessionId,
@@ -333,6 +337,17 @@ impl DataEngine for PostgresDriver {
         options: TableQueryOptions,
     ) -> EngineResult<PaginatedQueryResult> {
         pg_compat::query_table(&self.sessions, session, namespace, table, options).await
+    }
+
+    async fn query_table_for_capture(
+        &self,
+        session: SessionId,
+        namespace: &Namespace,
+        table: &str,
+        options: TableQueryOptions,
+    ) -> EngineResult<PaginatedQueryResult> {
+        pg_compat::capture_read::query_table(&self.sessions, session, namespace, table, options)
+            .await
     }
 
     async fn peek_foreign_key(
@@ -396,6 +411,25 @@ impl DataEngine for PostgresDriver {
         data: &RowData,
     ) -> EngineResult<QueryResult> {
         pg_compat::insert_row(&self.sessions, session, namespace, table, data).await
+    }
+
+    async fn insert_row_returning(
+        &self,
+        session: SessionId,
+        namespace: &Namespace,
+        table: &str,
+        data: &RowData,
+        returning_columns: &[String],
+    ) -> EngineResult<qore_core::RowInsertResult> {
+        pg_compat::insert_row_returning(
+            &self.sessions,
+            session,
+            namespace,
+            table,
+            data,
+            returning_columns,
+        )
+        .await
     }
 
     async fn update_row(

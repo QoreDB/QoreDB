@@ -94,6 +94,9 @@ pub struct ReplaySet {
     #[serde(default)]
     pub redacted: bool,
     pub entries: Vec<ReplayEntry>,
+    /// Local immutable reference. On another machine its rows may be unavailable.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub baseline_run_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -120,6 +123,9 @@ pub struct RunMeta {
     pub started_at: String,
     #[serde(default)]
     pub finished_at: Option<String>,
+    /// Cancellation stops scheduling entries; a query already sent may finish.
+    #[serde(default)]
+    pub cancelled: bool,
     #[serde(default)]
     pub connection_label: Option<String>,
     pub driver_id: String,
@@ -130,6 +136,9 @@ pub struct RunMeta {
     /// The recording run, used as the left side of a comparison.
     #[serde(default)]
     pub is_baseline: bool,
+    /// Accepted reference generations are retained only while still referenced.
+    #[serde(default)]
+    pub reference_generation: bool,
     #[serde(default)]
     pub captured_bytes: u64,
     #[serde(default)]

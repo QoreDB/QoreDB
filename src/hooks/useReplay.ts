@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: BUSL-1.1
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { notify } from '@/lib/notify';
 import {
@@ -14,7 +14,6 @@ import {
   discardRecordedMutations,
   getRecordedPreviews,
   getRecordingStatus,
-  type LastReport,
   listReplayRuns,
   listReplaySets,
   loadLastReport,
@@ -39,6 +38,7 @@ import {
   summarizeVerdicts,
 } from '@/lib/replay';
 import { getSecretPolicy } from '@/lib/replayPreferences';
+import { useWorkspaceStore } from '@/lib/stores/workspaceStore';
 import { listSessions, type SessionListItem } from '@/lib/tauri';
 import { listen, type UnlistenFn } from '@/lib/transport';
 
@@ -47,6 +47,20 @@ const RECORDING_POLL_MS = 1500;
 
 export function useReplay(sessionId: string | null) {
   const { t } = useTranslation();
+  const projectId = useWorkspaceStore(state => state.projectId);
+  const context = useMemo(() => ({ sessionId, projectId }), [sessionId, projectId]);
+  const contextRef = useRef<typeof context | null>(context);
+  contextRef.current = context;
+  const selectionRef = useRef<{ slug: string } | null>(null);
+  const runRef = useRef<object | null>(null);
+  const reportReadRef = useRef<object | null>(null);
+  const recordingReadRef = useRef<object | null>(null);
+  const isCurrent = useCallback(
+    (selection?: object | null) =>
+      contextRef.current === context &&
+      (selection === undefined || selectionRef.current === selection),
+    [context]
+  );
 
   const [sets, setSets] = useState<ReplaySetSummary[]>([]);
   const [setsLoading, setSetsLoading] = useState(false);
@@ -63,62 +77,116 @@ export function useReplay(sessionId: string | null) {
   const [progress, setProgress] = useState<ReplayProgress | null>(null);
   const [running, setRunning] = useState(false);
 
+  useEffect(() => {
+    contextRef.current = context;
+    selectionRef.current = null;
+    runRef.current = null;
+    reportReadRef.current = null;
+    recordingReadRef.current = null;
+    setActiveSet(null);
+    setActiveSlug(null);
+    setSets([]);
+    setRuns([]);
+    setReport(null);
+    setAbReport(null);
+    setRecording(null);
+    setPreviews([]);
+    setSessions([]);
+    setProgress(null);
+    setRunning(false);
+    return () => {
+      contextRef.current = null;
+    };
+  }, [context]);
+
   const refreshSets = useCallback(async () => {
+    if (!isCurrent()) return;
     setSetsLoading(true);
     try {
-      setSets(await listReplaySets());
+      const next = await listReplaySets();
+      if (isCurrent()) setSets(next);
     } catch (err) {
-      notify.error(t('replay.errors.listSets'), String(err));
+      if (isCurrent()) notify.error(t('replay.errors.listSets'), String(err));
     } finally {
-      setSetsLoading(false);
+      if (isCurrent()) setSetsLoading(false);
     }
-  }, [t]);
+  }, [isCurrent, t]);
 
-  const refreshRuns = useCallback(async (slug: string) => {
-    try {
-      setRuns(await listReplayRuns(slug));
-    } catch {
-      setRuns([]);
-    }
-  }, []);
+  const refreshRuns = useCallback(
+    async (slug: string, selection = selectionRef.current) => {
+      if (!isCurrent(selection)) return;
+      try {
+        const next = await listReplayRuns(slug);
+        if (isCurrent(selection)) setRuns(next);
+      } catch {
+        if (isCurrent(selection)) setRuns([]);
+      }
+    },
+    [isCurrent]
+  );
 
   const selectSet = useCallback(
     async (slug: string) => {
+      if (!isCurrent()) return;
+      const selection = { slug };
+      selectionRef.current = selection;
+      reportReadRef.current = selection;
+      setActiveSet(null);
+      setActiveSlug(null);
+      setReport(null);
+      setAbReport(null);
+      setRuns([]);
       try {
         const set = await loadReplaySet(slug);
+        if (!isCurrent(selection)) return;
         setActiveSet(set);
         setActiveSlug(slug);
         // The last run is on disk: reopening the tab shows it again, as the
         // kind of comparison it actually was.
-        const last = await loadLastReport(slug).catch(() => ({}) as LastReport);
+        const last = await loadLastReport(slug);
+        if (!isCurrent(selection) || reportReadRef.current !== selection) return;
         setReport(last.report ?? null);
         setAbReport(last.ab ?? null);
-        await refreshRuns(slug);
+        await refreshRuns(slug, selection);
       } catch (err) {
-        notify.error(t('replay.errors.loadSet'), String(err));
+        if (isCurrent(selection) && reportReadRef.current === selection) {
+          notify.error(t('replay.errors.loadSet'), String(err));
+        }
       }
     },
-    [refreshRuns, t]
+    [isCurrent, refreshRuns, t]
   );
 
   const refreshRecording = useCallback(async () => {
+    if (!isCurrent()) return;
+    const read = {};
+    recordingReadRef.current = read;
     try {
-      const status = await getRecordingStatus();
+      const status = await getRecordingStatus(projectId);
+      if (!isCurrent() || recordingReadRef.current !== read) return;
+      const next = status ? await getRecordedPreviews({ projectId, runId: status.run_id }) : [];
+      if (!isCurrent() || recordingReadRef.current !== read) return;
       setRecording(status);
-      setPreviews(status ? await getRecordedPreviews() : []);
+      setPreviews(next);
     } catch {
-      setRecording(null);
-      setPreviews([]);
+      if (isCurrent() && recordingReadRef.current === read) {
+        setRecording(null);
+        setPreviews([]);
+      }
     }
-  }, []);
+  }, [isCurrent, projectId]);
 
   useEffect(() => {
     void refreshSets();
     void refreshRecording();
     void listSessions()
-      .then(setSessions)
-      .catch(() => setSessions([]));
-  }, [refreshSets, refreshRecording]);
+      .then(next => {
+        if (isCurrent()) setSessions(next);
+      })
+      .catch(() => {
+        if (isCurrent()) setSessions([]);
+      });
+  }, [isCurrent, refreshSets, refreshRecording]);
 
   useEffect(() => {
     const onChanged = () => {
@@ -141,7 +209,7 @@ export function useReplay(sessionId: string | null) {
   useEffect(() => {
     let cancelled = false;
     void listen<ReplayProgress>(REPLAY_PROGRESS_EVENT, event => {
-      setProgress(event.payload);
+      if (!cancelled && isCurrent() && runRef.current) setProgress(event.payload);
     }).then(unlisten => {
       if (cancelled) {
         unlisten();
@@ -154,7 +222,7 @@ export function useReplay(sessionId: string | null) {
       unlistenRef.current?.();
       unlistenRef.current = null;
     };
-  }, []);
+  }, [isCurrent]);
 
   const beginRecording = useCallback(
     async (options: {
@@ -164,12 +232,15 @@ export function useReplay(sessionId: string | null) {
       captureMode: CaptureMode;
       allowProductionCapture: boolean;
     }) => {
+      if (!isCurrent()) return;
       if (!sessionId) {
         notify.error(t('replay.errors.noConnection'));
         return;
       }
       try {
+        recordingReadRef.current = null;
         const status = await startRecording({
+          project_id: projectId,
           session_id: sessionId,
           name: options.name,
           ignored_columns: options.ignoredColumns,
@@ -180,65 +251,98 @@ export function useReplay(sessionId: string | null) {
           // was recorded, not by whatever the setting says later.
           secret_policy: getSecretPolicy(),
         });
+        if (!isCurrent()) return;
         setRecording(status);
         setPreviews([]);
       } catch (err) {
-        notify.error(t('replay.errors.startRecording'), String(err));
+        if (isCurrent()) notify.error(t('replay.errors.startRecording'), String(err));
       }
     },
-    [sessionId, t]
+    [isCurrent, projectId, sessionId, t]
   );
 
   const endRecording = useCallback(async () => {
+    if (!isCurrent() || !recording) return null;
+    recordingReadRef.current = null;
     try {
-      const summary = await stopRecording();
+      const summary = await stopRecording({ projectId, runId: recording.run_id });
+      if (!isCurrent()) return null;
       setRecording(null);
       setPreviews([]);
       await refreshSets();
+      if (!isCurrent()) return null;
       await selectSet(summary.slug);
+      if (!isCurrent()) return null;
       notify.success(t('replay.recordingSaved', { name: summary.name }));
       return summary;
     } catch (err) {
-      notify.error(t('replay.errors.stopRecording'), String(err));
+      if (isCurrent()) notify.error(t('replay.errors.stopRecording'), String(err));
       return null;
     }
-  }, [refreshSets, selectSet, t]);
+  }, [isCurrent, projectId, recording, refreshSets, selectSet, t]);
 
   const abortRecording = useCallback(async () => {
-    await cancelRecording();
+    if (!isCurrent() || !recording) return;
+    recordingReadRef.current = null;
+    try {
+      await cancelRecording({ projectId, runId: recording.run_id });
+    } catch (err) {
+      if (isCurrent()) {
+        notify.error(t('replay.errors.discard'), String(err));
+        await refreshRecording();
+      }
+      return;
+    }
+    if (!isCurrent() || !recording) return;
     setRecording(null);
     setPreviews([]);
-  }, []);
+  }, [isCurrent, projectId, recording, refreshRecording, t]);
 
   const dropMutations = useCallback(async () => {
+    if (!isCurrent() || !recording) return;
     try {
-      await discardRecordedMutations();
+      recordingReadRef.current = null;
+      await discardRecordedMutations({ projectId, runId: recording.run_id });
+      if (!isCurrent() || !recording) return;
       await refreshRecording();
     } catch (err) {
-      notify.error(t('replay.errors.discard'), String(err));
+      if (isCurrent()) {
+        notify.error(t('replay.errors.discard'), String(err));
+        await refreshRecording();
+      }
     }
-  }, [refreshRecording, t]);
+  }, [isCurrent, projectId, recording, refreshRecording, t]);
 
   const dropRecorded = useCallback(
     async (index: number) => {
+      if (!isCurrent() || !recording) return;
       try {
-        await discardRecorded(index);
+        recordingReadRef.current = null;
+        await discardRecorded({ projectId, runId: recording.run_id }, index);
+        if (!isCurrent() || !recording) return;
         await refreshRecording();
       } catch (err) {
-        notify.error(t('replay.errors.discard'), String(err));
+        if (isCurrent()) {
+          notify.error(t('replay.errors.discard'), String(err));
+          await refreshRecording();
+        }
       }
     },
-    [refreshRecording, t]
+    [isCurrent, projectId, recording, refreshRecording, t]
   );
 
   const replay = useCallback(
     async (options: ReplayRunOptions = DEFAULT_RUN_OPTIONS, baselineRunId?: string) => {
+      if (!isCurrent() || runRef.current) return;
       if (!sessionId) {
         notify.error(t('replay.errors.noConnection'));
         return;
       }
-      if (!activeSlug) return;
-
+      if (!activeSlug || !isCurrent() || selectionRef.current?.slug !== activeSlug) return;
+      const selection = selectionRef.current;
+      const operation = {};
+      runRef.current = operation;
+      reportReadRef.current = null;
       setRunning(true);
       setProgress(null);
       setAbReport(null);
@@ -249,78 +353,100 @@ export function useReplay(sessionId: string | null) {
           options,
           baseline_run_id: baselineRunId ?? null,
         });
+        if (!isCurrent(selection)) return;
         setReport(result);
-        await refreshRuns(activeSlug);
+        await refreshRuns(activeSlug, selection);
       } catch (err) {
-        notify.error(t('replay.errors.run'), String(err));
+        if (isCurrent(selection)) notify.error(t('replay.errors.run'), String(err));
       } finally {
-        setRunning(false);
-        setProgress(null);
+        if (isCurrent() && runRef.current === operation) {
+          runRef.current = null;
+          setRunning(false);
+          setProgress(null);
+        }
       }
     },
-    [activeSlug, refreshRuns, sessionId, t]
+    [activeSlug, isCurrent, refreshRuns, sessionId, t]
   );
 
   const replayAb = useCallback(
     async (rightSessionId: string, options: ReplayRunOptions = DEFAULT_RUN_OPTIONS) => {
+      if (!isCurrent() || runRef.current) return;
       if (!sessionId) {
         notify.error(t('replay.errors.noConnection'));
         return;
       }
-      if (!activeSlug) return;
-
+      if (!activeSlug || !isCurrent() || selectionRef.current?.slug !== activeSlug) return;
+      const selection = selectionRef.current;
+      const operation = {};
+      runRef.current = operation;
+      reportReadRef.current = null;
       setRunning(true);
       setProgress(null);
       setReport(null);
       try {
-        setAbReport(
-          await runReplayAb({
-            left_session_id: sessionId,
-            right_session_id: rightSessionId,
-            slug: activeSlug,
-            options,
-          })
-        );
-        await refreshRuns(activeSlug);
+        const result = await runReplayAb({
+          left_session_id: sessionId,
+          right_session_id: rightSessionId,
+          slug: activeSlug,
+          options,
+        });
+        if (!isCurrent(selection)) return;
+        setAbReport(result);
+        await refreshRuns(activeSlug, selection);
       } catch (err) {
-        notify.error(t('replay.errors.run'), String(err));
+        if (isCurrent(selection)) notify.error(t('replay.errors.run'), String(err));
       } finally {
-        setRunning(false);
-        setProgress(null);
+        if (isCurrent() && runRef.current === operation) {
+          runRef.current = null;
+          setRunning(false);
+          setProgress(null);
+        }
       }
     },
-    [activeSlug, refreshRuns, sessionId, t]
+    [activeSlug, isCurrent, refreshRuns, sessionId, t]
   );
 
   const abortReplay = useCallback(async () => {
+    if (!isCurrent() || !runRef.current) return;
     await cancelReplayRun();
-  }, []);
+  }, [isCurrent]);
 
   const removeSet = useCallback(
     async (slug: string) => {
+      if (!isCurrent()) return;
+      const selection = selectionRef.current;
       try {
         await deleteReplaySet(slug);
-        if (activeSlug === slug) {
+        if (!isCurrent()) return;
+        if (isCurrent(selection) && selectionRef.current?.slug === slug) {
+          selectionRef.current = null;
           setActiveSet(null);
           setActiveSlug(null);
           setReport(null);
+          setAbReport(null);
           setRuns([]);
         }
         await refreshSets();
       } catch (err) {
-        notify.error(t('replay.errors.deleteSet'), String(err));
+        if (isCurrent()) notify.error(t('replay.errors.deleteSet'), String(err));
       }
     },
-    [activeSlug, refreshSets, t]
+    [isCurrent, refreshSets, t]
   );
 
   const acceptRun = useCallback(
     async (runId: string, entryIds?: string[]) => {
-      if (!activeSlug) return;
+      if (!activeSlug || !isCurrent() || selectionRef.current?.slug !== activeSlug) return;
+      const selection = selectionRef.current;
       try {
-        setActiveSet(
-          await acceptReplayRun({ slug: activeSlug, run_id: runId, entry_ids: entryIds ?? null })
-        );
+        const next = await acceptReplayRun({
+          slug: activeSlug,
+          run_id: runId,
+          entry_ids: entryIds ?? null,
+        });
+        if (!isCurrent(selection)) return;
+        setActiveSet(next);
         // The accepted entries are now their own expectation, so the report on
         // screen would otherwise keep flagging what the user just accepted.
         setReport(current => {
@@ -344,24 +470,26 @@ export function useReplay(sessionId: string | null) {
             ? t('replay.referenceAcceptedEntries', { count: entryIds.length })
             : t('replay.referenceAcceptedAll')
         );
-        await refreshRuns(activeSlug);
+        await refreshRuns(activeSlug, selection);
       } catch (err) {
-        notify.error(t('replay.errors.acceptRun'), String(err));
+        if (isCurrent(selection)) notify.error(t('replay.errors.acceptRun'), String(err));
       }
     },
-    [activeSlug, refreshRuns, t]
+    [activeSlug, isCurrent, refreshRuns, t]
   );
 
   const updateIgnoredColumns = useCallback(
     async (columns: string[]) => {
-      if (!activeSlug) return;
+      if (!activeSlug || !isCurrent() || selectionRef.current?.slug !== activeSlug) return;
+      const selection = selectionRef.current;
       try {
-        setActiveSet(await setIgnoredColumns(activeSlug, columns));
+        const next = await setIgnoredColumns(activeSlug, columns);
+        if (isCurrent(selection)) setActiveSet(next);
       } catch (err) {
-        notify.error(t('replay.errors.ignoredColumns'), String(err));
+        if (isCurrent(selection)) notify.error(t('replay.errors.ignoredColumns'), String(err));
       }
     },
-    [activeSlug, t]
+    [activeSlug, isCurrent, t]
   );
 
   return {

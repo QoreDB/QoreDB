@@ -1,9 +1,16 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import i18n from '../../i18n';
 import type { NotebookVariable } from '../notebook/notebookTypes';
 import { redactQuery } from '../redaction';
 import { getWorkspaceState } from '../stores/workspaceStore';
-import { wsSaveQueryLibrary } from '../tauri';
+import { wsGetQueryLibrary, wsSaveQueryLibrary } from '../tauri';
+import {
+  invalidLibrary,
+  parseLibraryExport,
+  parseStoredLibrary,
+  type QueryLibraryState,
+} from './queryLibraryValidation';
 
 /**
  * A parameter placeholder (`{{name}}` / `$name`) defined on a saved query.
@@ -44,11 +51,6 @@ const STORAGE_KEY_PREFIX = 'qoredb_query_library_v1';
 const MAX_ITEMS = 300;
 const MAX_FOLDERS = 100;
 
-interface QueryLibraryState {
-  folders: QueryFolder[];
-  items: QueryLibraryItem[];
-}
-
 function now(): number {
   return Date.now();
 }
@@ -72,57 +74,155 @@ export function parseTags(raw: string): string[] {
   return unique.slice(0, 12);
 }
 
-function getStorageKey(): string {
-  const { projectId } = getWorkspaceState();
+function getStorageKey(projectId = getWorkspaceState().projectId): string {
   return projectId === 'default' ? STORAGE_KEY_PREFIX : `${STORAGE_KEY_PREFIX}_${projectId}`;
 }
 
+const unreadableProjects = new Set<string>();
+
 function readState(): QueryLibraryState {
+  if (unreadableProjects.has(getWorkspaceState().projectId)) return invalidLibrary();
   try {
     const raw = localStorage.getItem(getStorageKey());
-    if (!raw) return { folders: [], items: [] };
-    const parsed = JSON.parse(raw) as Partial<QueryLibraryState>;
-    return {
-      folders: Array.isArray(parsed.folders) ? parsed.folders : [],
-      items: Array.isArray(parsed.items) ? parsed.items : [],
-    };
+    return raw === null ? { folders: [], items: [] } : parseStoredLibrary(raw);
   } catch {
-    return { folders: [], items: [] };
+    return invalidLibrary();
   }
 }
 
-let syncTimer: ReturnType<typeof setTimeout> | null = null;
+const listeners = new Set<() => void>();
+
+export function subscribeQueryLibrary(listener: () => void): () => void {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+}
+
+function notifyLibraryChanged() {
+  for (const listener of listeners) listener();
+}
+
+const syncTimers = new Map<string, ReturnType<typeof setTimeout>>();
+const saves = new Map<string, Promise<void>>();
+const loads = new Map<string, symbol>();
 const SYNC_DEBOUNCE_MS = 1000;
 
 function writeState(next: QueryLibraryState): void {
-  localStorage.setItem(getStorageKey(), JSON.stringify(next));
+  const { projectId, activeWorkspace, isLoading } = getWorkspaceState();
+  if (isLoading) throw new Error(i18n.t('common.loading'));
+  const pendingSync = !!activeWorkspace && activeWorkspace.source !== 'default';
+  localStorage.setItem(getStorageKey(projectId), JSON.stringify({ ...next, pendingSync }));
+  notifyLibraryChanged();
 
-  const { activeWorkspace } = getWorkspaceState();
-  if (activeWorkspace && activeWorkspace.source !== 'default') {
-    if (syncTimer) clearTimeout(syncTimer);
-    syncTimer = setTimeout(() => {
-      syncTimer = null;
-      wsSaveQueryLibrary({
-        version: 1,
-        folders: next.folders,
-        items: next.items,
-      }).catch(() => {
-        // Silent fail — localStorage is the source of truth during the session
-      });
-    }, SYNC_DEBOUNCE_MS);
+  if (pendingSync) {
+    clearTimeout(syncTimers.get(projectId));
+    syncTimers.set(
+      projectId,
+      setTimeout(() => {
+        syncTimers.delete(projectId);
+        void flushWorkspaceLibrary(projectId).catch(() => {
+          // Keep the pending flag across restarts; loading from disk must not erase unsaved edits.
+          console.warn('Query library sync failed; local changes retained.');
+        });
+      }, SYNC_DEBOUNCE_MS)
+    );
   }
 }
 
-/**
- * Loads the workspace query library into localStorage for the current session.
- * Called by WorkspaceProvider when a file-based workspace is activated.
- */
-export function loadWorkspaceLibrary(data: { folders: unknown[]; items: unknown[] }): void {
-  const state: QueryLibraryState = {
-    folders: Array.isArray(data.folders) ? (data.folders as QueryFolder[]) : [],
-    items: Array.isArray(data.items) ? (data.items as QueryLibraryItem[]) : [],
+/** Finish all local edits for this project before changing the backend workspace. */
+export async function flushWorkspaceLibrary(
+  projectId = getWorkspaceState().projectId
+): Promise<void> {
+  if (unreadableProjects.has(projectId)) {
+    const raw = localStorage.getItem(getStorageKey(projectId));
+    // Leaving a project is safe when it requires no write to its unreadable file.
+    if (raw === null || !parseStoredLibrary(raw).pendingSync) return;
+    return invalidLibrary();
+  }
+  clearTimeout(syncTimers.get(projectId));
+  syncTimers.delete(projectId);
+  const previous = saves.get(projectId);
+  if (previous) {
+    await previous;
+    return flushWorkspaceLibrary(projectId);
+  }
+
+  const key = getStorageKey(projectId);
+  const save = async () => {
+    while (true) {
+      const raw = localStorage.getItem(key);
+      if (raw === null) return;
+      const state = parseStoredLibrary(raw);
+      if (!state.pendingSync) return;
+      const saved = await wsSaveQueryLibrary(
+        {
+          version: 1,
+          folders: state.folders,
+          items: state.items,
+        },
+        projectId
+      );
+      if (!saved) throw new Error('Query library was not saved');
+      if (localStorage.getItem(key) === raw) {
+        localStorage.setItem(key, JSON.stringify({ folders: state.folders, items: state.items }));
+        return;
+      }
+      // A new edit arrived during IO; serialize its write after the older snapshot.
+    }
   };
-  localStorage.setItem(getStorageKey(), JSON.stringify(state));
+  const pending = save();
+  saves.set(projectId, pending);
+  try {
+    await pending;
+  } finally {
+    saves.delete(projectId);
+  }
+}
+
+/** A late disk read must not replace another project's library or newer local edits. */
+export async function syncWorkspaceLibrary(): Promise<void> {
+  const { projectId, activeWorkspace } = getWorkspaceState();
+  if (!activeWorkspace || activeWorkspace.source === 'default') return;
+  const load = Symbol();
+  loads.set(projectId, load);
+  let reading = false;
+  try {
+    if (!unreadableProjects.has(projectId)) await flushWorkspaceLibrary(projectId);
+    const key = getStorageKey(projectId);
+    const before = localStorage.getItem(key);
+    reading = true;
+    const data = await wsGetQueryLibrary(projectId);
+    if (
+      loads.get(projectId) === load &&
+      getWorkspaceState().projectId === projectId &&
+      localStorage.getItem(key) === before
+    ) {
+      const validated = parseLibraryExport(data, false);
+      const local = before === null ? null : parseStoredLibrary(before);
+      unreadableProjects.delete(projectId);
+      if (local?.pendingSync) {
+        reading = false;
+        await flushWorkspaceLibrary(projectId);
+        notifyLibraryChanged();
+        return;
+      }
+      localStorage.setItem(
+        key,
+        JSON.stringify({ folders: validated.folders, items: validated.items })
+      );
+      notifyLibraryChanged();
+    }
+  } catch (error) {
+    if (!reading) throw error;
+    if (loads.get(projectId) === load && getWorkspaceState().projectId === projectId) {
+      unreadableProjects.add(projectId);
+      notifyLibraryChanged();
+    }
+    return invalidLibrary();
+  } finally {
+    if (loads.get(projectId) === load) loads.delete(projectId);
+  }
 }
 
 export function listFolders(): QueryFolder[] {
@@ -131,20 +231,19 @@ export function listFolders(): QueryFolder[] {
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 
-export function createFolder(name: string): QueryFolder {
+function prepareFolder(state: QueryLibraryState, name: string): QueryFolder {
   const trimmed = name.trim();
   if (!trimmed) {
     throw new Error('Folder name is required');
   }
 
-  const state = readState();
   const exists = state.folders.some(f => f.name.toLowerCase() === trimmed.toLowerCase());
   if (exists) {
     return state.folders.find(f => f.name.toLowerCase() === trimmed.toLowerCase()) as QueryFolder;
   }
 
   if (state.folders.length >= MAX_FOLDERS) {
-    throw new Error('Too many folders');
+    throw new Error(i18n.t('library.folderLimit', { count: MAX_FOLDERS }));
   }
 
   const folder: QueryFolder = {
@@ -154,11 +253,16 @@ export function createFolder(name: string): QueryFolder {
     updatedAt: now(),
   };
 
-  writeState({
-    ...state,
-    folders: [...state.folders, folder],
-  });
+  state.folders.push(folder);
 
+  return folder;
+}
+
+export function createFolder(name: string): QueryFolder {
+  const state = readState();
+  const count = state.folders.length;
+  const folder = prepareFolder(state, name);
+  if (state.folders.length !== count) writeState(state);
   return folder;
 }
 
@@ -247,6 +351,7 @@ export function addItem(input: {
   title: string;
   query: string;
   folderId?: string | null;
+  newFolderName?: string;
   tags?: string[];
   isFavorite?: boolean;
   driver?: string;
@@ -265,7 +370,10 @@ export function addItem(input: {
     id: generateId('ql'),
     title,
     query,
-    folderId: input.folderId ?? null,
+    folderId:
+      input.newFolderName !== undefined
+        ? prepareFolder(state, input.newFolderName).id
+        : (input.folderId ?? null),
     tags: Array.from(new Set((input.tags ?? []).map(normalizeTag).filter(Boolean))).slice(0, 12),
     isFavorite: input.isFavorite ?? false,
     driver: input.driver,
@@ -275,10 +383,10 @@ export function addItem(input: {
     updatedAt: now(),
   };
 
-  const nextItems = [item, ...state.items];
-  if (nextItems.length > MAX_ITEMS) {
-    nextItems.splice(MAX_ITEMS);
+  if (state.items.length >= MAX_ITEMS) {
+    throw new Error(i18n.t('library.itemLimit', { count: MAX_ITEMS }));
   }
+  const nextItems = [item, ...state.items];
 
   writeState({ ...state, items: nextItems });
   return item;
@@ -337,13 +445,21 @@ export function exportLibrary(options?: { redact?: boolean }): QueryLibraryExpor
   };
 }
 
-export function importLibrary(payload: QueryLibraryExportV1): {
+export function validateLibraryImport(input: unknown): void {
+  prepareLibraryImport(input);
+}
+
+export function importLibrary(input: unknown): {
   foldersImported: number;
   itemsImported: number;
 } {
-  if (payload.version !== 1) {
-    throw new Error('Unsupported library export version');
-  }
+  const { state, foldersImported, itemsImported } = prepareLibraryImport(input);
+  writeState(state);
+  return { foldersImported, itemsImported };
+}
+
+function prepareLibraryImport(input: unknown) {
+  const payload = parseLibraryExport(input);
 
   const state = readState();
   const folderNameToId = new Map<string, string>();
@@ -357,7 +473,7 @@ export function importLibrary(payload: QueryLibraryExportV1): {
     if (!name) continue;
     const existingId = folderNameToId.get(name.toLowerCase());
     if (existingId) continue;
-    if (state.folders.length + importedFolders.length >= MAX_FOLDERS) break;
+
     const created: QueryFolder = {
       id: generateId('folder'),
       name,
@@ -378,7 +494,6 @@ export function importLibrary(payload: QueryLibraryExportV1): {
 
   const importedItems: QueryLibraryItem[] = [];
   for (const item of payload.items ?? []) {
-    if (state.items.length + importedItems.length >= MAX_ITEMS) break;
     const title = (item?.title ?? '').trim();
     const query = item?.query ?? '';
     if (!title || !query.trim()) continue;
@@ -399,10 +514,18 @@ export function importLibrary(payload: QueryLibraryExportV1): {
     });
   }
 
-  writeState({
-    folders: [...state.folders, ...importedFolders],
-    items: [...importedItems, ...state.items].slice(0, MAX_ITEMS),
-  });
-
-  return { foldersImported: importedFolders.length, itemsImported: importedItems.length };
+  if (state.items.length + importedItems.length > MAX_ITEMS) {
+    throw new Error(i18n.t('library.itemLimit', { count: MAX_ITEMS }));
+  }
+  if (state.folders.length + importedFolders.length > MAX_FOLDERS) {
+    throw new Error(i18n.t('library.folderLimit', { count: MAX_FOLDERS }));
+  }
+  return {
+    state: {
+      folders: [...state.folders, ...importedFolders],
+      items: [...importedItems, ...state.items],
+    },
+    foldersImported: importedFolders.length,
+    itemsImported: importedItems.length,
+  };
 }

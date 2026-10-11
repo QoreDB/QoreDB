@@ -51,6 +51,25 @@ connections, and tests. Check [licensing](LICENSING.md) for new files.
    The desktop currently enables `all-drivers` through its dependencies. Inspect
    these manifests rather than assuming every package has identical defaults.
 
+Optional `insert_row_returning` returns internal `RowInsertResult` evidence
+separately from the public `QueryResult`. Its default performs the ordinary
+INSERT exactly once without returned values. An override must preserve the
+transaction connection, quote requested column names, and never retry an INSERT
+to recover an identifier. Check any extra read privileges/policies before opting
+in. A returned key is not a final row image: AFTER triggers may modify the row.
+SQLite and PostgreSQL currently implement this path; protocol wrappers retain
+the default until separately qualified.
+
+Row images around mutations require `supports_safe_row_capture` and
+`query_table_for_capture`. They are currently enabled only for SQLite and
+PostgreSQL. Unqualified drivers perform no schema/image capture I/O and leave
+history incomplete. A read error or cancelled caller must not poison the
+transaction; recovery must finish under the connection lock before a new command
+runs. If recovery fails, stop subsequent writes rather than switching to the
+pool. Test commit results against persisted data, not just a successful command
+response. The [PostgreSQL regression report](../tests/V0_1_40_CAPTURE_TRANSACTIONS_2026-10-04.md)
+includes restricted roles, cancellation, caller timeouts and a lost connection.
+
 ## Safety and connection handling
 
 - For SQL dialects, inspect driver-ID dispatch in

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 
 import { Circle, Square, X } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -13,52 +13,90 @@ import {
   type RecordingStatus,
   stopRecording,
 } from '@/lib/replay';
+import { getWorkspaceState, useWorkspaceStore } from '@/lib/stores/workspaceStore';
 import { useLicense } from '@/providers/LicenseProvider';
 
 /** Recording happens in other tabs, so the status bar polls rather than listens. */
 const POLL_MS = 2000;
 
 export function ReplayIndicator() {
+  const projectId = useWorkspaceStore(state => state.projectId);
+  return <WorkspaceReplayIndicator key={projectId} projectId={projectId} />;
+}
+
+function WorkspaceReplayIndicator({ projectId }: { projectId: string }) {
   const { t } = useTranslation();
   const { isFeatureEnabled } = useLicense();
   const unlocked = isFeatureEnabled('query_replay');
   const [status, setStatus] = useState<RecordingStatus | null>(null);
   const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const busyRef = useRef(false);
+  const alive = useRef(true);
+  const readRef = useRef(0);
+  const isCurrent = useCallback(
+    () => alive.current && getWorkspaceState().projectId === projectId,
+    [projectId]
+  );
+
+  useEffect(() => {
+    alive.current = true;
+    return () => {
+      alive.current = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (!unlocked) return;
     let cancelled = false;
     const poll = async () => {
+      if (busyRef.current || !isCurrent()) return;
+      const read = ++readRef.current;
       try {
-        const next = await getRecordingStatus();
-        if (!cancelled) setStatus(next);
+        const next = await getRecordingStatus(projectId);
+        if (!cancelled && isCurrent() && read === readRef.current) setStatus(next);
       } catch {
-        if (!cancelled) setStatus(null);
+        if (!cancelled && isCurrent() && read === readRef.current) setStatus(null);
       }
     };
+    const changed = () => void poll();
     void poll();
-    const timer = window.setInterval(() => void poll(), POLL_MS);
+    const timer = window.setInterval(changed, POLL_MS);
+    window.addEventListener(RECORDING_CHANGED_EVENT, changed);
     return () => {
       cancelled = true;
       window.clearInterval(timer);
+      window.removeEventListener(RECORDING_CHANGED_EVENT, changed);
     };
-  }, [unlocked]);
+  }, [isCurrent, projectId, unlocked]);
 
-  if (!status) return null;
+  if (!unlocked || !status) return null;
 
   const finish = async (action: 'stop' | 'cancel') => {
+    if (!isCurrent() || busyRef.current) return;
+    busyRef.current = true;
+    setBusy(true);
+    ++readRef.current;
     setOpen(false);
+    const target = { projectId, runId: status.run_id };
     try {
       if (action === 'stop') {
-        const summary = await stopRecording();
+        const summary = await stopRecording(target);
+        if (!isCurrent()) return;
         notify.success(t('replay.recordingSaved', { name: summary.name }));
       } else {
-        await cancelRecording();
+        await cancelRecording(target);
+        if (!isCurrent()) return;
       }
       setStatus(null);
-      window.dispatchEvent(new CustomEvent(RECORDING_CHANGED_EVENT));
     } catch (err) {
-      notify.error(t('replay.errors.stopRecording'), String(err));
+      if (isCurrent()) notify.error(t('replay.errors.stopRecording'), String(err));
+    } finally {
+      if (isCurrent()) {
+        busyRef.current = false;
+        setBusy(false);
+        window.dispatchEvent(new CustomEvent(RECORDING_CHANGED_EVENT));
+      }
     }
   };
 
@@ -85,6 +123,7 @@ export function ReplayIndicator() {
           <Button
             size="sm"
             className="h-7 flex-1 gap-1.5 text-xs"
+            disabled={busy}
             onClick={() => void finish('stop')}
           >
             <Square size={11} />
@@ -94,6 +133,7 @@ export function ReplayIndicator() {
             variant="ghost"
             size="sm"
             className="h-7 w-7 p-0"
+            disabled={busy}
             onClick={() => void finish('cancel')}
             aria-label={t('replay.cancelRecording')}
             title={t('replay.cancelRecording')}

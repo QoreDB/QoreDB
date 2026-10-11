@@ -28,7 +28,7 @@ interface MigrationPreviewProps {
   error?: string | null;
   environment?: Environment;
   dialect?: Driver;
-  onApply?: () => Promise<ApplySandboxResult>;
+  onApply?: (acknowledged: boolean) => Promise<ApplySandboxResult>;
 }
 
 export function MigrationPreview({
@@ -82,7 +82,7 @@ export function MigrationPreview({
   }, [script, t]);
 
   const handleApply = useCallback(async () => {
-    if (!onApply) return;
+    if (!onApply || isApplying || applyResult?.outcome_unknown) return;
 
     // Production requires confirmation
     if (environment === 'production' && !confirmProd) {
@@ -97,25 +97,40 @@ export function MigrationPreview({
 
     setIsApplying(true);
     try {
-      const result = await onApply();
+      const result = await onApply(environment === 'production' && confirmInput === 'APPLY');
       setApplyResult(result);
       if (result.success) {
         toast.success(t('sandbox.migration.applySuccess', { count: result.applied_count }));
       } else {
         toast.error(t('sandbox.migration.applyFailed'), {
-          description: result.error,
+          description: result.outcome_unknown
+            ? t('sandbox.migration.outcomeUnknown')
+            : result.error,
         });
       }
-    } catch (err) {
-      console.error('Error applying migration:', err);
-      toast.error(t('sandbox.migration.applyFailed'));
+    } catch {
+      // Local reconciliation can also fail after the backend has committed.
+      setApplyResult({
+        success: false,
+        applied_count: 0,
+        applied_indices: [],
+        outcome_unknown: true,
+        failed_changes: [],
+        error: t('sandbox.migration.outcomeUnknown'),
+      });
+      toast.error(t('sandbox.migration.outcomeUnknown'));
     } finally {
       setIsApplying(false);
     }
-  }, [onApply, environment, confirmProd, confirmInput, t]);
+  }, [onApply, environment, confirmProd, confirmInput, isApplying, applyResult, t]);
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog
+      open={isOpen}
+      onOpenChange={() => {
+        if (!isApplying) onClose();
+      }}
+    >
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -186,7 +201,11 @@ export function MigrationPreview({
                   ) : (
                     <>
                       <AlertTriangle size={16} />
-                      <span>{applyResult.error || t('sandbox.migration.applyFailed')}</span>
+                      <span>
+                        {applyResult.outcome_unknown
+                          ? t('sandbox.migration.outcomeUnknown')
+                          : applyResult.error || t('sandbox.migration.applyFailed')}
+                      </span>
                     </>
                   )}
                 </div>
@@ -236,7 +255,7 @@ export function MigrationPreview({
           {onApply && (
             <Button
               onClick={applyResult?.success ? onClose : handleApply}
-              disabled={!script || loading || isApplying}
+              disabled={!script || loading || isApplying || applyResult?.outcome_unknown}
               className={cn(
                 environment === 'production' &&
                   !applyResult?.success &&

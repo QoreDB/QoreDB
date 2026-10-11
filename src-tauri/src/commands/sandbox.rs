@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 //! Commands for generating migration SQL and applying sandbox changes.
-//! Sandbox is a Pro feature — Core builds return an explicit error.
+//! Core batches are limited to five changes; the Sandbox UI requires Pro.
 
 use serde::Serialize;
 use tauri::State;
@@ -15,19 +15,7 @@ pub struct MigrationScriptResponse {
     pub error: Option<String>,
 }
 
-#[derive(Debug, Serialize)]
-pub struct ApplySandboxResponse {
-    pub success: bool,
-    pub applied_count: usize,
-    pub error: Option<String>,
-    pub failed_changes: Vec<FailedChange>,
-}
-
-#[derive(Debug, Serialize)]
-pub struct FailedChange {
-    pub index: usize,
-    pub error: String,
-}
+pub use qore_service::mutation::batch::ApplyBatchResult as ApplySandboxResponse;
 
 // Always compiled. Core mode enforces a 5-change batch limit (covers
 // Bulk Edit and other batched mutation flows). The Sandbox UI itself is
@@ -53,10 +41,8 @@ async fn license_allows_unlimited_sandbox(state: &State<'_, crate::SharedState>)
 
 mod sandbox_impl {
     use super::*;
-    use crate::engine::sql_generator::{SandboxChangeType, generate_migration_script};
-    use crate::engine::types::{RowData, SessionId};
-    use crate::time_travel::ChangeOperation;
-    use crate::time_travel::capture::{build_changelog_entry, value_to_json_pub};
+    use crate::engine::sql_generator::generate_migration_script;
+    use crate::time_travel::capture::capture_confirmed_batch;
     use std::sync::Arc;
     use tracing::instrument;
 
@@ -91,7 +77,7 @@ mod sandbox_impl {
                     return Ok(MigrationScriptResponse {
                         success: false,
                         script: None,
-                        error: Some(format!("Failed to get driver: {}", e)),
+                        error: Some(format!("Failed to get driver: {}", e.sanitized_message())),
                     });
                 }
             }
@@ -112,231 +98,69 @@ mod sandbox_impl {
         session_id: String,
         changes: Vec<SandboxChangeDto>,
         use_transaction: bool,
+        acknowledged_dangerous: Option<bool>,
     ) -> Result<ApplySandboxResponse, String> {
         if changes.len() > CORE_SANDBOX_LIMIT
             && !super::license_allows_unlimited_sandbox(&state).await
         {
-            return Ok(ApplySandboxResponse {
-                success: false,
-                applied_count: 0,
-                error: Some(format!(
-                    "Core edition is limited to {} changes per batch. Upgrade to QoreDB Pro for unlimited.",
-                    CORE_SANDBOX_LIMIT
-                )),
-                failed_changes: vec![],
-            });
+            return Ok(ApplySandboxResponse::rejected(format!(
+                "Core edition is limited to {} changes per batch. Upgrade to QoreDB Pro for unlimited.",
+                CORE_SANDBOX_LIMIT
+            )));
         }
 
         let state_guard = state.lock().await;
         let session_manager = Arc::clone(&state_guard.session_manager);
         let changelog_store = Arc::clone(&state_guard.changelog_store);
+        let interceptor = Arc::clone(&state_guard.interceptor);
+        let query_cache = Arc::clone(&state_guard.query_cache);
         drop(state_guard);
 
         let session = parse_session_id(&session_id)?;
-
-        if session_manager
-            .is_read_only(session)
-            .await
-            .map_err(|e| e.sanitized_message())?
-        {
-            return Ok(ApplySandboxResponse {
-                success: false,
-                applied_count: 0,
-                error: Some("Operation blocked: read-only mode".to_string()),
-                failed_changes: vec![],
-            });
-        }
-
+        let connection_identity = session_manager.get_saved_connection_identity(session).await;
+        let workspace_id = session_manager.workspace_id(session).await;
         let driver = session_manager
             .get_driver(session)
             .await
             .map_err(|e| e.sanitized_message())?;
-
-        if !driver.capabilities().mutations {
-            return Ok(ApplySandboxResponse {
-                success: false,
-                applied_count: 0,
-                error: Some("Mutations are not supported by this driver".to_string()),
-                failed_changes: vec![],
-            });
-        }
-
-        let mut applied_count = 0;
-        let mut failed_changes: Vec<super::FailedChange> = Vec::new();
-
         let environment = session_manager
             .get_environment(session)
             .await
-            .unwrap_or_else(|_| "development".to_string());
-
-        let supports_tx = driver.supports_transactions_for_session(session).await;
-        if use_transaction && supports_tx {
-            if let Err(e) = driver.begin_transaction(session).await {
-                return Ok(ApplySandboxResponse {
-                    success: false,
-                    applied_count: 0,
-                    error: Some(format!("Failed to begin transaction: {}", e)),
-                    failed_changes: vec![],
-                });
-            }
-        }
-
-        for (idx, change) in changes.iter().enumerate() {
-            let result = apply_single_change(&driver, session, change).await;
-            match result {
-                Ok(_) => {
-                    applied_count += 1;
-
-                    if changelog_store.should_capture(&change.table_name, &environment) {
-                        let operation = match change.change_type {
-                            SandboxChangeType::Insert => ChangeOperation::Insert,
-                            SandboxChangeType::Update => ChangeOperation::Update,
-                            SandboxChangeType::Delete => ChangeOperation::Delete,
-                        };
-                        let pk_data = change.primary_key.clone().unwrap_or_else(|| RowData {
-                            columns: change.new_values.clone().unwrap_or_default(),
-                        });
-                        let before = change.old_values.as_ref().map(|v| {
-                            v.iter()
-                                .map(|(k, v)| (k.clone(), value_to_json_pub(v)))
-                                .collect()
-                        });
-                        let after = change.new_values.as_ref().map(|v| {
-                            v.iter()
-                                .map(|(k, v)| (k.clone(), value_to_json_pub(v)))
-                                .collect()
-                        });
-                        let entry = build_changelog_entry(
-                            &session_id,
-                            driver.driver_id(),
-                            &change.namespace,
-                            &change.table_name,
-                            operation,
-                            &pk_data,
-                            before,
-                            after,
-                            None,
-                            &environment,
-                        );
-                        changelog_store.record(entry);
-                    }
-                }
-                Err(e) => {
-                    failed_changes.push(super::FailedChange {
-                        index: idx,
-                        error: e.clone(),
-                    });
-                    if use_transaction && supports_tx {
-                        if let Err(rb_err) = driver.rollback(session).await {
-                            return Ok(ApplySandboxResponse {
-                                success: false,
-                                applied_count,
-                                error: Some(format!(
-                                    "Change {} failed: {}. Rollback also failed: {}",
-                                    idx + 1,
-                                    e,
-                                    rb_err
-                                )),
-                                failed_changes,
-                            });
-                        }
-                        return Ok(ApplySandboxResponse {
-                            success: false,
-                            applied_count,
-                            error: Some(format!(
-                                "Change {} failed: {}. Transaction rolled back.",
-                                idx + 1,
-                                e
-                            )),
-                            failed_changes,
-                        });
-                    }
-                }
-            }
-        }
-
-        if use_transaction && supports_tx && failed_changes.is_empty() {
-            if let Err(e) = driver.commit(session).await {
-                return Ok(ApplySandboxResponse {
-                    success: false,
-                    applied_count,
-                    error: Some(format!("Failed to commit transaction: {}", e)),
-                    failed_changes,
-                });
-            }
-        }
-
-        Ok(ApplySandboxResponse {
-            success: failed_changes.is_empty(),
-            applied_count,
-            error: if failed_changes.is_empty() {
-                None
-            } else {
-                Some(format!("{} change(s) failed", failed_changes.len()))
-            },
-            failed_changes,
-        })
-    }
-
-    async fn apply_single_change(
-        driver: &Arc<dyn crate::engine::traits::DataEngine>,
-        session: SessionId,
-        change: &SandboxChangeDto,
-    ) -> Result<(), String> {
-        match change.change_type {
-            SandboxChangeType::Insert => {
-                let new_values = change
-                    .new_values
-                    .as_ref()
-                    .ok_or_else(|| "INSERT missing new_values".to_string())?;
-                let data = RowData {
-                    columns: new_values.clone(),
-                };
-                let result = driver
-                    .insert_row(session, &change.namespace, &change.table_name, &data)
-                    .await
-                    .map_err(|e| e.sanitized_message())?;
-                if matches!(result.affected_rows, Some(0)) {
-                    return Err("Insert affected 0 rows (possible conflict)".to_string());
-                }
-                Ok(())
-            }
-            SandboxChangeType::Update => {
-                let pk = change
-                    .primary_key
-                    .as_ref()
-                    .ok_or_else(|| "UPDATE missing primary_key".to_string())?;
-                let new_values = change
-                    .new_values
-                    .as_ref()
-                    .ok_or_else(|| "UPDATE missing new_values".to_string())?;
-                let data = RowData {
-                    columns: new_values.clone(),
-                };
-                let result = driver
-                    .update_row(session, &change.namespace, &change.table_name, pk, &data)
-                    .await
-                    .map_err(|e| e.sanitized_message())?;
-                if matches!(result.affected_rows, Some(0)) {
-                    return Err("Update affected 0 rows (possible conflict)".to_string());
-                }
-                Ok(())
-            }
-            SandboxChangeType::Delete => {
-                let pk = change
-                    .primary_key
-                    .as_ref()
-                    .ok_or_else(|| "DELETE missing primary_key".to_string())?;
-                let result = driver
-                    .delete_row(session, &change.namespace, &change.table_name, pk)
-                    .await
-                    .map_err(|e| e.sanitized_message())?;
-                if matches!(result.affected_rows, Some(0)) {
-                    return Err("Delete affected 0 rows (possible conflict)".to_string());
-                }
-                Ok(())
-            }
-        }
+            .map_err(|e| e.sanitized_message())?;
+        let capture_indices: Vec<_> = changes
+            .iter()
+            .enumerate()
+            .filter(|(_, change)| changelog_store.should_capture(&change.table_name, &environment))
+            .map(|(index, _)| index)
+            .collect();
+        let result = qore_service::mutation::batch::apply_batch_with_capture(
+            &session_manager,
+            &interceptor,
+            &query_cache,
+            session,
+            &changes,
+            use_transaction,
+            acknowledged_dangerous.unwrap_or(false),
+            &capture_indices,
+        )
+        .await;
+        capture_confirmed_batch(
+            &changelog_store,
+            &session_id,
+            driver.driver_id(),
+            workspace_id.as_deref(),
+            connection_identity.as_ref().map(|(id, _)| id.as_str()),
+            connection_identity.as_ref().map(|(_, name)| name.as_str()),
+            &environment,
+            &changes,
+            &result,
+            session_manager
+                .masking(session)
+                .await
+                .as_ref()
+                .map(|masking| &masking.config),
+        );
+        Ok(result)
     }
 }
 

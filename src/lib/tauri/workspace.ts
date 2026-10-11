@@ -74,12 +74,15 @@ export interface WorkspaceQueryLibrary {
   items: unknown[];
 }
 
-export async function wsGetQueryLibrary(): Promise<WorkspaceQueryLibrary | null> {
-  return invoke('ws_get_query_library');
+export async function wsGetQueryLibrary(projectId: string): Promise<WorkspaceQueryLibrary | null> {
+  return invoke('ws_get_query_library', { projectId });
 }
 
-export async function wsSaveQueryLibrary(library: WorkspaceQueryLibrary): Promise<boolean> {
-  return invoke('ws_save_query_library', { library });
+export async function wsSaveQueryLibrary(
+  library: WorkspaceQueryLibrary,
+  projectId: string
+): Promise<boolean> {
+  return invoke('ws_save_query_library', { library, projectId });
 }
 
 export async function importDefaultConnections(): Promise<number> {

@@ -99,6 +99,7 @@ async fn captures(
 
 #[derive(Debug, Deserialize)]
 pub struct StartRecordingRequest {
+    pub project_id: String,
     pub session_id: String,
     pub name: String,
     #[serde(default)]
@@ -160,15 +161,18 @@ pub async fn replay_start_recording(
         .await
         .unwrap_or_else(|_| "development".to_string());
     let connection_label = session_manager.connection_key(session).await;
-    let (project, workspace_path) = {
-        let mgr = ws_manager.lock().await;
-        (mgr.project_id(), mgr.active().path.clone())
-    };
-    // One place governs both the audit log and what a set flags.
     let secret_patterns = {
         let guard = state.lock().await;
         guard.interceptor.get_config().redaction_patterns
     };
+    let mgr = ws_manager.lock().await;
+    let project = mgr.project_id();
+    require_recording_workspace(&request.project_id, &project)?;
+    let workspace_path = mgr.active().path.clone();
+    session_manager
+        .require_workspace(session, &project)
+        .await
+        .map_err(|e| e.sanitized_message())?;
 
     let defaults = ReplayRunOptions::default();
     replay.recorder.start(
@@ -196,21 +200,42 @@ pub async fn replay_start_recording(
     )
 }
 
+fn require_recording_workspace(expected: &str, active: &str) -> Result<(), String> {
+    if expected != active {
+        return Err("Recording workspace is no longer active".into());
+    }
+    Ok(())
+}
+
 #[tauri::command]
 pub async fn replay_recording_status(
     state: State<'_, crate::SharedState>,
+    ws_manager: State<'_, SharedWorkspaceManager>,
+    project_id: String,
 ) -> Result<Option<RecordingStatus>, String> {
-    Ok(replay_state(&state).await.recorder.status())
+    let replay = replay_state(&state).await;
+    let mgr = ws_manager.lock().await;
+    if mgr.project_id() != project_id {
+        return Ok(None);
+    }
+    Ok(replay.recorder.status(&project_id))
 }
 
 #[tauri::command]
 pub async fn replay_recorded_previews(
     state: State<'_, crate::SharedState>,
+    ws_manager: State<'_, SharedWorkspaceManager>,
+    project_id: String,
+    run_id: String,
 ) -> Result<Vec<RecordedPreview>, String> {
-    Ok(replay_state(&state)
-        .await
+    let replay = replay_state(&state).await;
+    let mgr = ws_manager.lock().await;
+    if mgr.project_id() != project_id {
+        return Ok(Vec::new());
+    }
+    Ok(replay
         .recorder
-        .recorded_previews()
+        .recorded_previews(&project_id, &run_id)
         .into_iter()
         .map(
             |(order, query_preview, is_mutation, looks_like_secret)| RecordedPreview {
@@ -226,106 +251,102 @@ pub async fn replay_recorded_previews(
 #[tauri::command]
 pub async fn replay_discard_recorded(
     state: State<'_, crate::SharedState>,
+    ws_manager: State<'_, SharedWorkspaceManager>,
+    project_id: String,
+    run_id: String,
     index: usize,
 ) -> Result<(), String> {
     let replay = replay_state(&state).await;
-    let captures = replay
-        .captures_for_recording()
-        .ok_or_else(|| "No recording in progress".to_string())?;
-    replay.recorder.discard_preview(index, &captures)
+    let mgr = ws_manager.lock().await;
+    require_recording_workspace(&project_id, &mgr.project_id())?;
+    let captures = replay.captures(&project_id)?;
+    replay
+        .recorder
+        .discard_preview(&project_id, &run_id, index, &captures)
 }
 
-/// Drops every mutation recorded so far, and the rows captured for them.
 #[tauri::command]
 pub async fn replay_discard_mutations(
     state: State<'_, crate::SharedState>,
+    ws_manager: State<'_, SharedWorkspaceManager>,
+    project_id: String,
+    run_id: String,
 ) -> Result<usize, String> {
     let replay = replay_state(&state).await;
-    let captures = replay
-        .captures_for_recording()
-        .ok_or_else(|| "No recording in progress".to_string())?;
-    replay.recorder.discard_mutations(&captures)
+    let mgr = ws_manager.lock().await;
+    require_recording_workspace(&project_id, &mgr.project_id())?;
+    let captures = replay.captures(&project_id)?;
+    replay
+        .recorder
+        .discard_mutations(&project_id, &run_id, &captures)
 }
 
 #[tauri::command]
-pub async fn replay_cancel_recording(state: State<'_, crate::SharedState>) -> Result<(), String> {
+pub async fn replay_cancel_recording(
+    state: State<'_, crate::SharedState>,
+    ws_manager: State<'_, SharedWorkspaceManager>,
+    project_id: String,
+    run_id: String,
+) -> Result<(), String> {
     let replay = replay_state(&state).await;
-    // The recording's own workspace, not the active one: the user may have
-    // switched in the meantime.
-    let project = replay.recorder.project_id();
-    if let Some(run_id) = replay.recorder.cancel()
-        && let Some(captures) = project.and_then(|p| replay.captures(&p).ok())
-    {
-        let _ = captures.delete_run(&run_id);
-    }
-    Ok(())
+    let mgr = ws_manager.lock().await;
+    require_recording_workspace(&project_id, &mgr.project_id())?;
+    let captures = replay.captures(&project_id)?;
+    replay
+        .recorder
+        .cancel(&project_id, &run_id, |id| captures.delete_run(id))
 }
 
 /// Ends the recording, writes the set to `.qoredb/replays/` and keeps its
 /// captured rows as the baseline run.
 #[tauri::command]
-#[instrument(skip(state, write_registry))]
+#[instrument(skip(state, ws_manager, write_registry))]
 pub async fn replay_stop_recording(
     state: State<'_, crate::SharedState>,
+    ws_manager: State<'_, SharedWorkspaceManager>,
+    project_id: String,
+    run_id: String,
     write_registry: State<'_, WriteRegistry>,
     slug: Option<String>,
 ) -> Result<ReplaySetSummary, String> {
     let replay = replay_state(&state).await;
-    let captures = replay
-        .captures_for_recording()
-        .ok_or_else(|| "No recording in progress".to_string())?;
-
-    // Everything that can refuse the save is checked before the recording is
-    // consumed: taking the entries out of the recorder is irreversible, and a
-    // name clash must not cost the user their session.
-    let (workspace_path, name) = replay
+    let mgr = ws_manager.lock().await;
+    require_recording_workspace(&project_id, &mgr.project_id())?;
+    replay
         .recorder
-        .destination()
-        .ok_or_else(|| "No recording in progress".to_string())?;
-
-    if replay.recorder.entry_count() == 0 {
-        return Err("Nothing was recorded".to_string());
-    }
-
-    let slug = match slug {
-        Some(slug) => {
-            crate::replay::validate_slug(&slug)?;
-            slug
-        }
-        None => slugify(&name)?,
-    };
-
-    // The set belongs to the workspace the recording started in, next to the
-    // captures it was recorded with — not to whichever one is active now.
-    let store = ReplaySetStore::new(&workspace_path);
-    let path = store.path_for(&slug)?;
-    if path.exists() {
-        return Err(format!("A replay set named '{slug}' already exists"));
-    }
-
-    let (set, mut run) = replay
-        .recorder
-        .stop()
-        .ok_or_else(|| "No recording in progress".to_string())?;
-
-    write_registry.register_with_auto_unregister(path);
-    if let Err(e) = store.create(&slug, &set) {
-        let _ = captures.delete_run(&run.run_id);
-        return Err(e);
-    }
-
-    run.set_slug = slug.clone();
-    captures.save_run_meta(&run)?;
-
-    Ok(ReplaySetSummary {
-        slug,
-        name: set.name,
-        created_at: set.created_at,
-        driver_id: set.source.driver_id,
-        environment: set.source.environment,
-        entry_count: set.entries.len(),
-        redacted: set.redacted,
-    })
+        .finish(&project_id, &run_id, |workspace_path, set, mut run| {
+            if set.entries.is_empty() {
+                return Err("Nothing was recorded".into());
+            }
+            let slug = match slug {
+                Some(slug) => {
+                    crate::replay::validate_slug(&slug)?;
+                    slug
+                }
+                None => slugify(&set.name)?,
+            };
+            let store = ReplaySetStore::new(workspace_path);
+            let path = store.path_for(&slug)?;
+            if path.try_exists().map_err(|e| e.to_string())? {
+                return Err(format!("A replay set named '{slug}' already exists"));
+            }
+            let captures = replay.captures(&run.project_id)?;
+            run.set_slug = slug.clone();
+            // Publish the baseline before the set can refer to it. Any error keeps
+            // the live recording and its captures available for another attempt.
+            captures.save_run_meta(&run)?;
+            write_registry.register_with_auto_unregister(path);
+            store.create(&slug, set)?;
+            Ok(ReplaySetSummary {
+                slug,
+                name: set.name.clone(),
+                created_at: set.created_at.clone(),
+                driver_id: set.source.driver_id.clone(),
+                environment: set.source.environment.clone(),
+                entry_count: set.entries.len(),
+                redacted: set.redacted,
+            })
+        })
 }
 
 #[tauri::command]
@@ -366,19 +387,13 @@ pub async fn replay_set_ignored_columns(
     slug: String,
     columns: Vec<String>,
 ) -> Result<ReplaySet, String> {
-    let store = set_store(&ws_manager).await;
+    let replay = replay_state(&state).await;
+    let mgr = ws_manager.lock().await;
+    let store = ReplaySetStore::new(&mgr.active().path);
     let mut set = store.load(&slug)?;
     set.ignored_columns = columns;
-
-    // The recorded digests were computed with the old column list. Left as
-    // they are, an unchanged query would come back as a content difference —
-    // so they are recomputed from the baseline capture, or dropped when there
-    // is none to recompute from.
-    let captures = captures(&state, &ws_manager).await?;
-    let baseline = captures
-        .list_runs(&slug)?
-        .into_iter()
-        .find(|run| run.is_baseline);
+    let captures = replay.captures(&mgr.project_id())?;
+    let baseline = captures.baseline_for_set(&slug, &set)?;
     let ignored = set.ignored_columns.clone();
     for entry in &mut set.entries {
         entry.expected.result_digest = baseline.as_ref().and_then(|run| {
@@ -441,56 +456,34 @@ pub async fn replay_accept_run(
         return Err(REQUIRES_PRO.to_string());
     }
 
-    let captures = captures(&state, &ws_manager).await?;
-    let report = captures.load_report(&request.run_id)?;
-    if report.run.set_slug != request.slug {
-        return Err("That run belongs to another replay set".to_string());
+    let replay = replay_state(&state).await;
+    if replay
+        .running
+        .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
+        .is_err()
+    {
+        return Err("A replay is already running".into());
     }
-
-    let store = set_store(&ws_manager).await;
-    let mut set = store.load(&request.slug)?;
-
-    let observed: std::collections::HashMap<&str, &crate::replay::types::ReplayEntryResult> =
-        report.results.iter().map(|r| (r.entry_id.as_str(), r)).collect();
-    let wanted = request.entry_ids.as_ref();
-    let baseline = captures
-        .list_runs(&request.slug)?
-        .into_iter()
-        .find(|run| run.is_baseline)
-        .map(|run| run.run_id);
-
-    let mut accepted = 0usize;
-    for entry in &mut set.entries {
-        if wanted.is_some_and(|ids| !ids.contains(&entry.id)) {
-            continue;
-        }
-        let Some(result) = observed.get(entry.id.as_str()) else {
-            continue;
-        };
-        // An entry the run never executed has nothing to promote.
-        if result.verdict == crate::replay::types::ReplayVerdict::Skipped {
-            continue;
-        }
-        entry.expected.execution_time_ms = result.execution_time_ms;
-        entry.expected.row_count = result.row_count;
-        entry.expected.success = result.success;
-        entry.expected.result_digest = result.digest.clone();
-        if let Some(baseline_run) = baseline.as_deref()
-            && baseline_run != request.run_id
-        {
-            let _ = captures.adopt_entry(&request.run_id, baseline_run, &entry.id);
-        }
-        accepted += 1;
+    let outcome = async {
+        // Capture paths and the set must come from one workspace snapshot. Hold
+        // it through the short synchronous publication, so another command
+        // cannot observe a half-prepared reference or switch its destination.
+        let mgr = ws_manager.lock().await;
+        let captures = replay.captures(&mgr.project_id())?;
+        let store = ReplaySetStore::new(&mgr.active().path);
+        let set = store.load(&request.slug)?;
+        write_registry.register_with_auto_unregister(store.path_for(&request.slug)?);
+        captures.accept_run(
+            set,
+            &request.slug,
+            &request.run_id,
+            request.entry_ids.as_deref(),
+            |set| store.save(&request.slug, set).map(|_| ()),
+        )
     }
-
-    if accepted == 0 {
-        return Err("That run has nothing to accept for this set".to_string());
-    }
-
-    let path = store.path_for(&request.slug)?;
-    write_registry.register_with_auto_unregister(path);
-    store.save(&request.slug, &set)?;
-    Ok(set)
+    .await;
+    replay.running.store(false, Ordering::SeqCst);
+    outcome
 }
 
 #[tauri::command]
@@ -519,30 +512,13 @@ pub async fn replay_load_capture(
 /// The most recent report for a set, so reopening the tab shows the last run
 /// instead of an empty panel. An A/B comparison is returned as such: it is not
 /// a run against the recording and must not be shown as one.
-#[derive(Debug, Serialize)]
-pub struct LastReport {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub report: Option<ReplayReport>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub ab: Option<ReplayAbReport>,
-}
-
 #[tauri::command]
 pub async fn replay_last_report(
     state: State<'_, crate::SharedState>,
     ws_manager: State<'_, SharedWorkspaceManager>,
     slug: String,
-) -> Result<LastReport, String> {
-    let captures = captures(&state, &ws_manager).await?;
-    let ab = captures.latest_ab_report(&slug)?;
-    Ok(LastReport {
-        report: if ab.is_some() {
-            None
-        } else {
-            captures.latest_report(&slug)?
-        },
-        ab,
-    })
+) -> Result<crate::replay::capture::LastReport, String> {
+    captures(&state, &ws_manager).await?.last_report(&slug)
 }
 
 #[derive(Debug, Deserialize)]
@@ -591,15 +567,18 @@ async fn run_replay_inner(
     app: &tauri::AppHandle,
     request: RunReplayRequest,
 ) -> Result<ReplayReport, String> {
-    let set = set_store(ws_manager).await.load(&request.slug)?;
-    let project = project_id(ws_manager).await;
+    let (set, project) = {
+        let mgr = ws_manager.lock().await;
+        (
+            ReplaySetStore::new(&mgr.active().path).load(&request.slug)?,
+            mgr.project_id(),
+        )
+    };
     let captures = replay.captures(&project)?;
 
-    let runs = captures.list_runs(&request.slug)?;
-    let recording_run = runs
-        .iter()
-        .find(|run| run.is_baseline)
-        .map(|r| r.run_id.clone());
+    let recording_run = captures
+        .baseline_for_set(&request.slug, &set)?
+        .map(|run| run.run_id);
     let baseline_run_id = request.baseline_run_id.clone().or(recording_run.clone());
 
     // Comparing against a previous run means classifying against what that run
@@ -697,8 +676,13 @@ async fn run_ab_inner(
     app: &tauri::AppHandle,
     request: RunAbRequest,
 ) -> Result<ReplayAbReport, String> {
-    let set = set_store(ws_manager).await.load(&request.slug)?;
-    let project = project_id(ws_manager).await;
+    let (set, project) = {
+        let mgr = ws_manager.lock().await;
+        (
+            ReplaySetStore::new(&mgr.active().path).load(&request.slug)?,
+            mgr.project_id(),
+        )
+    };
     let captures = replay.captures(&project)?;
     let left = parse_session_id(&request.left_session_id)?;
     let right = parse_session_id(&request.right_session_id)?;

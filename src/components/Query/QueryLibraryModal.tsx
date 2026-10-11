@@ -13,7 +13,7 @@ import {
   Upload,
   X,
 } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { UpgradePrompt } from '@/components/License/UpgradePrompt';
@@ -41,12 +41,18 @@ import {
   type QueryFolder,
   type QueryLibraryExportV1,
   type QueryLibraryItem,
+  subscribeQueryLibrary,
+  syncWorkspaceLibrary,
   updateItem,
 } from '@/lib/query/queryLibrary';
 import { confirmDialog } from '@/lib/stores/confirmStore';
+import { getWorkspaceState, useWorkspaceStore } from '@/lib/stores/workspaceStore';
 import { cn } from '@/lib/utils';
 import { useLicense } from '@/providers/LicenseProvider';
-import { QueryVariablesPrompt } from './QueryVariablesPrompt';
+
+const QueryVariablesPrompt = lazy(() =>
+  import('./QueryVariablesPrompt').then(module => ({ default: module.QueryVariablesPrompt }))
+);
 
 interface QueryLibraryModalProps {
   isOpen: boolean;
@@ -69,9 +75,35 @@ function formatTime(timestamp: number): string {
   return date.toLocaleDateString();
 }
 
-export function QueryLibraryModal({ isOpen, onClose, onSelectQuery }: QueryLibraryModalProps) {
+export function QueryLibraryModal(props: QueryLibraryModalProps) {
+  const projectId = useWorkspaceStore(state => state.projectId);
+  return <WorkspaceQueryLibraryModal key={projectId} {...props} projectId={projectId} />;
+}
+
+function WorkspaceQueryLibraryModal({
+  isOpen,
+  onClose,
+  onSelectQuery,
+  projectId,
+}: QueryLibraryModalProps & { projectId: string }) {
+  const scope = useRef(0);
+  useEffect(() => {
+    if (!isOpen) scope.current++;
+    return () => {
+      scope.current++;
+    };
+  }, [isOpen]);
+
+  function isCurrent(generation = scope.current) {
+    const workspace = getWorkspaceState();
+    return (
+      generation === scope.current && workspace.projectId === projectId && !workspace.isLoading
+    );
+  }
+
   const { t } = useTranslation();
   const { isFeatureEnabled } = useLicense();
+  const [readError, setReadError] = useState(false);
   const [folders, setFolders] = useState<QueryFolder[]>([]);
   const [items, setItems] = useState<QueryLibraryItem[]>([]);
   const [folderFilter, setFolderFilter] = useState<string>('__all__');
@@ -101,21 +133,34 @@ export function QueryLibraryModal({ isOpen, onClose, onSelectQuery }: QueryLibra
   }, [favoritesOnly, folderFilter, search, tag]);
 
   const reload = useCallback(() => {
-    setFolders(listFolders());
-    setItems(listItems(listOptions));
+    try {
+      setFolders(listFolders());
+      setItems(listItems(listOptions));
+      setReadError(false);
+    } catch {
+      setFolders([]);
+      setItems([]);
+      setReadError(true);
+    }
   }, [listOptions]);
 
   useEffect(() => {
     if (!isOpen) return;
     reload();
+    return subscribeQueryLibrary(reload);
   }, [isOpen, reload]);
 
-  useEffect(() => {
-    if (!isOpen) return;
-    setItems(listItems(listOptions));
-  }, [isOpen, listOptions]);
+  async function refresh() {
+    try {
+      await syncWorkspaceLibrary();
+    } catch {
+      toast.error(t('library.updateError'));
+    }
+    reload();
+  }
 
   function handleCreateFolder() {
+    if (!isCurrent()) return;
     try {
       const created = createFolder(newFolderName);
       setNewFolderName('');
@@ -130,6 +175,8 @@ export function QueryLibraryModal({ isOpen, onClose, onSelectQuery }: QueryLibra
   }
 
   async function handleDeleteFolder() {
+    const generation = scope.current;
+    if (!isCurrent(generation)) return;
     if (folderFilter === '__all__' || folderFilter === '__none__') return;
     const folderName = folderById.get(folderFilter)?.name ?? '';
     if (
@@ -138,19 +185,26 @@ export function QueryLibraryModal({ isOpen, onClose, onSelectQuery }: QueryLibra
       }))
     )
       return;
-    deleteFolder(folderFilter);
-    setFolderFilter('__all__');
-    reload();
+    try {
+      if (!isCurrent(generation)) return;
+      deleteFolder(folderFilter);
+      setFolderFilter('__all__');
+      reload();
+    } catch {
+      toast.error(t('library.updateError'));
+    }
   }
 
   async function handleExport() {
+    const generation = scope.current;
+    if (!isCurrent(generation)) return;
     try {
       const payload = exportLibrary({ redact: redactOnExport });
       const filePath = await save({
         defaultPath: 'qoredb-query-library.json',
         filters: [{ name: 'JSON', extensions: ['json'] }],
       });
-      if (!filePath) return;
+      if (!filePath || !isCurrent(generation)) return;
       await writeTextFile(filePath, JSON.stringify(payload, null, 2));
       const name = filePath.split(/[\\/]/).pop() || filePath;
       toast.success(t('library.exportSuccess', { name }));
@@ -162,13 +216,16 @@ export function QueryLibraryModal({ isOpen, onClose, onSelectQuery }: QueryLibra
   }
 
   async function handleImport() {
+    const generation = scope.current;
+    if (!isCurrent(generation)) return;
     try {
       const filePath = await openDialog({
         multiple: false,
         filters: [{ name: 'JSON', extensions: ['json'] }],
       });
-      if (!filePath || Array.isArray(filePath)) return;
+      if (!filePath || Array.isArray(filePath) || !isCurrent(generation)) return;
       const raw = await readTextFile(filePath);
+      if (!isCurrent(generation)) return;
       const parsed = JSON.parse(raw) as QueryLibraryExportV1;
       const result = importLibrary(parsed);
       reload();
@@ -186,6 +243,7 @@ export function QueryLibraryModal({ isOpen, onClose, onSelectQuery }: QueryLibra
   }
 
   function handleToggleFavorite(item: QueryLibraryItem) {
+    if (!isCurrent()) return;
     try {
       updateItem(item.id, { isFavorite: !item.isFavorite });
       reload();
@@ -197,15 +255,23 @@ export function QueryLibraryModal({ isOpen, onClose, onSelectQuery }: QueryLibra
   }
 
   async function handleDeleteItem(item: QueryLibraryItem) {
+    const generation = scope.current;
+    if (!isCurrent(generation)) return;
     if (
       !(await confirmDialog({ description: t('library.deleteItemConfirm', { title: item.title }) }))
     )
       return;
-    deleteItem(item.id);
-    reload();
+    try {
+      if (!isCurrent(generation)) return;
+      deleteItem(item.id);
+      reload();
+    } catch {
+      toast.error(t('library.updateError'));
+    }
   }
 
   function handleUseItem(item: QueryLibraryItem) {
+    if (!isCurrent()) return;
     if (extractVariableReferences(item.query).length > 0) {
       setVarPromptItem(item);
       return;
@@ -316,7 +382,7 @@ export function QueryLibraryModal({ isOpen, onClose, onSelectQuery }: QueryLibra
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={reload}
+                onClick={refresh}
                 className="h-8 w-8"
                 aria-label={t('library.refresh')}
               >
@@ -329,6 +395,7 @@ export function QueryLibraryModal({ isOpen, onClose, onSelectQuery }: QueryLibra
                 variant="ghost"
                 size="icon"
                 onClick={handleImport}
+                disabled={readError}
                 className="h-8 w-8"
                 aria-label={t('library.import')}
               >
@@ -340,6 +407,7 @@ export function QueryLibraryModal({ isOpen, onClose, onSelectQuery }: QueryLibra
                 variant="ghost"
                 size="icon"
                 onClick={handleExport}
+                disabled={readError}
                 className="h-8 w-8"
                 aria-label={t('library.export')}
               >
@@ -359,7 +427,7 @@ export function QueryLibraryModal({ isOpen, onClose, onSelectQuery }: QueryLibra
               variant="outline"
               size="sm"
               onClick={handleCreateFolder}
-              disabled={!newFolderName.trim()}
+              disabled={readError || !newFolderName.trim()}
               className="h-8"
             >
               <FolderPlus size={14} className="mr-1" />
@@ -385,7 +453,11 @@ export function QueryLibraryModal({ isOpen, onClose, onSelectQuery }: QueryLibra
           </div>
 
           <div className="flex-1 overflow-auto">
-            {items.length === 0 ? (
+            {readError ? (
+              <div role="alert" className="p-4 text-sm text-error">
+                {t('library.invalidData')}
+              </div>
+            ) : items.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-48 text-muted-foreground">
                 <Folder size={32} className="mb-2 opacity-50" />
                 <p className="text-sm">{t('library.empty')}</p>
@@ -443,7 +515,7 @@ export function QueryLibraryModal({ isOpen, onClose, onSelectQuery }: QueryLibra
                       )}
                     </div>
 
-                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
                       <Button
                         variant="ghost"
                         size="icon"
@@ -471,20 +543,23 @@ export function QueryLibraryModal({ isOpen, onClose, onSelectQuery }: QueryLibra
         </div>
       </div>
       {varPromptItem && (
-        <QueryVariablesPrompt
-          open={!!varPromptItem}
-          onOpenChange={open => {
-            if (!open) setVarPromptItem(null);
-          }}
-          title={varPromptItem.title}
-          query={varPromptItem.query}
-          variables={varPromptItem.variables}
-          onSubmit={resolved => {
-            onSelectQuery(resolved);
-            setVarPromptItem(null);
-            onClose();
-          }}
-        />
+        <Suspense fallback={null}>
+          <QueryVariablesPrompt
+            open={!!varPromptItem}
+            onOpenChange={open => {
+              if (!open) setVarPromptItem(null);
+            }}
+            title={varPromptItem.title}
+            query={varPromptItem.query}
+            variables={varPromptItem.variables}
+            onSubmit={resolved => {
+              if (!isCurrent()) return;
+              onSelectQuery(resolved);
+              setVarPromptItem(null);
+              onClose();
+            }}
+          />
+        </Suspense>
       )}
     </>
   );

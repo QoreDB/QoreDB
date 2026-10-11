@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { Check, Link2, Loader2, X } from 'lucide-react';
-import { type FormEvent, useCallback, useEffect, useId, useState } from 'react';
+import { type FormEvent, useCallback, useEffect, useId, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { ProductionConfirmDialog } from '@/components/Guard/ProductionConfirmDialog';
@@ -21,8 +21,10 @@ import { DRIVER_ICONS, DRIVER_LABELS } from '@/lib/connection/drivers';
 import { emitUiEvent, UI_EVENT_CONNECTIONS_CHANGED } from '@/lib/events/uiEvents';
 import { getDriverDocsPath } from '@/lib/externalLinks';
 import { EMPTY_MASKING, normalizeMasking, removesMasking } from '@/lib/masking';
+import { captureWorkspaceScope, useWorkspaceStore } from '@/lib/stores/workspaceStore';
 import {
   connectSavedConnection,
+  disconnect,
   type SavedConnection,
   saveConnection,
   testConnection,
@@ -60,6 +62,26 @@ export function ConnectionModal({
   onSaved,
 }: ConnectionModalProps) {
   const { t } = useTranslation();
+  const projectId = useWorkspaceStore(state => state.projectId);
+  const [origin, setOrigin] = useState(projectId);
+  const lifecycle = useRef(0);
+  useEffect(() => {
+    if (!isOpen) setOrigin(projectId);
+    else if (origin !== projectId) onClose();
+  }, [isOpen, origin, projectId, onClose]);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: Closing or switching projects invalidates pending operations.
+  useEffect(
+    () => () => {
+      lifecycle.current += 1;
+    },
+    [isOpen, projectId]
+  );
+  function captureOperation() {
+    const generation = lifecycle.current;
+    const inWorkspace = captureWorkspaceScope(projectId);
+    return () =>
+      isOpen && origin === projectId && generation === lifecycle.current && inWorkspace();
+  }
   const {
     formData,
     handleChange: setField,
@@ -169,15 +191,20 @@ export function ConnectionModal({
   }
 
   async function handleSaveAndConnect() {
+    const isCurrent = captureOperation();
+    if (!isCurrent()) return;
     setConnecting(true);
     setError(null);
 
     try {
       const connectionId = editConnection?.id || `conn_${Date.now()}`;
-      const savedConnection = buildSavedConnection(formData, connectionId);
+      const savedConnection = buildSavedConnection(formData, connectionId, projectId);
       // Vault and keyring failures come back as `{success:false}`, not a throw.
-      const saveResult = await saveConnection(buildSaveConnectionInput(formData, connectionId));
+      const saveResult = await saveConnection(
+        buildSaveConnectionInput(formData, connectionId, projectId)
+      );
 
+      if (!isCurrent()) return;
       if (!saveResult.success) {
         setError(saveResult.error || t('connection.saveFail'));
         toast.error(t('connection.saveFail'), { description: saveResult.error });
@@ -191,8 +218,16 @@ export function ConnectionModal({
         onSaved?.(savedConnection);
         requestClose();
       } else {
-        const connectResult = await connectSavedConnection('default', connectionId);
+        const connectResult = await connectSavedConnection(projectId, connectionId);
 
+        if (!isCurrent()) {
+          if (connectResult.session_id) {
+            await disconnect(connectResult.session_id).catch(() => {
+              console.warn('Failed to close a connection opened after its form became inactive.');
+            });
+          }
+          return;
+        }
         if (connectResult.success && connectResult.session_id) {
           toast.success(t('connection.connectedSuccess'));
           onConnected(connectResult.session_id, savedConnection);
@@ -205,23 +240,29 @@ export function ConnectionModal({
         }
       }
     } catch (err) {
+      if (!isCurrent()) return;
       const errorMsg = err instanceof Error ? err.message : t('common.error');
       setError(errorMsg);
       toast.error(t('common.error'), { description: errorMsg });
     } finally {
-      setConnecting(false);
+      if (isCurrent()) setConnecting(false);
     }
   }
 
   async function handleSaveOnly() {
+    const isCurrent = captureOperation();
+    if (!isCurrent()) return;
     setConnecting(true);
     setError(null);
 
     try {
       const connectionId = editConnection?.id || `conn_${Date.now()}`;
-      const savedConnection = buildSavedConnection(formData, connectionId);
-      const saveResult = await saveConnection(buildSaveConnectionInput(formData, connectionId));
+      const savedConnection = buildSavedConnection(formData, connectionId, projectId);
+      const saveResult = await saveConnection(
+        buildSaveConnectionInput(formData, connectionId, projectId)
+      );
 
+      if (!isCurrent()) return;
       if (!saveResult.success) {
         setError(saveResult.error || t('connection.saveFail'));
         toast.error(t('connection.saveFail'), { description: saveResult.error });
@@ -233,11 +274,12 @@ export function ConnectionModal({
       onSaved?.(savedConnection);
       requestClose();
     } catch (err) {
+      if (!isCurrent()) return;
       const errorMsg = err instanceof Error ? err.message : t('common.error');
       setError(errorMsg);
       toast.error(t('common.error'), { description: errorMsg });
     } finally {
-      setConnecting(false);
+      if (isCurrent()) setConnecting(false);
     }
   }
 

@@ -18,6 +18,14 @@ const RUN_META_FILE: &str = "run.json";
 const REPORT_FILE: &str = "report.json";
 const AB_REPORT_FILE: &str = "report-ab.json";
 
+#[derive(Debug, serde::Serialize)]
+pub struct LastReport {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub report: Option<super::types::ReplayReport>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ab: Option<super::types::ReplayAbReport>,
+}
+
 pub struct CaptureStore {
     root: PathBuf,
 }
@@ -42,6 +50,42 @@ fn validate_project_id(project_id: &str) -> Result<(), String> {
 }
 
 impl CaptureStore {
+    /// Read the newest available report, preserving its comparison kind.
+    pub fn last_report(&self, slug: &str) -> Result<LastReport, String> {
+        for run in self.list_runs(slug)? {
+            if run.is_baseline {
+                continue;
+            }
+            let dir = self.run_dir(&run.run_id)?;
+            // Both files exist for an A/B right side. Its combined report wins
+            // only within that run, never over a newer ordinary replay.
+            if dir
+                .join(AB_REPORT_FILE)
+                .try_exists()
+                .map_err(|e| e.to_string())?
+            {
+                return Ok(LastReport {
+                    report: None,
+                    ab: Some(self.load_ab_report(&run.run_id)?),
+                });
+            }
+            if dir
+                .join(REPORT_FILE)
+                .try_exists()
+                .map_err(|e| e.to_string())?
+            {
+                return Ok(LastReport {
+                    report: Some(self.load_report(&run.run_id)?),
+                    ab: None,
+                });
+            }
+        }
+        Ok(LastReport {
+            report: None,
+            ab: None,
+        })
+    }
+
     pub fn new(root: PathBuf) -> Self {
         let _ = fs::create_dir_all(&root);
         Self { root }
@@ -127,38 +171,6 @@ impl CaptureStore {
         serde_json::from_str(&content).map_err(|e| format!("Failed to parse report: {}", e))
     }
 
-    /// The most recent A/B comparison of a set, if any.
-    pub fn latest_ab_report(
-        &self,
-        set_slug: &str,
-    ) -> Result<Option<super::types::ReplayAbReport>, String> {
-        for run in self.list_runs(set_slug)? {
-            if run.is_baseline {
-                continue;
-            }
-            if let Ok(report) = self.load_ab_report(&run.run_id) {
-                return Ok(Some(report));
-            }
-        }
-        Ok(None)
-    }
-
-    /// The most recent run of a set that produced a report, if any.
-    pub fn latest_report(
-        &self,
-        set_slug: &str,
-    ) -> Result<Option<super::types::ReplayReport>, String> {
-        for run in self.list_runs(set_slug)? {
-            if run.is_baseline {
-                continue;
-            }
-            if let Ok(report) = self.load_report(&run.run_id) {
-                return Ok(Some(report));
-            }
-        }
-        Ok(None)
-    }
-
     /// Persists rows for one entry, returning the bytes written.
     ///
     /// `budget_left` is a hard bound: an entry that does not fit is not written
@@ -225,7 +237,10 @@ impl CaptureStore {
 
     pub fn delete_entry(&self, run_id: &str, entry_id: &str) -> Result<(), String> {
         let path = self.entry_path(run_id, entry_id)?;
-        if !path.exists() {
+        if !path
+            .try_exists()
+            .map_err(|e| format!("Failed to inspect capture: {e}"))?
+        {
             return Ok(());
         }
         fs::remove_file(&path).map_err(|e| format!("Failed to delete capture: {}", e))
@@ -242,14 +257,135 @@ impl CaptureStore {
         entry_id: &str,
     ) -> Result<bool, String> {
         let source = self.entry_path(from_run, entry_id)?;
-        if !source.exists() {
+        let target = self.entry_path(to_run, entry_id)?;
+        if !source
+            .try_exists()
+            .map_err(|e| format!("Failed to inspect capture: {e}"))?
+        {
+            self.delete_entry(to_run, entry_id)?;
             return Ok(false);
         }
-        let target = self.entry_path(to_run, entry_id)?;
+        let content = fs::read(&source).map_err(|e| format!("Failed to read capture: {e}"))?;
+        let snapshot: Snapshot = serde_json::from_slice(&content)
+            .map_err(|e| format!("Failed to parse capture: {e}"))?;
+        if snapshot.meta.id != entry_id {
+            return Err("Capture belongs to another replay entry".into());
+        }
+        if from_run == to_run {
+            return Ok(true);
+        }
         fs::create_dir_all(self.run_dir(to_run)?)
-            .map_err(|e| format!("Failed to create run directory: {}", e))?;
-        fs::copy(&source, &target).map_err(|e| format!("Failed to copy capture: {}", e))?;
+            .map_err(|e| format!("Failed to create run directory: {e}"))?;
+        let pending = qore_service::paths::PendingOutput::new(&target)
+            .map_err(|e| format!("Failed to prepare capture: {e}"))?;
+        fs::write(pending.path(), content).map_err(|e| format!("Failed to copy capture: {e}"))?;
+        pending
+            .commit()
+            .map_err(|e| format!("Failed to publish capture: {e}"))?;
         Ok(true)
+    }
+
+    pub fn baseline_for_set(
+        &self,
+        slug: &str,
+        set: &super::types::ReplaySet,
+    ) -> Result<Option<RunMeta>, String> {
+        if let Some(id) = &set.baseline_run_id {
+            // A shared set carries expectations, but its local captures need not
+            // exist on the receiving machine. Never substitute an older baseline.
+            if !self.run_dir(id)?.try_exists().map_err(|e| e.to_string())? {
+                return Ok(None);
+            }
+            let meta = self.load_run_meta(id)?;
+            if meta.set_slug != slug || !meta.is_baseline {
+                return Err("Reference belongs to another replay set".into());
+            }
+            return Ok(Some(meta));
+        }
+        Ok(self
+            .list_runs(slug)?
+            .into_iter()
+            .find(|run| run.is_baseline && !run.reference_generation))
+    }
+
+    /// Builds an immutable reference before atomically publishing the new set.
+    /// Historical reports keep their original rows; failed publication discards
+    /// only the new generation. `publish` must atomically replace the set file.
+    pub fn accept_run(
+        &self,
+        mut set: super::types::ReplaySet,
+        slug: &str,
+        run_id: &str,
+        wanted: Option<&[String]>,
+        publish: impl FnOnce(&super::types::ReplaySet) -> Result<(), String>,
+    ) -> Result<super::types::ReplaySet, String> {
+        use super::types::ReplayVerdict;
+        let report = self.load_report(run_id)?;
+        if report.run.set_slug != slug || report.run.run_id != run_id {
+            return Err("That run belongs to another replay set".into());
+        }
+        let previous = self.baseline_for_set(slug, &set)?;
+        let observed: std::collections::HashMap<_, _> = report
+            .results
+            .iter()
+            .filter(|result| result.verdict != ReplayVerdict::Skipped)
+            .map(|result| (result.entry_id.as_str(), result))
+            .collect();
+        let selected = |id: &String| {
+            wanted.is_none_or(|ids| ids.contains(id)) && observed.contains_key(id.as_str())
+        };
+        if !set.entries.iter().any(|entry| selected(&entry.id)) {
+            return Err("That run has nothing to accept for this set".into());
+        }
+        let mut reference = report.run.clone();
+        reference.run_id = uuid::Uuid::new_v4().to_string();
+        reference.is_baseline = true;
+        reference.reference_generation = true;
+        reference.started_at = chrono::Utc::now().to_rfc3339();
+        reference.finished_at = Some(reference.started_at.clone());
+        reference.entry_count = set.entries.len();
+        reference.captured_bytes = 0;
+        let result = (|| {
+            for entry in &mut set.entries {
+                let source = if selected(&entry.id) {
+                    let result = observed[entry.id.as_str()];
+                    entry.expected.execution_time_ms = result.execution_time_ms;
+                    entry.expected.row_count = result.row_count;
+                    entry.expected.success = result.success;
+                    entry.expected.result_digest = result.digest.clone();
+                    // The report is authoritative: a stale file must not turn a
+                    // metadata-only observation into a captured reference.
+                    result.captured.then_some((run_id, true))
+                } else {
+                    previous.as_ref().map(|run| (run.run_id.as_str(), false))
+                };
+                if let Some((source, required)) = source {
+                    let copied = self.adopt_entry(source, &reference.run_id, &entry.id)?;
+                    if required && !copied {
+                        return Err("The accepted run's capture is unavailable".into());
+                    }
+                    if copied {
+                        reference.captured_bytes +=
+                            fs::metadata(self.entry_path(&reference.run_id, &entry.id)?)
+                                .map_err(|e| format!("Failed to inspect reference: {e}"))?
+                                .len();
+                    }
+                }
+            }
+            self.save_run_meta(&reference)?;
+            set.baseline_run_id = Some(reference.run_id.clone());
+            publish(&set)?;
+            Ok(())
+        })();
+        if let Err(error) = result {
+            if let Err(cleanup) = self.delete_run(&reference.run_id) {
+                return Err(format!(
+                    "{error}; failed to discard unpublished reference: {cleanup}"
+                ));
+            }
+            return Err(error);
+        }
+        Ok(set)
     }
 
     pub fn has_entry(&self, run_id: &str, entry_id: &str) -> bool {
@@ -285,19 +421,59 @@ impl CaptureStore {
 
     pub fn delete_run(&self, run_id: &str) -> Result<(), String> {
         let dir = self.run_dir(run_id)?;
-        if !dir.exists() {
+        if !dir
+            .try_exists()
+            .map_err(|e| format!("Failed to inspect run: {e}"))?
+        {
             return Ok(());
         }
         fs::remove_dir_all(&dir).map_err(|e| format!("Failed to delete run: {}", e))
     }
 
-    /// Keeps the `retention` newest runs of a set, plus its baseline: dropping
-    /// the baseline would leave later runs with nothing to compare against.
-    pub fn prune(&self, set_slug: &str, retention: usize) -> Result<usize, String> {
+    /// Keep the newest runs, the recording, and direct references needed by
+    /// retained reports. A/B may need one more run than the configured count.
+    pub fn prune(
+        &self,
+        set_slug: &str,
+        retention: usize,
+        active_reference: Option<&str>,
+    ) -> Result<usize, String> {
         let runs = self.list_runs(set_slug)?;
+        let retained: Vec<_> = runs
+            .iter()
+            .filter(|run| !run.is_baseline)
+            .take(retention.max(1))
+            .collect();
+        let mut keep: std::collections::HashSet<String> =
+            retained.iter().map(|run| run.run_id.clone()).collect();
+        if let Some(id) = active_reference {
+            validate_id(id)?;
+            keep.insert(id.to_owned());
+        }
+        for run in &retained {
+            let dir = self.run_dir(&run.run_id)?;
+            // Refuse cleanup if a retained report is unreadable: its reference
+            // cannot safely be inferred. Keep all captures for recovery.
+            if dir
+                .join(REPORT_FILE)
+                .try_exists()
+                .map_err(|e| e.to_string())?
+            {
+                if let Some(reference) = self.load_report(&run.run_id)?.baseline_run_id {
+                    keep.insert(reference);
+                }
+            }
+            if dir
+                .join(AB_REPORT_FILE)
+                .try_exists()
+                .map_err(|e| e.to_string())?
+            {
+                keep.insert(self.load_ab_report(&run.run_id)?.left.run_id);
+            }
+        }
         let mut deleted = 0;
-        for (index, run) in runs.iter().enumerate() {
-            if index < retention || run.is_baseline {
+        for run in &runs {
+            if keep.contains(&run.run_id) || (run.is_baseline && !run.reference_generation) {
                 continue;
             }
             self.delete_run(&run.run_id)?;
@@ -326,12 +502,14 @@ mod tests {
             set_name: slug.to_string(),
             started_at: started_at.to_string(),
             finished_at: None,
+            cancelled: false,
             connection_label: None,
             driver_id: "postgres".to_string(),
             environment: "staging".to_string(),
             capture_mode: CaptureMode::Full,
             capture_stopped_reason: None,
             is_baseline: baseline,
+            reference_generation: false,
             captured_bytes: 0,
             entry_count: 0,
         }
@@ -353,6 +531,247 @@ mod tests {
             affected_rows: None,
             execution_time_ms: 0.0,
         }
+    }
+
+    #[test]
+    fn adoption_without_capture_removes_previous_rows() {
+        let (store, dir) = store();
+        let from = uuid::Uuid::new_v4().to_string();
+        let to = uuid::Uuid::new_v4().to_string();
+        let entry = uuid::Uuid::new_v4().to_string();
+        store
+            .save_entry(
+                &to,
+                &entry,
+                "SELECT 1",
+                "postgres",
+                None,
+                None,
+                &sample_result(),
+                10,
+                100_000,
+            )
+            .unwrap();
+        assert!(!store.adopt_entry(&from, &to, &entry).unwrap());
+        assert!(
+            !store.has_entry(&to, &entry),
+            "old rows must not stand in for an uncaptured reference"
+        );
+        fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn corrupt_adoption_preserves_previous_rows() {
+        let (store, dir) = store();
+        let from = uuid::Uuid::new_v4().to_string();
+        let to = uuid::Uuid::new_v4().to_string();
+        let entry = uuid::Uuid::new_v4().to_string();
+        store
+            .save_entry(
+                &to,
+                &entry,
+                "SELECT 1",
+                "postgres",
+                None,
+                None,
+                &sample_result(),
+                10,
+                100_000,
+            )
+            .unwrap();
+        fs::create_dir_all(store.run_dir(&from).unwrap()).unwrap();
+        fs::write(store.entry_path(&from, &entry).unwrap(), "invalid capture").unwrap();
+        assert!(store.adopt_entry(&from, &to, &entry).is_err());
+        assert_eq!(store.load_entry(&to, &entry).unwrap().rows.len(), 5);
+        fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn last_report_follows_time_instead_of_preferring_an_older_ab() {
+        use crate::replay::types::{ReplayAbReport, ReplayReport, ReplaySummary};
+        let (store, dir) = store();
+        let left = meta(
+            &uuid::Uuid::new_v4().to_string(),
+            "checkout",
+            false,
+            "2026-10-08T10:00:00Z",
+        );
+        let right = meta(
+            &uuid::Uuid::new_v4().to_string(),
+            "checkout",
+            false,
+            "2026-10-08T10:01:00Z",
+        );
+        store.save_run_meta(&left).unwrap();
+        store.save_run_meta(&right).unwrap();
+        store
+            .save_ab_report(
+                &right.run_id,
+                &ReplayAbReport {
+                    left,
+                    right: right.clone(),
+                    results: vec![],
+                    summary: ReplaySummary::default(),
+                },
+            )
+            .unwrap();
+        assert!(store.last_report("checkout").unwrap().ab.is_some());
+        let newest = meta(
+            &uuid::Uuid::new_v4().to_string(),
+            "checkout",
+            false,
+            "2026-10-08T10:02:00Z",
+        );
+        store.save_run_meta(&newest).unwrap();
+        store
+            .save_report(
+                &newest.run_id,
+                &ReplayReport {
+                    run: newest.clone(),
+                    baseline_run_id: None,
+                    results: vec![],
+                    summary: ReplaySummary::default(),
+                },
+            )
+            .unwrap();
+        let last = store.last_report("checkout").unwrap();
+        assert!(
+            last.ab.is_none(),
+            "an old A/B must not hide a newer normal run"
+        );
+        assert_eq!(last.report.unwrap().run.run_id, newest.run_id);
+        fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn corrupt_latest_report_is_an_error_instead_of_an_older_success() {
+        let (store, dir) = store();
+        let run = meta(
+            &uuid::Uuid::new_v4().to_string(),
+            "checkout",
+            false,
+            "2026-10-08T10:00:00Z",
+        );
+        store.save_run_meta(&run).unwrap();
+        fs::write(
+            store.run_dir(&run.run_id).unwrap().join(REPORT_FILE),
+            "{broken",
+        )
+        .unwrap();
+        assert!(store.last_report("checkout").is_err());
+        fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn retention_keeps_the_reference_needed_by_a_retained_report() {
+        use crate::replay::types::{ReplayReport, ReplaySummary};
+        let (store, dir) = store();
+        let left = meta(
+            &uuid::Uuid::new_v4().to_string(),
+            "checkout",
+            false,
+            "2026-10-08T10:00:00Z",
+        );
+        let right = meta(
+            &uuid::Uuid::new_v4().to_string(),
+            "checkout",
+            false,
+            "2026-10-08T10:01:00Z",
+        );
+        store.save_run_meta(&left).unwrap();
+        store.save_run_meta(&right).unwrap();
+        let entry = uuid::Uuid::new_v4().to_string();
+        store
+            .save_entry(
+                &left.run_id,
+                &entry,
+                "SELECT id",
+                "postgres",
+                None,
+                None,
+                &sample_result(),
+                1000,
+                u64::MAX,
+            )
+            .unwrap();
+        store
+            .save_report(
+                &right.run_id,
+                &ReplayReport {
+                    run: right.clone(),
+                    baseline_run_id: Some(left.run_id.clone()),
+                    results: vec![],
+                    summary: ReplaySummary::default(),
+                },
+            )
+            .unwrap();
+        store.prune("checkout", 1, None).unwrap();
+        assert!(
+            store.has_entry(&left.run_id, &entry),
+            "the visible diff must keep both sides"
+        );
+        assert_eq!(store.list_runs("checkout").unwrap().len(), 2);
+        fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn zero_retention_still_keeps_the_latest_report() {
+        let (store, dir) = store();
+        let run = meta(
+            &uuid::Uuid::new_v4().to_string(),
+            "checkout",
+            false,
+            "2026-10-08T10:00:00Z",
+        );
+        store.save_run_meta(&run).unwrap();
+        store.prune("checkout", 0, None).unwrap();
+        assert!(store.load_run_meta(&run.run_id).is_ok());
+        fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn legacy_run_metadata_without_cancellation_still_loads() {
+        let (store, dir) = store();
+        let run = meta(
+            &uuid::Uuid::new_v4().to_string(),
+            "checkout",
+            false,
+            "2026-10-08T10:00:00Z",
+        );
+        store.save_run_meta(&run).unwrap();
+        let mut json = serde_json::to_value(&run).unwrap();
+        json.as_object_mut().unwrap().remove("cancelled");
+        fs::write(
+            store.run_dir(&run.run_id).unwrap().join(RUN_META_FILE),
+            json.to_string(),
+        )
+        .unwrap();
+        assert!(!store.load_run_meta(&run.run_id).unwrap().cancelled);
+        fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn corrupt_retained_report_prevents_destructive_cleanup() {
+        let (store, dir) = store();
+        for day in [7, 8] {
+            let run = meta(
+                &uuid::Uuid::new_v4().to_string(),
+                "checkout",
+                false,
+                &format!("2026-10-0{day}T10:00:00Z"),
+            );
+            store.save_run_meta(&run).unwrap();
+            if day == 8 {
+                fs::write(
+                    store.run_dir(&run.run_id).unwrap().join(REPORT_FILE),
+                    "{broken",
+                )
+                .unwrap();
+            }
+        }
+        assert!(store.prune("checkout", 1, None).is_err());
+        assert_eq!(store.list_runs("checkout").unwrap().len(), 2);
+        fs::remove_dir_all(dir).unwrap();
     }
 
     #[test]
@@ -475,7 +894,7 @@ mod tests {
             later.push(id);
         }
 
-        assert_eq!(store.prune("checkout", 2).unwrap(), 2);
+        assert_eq!(store.prune("checkout", 2, None).unwrap(), 2);
         let remaining = store.list_runs("checkout").unwrap();
         assert_eq!(remaining.len(), 3);
         assert!(remaining.iter().any(|r| r.run_id == baseline));
@@ -549,3 +968,7 @@ mod tests {
         let _ = fs::remove_dir_all(&dir);
     }
 }
+
+#[cfg(test)]
+#[path = "reference_tests.rs"]
+mod reference_tests;

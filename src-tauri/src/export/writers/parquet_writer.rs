@@ -39,22 +39,25 @@ impl ParquetExportWriter {
     }
 
     fn map_data_type(db_type: &str) -> DataType {
-        let lower = db_type.to_lowercase();
-        if lower.contains("bool") {
-            DataType::Boolean
-        } else if lower.contains("int") || lower.contains("serial") {
-            DataType::Int64
-        } else if lower.contains("float")
-            || lower.contains("double")
-            || lower.contains("real")
-            || lower.contains("numeric")
-            || lower.contains("decimal")
-        {
-            DataType::Float64
-        } else if lower.contains("byte") || lower.contains("blob") || lower.contains("binary") {
-            DataType::Binary
-        } else {
-            DataType::Utf8
+        let lower = db_type.trim().to_ascii_lowercase();
+        // Decimal and unsigned values can exceed f64/i64. Drivers preserve
+        // these as text; keep that exact representation in the export.
+        if lower.contains('[') || lower.contains("array") || lower.contains("unsigned") {
+            return DataType::Utf8;
+        }
+        let base = lower.split(['(', ' ']).next().unwrap_or_default();
+        match base {
+            "bool" | "boolean" => DataType::Boolean,
+            "tinyint" | "smallint" | "mediumint" | "int" | "integer" | "bigint" | "int2"
+            | "int4" | "int8" | "int16" | "int32" | "int64" | "smallserial" | "serial"
+            | "bigserial" => DataType::Int64,
+            "float" | "float4" | "float8" | "float32" | "float64" | "double" | "real" => {
+                DataType::Float64
+            }
+            "bytea" | "blob" | "tinyblob" | "mediumblob" | "longblob" | "binary" | "varbinary" => {
+                DataType::Binary
+            }
+            _ => DataType::Utf8,
         }
     }
 
@@ -113,56 +116,72 @@ impl ParquetExportWriter {
         col_idx: usize,
         arrow_type: &DataType,
     ) -> Result<ArrayRef, String> {
+        let invalid = || {
+            format!(
+                "Cannot encode column {} as {arrow_type:?} without data loss",
+                col_idx + 1
+            )
+        };
         match arrow_type {
             DataType::Boolean => {
-                let values: Vec<Option<bool>> = self
+                let values = self
                     .buffered_rows
                     .iter()
                     .map(|row| match row.get(col_idx).unwrap_or(&Value::Null) {
-                        Value::Bool(b) => Some(*b),
-                        Value::Null => None,
-                        v => Some(Self::value_to_string(v) == "true"),
+                        Value::Bool(b) => Ok(Some(*b)),
+                        Value::Null => Ok(None),
+                        Value::Text(s) if s == "true" => Ok(Some(true)),
+                        Value::Text(s) if s == "false" => Ok(Some(false)),
+                        _ => Err(invalid()),
                     })
-                    .collect();
+                    .collect::<Result<Vec<_>, String>>()?;
                 Ok(Arc::new(BooleanArray::from(values)))
             }
             DataType::Int64 => {
-                let values: Vec<Option<i64>> = self
+                let values = self
                     .buffered_rows
                     .iter()
                     .map(|row| match row.get(col_idx).unwrap_or(&Value::Null) {
-                        Value::Int(i) => Some(*i),
-                        Value::Float(f) => Some(*f as i64),
-                        Value::Bool(b) => Some(if *b { 1 } else { 0 }),
-                        Value::Null => None,
-                        v => Self::value_to_string(v).parse().ok(),
+                        Value::Int(i) => Ok(Some(*i)),
+                        Value::Float(f)
+                            if f.is_finite()
+                                && f.fract() == 0.0
+                                && *f >= i64::MIN as f64
+                                && *f < -(i64::MIN as f64) =>
+                        {
+                            Ok(Some(*f as i64))
+                        }
+                        Value::Bool(b) => Ok(Some(i64::from(*b))),
+                        Value::Null => Ok(None),
+                        Value::Text(s) => s.parse::<i64>().map(Some).map_err(|_| invalid()),
+                        _ => Err(invalid()),
                     })
-                    .collect();
+                    .collect::<Result<Vec<_>, String>>()?;
                 Ok(Arc::new(Int64Array::from(values)))
             }
             DataType::Float64 => {
-                let values: Vec<Option<f64>> = self
+                let values = self
                     .buffered_rows
                     .iter()
                     .map(|row| match row.get(col_idx).unwrap_or(&Value::Null) {
-                        Value::Float(f) => Some(*f),
-                        Value::Int(i) => Some(*i as f64),
-                        Value::Null => None,
-                        v => Self::value_to_string(v).parse().ok(),
+                        Value::Float(f) => Ok(Some(*f)),
+                        Value::Int(i) if (*i as f64) as i128 == *i as i128 => Ok(Some(*i as f64)),
+                        Value::Null => Ok(None),
+                        _ => Err(invalid()),
                     })
-                    .collect();
+                    .collect::<Result<Vec<_>, String>>()?;
                 Ok(Arc::new(Float64Array::from(values)))
             }
             DataType::Binary => {
-                let values: Vec<Option<&[u8]>> = self
+                let values = self
                     .buffered_rows
                     .iter()
                     .map(|row| match row.get(col_idx).unwrap_or(&Value::Null) {
-                        Value::Bytes(b) => Some(b.as_slice()),
-                        Value::Null => None,
-                        _ => None,
+                        Value::Bytes(b) => Ok(Some(b.as_slice())),
+                        Value::Null => Ok(None),
+                        _ => Err(invalid()),
                     })
-                    .collect();
+                    .collect::<Result<Vec<_>, String>>()?;
                 Ok(Arc::new(BinaryArray::from(values)))
             }
             DataType::Utf8 => {
@@ -259,6 +278,9 @@ impl ExportWriter for ParquetExportWriter {
     }
 
     async fn finish(&mut self) -> Result<(), String> {
+        if self.schema.is_none() {
+            return Err("Cannot finalize Parquet export without column metadata".into());
+        }
         self.flush_buffer()?;
 
         if let Some(writer) = self.writer.take() {
@@ -286,12 +308,123 @@ mod tests {
 
     use super::*;
 
+    #[tokio::test]
+    async fn refuses_to_report_success_without_column_metadata() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("missing-schema.parquet");
+        let mut writer = ParquetExportWriter::new(path.to_string_lossy().into_owned());
+        assert!(
+            writer
+                .finish()
+                .await
+                .unwrap_err()
+                .contains("column metadata")
+        );
+    }
+
     fn column(name: &str, data_type: &str) -> ColumnInfo {
         ColumnInfo {
             name: name.into(),
             data_type: data_type.into(),
             nullable: true,
             masked: false,
+        }
+    }
+
+    #[tokio::test]
+    async fn exact_decimal_and_unsigned_values_round_trip_as_text() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("exact.parquet");
+        let columns = vec![
+            column("amount", "DECIMAL(38,20)"),
+            column("unsigned", "BIGINT UNSIGNED"),
+        ];
+        let mut writer = ParquetExportWriter::new(path.to_string_lossy().into_owned());
+        writer.write_header(&columns).await.unwrap();
+        let expected = [
+            "9007199254740993.12345678901234567890",
+            "18446744073709551615",
+        ];
+        writer
+            .write_row(
+                &columns,
+                &Row {
+                    values: expected.iter().map(|s| Value::Text((*s).into())).collect(),
+                },
+            )
+            .await
+            .unwrap();
+        writer
+            .write_row(
+                &columns,
+                &Row {
+                    values: vec![Value::Null; 2],
+                },
+            )
+            .await
+            .unwrap();
+        writer.finish().await.unwrap();
+        let batch = ParquetRecordBatchReaderBuilder::try_new(std::fs::File::open(path).unwrap())
+            .unwrap()
+            .build()
+            .unwrap()
+            .next()
+            .unwrap()
+            .unwrap();
+        for (index, value) in expected.iter().enumerate() {
+            let array = batch
+                .column(index)
+                .as_any()
+                .downcast_ref::<StringArray>()
+                .expect("exact values use text, never f64 or NULL");
+            assert_eq!(array.value(0), *value);
+            assert!(array.is_null(1));
+        }
+    }
+
+    #[test]
+    fn unrelated_type_names_and_arrays_are_not_misclassified_as_integers() {
+        for ty in [
+            "INTERVAL",
+            "POINT",
+            "int4[]",
+            "INTEGER ARRAY",
+            "Array(Int64)",
+            "NUMERIC(38,20)",
+            "UINT64",
+        ] {
+            assert_eq!(
+                ParquetExportWriter::map_data_type(ty),
+                DataType::Utf8,
+                "{ty}"
+            );
+        }
+    }
+
+    #[test]
+    fn incompatible_values_fail_instead_of_becoming_null_false_or_truncated() {
+        for (ty, value) in [
+            (DataType::Int64, Value::Text("not-an-integer-secret".into())),
+            (DataType::Int64, Value::Text("9223372036854775808".into())),
+            (DataType::Int64, Value::Float(1.75)),
+            (DataType::Int64, Value::Float(f64::INFINITY)),
+            (
+                DataType::Boolean,
+                Value::Text("not-a-boolean-secret".into()),
+            ),
+            (DataType::Binary, Value::Text("not-binary-secret".into())),
+            (DataType::Float64, Value::Int(9007199254740993)),
+        ] {
+            let mut writer = ParquetExportWriter::new(String::new());
+            writer.buffered_rows.push(vec![value]);
+            let error = writer
+                .build_column_array(0, &ty)
+                .err()
+                .expect("conversion must fail explicitly");
+            assert!(
+                !error.contains("secret"),
+                "diagnostics must not expose the cell value"
+            );
         }
     }
 

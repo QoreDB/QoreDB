@@ -7,6 +7,7 @@
 //! temporal diffs, and rollback SQL generation.
 
 pub mod capture;
+mod privacy;
 pub mod rollback;
 pub mod store;
 pub mod types;

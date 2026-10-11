@@ -508,6 +508,9 @@
     "close": "Schließen"
   },
   "library": {
+    "invalidData": "Die Bibliothek kann nicht gelesen werden. Es wurden keine Daten ersetzt. Stellen Sie gültige Daten wieder her und aktualisieren Sie die Ansicht.",
+    "itemLimit": "Die Bibliothek ist auf {{count}} Abfragen begrenzt. Entfernen Sie Abfragen, bevor Sie weitere hinzufügen. Es wurde nichts geändert.",
+    "folderLimit": "Die Bibliothek ist auf {{count}} Ordner begrenzt. Entfernen Sie Ordner, bevor Sie weitere hinzufügen. Es wurde nichts geändert.",
     "title": "Abfragebibliothek",
     "open": "Bibliothek",
     "save": "Speichern",
@@ -655,6 +658,7 @@
     "clearAll": "Alle Ergebnisse löschen",
     "cancelExecution": "Abbrechen",
     "executionStopped": "Ausführung abgebrochen",
+    "referenceUnavailable": "{{reference}} kann nicht verwendet werden. Das Quellergebnis muss aktuell, vollständig, unmaskiert und eindeutig sein.",
     "allCellsExecuted": "Alle Zellen ausgeführt",
     "save": "Notebook speichern",
     "saveAs": "Speichern unter…",
@@ -714,6 +718,7 @@
     "aiCellInserted": "SQL-Zelle unten eingefügt"
   },
   "replay": {
+    "cancelledReport": "Wiedergabe abgebrochen. Ausgeführte Abfragen bleiben erhalten; eine laufende Abfrage kann beendet worden sein.",
     "title": "Query-Replay",
     "openLab": "Query-Replay öffnen",
     "setName": "Name des Sets",
@@ -854,6 +859,7 @@
       "acceptBody": "Die Erwartungen des Sets werden durch das ersetzt, was dieser Lauf beobachtet hat. Spätere Läufe vergleichen damit."
     },
     "skipReason": {
+      "cancelled": "Wiedergabe abgebrochen",
       "mutation_excluded": "Mutation vom Abspielen ausgeschlossen",
       "mutation_production_blocked": "Mutationen werden nie gegen Produktion abgespielt"
     }
@@ -1375,6 +1381,7 @@
     "updateConfirmDescription": "Sie sind dabei, {{column}} in {{table}} zu aktualisieren.",
     "updateConfirmLabel": "Wert aktualisieren",
     "updateSuccess": "Zeile erfolgreich aktualisiert",
+    "updateReloaded": "Änderung gespeichert. Die Tabelle wird für eine konsistente Ansicht neu geladen.",
     "updateError": "Zeile konnte nicht aktualisiert werden",
     "updateNoPrimaryKey": "Inline-Bearbeitung erfordert einen Primärschlüssel",
     "pinColumnLeft": "Links anheften",
@@ -1550,6 +1557,7 @@
     "loadingOptions": "Optionen werden geladen…"
   },
   "common": {
+    "contextChanged": "Der Kontext hat sich geändert. Bitte starten Sie die Aktion erneut.",
     "loading": "Wird geladen…",
     "error": "Fehler",
     "success": "Erfolg",
@@ -2056,6 +2064,8 @@
     },
     "generateSQL": "SQL generieren",
     "migration": {
+      "outcomeUnknown": "Das Ergebnis konnte nicht bestätigt werden. Führen Sie diesen Stapel noch nicht erneut aus. Verbinden Sie sich neu und prüfen Sie die betroffenen Zeilen, bevor Sie einen neuen Stapel vorbereiten.",
+      "previewChanged": "Die ausstehenden Änderungen wurden geändert. Schließen Sie diese Vorschau und erstellen Sie sie vor dem Anwenden erneut.",
       "title": "Migrationsskript",
       "generating": "Skript wird generiert…",
       "statements": "{{count}} Anweisung(en)",
@@ -2514,7 +2524,19 @@
     "side": {
       "left": "links",
       "right": "rechts"
-    }
+    },
+    "incompleteComparison": "Unvollständiger Vergleich",
+    "noMatchingRows": "Keine Zeilen für diesen Filter",
+    "noObservedDifferences": "Keine Unterschiede in den verglichenen Daten festgestellt",
+    "warnings": {
+      "ambiguousKeys": "Doppelte Schlüssel: übrige Zeilen werden in Quellreihenfolge zugeordnet.",
+      "uncomparedColumns": "Einige Spalten werden nicht verglichen.",
+      "noCommonColumns": "Spaltennamen unterscheiden sich: Vergleich nach Position.",
+      "missingKeyColumns": "Ausgewählte Schlüsselspalten fehlen.",
+      "maskedColumns": "Maskierte Werte können nicht vollständig verglichen werden.",
+      "truncated": "Nur geladene Zeilen werden verglichen."
+    },
+    "retry": "Erneut versuchen"
   },
   "virtualRelations": {
     "title": "Virtuelle Relationen",
@@ -3124,6 +3146,7 @@
     "driftCheckHint": "Vergleicht das Live-Schema mit der Baseline, um Änderungen außerhalb zu erkennen.",
     "driftTitle": "Schema-Drift",
     "driftNone": "Kein Drift — das Schema entspricht der Baseline",
+    "schemaEnumerationIncomplete": "Die Schemaerfassung ist unvollständig. Prüfen Sie Verbindung und Datenbank und versuchen Sie es vor dem Vergleich oder der Migrationserstellung erneut.",
     "captureIncomplete": "Erfasst, {{count}} Tabelle(n) übersprungen (Beschreibung fehlgeschlagen)",
     "close": "Schließen",
     "tableAdded": "Hinzugefügt",
@@ -3352,9 +3375,15 @@
     "leave": "Arbeitsbereich verlassen"
   },
   "timeTravel": {
+    "rollbackIncompleteCapture": "Unvollständige Erfassung: Die Zeile oder ihr Primärschlüssel konnte nicht geprüft werden. Rücknahme übersprungen.",
+    "retry": "Aktualisieren",
+    "requestFailed": "Die Verlaufsanfrage konnte nicht abgeschlossen werden. Bitte erneut versuchen.",
+    "scopeHint": "Der Verlauf ist auf diese Verbindung beschränkt. Ältere Einträge mit unbekannter Verbindung bleiben gespeichert, werden aber ausgeblendet.",
     "viewHistory": "View data history",
     "title": "Data Time-Travel",
     "timeline": {
+      "events": "{{count}} Ereignis",
+      "events_other": "{{count}} Ereignisse",
       "title": "Timeline",
       "noEvents": "No mutations recorded for this table",
       "loadMore": "Load more events",

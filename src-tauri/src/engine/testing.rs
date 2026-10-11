@@ -6,7 +6,7 @@
 
 use async_trait::async_trait;
 use qore_core::error::{EngineError, EngineResult};
-use qore_core::traits::DataEngine;
+use qore_core::traits::{DataEngine, StreamEvent, StreamSender};
 use qore_core::types::{
     CollectionList, CollectionListOptions, ConnectionConfig, CreationOptions, Namespace, QueryId,
     QueryResult, SessionId, TableSchema, Value,
@@ -38,6 +38,7 @@ pub struct MockDriver {
     fail_nth: Mutex<Option<(usize, String)>>,
     execute_count: Mutex<usize>,
     supports_tx: bool,
+    stream: Mutex<Option<(Vec<StreamEvent>, Option<String>)>>,
 }
 
 impl MockDriver {
@@ -52,6 +53,7 @@ impl MockDriver {
             fail_nth: Mutex::new(None),
             execute_count: Mutex::new(0),
             supports_tx: false,
+            stream: Mutex::new(None),
         }
     }
 
@@ -93,6 +95,10 @@ impl MockDriver {
     /// Fails the n-th `execute` (0-based), regardless of registered responses.
     pub fn fail_nth_execute(&self, n: usize, msg: &str) {
         *self.fail_nth.lock().unwrap() = Some((n, msg.to_string()));
+    }
+
+    pub fn set_stream(&self, events: Vec<StreamEvent>, error: Option<String>) {
+        *self.stream.lock().unwrap() = Some((events, error));
     }
 
     pub fn with_transactions(mut self, yes: bool) -> Self {
@@ -210,6 +216,30 @@ impl DataEngine for MockDriver {
         self.namespaces.lock().unwrap().push(namespace);
         self.execute(session, query, query_id).await
     }
+    async fn execute_stream(
+        &self,
+        _session: SessionId,
+        _query: &str,
+        _query_id: QueryId,
+        sender: StreamSender,
+    ) -> EngineResult<()> {
+        let (events, error) = self
+            .stream
+            .lock()
+            .unwrap()
+            .clone()
+            .ok_or_else(|| EngineError::not_supported("No mock stream configured"))?;
+        for event in events {
+            if sender.send(event).await.is_err() {
+                break;
+            }
+        }
+        match error {
+            Some(error) => Err(EngineError::internal(error)),
+            None => Ok(()),
+        }
+    }
+
     async fn begin_transaction(&self, _session: SessionId) -> EngineResult<()> {
         self.log.lock().unwrap().push(DriverCall::Begin);
         Ok(())

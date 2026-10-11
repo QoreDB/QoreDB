@@ -21,6 +21,13 @@ pub struct ChangelogEntry {
     pub timestamp: DateTime<Utc>,
     /// Session ID (active connection)
     pub session_id: String,
+    /// Stable saved-connection identity. Legacy records have no reliable origin
+    /// beyond their original session and must not be reassigned by display name.
+    #[serde(default)]
+    pub connection_id: Option<String>,
+    /// Backend workspace identity captured when the session was opened.
+    #[serde(default)]
+    pub workspace_id: Option<String>,
     /// Driver that executed the mutation
     pub driver_id: String,
     /// Namespace (database + optional schema)
@@ -85,6 +92,10 @@ pub struct TemporalDiff {
     /// Rows with their change status
     pub rows: Vec<TemporalDiffRow>,
     pub stats: TemporalDiffStats,
+    /// True when rows were limited; stats still describe every net change in the retained history.
+    pub truncated: bool,
+    /// Missing images, protected values or unavailable keys prevent a complete comparison.
+    pub incomplete: bool,
 }
 
 /// A single row in a temporal diff.
@@ -129,15 +140,16 @@ pub struct TimeTravelConfig {
     pub max_entries: usize,
     /// Retention period in days (0 = unlimited)
     pub retention_days: u32,
-    /// Maximum changelog file size in MB
+    /// Maximum changelog file size in MiB (0 = unlimited)
     pub max_file_size_mb: u64,
     /// Tables excluded from capture (exact names)
     pub excluded_tables: Vec<String>,
     /// Only capture mutations in production environments
     pub production_only: bool,
     /// Column names whose values must be redacted before being written to the
-    /// changelog on disk. Matched case-insensitively against the column key;
-    /// the redaction replaces the value with the literal string `"[REDACTED]"`.
+    /// changelog on disk and before reads. Matching ignores case/separators and
+    /// covers primary keys and nested JSON fields as well as row images.
+    /// Redaction replaces the value with the literal string `"[REDACTED]"`.
     /// Defaults to a conservative list of common PII / secret identifiers so
     /// `passwords_hash` / `api_key` / `cc_number` / `email` columns never land
     /// in plain text on disk (cf. audit B7-C3).
@@ -177,4 +189,34 @@ pub struct ChangelogFilter {
     pub primary_key_search: Option<String>,
     pub limit: Option<usize>,
     pub offset: Option<usize>,
+}
+
+/// Trusted scope resolved from an active backend session, never from a UI filter.
+#[derive(Debug, Clone)]
+pub struct ChangelogScope {
+    /// Current policy from the active backend session, never from a caller filter.
+    pub masking: Option<qore_core::masking::ConnectionMasking>,
+    pub session_id: String,
+    pub connection_id: Option<String>,
+    pub driver_id: String,
+    pub workspace_id: Option<String>,
+}
+
+impl ChangelogScope {
+    pub fn contains(&self, entry: &ChangelogEntry) -> bool {
+        if self.driver_id != entry.driver_id {
+            return false;
+        }
+        match &entry.workspace_id {
+            Some(origin) if self.workspace_id.as_ref() != Some(origin) => return false,
+            // Legacy captures cannot be assigned to a new workspace from a copied connection ID.
+            None if self.session_id != entry.session_id => return false,
+            _ => {}
+        }
+        match (&self.connection_id, &entry.connection_id) {
+            (Some(expected), Some(actual)) => expected == actual,
+            (_, None) => self.session_id == entry.session_id,
+            (None, Some(_)) => false,
+        }
+    }
 }

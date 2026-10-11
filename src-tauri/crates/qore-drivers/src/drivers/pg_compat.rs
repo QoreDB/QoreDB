@@ -10,6 +10,7 @@
 
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Instant;
 
 use futures::StreamExt;
@@ -30,12 +31,14 @@ use qore_core::types::{
     ConnectionConfig, FilterOperator, ForeignKey, MaintenanceMessage, MaintenanceMessageLevel,
     MaintenanceOperationInfo, MaintenanceOperationType, MaintenanceRequest, MaintenanceResult,
     Namespace, PaginatedQueryResult, QueryId, QueryResult, Routine, RoutineDefinition, RoutineList,
-    RoutineListOptions, RoutineOperationResult, RoutineType, RowData, SearchMode, SessionId,
-    SortDirection, TableColumn, TableIndex, TableQueryOptions, TableSchema, Trigger,
+    RoutineListOptions, RoutineOperationResult, RoutineType, RowData, RowInsertResult, SearchMode,
+    SessionId, SortDirection, TableColumn, TableIndex, TableQueryOptions, TableSchema, Trigger,
     TriggerDefinition, TriggerEvent, TriggerList, TriggerListOptions, TriggerOperationResult,
     TriggerTiming, TruncateAllResult, Value,
 };
 use qore_sql::safety;
+
+pub(super) mod capture_read;
 
 // Session
 
@@ -44,6 +47,7 @@ pub struct PgCompatSession {
     pub pool: PgPool,
     pub transaction_conn: Mutex<Option<PoolConnection<Postgres>>>,
     pub active_queries: Mutex<HashMap<QueryId, i32>>,
+    transaction_failed: AtomicBool,
 }
 
 impl PgCompatSession {
@@ -52,7 +56,27 @@ impl PgCompatSession {
             pool,
             transaction_conn: Mutex::new(None),
             active_queries: Mutex::new(HashMap::new()),
+            transaction_failed: AtomicBool::new(false),
         }
+    }
+
+    fn ensure_transaction_usable(&self) -> EngineResult<()> {
+        if self.transaction_failed.load(Ordering::Acquire) {
+            return Err(EngineError::transaction_error(
+                "Transaction connection was lost; finish the transaction before issuing further commands",
+            ));
+        }
+        Ok(())
+    }
+
+    async fn lock_transaction(
+        &self,
+    ) -> EngineResult<tokio::sync::MutexGuard<'_, Option<PoolConnection<Postgres>>>> {
+        let transaction = self.transaction_conn.lock().await;
+        // A caller may have looked up the session before recovery failed while
+        // waiting for this lock. Recheck before falling back to the pool.
+        self.ensure_transaction_usable()?;
+        Ok(transaction)
     }
 }
 
@@ -99,6 +123,15 @@ pub async fn create_pg_pool(
 }
 
 pub async fn get_session(
+    sessions: &SessionMap,
+    session: SessionId,
+) -> EngineResult<Arc<PgCompatSession>> {
+    let pg = get_session_unchecked(sessions, session).await?;
+    pg.ensure_transaction_usable()?;
+    Ok(pg)
+}
+
+async fn get_session_unchecked(
     sessions: &SessionMap,
     session: SessionId,
 ) -> EngineResult<Arc<PgCompatSession>> {
@@ -444,7 +477,7 @@ pub async fn execute_in_namespace(
     let returns_rows =
         safety::returns_rows(driver_id, query).unwrap_or_else(|_| safety::is_select_prefix(query));
 
-    let mut tx_guard = pg.transaction_conn.lock().await;
+    let mut tx_guard = pg.lock_transaction().await?;
 
     let result = if let Some(ref mut conn) = *tx_guard {
         let backend_pid = fetch_backend_pid(conn).await?;
@@ -763,7 +796,7 @@ pub fn cancel_support() -> CancelSupport {
 
 pub async fn begin_transaction(sessions: &SessionMap, session: SessionId) -> EngineResult<()> {
     let pg = get_session(sessions, session).await?;
-    let mut tx = pg.transaction_conn.lock().await;
+    let mut tx = pg.lock_transaction().await?;
 
     if tx.is_some() {
         return Err(EngineError::transaction_error(
@@ -788,26 +821,55 @@ pub async fn begin_transaction(sessions: &SessionMap, session: SessionId) -> Eng
 }
 
 pub async fn commit(sessions: &SessionMap, session: SessionId) -> EngineResult<()> {
-    let pg = get_session(sessions, session).await?;
+    let pg = get_session_unchecked(sessions, session).await?;
     let mut tx = pg.transaction_conn.lock().await;
+
+    if pg.transaction_failed.swap(false, Ordering::AcqRel) {
+        return Err(EngineError::transaction_error(
+            "Transaction connection was lost; its outcome cannot be confirmed",
+        ));
+    }
 
     let mut conn = tx
         .take()
         .ok_or_else(|| EngineError::transaction_error("No active transaction to commit"))?;
 
-    sqlx::query("COMMIT")
-        .execute(&mut *conn)
-        .await
-        .map_err(|e| {
-            EngineError::execution_error(format!("Failed to commit transaction: {}", e))
-        })?;
+    // PostgreSQL accepts COMMIT in an aborted transaction but executes ROLLBACK.
+    // SQLx exposes no command tag here, so probe before claiming a commit.
+    if let Err(error) = sqlx::query("SELECT 1").execute(&mut *conn).await {
+        if !matches!(
+            tokio::time::timeout(
+                std::time::Duration::from_secs(2),
+                sqlx::query("ROLLBACK").execute(&mut *conn)
+            )
+            .await,
+            Ok(Ok(_))
+        ) {
+            conn.close_on_drop();
+        }
+        return Err(EngineError::transaction_error(format!(
+            "Transaction cannot be committed: {error}"
+        )));
+    }
+    if let Err(error) = sqlx::query("COMMIT").execute(&mut *conn).await {
+        conn.close_on_drop();
+        return Err(EngineError::execution_error(format!(
+            "Failed to commit transaction: {error}"
+        )));
+    }
 
     Ok(())
 }
 
 pub async fn rollback(sessions: &SessionMap, session: SessionId) -> EngineResult<()> {
-    let pg = get_session(sessions, session).await?;
+    let pg = get_session_unchecked(sessions, session).await?;
     let mut tx = pg.transaction_conn.lock().await;
+
+    if pg.transaction_failed.swap(false, Ordering::AcqRel) {
+        return Err(EngineError::transaction_error(
+            "Transaction connection was lost; its outcome cannot be confirmed",
+        ));
+    }
 
     let mut conn = tx
         .take()
@@ -832,7 +894,9 @@ pub async fn insert_row(
     table: &str,
     data: &RowData,
 ) -> EngineResult<QueryResult> {
-    insert_row_with_qualification(sessions, session, namespace, table, data, false).await
+    insert_row_with_qualification(sessions, session, namespace, table, data, false, &[])
+        .await
+        .map(|outcome| outcome.result)
 }
 
 pub async fn insert_row_duckdb(
@@ -842,7 +906,29 @@ pub async fn insert_row_duckdb(
     table: &str,
     data: &RowData,
 ) -> EngineResult<QueryResult> {
-    insert_row_with_qualification(sessions, session, namespace, table, data, true).await
+    insert_row_with_qualification(sessions, session, namespace, table, data, true, &[])
+        .await
+        .map(|outcome| outcome.result)
+}
+
+pub async fn insert_row_returning(
+    sessions: &SessionMap,
+    session: SessionId,
+    namespace: &Namespace,
+    table: &str,
+    data: &RowData,
+    returning_columns: &[String],
+) -> EngineResult<RowInsertResult> {
+    insert_row_with_qualification(
+        sessions,
+        session,
+        namespace,
+        table,
+        data,
+        false,
+        returning_columns,
+    )
+    .await
 }
 
 async fn insert_row_with_qualification(
@@ -852,15 +938,38 @@ async fn insert_row_with_qualification(
     table: &str,
     data: &RowData,
     include_database: bool,
-) -> EngineResult<QueryResult> {
+    returning_columns: &[String],
+) -> EngineResult<RowInsertResult> {
     let pg = get_session(sessions, session).await?;
 
     let table_name = qualified_table_name(namespace, table, include_database);
 
+    let start = Instant::now();
+    let mut tx_guard = pg.lock_transaction().await?;
+    // RETURNING adds SELECT privileges/policies to INSERT. Keep optional capture
+    // from rejecting writes allowed to an insert-only or row-restricted role.
+    // The following image read needs every column, not just the returned key.
+    let can_return = if returning_columns.is_empty() {
+        false
+    } else {
+        let check = sqlx::query_scalar::<_, bool>(
+            "SELECT NOT row_security_active($1::text::regclass) AND \
+             NOT EXISTS (SELECT 1 FROM pg_attribute WHERE attrelid = $1::text::regclass \
+             AND attnum > 0 AND NOT attisdropped \
+             AND NOT has_column_privilege($1::text, attname, 'SELECT'))",
+        )
+        .bind(&table_name);
+        if let Some(ref mut conn) = *tx_guard {
+            check.fetch_one(&mut **conn).await
+        } else {
+            check.fetch_one(&pg.pool).await
+        }
+        .map_err(|error| EngineError::execution_error(error.to_string()))?
+    };
     let mut keys: Vec<&String> = data.columns.keys().collect();
     keys.sort();
 
-    let sql = if keys.is_empty() {
+    let mut sql = if keys.is_empty() {
         format!("INSERT INTO {} DEFAULT VALUES", table_name)
     } else {
         let cols_str = keys
@@ -878,14 +987,53 @@ async fn insert_row_with_qualification(
         )
     };
 
+    if can_return {
+        sql.push_str(" RETURNING ");
+        sql.push_str(
+            &returning_columns
+                .iter()
+                .map(|column| quote_ident(column))
+                .collect::<Vec<_>>()
+                .join(", "),
+        );
+    }
     let mut query = sqlx::query(&sql);
     for k in &keys {
         let val = data.columns.get(*k).unwrap();
         query = bind_param(query, val);
     }
 
-    let start = Instant::now();
-    let mut tx_guard = pg.transaction_conn.lock().await;
+    if can_return {
+        let rows = if let Some(ref mut conn) = *tx_guard {
+            query.fetch_all(&mut **conn).await
+        } else {
+            query.fetch_all(&pg.pool).await
+        }
+        .map_err(|error| EngineError::execution_error(error.to_string()))?;
+        let count = rows.len();
+        // The INSERT has succeeded. A decoding failure must not report a failed
+        // write that a caller could retry; omit optional evidence instead.
+        let returned = rows_to_result(rows, &pg.pool, start).await.ok();
+        let returned_values = if let Some(returned) = returned.filter(|_| count == 1) {
+            Some(RowData {
+                columns: returned
+                    .columns
+                    .into_iter()
+                    .zip(returned.rows.into_iter().next().unwrap().values)
+                    .map(|(column, value)| (column.name.to_string(), value))
+                    .collect(),
+            })
+        } else {
+            None
+        };
+        return Ok(RowInsertResult {
+            result: QueryResult::with_affected_rows(
+                count as u64,
+                start.elapsed().as_secs_f64() * 1000.0,
+            ),
+            returned_values,
+        });
+    }
     let result = if let Some(ref mut conn) = *tx_guard {
         query.execute(&mut **conn).await
     } else {
@@ -896,7 +1044,8 @@ async fn insert_row_with_qualification(
     Ok(QueryResult::with_affected_rows(
         result.rows_affected(),
         start.elapsed().as_micros() as f64 / 1000.0,
-    ))
+    )
+    .into())
 }
 
 pub async fn update_row(
@@ -986,7 +1135,7 @@ async fn update_row_with_qualification(
     }
 
     let start = Instant::now();
-    let mut tx_guard = pg.transaction_conn.lock().await;
+    let mut tx_guard = pg.lock_transaction().await?;
     let result = if let Some(ref mut conn) = *tx_guard {
         query.execute(&mut **conn).await
     } else {
@@ -1060,7 +1209,7 @@ async fn delete_row_with_qualification(
     }
 
     let start = Instant::now();
-    let mut tx_guard = pg.transaction_conn.lock().await;
+    let mut tx_guard = pg.lock_transaction().await?;
     let result = if let Some(ref mut conn) = *tx_guard {
         query.execute(&mut **conn).await
     } else {
@@ -1161,7 +1310,7 @@ async fn peek_foreign_key_with_qualification(
     query = bind_param(query, value);
 
     let start = Instant::now();
-    let mut tx_guard = pg.transaction_conn.lock().await;
+    let mut tx_guard = pg.lock_transaction().await?;
     let pg_rows: Vec<PgRow> = if let Some(ref mut conn) = *tx_guard {
         query.fetch_all(&mut **conn).await
     } else {
@@ -1337,7 +1486,7 @@ async fn query_table_with_dialect(
         } else {
             let columns_sql = "SELECT column_name, data_type FROM information_schema.columns WHERE table_catalog = $1 AND table_schema = $2 AND table_name = $3";
             let columns_rows: Vec<PgRow> = {
-                let mut tx_guard = pg.transaction_conn.lock().await;
+                let mut tx_guard = pg.lock_transaction().await?;
                 if let Some(ref mut conn) = *tx_guard {
                     sqlx::query(columns_sql)
                         .bind(&namespace.database)
@@ -1465,7 +1614,7 @@ async fn query_table_with_dialect(
         // the caller's query id: without it `cancel` has nothing to target and
         // an accidental count on a huge table runs to completion.
         let count_row: PgRow = {
-            let mut tx_guard = pg.transaction_conn.lock().await;
+            let mut tx_guard = pg.lock_transaction().await?;
             if let Some(ref mut conn) = *tx_guard {
                 let pid = fetch_backend_pid(conn).await?;
                 track_query(&pg, options.query_id, pid).await;
@@ -1525,7 +1674,7 @@ async fn query_table_with_dialect(
     }
 
     let pg_rows: Vec<PgRow> = {
-        let mut tx_guard = pg.transaction_conn.lock().await;
+        let mut tx_guard = pg.lock_transaction().await?;
         if let Some(ref mut conn) = *tx_guard {
             data_query.fetch_all(&mut **conn).await
         } else {
@@ -1539,7 +1688,7 @@ async fn query_table_with_dialect(
     let result = if pg_rows.is_empty() {
         let col_meta_sql = "SELECT column_name, data_type, is_nullable FROM information_schema.columns WHERE table_catalog = $1 AND table_schema = $2 AND table_name = $3 ORDER BY ordinal_position";
         let col_meta_rows: Vec<PgRow> = {
-            let mut tx_guard = pg.transaction_conn.lock().await;
+            let mut tx_guard = pg.lock_transaction().await?;
             if let Some(ref mut conn) = *tx_guard {
                 sqlx::query(col_meta_sql)
                     .bind(&namespace.database)

@@ -59,6 +59,11 @@ export function SchemaDiffViewer({
       if (!res.success || !res.session_id) {
         throw new Error(res.error || conn.name);
       }
+      if (cancelled) {
+        await disconnect(res.session_id);
+        // The capture's owner is gone; do not open the other connection.
+        throw new Error('Schema diff cancelled');
+      }
       openedSessions.push(res.session_id);
       return res.session_id;
     };
@@ -67,6 +72,7 @@ export function SchemaDiffViewer({
       setState({ status: 'loading' });
       try {
         const connections = await listSavedConnections(projectId);
+        if (cancelled) return;
         const left = connections.find(c => c.id === leftConnectionId);
         const right = connections.find(c => c.id === rightConnectionId);
         if (!left || !right) {
@@ -174,7 +180,10 @@ export function SchemaDiffViewer({
         </div>
       )}
       <div className="flex-1 min-h-0 overflow-y-auto p-4">
-        <SchemaDeltaView delta={state.delta} emptyMessage={t('schemaDiff.identical')} />
+        <SchemaDeltaView
+          delta={state.delta}
+          emptyMessage={t(state.incomplete ? 'diff.noObservedDifferences' : 'schemaDiff.identical')}
+        />
       </div>
     </div>
   );

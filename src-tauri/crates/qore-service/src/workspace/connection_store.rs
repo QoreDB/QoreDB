@@ -166,19 +166,6 @@ impl WorkspaceConnectionStore {
         crate::paths::atomic_write(&file_path, content.as_bytes()).map_err(|e| {
             EngineError::internal(format!("Failed to write connection file: {}", e))
         })?;
-        // Connection metadata (host, username, ssh.key_path) is sensitive — keep
-        // it readable only by the current user.
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt;
-            if let Err(e) = fs::set_permissions(&file_path, fs::Permissions::from_mode(0o600)) {
-                tracing::warn!(
-                    "Failed to restrict permissions on {}: {e}",
-                    file_path.display()
-                );
-            }
-        }
-
         let creds_json = serde_json::to_string(&CredsJson {
             db_password: credentials.db_password.expose().clone(),
             ssh_password: credentials
@@ -320,6 +307,44 @@ mod tests {
             ssh_password: None,
             ssh_key_passphrase: None,
             proxy_password: None,
+        }
+    }
+
+    #[test]
+    fn failed_connection_publication_preserves_metadata_and_credentials_and_retries() {
+        use crate::paths::{WriteFailure, fail_next_write};
+        let dir = TempDir::new().unwrap();
+        let store = WorkspaceConnectionStore::new(
+            dir.path().to_owned(),
+            "test".into(),
+            Box::new(MockProvider::new()),
+        );
+        for failure in [
+            WriteFailure::PartialWrite,
+            WriteFailure::Sync,
+            WriteFailure::Publish,
+        ] {
+            let mut connection = make_connection("one", "Previous");
+            store.save_connection(&connection, &make_creds()).unwrap();
+            let path = store.connection_file("one").unwrap();
+            let previous = fs::read(&path).unwrap();
+            connection.name = "Replacement".into();
+            let mut credentials = make_creds();
+            credentials.db_password = Sensitive::new("replacement".into());
+            fail_next_write(failure);
+            assert!(store.save_connection(&connection, &credentials).is_err());
+            assert_eq!(fs::read(&path).unwrap(), previous);
+            assert_eq!(
+                store.get_credentials("one").unwrap().db_password.expose(),
+                "secret"
+            );
+            assert_eq!(fs::read_dir(dir.path()).unwrap().count(), 1);
+            store.save_connection(&connection, &credentials).unwrap();
+            assert_eq!(store.get_connection("one").unwrap().name, "Replacement");
+            assert_eq!(
+                store.get_credentials("one").unwrap().db_password.expose(),
+                "replacement"
+            );
         }
     }
 

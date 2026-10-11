@@ -11,9 +11,9 @@ use super::{SharedStateExt, parse_session_id};
 use crate::engine::types::{Namespace, QueryResult, RowData};
 use crate::interceptor::QueryExecutionResult;
 use crate::time_travel::ChangeOperation;
-use crate::time_travel::capture::{
-    build_changelog_entry, fetch_row_by_pk, merge_before_with_data, rowdata_to_json_map,
-};
+use crate::time_travel::capture::record_capture;
+use qore_service::mutation::capture::{finish_capture, prepare_capture};
+use qore_sql::generator::SandboxChangeType;
 
 fn format_table_ref(database: &str, schema: &Option<String>, table: &str) -> String {
     if let Some(schema) = schema {
@@ -53,6 +53,8 @@ pub async fn insert_row(
     drop(state_guard);
 
     let session = parse_session_id(&session_id)?;
+    let connection_identity = session_manager.get_saved_connection_identity(session).await;
+    let workspace_id = session_manager.workspace_id(session).await;
 
     let query_preview = format!(
         "INSERT INTO {} VALUES (...)",
@@ -87,10 +89,41 @@ pub async fn insert_row(
     } = preflight;
 
     let namespace = Namespace { database, schema };
+    let mut prepared = if changelog_store.should_capture(&table, &environment) {
+        Some(
+            prepare_capture(
+                driver.as_ref(),
+                session,
+                &namespace,
+                &table,
+                SandboxChangeType::Insert,
+                &data,
+            )
+            .await,
+        )
+    } else {
+        None
+    };
 
     let start_time = std::time::Instant::now();
-    match driver.insert_row(session, &namespace, &table, &data).await {
-        Ok(mut result) => {
+    match driver
+        .insert_row_returning(
+            session,
+            &namespace,
+            &table,
+            &data,
+            prepared
+                .as_ref()
+                .map(|capture| capture.returning_columns())
+                .unwrap_or(&[]),
+        )
+        .await
+    {
+        Ok(outcome) => {
+            let mut result = outcome.result;
+            if let Some(prepared) = prepared.as_mut() {
+                prepared.use_inserted_values(outcome.returned_values);
+            }
             result.execution_time_ms = start_time.elapsed().as_micros() as f64 / 1000.0;
             qore_service::query::apply_masking(
                 &session_manager,
@@ -111,22 +144,38 @@ pub async fn insert_row(
                 safety_warning.as_deref(),
             );
 
-            // Time-Travel: after-image equals the inserted data; PK is also the data row.
-            if changelog_store.should_capture(&table, &environment) {
-                let after_image = rowdata_to_json_map(&data);
-                let entry = build_changelog_entry(
-                    &session_id,
-                    driver.driver_id(),
+            if let Some(prepared) = prepared {
+                if let Some(capture) = finish_capture(
+                    driver.as_ref(),
+                    session,
                     &namespace,
                     &table,
-                    ChangeOperation::Insert,
+                    SandboxChangeType::Insert,
                     &data,
-                    None,
-                    Some(after_image),
-                    None,
-                    &environment,
-                );
-                changelog_store.record(entry);
+                    prepared,
+                    &result,
+                )
+                .await
+                {
+                    record_capture(
+                        &changelog_store,
+                        &session_id,
+                        driver.driver_id(),
+                        workspace_id.as_deref(),
+                        connection_identity.as_ref().map(|(id, _)| id.as_str()),
+                        connection_identity.as_ref().map(|(_, name)| name.as_str()),
+                        &environment,
+                        &namespace,
+                        &table,
+                        ChangeOperation::Insert,
+                        &capture,
+                        session_manager
+                            .masking(session)
+                            .await
+                            .as_ref()
+                            .map(|masking| &masking.config),
+                    );
+                }
             }
 
             #[cfg(feature = "pro")]
@@ -191,6 +240,8 @@ pub async fn update_row(
     let query_cache = Arc::clone(&state_guard.query_cache);
     drop(state_guard);
     let session = parse_session_id(&session_id)?;
+    let connection_identity = session_manager.get_saved_connection_identity(session).await;
+    let workspace_id = session_manager.workspace_id(session).await;
 
     let query_preview = format!(
         "UPDATE {} SET ... WHERE ...",
@@ -242,9 +293,18 @@ pub async fn update_row(
 
     let namespace = Namespace { database, schema };
 
-    // Time-Travel: fetch before-image prior to the mutation.
-    let before_image = if changelog_store.should_capture(&table, &environment) {
-        fetch_row_by_pk(&driver, session, &namespace, &table, &primary_key).await
+    let prepared = if changelog_store.should_capture(&table, &environment) {
+        Some(
+            prepare_capture(
+                driver.as_ref(),
+                session,
+                &namespace,
+                &table,
+                SandboxChangeType::Update,
+                &primary_key,
+            )
+            .await,
+        )
     } else {
         None
     };
@@ -275,23 +335,38 @@ pub async fn update_row(
                 safety_warning.as_deref(),
             );
 
-            if changelog_store.should_capture(&table, &environment) {
-                let after_image = before_image
-                    .as_ref()
-                    .map(|before| merge_before_with_data(before, &data));
-                let entry = build_changelog_entry(
-                    &session_id,
-                    driver.driver_id(),
+            if let Some(prepared) = prepared {
+                if let Some(capture) = finish_capture(
+                    driver.as_ref(),
+                    session,
                     &namespace,
                     &table,
-                    ChangeOperation::Update,
-                    &primary_key,
-                    before_image,
-                    after_image,
-                    None,
-                    &environment,
-                );
-                changelog_store.record(entry);
+                    SandboxChangeType::Update,
+                    &data,
+                    prepared,
+                    &result,
+                )
+                .await
+                {
+                    record_capture(
+                        &changelog_store,
+                        &session_id,
+                        driver.driver_id(),
+                        workspace_id.as_deref(),
+                        connection_identity.as_ref().map(|(id, _)| id.as_str()),
+                        connection_identity.as_ref().map(|(_, name)| name.as_str()),
+                        &environment,
+                        &namespace,
+                        &table,
+                        ChangeOperation::Update,
+                        &capture,
+                        session_manager
+                            .masking(session)
+                            .await
+                            .as_ref()
+                            .map(|masking| &masking.config),
+                    );
+                }
             }
 
             #[cfg(feature = "pro")]
@@ -355,6 +430,8 @@ pub async fn delete_row(
     let query_cache = Arc::clone(&state_guard.query_cache);
     drop(state_guard);
     let session = parse_session_id(&session_id)?;
+    let connection_identity = session_manager.get_saved_connection_identity(session).await;
+    let workspace_id = session_manager.workspace_id(session).await;
 
     let query_preview = format!(
         "DELETE FROM {} WHERE ...",
@@ -390,9 +467,18 @@ pub async fn delete_row(
 
     let namespace = Namespace { database, schema };
 
-    // Time-Travel: fetch before-image prior to the deletion.
-    let before_image = if changelog_store.should_capture(&table, &environment) {
-        fetch_row_by_pk(&driver, session, &namespace, &table, &primary_key).await
+    let prepared = if changelog_store.should_capture(&table, &environment) {
+        Some(
+            prepare_capture(
+                driver.as_ref(),
+                session,
+                &namespace,
+                &table,
+                SandboxChangeType::Delete,
+                &primary_key,
+            )
+            .await,
+        )
     } else {
         None
     };
@@ -423,20 +509,38 @@ pub async fn delete_row(
                 safety_warning.as_deref(),
             );
 
-            if changelog_store.should_capture(&table, &environment) {
-                let entry = build_changelog_entry(
-                    &session_id,
-                    driver.driver_id(),
+            if let Some(prepared) = prepared {
+                if let Some(capture) = finish_capture(
+                    driver.as_ref(),
+                    session,
                     &namespace,
                     &table,
-                    ChangeOperation::Delete,
-                    &primary_key,
-                    before_image,
-                    None,
-                    None,
-                    &environment,
-                );
-                changelog_store.record(entry);
+                    SandboxChangeType::Delete,
+                    &RowData::new(),
+                    prepared,
+                    &result,
+                )
+                .await
+                {
+                    record_capture(
+                        &changelog_store,
+                        &session_id,
+                        driver.driver_id(),
+                        workspace_id.as_deref(),
+                        connection_identity.as_ref().map(|(id, _)| id.as_str()),
+                        connection_identity.as_ref().map(|(_, name)| name.as_str()),
+                        &environment,
+                        &namespace,
+                        &table,
+                        ChangeOperation::Delete,
+                        &capture,
+                        session_manager
+                            .masking(session)
+                            .await
+                            .as_ref()
+                            .map(|masking| &masking.config),
+                    );
+                }
             }
 
             #[cfg(feature = "pro")]

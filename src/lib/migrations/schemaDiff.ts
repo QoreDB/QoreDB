@@ -5,6 +5,7 @@
 //! reusing the DDL builders. Lossy operations (dropped columns/tables) can recreate
 //! the structure but not the data, so their `down` is emitted commented-out.
 
+import i18n from '@/i18n';
 import { Driver } from '@/lib/connection/drivers';
 import {
   type AlterOp,
@@ -67,17 +68,35 @@ async function mapPool<T, R>(
 async function listAllTables(sessionId: string, ns: Namespace): Promise<Collection[]> {
   const pageSize = 500;
   const all: Collection[] = [];
-  let page = 1;
-  // Hard guard against a driver that never signals the end of pagination.
-  for (let guard = 0; guard < 1000; guard++) {
+  const names = new Set<string>();
+  let expectedTotal: number | undefined;
+  // A guard or malformed page must fail closed: partial lists can produce DROP SQL.
+  for (let page = 1; page <= 1000; page++) {
     const res = await listCollections(sessionId, ns, undefined, page, pageSize);
-    const batch = res.data?.collections ?? [];
-    all.push(...batch);
-    const total = res.data?.total_count;
-    if (batch.length < pageSize || (typeof total === 'number' && all.length >= total)) break;
-    page++;
+    if (!res.success || !res.data || !Array.isArray(res.data.collections)) {
+      throw new Error(res.error || i18n.t('migrations.schemaEnumerationIncomplete'));
+    }
+    const { collections: batch, total_count: total } = res.data;
+    if (
+      !Number.isSafeInteger(total) ||
+      total < 0 ||
+      (expectedTotal !== undefined && total !== expectedTotal)
+    ) {
+      throw new Error(i18n.t('migrations.schemaEnumerationIncomplete'));
+    }
+    expectedTotal = total;
+    for (const collection of batch) {
+      if (names.has(collection.name))
+        throw new Error(i18n.t('migrations.schemaEnumerationIncomplete'));
+      names.add(collection.name);
+      all.push(collection);
+    }
+    if (all.length === total) return all.filter(c => c.collection_type === 'Table');
+    if (!batch.length || all.length > total) {
+      throw new Error(i18n.t('migrations.schemaEnumerationIncomplete'));
+    }
   }
-  return all.filter(c => c.collection_type === 'Table');
+  throw new Error(i18n.t('migrations.schemaEnumerationIncomplete'));
 }
 
 export interface GeneratedMigration {
@@ -194,15 +213,27 @@ export async function captureSnapshot(
   database?: string
 ): Promise<CaptureResult> {
   const nsRes = await listNamespaces(sessionId);
-  const namespaces: Namespace[] = (nsRes.namespaces ?? []).filter(
+  if (!nsRes.success || !Array.isArray(nsRes.namespaces)) {
+    throw new Error(nsRes.error || i18n.t('migrations.schemaEnumerationIncomplete'));
+  }
+  const namespaces: Namespace[] = nsRes.namespaces.filter(
     ns => !database || ns.database === database
   );
 
+  if (database && !namespaces.length) {
+    throw new Error(i18n.t('migrations.schemaEnumerationIncomplete'));
+  }
   const tables: Record<string, TableDefinition> = {};
+  const tableKeys = new Set<string>();
   const failedTables: string[] = [];
 
   for (const ns of namespaces) {
     const collections = await listAllTables(sessionId, ns);
+    for (const collection of collections) {
+      const key = tableKey(ns, collection.name);
+      if (tableKeys.has(key)) throw new Error(i18n.t('migrations.schemaEnumerationIncomplete'));
+      tableKeys.add(key);
+    }
     await mapPool(collections, DESCRIBE_CONCURRENCY, async collection => {
       const key = tableKey(ns, collection.name);
       try {
@@ -222,6 +253,17 @@ export async function captureSnapshot(
     snapshot: { capturedAt: new Date().toISOString(), driver, database: database ?? null, tables },
     failedTables,
   };
+}
+
+/** A partial comparison can be useful; a partial baseline must never replace a complete one. */
+export async function captureBaselineSnapshot(
+  sessionId: string,
+  driver: Driver,
+  database?: string
+): Promise<SchemaSnapshot> {
+  const { snapshot, failedTables } = await captureSnapshot(sessionId, driver, database);
+  if (failedTables.length) throw new Error(i18n.t('migrations.schemaEnumerationIncomplete'));
+  return snapshot;
 }
 
 /**

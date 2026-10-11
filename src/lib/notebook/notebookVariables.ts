@@ -8,8 +8,7 @@ import type { NotebookVariable } from './notebookTypes';
  * Values are formatted per variable type so the substitution cannot break
  * out of the literal it is replacing (cf. audit B9-C1):
  *
- *  - `number`: rejected unless the value parses as a finite number; substituted
- *    as the bare numeric literal.
+ *  - `number`: accepts decimal / exponent literals and preserves their digits.
  *  - `date`: rejected unless it parses as an ISO-8601 date / timestamp;
  *    substituted as a SQL string literal.
  *  - `text` / `select`: substituted as a SQL string literal with `'`
@@ -24,7 +23,8 @@ export function substituteVariables(
   variables: Record<string, NotebookVariable>
 ): string {
   const replace = (match: string, name: string): string => {
-    const v = variables[name];
+    // biome-ignore lint/suspicious/noPrototypeBuiltins: the TypeScript target predates ES2022
+    const v = Object.prototype.hasOwnProperty.call(variables, name) ? variables[name] : undefined;
     if (!v) return match;
     const raw = v.currentValue ?? v.defaultValue;
     if (raw === undefined || raw === null) return match;
@@ -32,18 +32,18 @@ export function substituteVariables(
     return formatted ?? match;
   };
 
-  let result = source;
-  result = result.replace(/\{\{(\w+)\}\}/g, replace);
-  result = result.replace(/(?<!\$)\$(\w+)/g, replace);
-  return result;
+  // Consume inter-cell tokens whole so their label cannot become a variable.
+  // A single pass also prevents values from introducing another placeholder.
+  return source.replace(/\{\{(\w+)\}\}|(?<!\$)\$(\w+)(\.\w+)?/g, (match, braced, dollar, column) =>
+    column ? match : replace(match, braced ?? dollar)
+  );
 }
 
 function formatVariable(variable: NotebookVariable, raw: string): string | null {
   switch (variable.type) {
     case 'number': {
-      const n = Number(raw);
-      if (!Number.isFinite(n)) return null;
-      return String(n);
+      const trimmed = raw.trim();
+      return /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/.test(trimmed) ? trimmed : null;
     }
     case 'date': {
       // Accept YYYY-MM-DD and ISO-8601 timestamps. We re-emit as a quoted
@@ -81,8 +81,8 @@ export function extractVariableReferences(source: string): string[] {
     names.add(m[1]);
   }
 
-  for (const m of source.matchAll(/(?<!\$)\$(\w+)/g)) {
-    names.add(m[1]);
+  for (const m of source.matchAll(/(?<!\$)\$(\w+)(\.\w+)?/g)) {
+    if (!m[2]) names.add(m[1]);
   }
 
   return [...names];

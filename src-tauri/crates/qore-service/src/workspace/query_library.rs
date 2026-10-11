@@ -72,6 +72,31 @@ pub fn read(qoredb_path: &Path) -> Result<WorkspaceQueryLibrary, String> {
     serde_json::from_str(&content).map_err(|e| format!("Invalid library format: {e}"))
 }
 
+/// Persist the complete library, preserving the previous revision on IO failure.
+pub fn write(qoredb_path: &Path, library: &WorkspaceQueryLibrary) -> Result<(), String> {
+    write_with(qoredb_path, library, |path, content| {
+        std::fs::write(path, content)
+    })
+}
+
+fn write_with(
+    qoredb_path: &Path,
+    library: &WorkspaceQueryLibrary,
+    writer: impl FnOnce(&Path, &[u8]) -> std::io::Result<()>,
+) -> Result<(), String> {
+    let content = serde_json::to_vec_pretty(library)
+        .map_err(|e| format!("Failed to serialize library: {e}"))?;
+    let directory = qoredb_path.join("queries");
+    std::fs::create_dir_all(&directory)
+        .map_err(|e| format!("Failed to create queries directory: {e}"))?;
+    let pending = crate::paths::PendingOutput::new(&directory.join("library.json"))
+        .map_err(|e| format!("Failed to stage library: {e}"))?;
+    writer(pending.path(), &content).map_err(|e| format!("Failed to write library: {e}"))?;
+    pending
+        .commit()
+        .map_err(|e| format!("Failed to publish library: {e}"))
+}
+
 pub fn saved_queries(library: &WorkspaceQueryLibrary) -> Vec<SavedQuery> {
     library
         .items
@@ -142,7 +167,7 @@ pub fn substitute_variables(
     }
     if !invalid.is_empty() {
         return Err(format!(
-            "Invalid value for variable(s): {} (number expects a finite number, date expects \
+            "Invalid value for variable(s): {} (number expects a decimal or exponent literal, date expects \
              YYYY-MM-DD or an ISO-8601 timestamp)",
             name_list(&invalid)
         ));
@@ -161,12 +186,16 @@ fn name_list(names: &BTreeSet<&str>) -> String {
 
 fn literal(kind: VariableKind, raw: &str) -> Option<String> {
     match kind {
-        VariableKind::Number => raw
-            .trim()
-            .parse::<f64>()
-            .ok()
-            .filter(|n| n.is_finite())
-            .map(|n| n.to_string()),
+        VariableKind::Number => {
+            static NUMBER: OnceLock<Regex> = OnceLock::new();
+            let number = NUMBER.get_or_init(|| {
+                Regex::new(r"^[+-]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[eE][+-]?[0-9]+)?$")
+                    .expect("valid numeric literal regex")
+            });
+            let trimmed = raw.trim();
+            // Match the desktop grammar without rounding through a binary float.
+            number.is_match(trimmed).then(|| trimmed.to_string())
+        }
         VariableKind::Date => {
             static DATE: OnceLock<Regex> = OnceLock::new();
             let date = DATE.get_or_init(|| {
@@ -192,6 +221,101 @@ fn sql_quote(value: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn incomplete_write_preserves_previous_library_and_removes_staging() {
+        let dir = tempfile::tempdir().unwrap();
+        let library = WorkspaceQueryLibrary {
+            version: 1,
+            folders: vec![serde_json::json!({"id":"folder", "name":"Archives"})],
+            items: vec![serde_json::json!({"id":"old", "query":"SELECT 9007199254740993"})],
+        };
+        write(dir.path(), &library).unwrap();
+        let path = dir.path().join("queries/library.json");
+        let original = std::fs::read(&path).unwrap();
+        let error = write_with(dir.path(), &library, |path, content| {
+            std::fs::write(path, &content[..8])?;
+            Err(std::io::Error::other("synthetic disk full"))
+        });
+        assert!(error.is_err());
+        assert_eq!(std::fs::read(&path).unwrap(), original);
+        assert_eq!(read(dir.path()).unwrap().items, library.items);
+        assert_eq!(
+            std::fs::read_dir(path.parent().unwrap()).unwrap().count(),
+            1
+        );
+    }
+
+    #[test]
+    fn failed_first_write_does_not_publish_partial_json() {
+        let dir = tempfile::tempdir().unwrap();
+        let library = WorkspaceQueryLibrary {
+            version: 1,
+            folders: vec![],
+            items: vec![],
+        };
+        assert!(
+            write_with(dir.path(), &library, |path, content| {
+                std::fs::write(path, &content[..8])?;
+                Err(std::io::Error::other("synthetic disk full"))
+            })
+            .is_err()
+        );
+        assert!(!dir.path().join("queries/library.json").exists());
+        assert_eq!(
+            std::fs::read_dir(dir.path().join("queries"))
+                .unwrap()
+                .count(),
+            0
+        );
+    }
+
+    #[test]
+    fn publication_failure_preserves_destination_and_allows_retry() {
+        let dir = tempfile::tempdir().unwrap();
+        let destination = dir.path().join("queries/library.json");
+        std::fs::create_dir_all(&destination).unwrap();
+        std::fs::write(destination.join("keep"), "unchanged").unwrap();
+        let library = WorkspaceQueryLibrary {
+            version: 1,
+            folders: vec![],
+            items: vec![],
+        };
+        assert!(write(dir.path(), &library).is_err());
+        assert_eq!(
+            std::fs::read_to_string(destination.join("keep")).unwrap(),
+            "unchanged"
+        );
+        assert_eq!(
+            std::fs::read_dir(dir.path().join("queries"))
+                .unwrap()
+                .count(),
+            1
+        );
+        std::fs::remove_dir_all(destination).unwrap();
+        write(dir.path(), &library).unwrap();
+        assert!(read(dir.path()).unwrap().items.is_empty());
+    }
+
+    #[test]
+    fn successful_write_replaces_the_complete_library() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut library = WorkspaceQueryLibrary {
+            version: 1,
+            folders: vec![],
+            items: vec![],
+        };
+        write(dir.path(), &library).unwrap();
+        library.items.push(serde_json::json!({"id":"new", "query":"SELECT 0.12345678901234567890", "custom": {"preserved": true}}));
+        write(dir.path(), &library).unwrap();
+        assert_eq!(read(dir.path()).unwrap().items, library.items);
+        assert_eq!(
+            std::fs::read_dir(dir.path().join("queries"))
+                .unwrap()
+                .count(),
+            1
+        );
+    }
 
     fn variable(kind: VariableKind, default: Option<&str>) -> QueryVariable {
         QueryVariable {
@@ -289,6 +413,54 @@ mod tests {
             .unwrap(),
             "WHERE ts > '2026-05-16'"
         );
+    }
+
+    #[test]
+    fn saved_query_numeric_parameters_preserve_their_exact_literal() {
+        let defs = definitions(&[("n", variable(VariableKind::Number, None))]);
+        for raw in [
+            "9007199254740993",
+            "-9223372036854775808",
+            "0.12345678901234567890",
+            "1e-400",
+            "+1.2300E+40",
+            "1e400",
+            ".5",
+            "1.",
+        ] {
+            let sql =
+                substitute_variables("SELECT {{n}}, $n", &defs, &values(&[("n", raw)])).unwrap();
+            assert_eq!(sql, format!("SELECT {raw}, {raw}"), "{raw}");
+        }
+        let defaults = definitions(&[(
+            "n",
+            variable(VariableKind::Number, Some(" 9007199254740993 ")),
+        )]);
+        assert_eq!(
+            substitute_variables("SELECT $n", &defaults, &HashMap::new()).unwrap(),
+            "SELECT 9007199254740993"
+        );
+    }
+
+    #[test]
+    fn numeric_parameters_reject_non_literals_without_echoing_values() {
+        let defs = definitions(&[("n", variable(VariableKind::Number, None))]);
+        for raw in [
+            "NaN",
+            "inf",
+            "Infinity",
+            "1; SELECT 2",
+            "0x10",
+            "",
+            "1_000",
+            "1e",
+            "1/*comment*/",
+            "١٢",
+        ] {
+            let error =
+                substitute_variables("SELECT $n", &defs, &values(&[("n", raw)])).unwrap_err();
+            assert!(error.starts_with("Invalid value for variable(s): `n`"));
+        }
     }
 
     #[test]

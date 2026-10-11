@@ -52,7 +52,11 @@ import {
   summarize,
 } from '@/lib/migrations/parse';
 import { compareSnapshots, type SchemaDelta } from '@/lib/migrations/schemaCompare';
-import { captureSnapshot, generateMigration } from '@/lib/migrations/schemaDiff';
+import {
+  captureBaselineSnapshot,
+  captureSnapshot,
+  generateMigration,
+} from '@/lib/migrations/schemaDiff';
 import { nextMigrationDirection } from '@/lib/migrations/status';
 import { notify } from '@/lib/notify';
 import { confirmDialog } from '@/lib/stores/confirmStore';
@@ -362,17 +366,13 @@ export function MigrationsPanel({
     if (!sessionId || !connectionId || !schemaDiffSupported) return;
     setCapturing(true);
     try {
-      const { snapshot, failedTables } = await captureSnapshot(
+      const snapshot = await captureBaselineSnapshot(
         sessionId,
         driver as Driver,
         targetDatabase || undefined
       );
       await saveBaseline(connectionId, targetDatabase || undefined, snapshot);
-      if (failedTables.length > 0) {
-        notify.warning(t('migrations.captureIncomplete', { count: failedTables.length }));
-      } else {
-        notify.success(t('migrations.baselineCaptured'));
-      }
+      notify.success(t('migrations.baselineCaptured'));
     } catch (err) {
       notify.error(t('common.unknownError'), err);
     } finally {

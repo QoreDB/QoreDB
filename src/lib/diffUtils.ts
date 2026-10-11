@@ -3,6 +3,13 @@
 import type { ColumnInfo, QueryResult, Row, Value } from './tauri';
 
 export type DiffRowStatus = 'unchanged' | 'added' | 'removed' | 'modified';
+export type DiffWarning =
+  | 'ambiguousKeys'
+  | 'uncomparedColumns'
+  | 'noCommonColumns'
+  | 'missingKeyColumns'
+  | 'maskedColumns'
+  | 'truncated';
 
 export interface DiffCell {
   value: Value;
@@ -20,6 +27,8 @@ export interface DiffResult {
   columns: ColumnInfo[];
   rows: DiffRow[];
   stats: DiffStats;
+  incomplete: boolean;
+  warnings: DiffWarning[];
 }
 
 export interface DiffStats {
@@ -30,23 +39,23 @@ export interface DiffStats {
   total: number;
 }
 
-function generateRowKey(row: Row, keyColumnIndexes: number[], fallbackIndex?: number): string {
-  const validIndexes = keyColumnIndexes.filter(idx => idx >= 0);
-  if (validIndexes.length === 0) {
-    if (typeof fallbackIndex === 'number') {
-      return `__row_index:${fallbackIndex}`;
-    }
-    return JSON.stringify(row.values);
-  }
-
-  return validIndexes.map(idx => JSON.stringify(row.values[idx])).join('|');
+function serializeValue(value: Value): string {
+  return JSON.stringify(value, (_, nested) =>
+    nested && typeof nested === 'object' && !Array.isArray(nested)
+      ? Object.fromEntries(
+          Object.keys(nested)
+            .sort()
+            .map(key => [key, nested[key]])
+        )
+      : nested
+  );
 }
 
 function valuesEqual(a: Value, b: Value): boolean {
   if (a === b) return true;
   if (a === null || b === null) return false;
   if (typeof a === 'object' && typeof b === 'object') {
-    return JSON.stringify(a) === JSON.stringify(b);
+    return serializeValue(a) === serializeValue(b);
   }
   return false;
 }
@@ -65,15 +74,31 @@ function getColumnIndexes(result: QueryResult, columnNames: string[]): number[] 
  * @param left Left side query result
  * @param right Right side query result
  * @param keyColumns Optional columns to use as row key for matching (uses all columns if not specified)
+ * Duplicate keys match identical rows first, then remaining rows in source order.
  */
 export function compareResults(
   left: QueryResult,
   right: QueryResult,
-  keyColumns?: string[]
+  keyColumns?: string[],
+  options: { truncated?: boolean } = {}
 ): DiffResult {
+  const warnings: DiffWarning[] = [];
   const commonColumns = findCommonColumns(left, right);
   const hasCommonColumns = commonColumns.length > 0;
   const outputColumns = hasCommonColumns ? commonColumns : left.columns;
+
+  if (!hasCommonColumns) warnings.push('noCommonColumns');
+  else if (
+    commonColumns.length !== left.columns.length ||
+    commonColumns.length !== right.columns.length ||
+    new Set(commonColumns.map(column => column.name)).size !== commonColumns.length
+  ) {
+    warnings.push('uncomparedColumns');
+  }
+  if ([...left.columns, ...right.columns].some(column => column.masked)) {
+    warnings.push('maskedColumns');
+  }
+  if (options.truncated) warnings.push('truncated');
 
   const compareColumnNames = outputColumns.map(c => c.name);
   const leftIndexes = hasCommonColumns
@@ -87,7 +112,7 @@ export function compareResults(
   let rightKeyIndexes: number[];
 
   if (hasCommonColumns) {
-    const keyColNames = keyColumns ?? compareColumnNames;
+    const keyColNames = keyColumns?.length ? keyColumns : compareColumnNames;
     leftKeyIndexes = getColumnIndexes(left, keyColNames);
     rightKeyIndexes = getColumnIndexes(right, keyColNames);
   } else {
@@ -95,21 +120,41 @@ export function compareResults(
     rightKeyIndexes = rightIndexes;
   }
 
-  const leftRowMap = new Map<string, { row: Row; index: number }>();
-  const rightRowMap = new Map<string, { row: Row; index: number }>();
+  if (
+    keyColumns?.some(
+      name => !left.columns.some(c => c.name === name) || !right.columns.some(c => c.name === name)
+    )
+  ) {
+    warnings.push('missingKeyColumns');
+    leftKeyIndexes = leftIndexes;
+    rightKeyIndexes = rightIndexes;
+  }
 
-  left.rows.forEach((row, index) => {
-    const key = generateRowKey(row, leftKeyIndexes, index);
-    leftRowMap.set(key, { row, index });
-  });
+  function groupRows(rows: Row[], indexes: number[]): Map<string, Row[]> {
+    const groups = new Map<string, Row[]>();
+    const validIndexes = indexes.filter(idx => idx >= 0);
+    rows.forEach((row, index) => {
+      const key =
+        validIndexes.length > 0
+          ? serializeValue(validIndexes.map(idx => row.values[idx]))
+          : `__row_index:${index}`;
+      const group = groups.get(key);
+      if (group) group.push(row);
+      else groups.set(key, [row]);
+    });
+    return groups;
+  }
 
-  right.rows.forEach((row, index) => {
-    const key = generateRowKey(row, rightKeyIndexes, index);
-    rightRowMap.set(key, { row, index });
-  });
+  const leftRowMap = groupRows(left.rows, leftKeyIndexes);
+  const rightRowMap = groupRows(right.rows, rightKeyIndexes);
+  if (
+    keyColumns?.length &&
+    [...leftRowMap.values(), ...rightRowMap.values()].some(rows => rows.length > 1)
+  ) {
+    warnings.push('ambiguousKeys');
+  }
 
   const diffRows: DiffRow[] = [];
-  const processedRightKeys = new Set<string>();
 
   const stats: DiffStats = {
     unchanged: 0,
@@ -119,85 +164,59 @@ export function compareResults(
     total: 0,
   };
 
-  for (const [key, { row: leftRow }] of leftRowMap) {
-    const rightEntry = rightRowMap.get(key);
-
-    if (!rightEntry) {
-      // Row only in left = removed
-      const leftCells = leftIndexes.map(idx => ({
-        value: idx >= 0 ? leftRow.values[idx] : null,
-        changed: true,
-      }));
-      const rightCells = outputColumns.map(() => ({
-        value: null,
-        changed: true,
-      }));
-
-      diffRows.push({
-        status: 'removed',
-        leftCells,
-        rightCells,
-        rowKey: key,
-      });
-      stats.removed++;
-    } else {
-      processedRightKeys.add(key);
-      const rightRow = rightEntry.row;
-
-      let hasChanges = false;
-      const leftCells: DiffCell[] = [];
-      const rightCells: DiffCell[] = [];
-
-      for (let i = 0; i < outputColumns.length; i++) {
-        const leftIdx = leftIndexes[i];
-        const rightIdx = rightIndexes[i];
-
-        const leftVal = leftIdx >= 0 ? leftRow.values[leftIdx] : null;
-        const rightVal = rightIdx >= 0 ? rightRow.values[rightIdx] : null;
-
-        const changed = !valuesEqual(leftVal, rightVal);
-        if (changed) hasChanges = true;
-
-        leftCells.push({ value: leftVal, changed });
-        rightCells.push({ value: rightVal, changed });
-      }
-
-      const status = hasChanges ? 'modified' : 'unchanged';
-      diffRows.push({
-        status,
-        leftCells,
-        rightCells,
-        rowKey: key,
-      });
-
-      if (hasChanges) {
-        stats.modified++;
-      } else {
-        stats.unchanged++;
-      }
+  function appendRow(key: string, occurrence: number, leftRow?: Row, rightRow?: Row) {
+    let hasChanges = false;
+    const leftCells: DiffCell[] = [];
+    const rightCells: DiffCell[] = [];
+    for (let i = 0; i < outputColumns.length; i++) {
+      const leftVal = leftRow && leftIndexes[i] >= 0 ? leftRow.values[leftIndexes[i]] : null;
+      const rightVal = rightRow && rightIndexes[i] >= 0 ? rightRow.values[rightIndexes[i]] : null;
+      const changed = !leftRow || !rightRow || !valuesEqual(leftVal, rightVal);
+      if (changed) hasChanges = true;
+      leftCells.push({ value: leftVal, changed });
+      rightCells.push({ value: rightVal, changed });
     }
+    const status = !leftRow
+      ? 'added'
+      : !rightRow
+        ? 'removed'
+        : hasChanges
+          ? 'modified'
+          : 'unchanged';
+    diffRows.push({ status, leftCells, rightCells, rowKey: JSON.stringify([key, occurrence]) });
+    stats[status]++;
   }
 
-  // Right rows not matched against left = added
-  for (const [key, { row: rightRow }] of rightRowMap) {
-    if (processedRightKeys.has(key)) continue;
-
-    const leftCells = outputColumns.map(() => ({
-      value: null,
-      changed: true,
-    }));
-    const rightCells = rightIndexes.map(idx => ({
-      value: idx >= 0 ? rightRow.values[idx] : null,
-      changed: true,
-    }));
-
-    diffRows.push({
-      status: 'added',
-      leftCells,
-      rightCells,
-      rowKey: key,
+  const keys = new Set([...leftRowMap.keys(), ...rightRowMap.keys()]);
+  for (const key of keys) {
+    const leftRows = leftRowMap.get(key) ?? [];
+    const rightRows = rightRowMap.get(key) ?? [];
+    const buckets = new Map<string, { indexes: number[]; used: number }>();
+    rightRows.forEach((row, index) => {
+      const signature = serializeValue(
+        rightIndexes.map(idx => (idx >= 0 ? row.values[idx] : null))
+      );
+      const bucket = buckets.get(signature);
+      if (bucket) bucket.indexes.push(index);
+      else buckets.set(signature, { indexes: [index], used: 0 });
     });
-    stats.added++;
+    const matched = new Set<number>();
+    const matches = leftRows.map(row => {
+      const signature = serializeValue(leftIndexes.map(idx => (idx >= 0 ? row.values[idx] : null)));
+      const bucket = buckets.get(signature);
+      if (!bucket || bucket.used === bucket.indexes.length) return undefined;
+      const index = bucket.indexes[bucket.used++];
+      matched.add(index);
+      return rightRows[index];
+    });
+    const remaining = rightRows.filter((_, index) => !matched.has(index));
+    let nextRight = 0;
+    leftRows.forEach((row, index) => {
+      appendRow(key, index, row, matches[index] ?? remaining[nextRight++]);
+    });
+    for (; nextRight < remaining.length; nextRight++) {
+      appendRow(key, leftRows.length + nextRight, undefined, remaining[nextRight]);
+    }
   }
 
   stats.total = diffRows.length;
@@ -216,6 +235,8 @@ export function compareResults(
     columns: outputColumns,
     rows: diffRows,
     stats,
+    incomplete: warnings.length > 0,
+    warnings,
   };
 }
 
@@ -228,7 +249,7 @@ export function formatDiffValue(value: Value): string {
 export function exportDiffAsCSV(diffResult: DiffResult): string {
   const { columns, rows } = diffResult;
 
-  const header = ['_status', ...columns.map(c => c.name)];
+  const header = ['_status', '_comparison_incomplete', ...columns.map(c => c.name)];
   const lines: string[] = [header.map(escapeCSV).join(',')];
 
   for (const row of rows) {
@@ -245,7 +266,7 @@ export function exportDiffAsCSV(diffResult: DiffResult): string {
               })
             : row.leftCells.map(c => formatDiffValue(c.value));
 
-    const line = [row.status, ...cells].map(escapeCSV).join(',');
+    const line = [row.status, String(diffResult.incomplete), ...cells].map(escapeCSV).join(',');
     lines.push(line);
   }
 
@@ -253,7 +274,7 @@ export function exportDiffAsCSV(diffResult: DiffResult): string {
 }
 
 function escapeCSV(value: string): string {
-  if (value.includes(',') || value.includes('"') || value.includes('\n')) {
+  if (value.includes(',') || value.includes('"') || value.includes('\n') || value.includes('\r')) {
     return `"${value.replace(/"/g, '""')}"`;
   }
   return value;
@@ -263,6 +284,8 @@ export function exportDiffAsJSON(diffResult: DiffResult): string {
   const { columns, rows, stats } = diffResult;
 
   const exportData = {
+    incomplete: diffResult.incomplete,
+    warnings: diffResult.warnings,
     columns: columns.map(c => ({ name: c.name, type: c.data_type })),
     stats,
     rows: rows.map(row => {

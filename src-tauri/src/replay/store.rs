@@ -142,16 +142,29 @@ impl ReplaySetStore {
         if self.file_path(slug)?.exists() {
             return Err(format!("A replay set named '{slug}' already exists"));
         }
-        self.save(slug, set)
+        self.write(slug, set, false)
     }
 
     pub fn save(&self, slug: &str, set: &ReplaySet) -> Result<PathBuf, String> {
+        self.write(slug, set, true)
+    }
+
+    fn write(&self, slug: &str, set: &ReplaySet, replace: bool) -> Result<PathBuf, String> {
         let path = self.file_path(slug)?;
         fs::create_dir_all(&self.dir)
             .map_err(|e| format!("Failed to create replays directory: {}", e))?;
         let content = serde_json::to_string_pretty(set)
             .map_err(|e| format!("Failed to serialize replay set: {}", e))?;
-        fs::write(&path, content).map_err(|e| format!("Failed to write replay set: {}", e))?;
+        let pending = qore_service::paths::PendingOutput::new(&path)
+            .map_err(|e| format!("Failed to prepare replay set: {e}"))?;
+        fs::write(pending.path(), content)
+            .map_err(|e| format!("Failed to write replay set: {e}"))?;
+        if replace {
+            pending.commit()
+        } else {
+            pending.commit_new()
+        }
+        .map_err(|e| format!("Failed to publish replay set: {e}"))?;
         Ok(path)
     }
 
@@ -167,9 +180,52 @@ mod tests {
     use super::*;
     use crate::replay::types::{ExpectedOutcome, REPLAY_SET_VERSION, ReplayEntry, ReplaySource};
 
+    #[test]
+    fn failed_publication_preserves_destination_and_cleans_temporary_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = ReplaySetStore::new(dir.path());
+        let path = store.path_for("synthetic").unwrap();
+        fs::create_dir_all(&path).unwrap();
+        fs::write(path.join("original"), "preserved").unwrap();
+        assert!(store.save("synthetic", &sample_set()).is_err());
+        assert_eq!(
+            fs::read_to_string(path.join("original")).unwrap(),
+            "preserved"
+        );
+        assert_eq!(fs::read_dir(store.dir()).unwrap().count(), 1);
+    }
+
+    #[test]
+    fn concurrent_creations_never_overwrite_each_other() {
+        let dir = tempfile::tempdir().unwrap();
+        let barrier = std::sync::Arc::new(std::sync::Barrier::new(8));
+        let handles: Vec<_> = (0..8)
+            .map(|index| {
+                let path = dir.path().to_owned();
+                let barrier = barrier.clone();
+                std::thread::spawn(move || {
+                    let store = ReplaySetStore::new(&path);
+                    let mut set = sample_set();
+                    set.name = format!("candidate-{index}");
+                    barrier.wait();
+                    store.create("same-name", &set).map(|_| set.name)
+                })
+            })
+            .collect();
+        let saved: Vec<_> = handles
+            .into_iter()
+            .filter_map(|handle| handle.join().unwrap().ok())
+            .collect();
+        assert_eq!(saved.len(), 1);
+        let store = ReplaySetStore::new(dir.path());
+        assert_eq!(store.load("same-name").unwrap().name, saved[0]);
+        assert_eq!(fs::read_dir(store.dir()).unwrap().count(), 1);
+    }
+
     fn sample_set() -> ReplaySet {
         ReplaySet {
             version: REPLAY_SET_VERSION,
+            baseline_run_id: None,
             name: "checkout flow".to_string(),
             created_at: "2026-08-21T10:00:00Z".to_string(),
             source: ReplaySource {

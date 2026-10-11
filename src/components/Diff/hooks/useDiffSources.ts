@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 
 import { type MutableRefObject, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import i18n from '@/i18n';
 import { compareResults, type DiffResult, findCommonColumns } from '@/lib/diffUtils';
 import type { DiffSource } from '@/lib/tabs';
 import {
@@ -13,7 +14,6 @@ import {
   listNamespaces,
   type Namespace,
   previewTable,
-  type QueryResult,
   type SavedConnection,
   type TableSchema,
 } from '@/lib/tauri';
@@ -196,6 +196,7 @@ function initSourceState(
       snapshotId: source.snapshotId,
       snapshotName: source.label,
       result: source.result,
+      truncated: source.truncated,
       namespace: source.namespace ?? initialNamespace,
       loading: false,
       connecting: false,
@@ -214,6 +215,8 @@ function initSourceState(
     tableName: source?.tableName,
     query: source?.query,
     result: source?.result,
+    // An imported result without limit metadata cannot establish completeness.
+    truncated: source?.truncated ?? Boolean(source?.result),
     namespace: source?.namespace ?? initialNamespace,
     namespaces: undefined,
     sessionId: undefined,
@@ -239,51 +242,76 @@ export function useDiffSources({
     initSourceState(initialRightSource, activeConnection, initialNamespace)
   );
 
-  const sharedSessionsRef = useRef<Map<string, { sessionId: string; refs: number }>>(new Map());
+  const sharedSessionsRef = useRef<
+    Map<string, { promise: Promise<string>; refs: number; projectId: string }>
+  >(new Map());
   const leftConnectAttemptRef = useRef(0);
   const rightConnectAttemptRef = useRef(0);
   const leftExecAttemptRef = useRef(0);
   const rightExecAttemptRef = useRef(0);
-  const leftConnectionIdRef = useRef<string | undefined>(leftSource.connectionId);
-  const rightConnectionIdRef = useRef<string | undefined>(rightSource.connectionId);
-
-  const [rowLimit, setRowLimit] = useState<number>(DEFAULT_DIFF_ROW_LIMIT);
-  const [keyColumns, setKeyColumns] = useState<string[]>([]);
+  const [rowLimit, setRowLimitState] = useState<number>(DEFAULT_DIFF_ROW_LIMIT);
+  const rowLimitRef = useRef(rowLimit);
+  const setRowLimit = useCallback((limit: number) => {
+    rowLimitRef.current = limit;
+    setRowLimitState(limit);
+  }, []);
+  const [keyColumns, setKeyColumnsState] = useState<string[]>([]);
+  const keyColumnsRef = useRef(keyColumns);
+  keyColumnsRef.current = keyColumns;
   const [diffResult, setDiffResult] = useState<DiffResult | null>(null);
+  const setKeyColumns = useCallback((columns: string[]) => {
+    keyColumnsRef.current = columns;
+    setKeyColumnsState(columns);
+    setDiffResult(null);
+  }, []);
   const [comparing, setComparing] = useState(false);
   const [leftTableSchema, setLeftTableSchema] = useState<TableSchema | null>(null);
   const [rightTableSchema, setRightTableSchema] = useState<TableSchema | null>(null);
   const tableSchemaCacheRef = useRef<Map<string, TableSchema | null>>(new Map());
 
-  const releaseConnection = useCallback(async (connectionId?: string) => {
-    if (!connectionId) return;
-    const entry = sharedSessionsRef.current.get(connectionId);
-    if (!entry) return;
-    entry.refs -= 1;
-    if (entry.refs > 0) return;
-    sharedSessionsRef.current.delete(connectionId);
-    try {
-      await disconnect(entry.sessionId);
-    } catch (err) {
-      console.warn('Failed to disconnect diff session', err);
-    }
-  }, []);
+  const releaseConnection = useCallback(
+    async (connectionId?: string) => {
+      if (!connectionId) return;
+      const key = JSON.stringify([projectId, connectionId]);
+      const entry = sharedSessionsRef.current.get(key);
+      if (!entry) return;
+      entry.refs -= 1;
+      if (entry.refs > 0) return;
+      sharedSessionsRef.current.delete(key);
+      try {
+        await disconnect(await entry.promise);
+      } catch (err) {
+        console.warn('Failed to disconnect diff session', err);
+      }
+    },
+    [projectId]
+  );
 
   const acquireSession = useCallback(
     async (connection: SavedConnection): Promise<string> => {
-      const existing = sharedSessionsRef.current.get(connection.id);
+      const key = JSON.stringify([projectId, connection.id]);
+      const existing = sharedSessionsRef.current.get(key);
       if (existing) {
         existing.refs += 1;
-        return existing.sessionId;
+        return existing.promise;
       }
 
-      const result = await connectSavedConnection(projectId, connection.id);
-      if (!result.success || !result.session_id) {
-        throw new Error(result.error || 'Failed to connect');
+      // Register the pending connection before awaiting it so both sides share
+      // the same session even when they open concurrently.
+      const promise = connectSavedConnection(projectId, connection.id).then(result => {
+        if (!result.success || !result.session_id) {
+          throw new Error(result.error || 'Failed to connect');
+        }
+        return result.session_id;
+      });
+      const entry = { promise, refs: 1, projectId };
+      sharedSessionsRef.current.set(key, entry);
+      try {
+        return await promise;
+      } catch (error) {
+        if (sharedSessionsRef.current.get(key) === entry) sharedSessionsRef.current.delete(key);
+        throw error;
       }
-
-      sharedSessionsRef.current.set(connection.id, { sessionId: result.session_id, refs: 1 });
-      return result.session_id;
     },
     [projectId]
   );
@@ -300,6 +328,7 @@ export function useDiffSources({
         'namespace' in updates
       ) {
         next.result = undefined;
+        next.truncated = undefined;
         next.error = undefined;
         next.loading = false;
       }
@@ -313,6 +342,9 @@ export function useDiffSources({
       'connectionId' in updates ||
       'namespace' in updates
     ) {
+      leftExecAttemptRef.current += 1;
+      setDiffResult(null);
+    } else if ('result' in updates || updates.loading) {
       setDiffResult(null);
     }
   }, []);
@@ -329,6 +361,7 @@ export function useDiffSources({
         'namespace' in updates
       ) {
         next.result = undefined;
+        next.truncated = undefined;
         next.error = undefined;
         next.loading = false;
       }
@@ -342,6 +375,9 @@ export function useDiffSources({
       'connectionId' in updates ||
       'namespace' in updates
     ) {
+      rightExecAttemptRef.current += 1;
+      setDiffResult(null);
+    } else if ('result' in updates || updates.loading) {
       setDiffResult(null);
     }
   }, []);
@@ -373,11 +409,10 @@ export function useDiffSources({
       const attemptRef = isLeft ? leftConnectAttemptRef : rightConnectAttemptRef;
       const updateFn = isLeft ? updateLeftSource : updateRightSource;
       const currentSource = isLeft ? leftSource : rightSource;
+      attemptRef.current += 1;
+      const attemptId = attemptRef.current;
 
       if (!connection) {
-        if (currentSource.connectionId) {
-          await releaseConnection(currentSource.connectionId);
-        }
         updateFn({
           connectionId: undefined,
           connection: undefined,
@@ -392,6 +427,7 @@ export function useDiffSources({
           result: undefined,
           error: undefined,
         });
+        await releaseConnection(currentSource.connectionId);
         return;
       }
 
@@ -401,8 +437,6 @@ export function useDiffSources({
 
       const prevConnectionId = currentSource.connectionId;
       const isSameConnection = currentSource.connectionId === connection.id;
-      attemptRef.current += 1;
-      const attemptId = attemptRef.current;
 
       const updates: Partial<DiffSourceState> = {
         connectionId: connection.id,
@@ -428,8 +462,10 @@ export function useDiffSources({
         await releaseConnection(prevConnectionId);
       }
 
+      let acquired = false;
       try {
         const sessionId = await acquireSession(connection);
+        acquired = true;
         if (attemptRef.current !== attemptId) {
           await releaseConnection(connection.id);
           return;
@@ -454,6 +490,7 @@ export function useDiffSources({
           namespacesLoading: false,
         });
       } catch (err) {
+        if (acquired) await releaseConnection(connection.id);
         if (attemptRef.current !== attemptId) return;
         updateFn({
           connecting: false,
@@ -512,43 +549,72 @@ export function useDiffSources({
   );
 
   useEffect(() => {
-    if (leftSource.connection && !leftSource.sessionId && !leftSource.connecting) {
+    if (
+      leftSource.connection &&
+      !leftSource.sessionId &&
+      !leftSource.connecting &&
+      !leftSource.connectionError
+    ) {
       connectSource('left', leftSource.connection).catch(() => undefined);
     }
-  }, [leftSource.connection, leftSource.sessionId, leftSource.connecting, connectSource]);
+  }, [
+    leftSource.connection,
+    leftSource.sessionId,
+    leftSource.connecting,
+    leftSource.connectionError,
+    connectSource,
+  ]);
 
   useEffect(() => {
-    if (rightSource.connection && !rightSource.sessionId && !rightSource.connecting) {
+    if (
+      rightSource.connection &&
+      !rightSource.sessionId &&
+      !rightSource.connecting &&
+      !rightSource.connectionError
+    ) {
       connectSource('right', rightSource.connection).catch(() => undefined);
     }
-  }, [rightSource.connection, rightSource.sessionId, rightSource.connecting, connectSource]);
+  }, [
+    rightSource.connection,
+    rightSource.sessionId,
+    rightSource.connecting,
+    rightSource.connectionError,
+    connectSource,
+  ]);
 
-  useEffect(() => {
-    leftConnectionIdRef.current = leftSource.connectionId;
-  }, [leftSource.connectionId]);
-
-  useEffect(() => {
-    rightConnectionIdRef.current = rightSource.connectionId;
-  }, [rightSource.connectionId]);
-
+  const sourceProjectRef = useRef(projectId);
   useEffect(() => {
     const sharedSessions = sharedSessionsRef.current;
+    if (sourceProjectRef.current !== projectId) {
+      sourceProjectRef.current = projectId;
+      const empty: DiffSourceState = {
+        mode: 'table',
+        loading: false,
+        connecting: false,
+        namespacesLoading: false,
+      };
+      setLeftSource(empty);
+      setRightSource(empty);
+      setDiffResult(null);
+      setKeyColumns([]);
+      setLeftTableSchema(null);
+      setRightTableSchema(null);
+      tableSchemaCacheRef.current.clear();
+    }
     return () => {
-      const connections = new Set<string>();
-      if (leftConnectionIdRef.current) connections.add(leftConnectionIdRef.current);
-      if (rightConnectionIdRef.current) connections.add(rightConnectionIdRef.current);
-      connections.forEach(connectionId => {
-        const entry = sharedSessions.get(connectionId);
-        if (!entry) return;
-        entry.refs -= 1;
-        if (entry.refs > 0) return;
-        sharedSessions.delete(connectionId);
-        disconnect(entry.sessionId).catch(err => {
+      leftConnectAttemptRef.current += 1;
+      rightConnectAttemptRef.current += 1;
+      leftExecAttemptRef.current += 1;
+      rightExecAttemptRef.current += 1;
+      for (const [key, entry] of sharedSessions) {
+        if (entry.projectId !== projectId) continue;
+        sharedSessions.delete(key);
+        entry.promise.then(disconnect).catch(err => {
           console.warn('Failed to disconnect diff session', err);
         });
-      });
+      }
     };
-  }, []);
+  }, [projectId, setKeyColumns]);
 
   const executeSource = useCallback(
     async (
@@ -556,43 +622,62 @@ export function useDiffSources({
       updateFn: (updates: Partial<DiffSourceState>) => void,
       attemptRef: MutableRefObject<number>
     ) => {
-      if (!source.sessionId || !source.namespace) return;
+      if (source.mode !== 'snapshot' && (!source.sessionId || !source.namespace)) return;
+      if (source.mode === 'snapshot' && !source.snapshotId && source.result) {
+        return {
+          result: source.result,
+          truncated: source.truncated ?? false,
+          attemptId: attemptRef.current,
+        };
+      }
 
       attemptRef.current += 1;
       const attemptId = attemptRef.current;
 
-      updateFn({ loading: true, error: undefined });
+      updateFn({ loading: true, result: undefined, truncated: undefined, error: undefined });
 
       try {
-        let result: QueryResult | undefined;
+        let response: Awaited<ReturnType<typeof executeQuery>>;
+        const executionLimit = rowLimitRef.current;
 
-        if (source.mode === 'table' && source.tableName) {
-          const response = await previewTable(
+        if (source.mode === 'snapshot' && source.snapshotId) {
+          response = await getSnapshot(source.snapshotId);
+        } else if (
+          source.mode === 'table' &&
+          source.tableName &&
+          source.sessionId &&
+          source.namespace
+        ) {
+          response = await previewTable(
             source.sessionId,
             source.namespace,
             source.tableName,
-            rowLimit
+            executionLimit
           );
-          if (response.success && response.result) {
-            result = response.result;
-          } else {
-            updateFn({ error: response.error, loading: false });
-            return;
-          }
-        } else if (source.mode === 'query' && source.query?.trim()) {
-          const response = await executeQuery(source.sessionId, source.query, {
+        } else if (
+          source.mode === 'query' &&
+          source.query?.trim() &&
+          source.sessionId &&
+          source.namespace
+        ) {
+          response = await executeQuery(source.sessionId, source.query, {
             namespace: source.namespace,
           });
-          if (response.success && response.result) {
-            result = response.result;
-          } else {
-            updateFn({ error: response.error, loading: false });
-            return;
-          }
+        } else {
+          if (attemptRef.current === attemptId) updateFn({ loading: false });
+          return;
         }
 
         if (attemptRef.current !== attemptId) return;
-        updateFn({ result, loading: false });
+        if (!response.success || !response.result)
+          throw new Error(response.error || i18n.t('common.unknownError'));
+        const result = response.result;
+        const truncated =
+          source.mode === 'table'
+            ? result.rows.length >= executionLimit
+            : (response.truncated ?? source.truncated ?? false);
+        updateFn({ result, truncated, loading: false });
+        return { result, truncated, attemptId };
       } catch (err) {
         if (attemptRef.current !== attemptId) return;
         updateFn({
@@ -601,7 +686,7 @@ export function useDiffSources({
         });
       }
     },
-    [rowLimit]
+    []
   );
 
   const executeLeft = useCallback(async () => {
@@ -671,27 +756,18 @@ export function useDiffSources({
       leftSource.mode !== 'snapshot' ||
       !leftSource.snapshotId ||
       leftSource.result ||
-      leftSource.loading
+      leftSource.loading ||
+      leftSource.error
     )
       return;
-    updateLeftSource({ loading: true });
-    getSnapshot(leftSource.snapshotId)
-      .then(res => {
-        if (res.success && res.result) {
-          updateLeftSource({ result: res.result, loading: false });
-        } else {
-          updateLeftSource({ error: res.error ?? 'Failed to load snapshot', loading: false });
-        }
-      })
-      .catch(err => {
-        updateLeftSource({ error: String(err), loading: false });
-      });
+    executeLeft().catch(() => undefined);
   }, [
     leftSource.mode,
     leftSource.snapshotId,
     leftSource.result,
     leftSource.loading,
-    updateLeftSource,
+    leftSource.error,
+    executeLeft,
   ]);
 
   useEffect(() => {
@@ -699,27 +775,18 @@ export function useDiffSources({
       rightSource.mode !== 'snapshot' ||
       !rightSource.snapshotId ||
       rightSource.result ||
-      rightSource.loading
+      rightSource.loading ||
+      rightSource.error
     )
       return;
-    updateRightSource({ loading: true });
-    getSnapshot(rightSource.snapshotId)
-      .then(res => {
-        if (res.success && res.result) {
-          updateRightSource({ result: res.result, loading: false });
-        } else {
-          updateRightSource({ error: res.error ?? 'Failed to load snapshot', loading: false });
-        }
-      })
-      .catch(err => {
-        updateRightSource({ error: String(err), loading: false });
-      });
+    executeRight().catch(() => undefined);
   }, [
     rightSource.mode,
     rightSource.snapshotId,
     rightSource.result,
     rightSource.loading,
-    updateRightSource,
+    rightSource.error,
+    executeRight,
   ]);
 
   useEffect(() => {
@@ -825,11 +892,10 @@ export function useDiffSources({
   useEffect(() => {
     if (!leftSource.result || !rightSource.result) return;
     const commonNames = new Set(commonColumns.map(col => col.name));
-    setKeyColumns(prev => {
-      const next = prev.filter(name => commonNames.has(name));
-      return next.length === prev.length ? prev : next;
-    });
-  }, [leftSource.result, rightSource.result, commonColumns]);
+    const previous = keyColumnsRef.current;
+    const next = previous.filter(name => commonNames.has(name));
+    if (next.length !== previous.length) setKeyColumns(next);
+  }, [leftSource.result, rightSource.result, commonColumns, setKeyColumns]);
 
   const compareBlockedReason = useMemo(() => {
     if (!leftSource.result || !rightSource.result) return 'missingResults';
@@ -882,28 +948,60 @@ export function useDiffSources({
       const result = compareResults(
         leftSource.result,
         rightSource.result,
-        keyColumns.length > 0 ? keyColumns : undefined
+        keyColumns.length > 0 ? keyColumns : undefined,
+        { truncated: Boolean(leftSource.truncated || rightSource.truncated) }
       );
       setDiffResult(result);
     } finally {
       setComparing(false);
     }
-  }, [leftSource.result, rightSource.result, keyColumns, compareBlockedReason]);
+  }, [
+    leftSource.result,
+    rightSource.result,
+    leftSource.truncated,
+    rightSource.truncated,
+    keyColumns,
+    compareBlockedReason,
+  ]);
 
   const swap = useCallback(() => {
-    setLeftSource(rightSource);
-    setRightSource(leftSource);
+    leftExecAttemptRef.current += 1;
+    rightExecAttemptRef.current += 1;
+    leftConnectAttemptRef.current += 1;
+    rightConnectAttemptRef.current += 1;
+    setLeftSource({ ...rightSource, loading: false, connecting: false, namespacesLoading: false });
+    setRightSource({ ...leftSource, loading: false, connecting: false, namespacesLoading: false });
     setDiffResult(null);
   }, [leftSource, rightSource]);
 
   const refresh = useCallback(async () => {
-    await executeBoth();
-    if (diffResult) {
-      setTimeout(compare, 100);
+    const [left, right] = await Promise.all([
+      executeSource(leftSource, updateLeftSource, leftExecAttemptRef),
+      executeSource(rightSource, updateRightSource, rightExecAttemptRef),
+    ]);
+    if (
+      diffResult &&
+      left &&
+      right &&
+      left.attemptId === leftExecAttemptRef.current &&
+      right.attemptId === rightExecAttemptRef.current
+    ) {
+      setDiffResult(
+        compareResults(
+          left.result,
+          right.result,
+          keyColumnsRef.current.length ? keyColumnsRef.current : undefined,
+          { truncated: left.truncated || right.truncated }
+        )
+      );
     }
-  }, [executeBoth, diffResult, compare]);
+  }, [executeSource, leftSource, rightSource, updateLeftSource, updateRightSource, diffResult]);
 
   const reset = useCallback(() => {
+    leftExecAttemptRef.current += 1;
+    rightExecAttemptRef.current += 1;
+    leftConnectAttemptRef.current += 1;
+    rightConnectAttemptRef.current += 1;
     releaseConnection(leftSource.connectionId).catch(() => undefined);
     releaseConnection(rightSource.connectionId).catch(() => undefined);
     setLeftSource({
@@ -920,7 +1018,7 @@ export function useDiffSources({
     });
     setKeyColumns([]);
     setDiffResult(null);
-  }, [leftSource.connectionId, rightSource.connectionId, releaseConnection]);
+  }, [leftSource.connectionId, rightSource.connectionId, releaseConnection, setKeyColumns]);
 
   const canCompare = useMemo(() => compareBlockedReason === null, [compareBlockedReason]);
 
@@ -929,12 +1027,9 @@ export function useDiffSources({
     [leftSource.result, rightSource.result]
   );
 
-  // `previewTable` gives no total, so a full page is the only signal that rows
-  // were left behind. It over-reports on a table whose size is an exact
-  // multiple of the limit, which is the safe direction to be wrong in.
   const truncatedSides = (['left', 'right'] as const).filter(side => {
     const source = side === 'left' ? leftSource : rightSource;
-    return source.mode === 'table' && (source.result?.rows.length ?? 0) >= rowLimit;
+    return source.truncated;
   });
 
   return {

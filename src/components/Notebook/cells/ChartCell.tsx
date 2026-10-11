@@ -41,7 +41,9 @@ export function ChartCell({ cell, allCells }: ChartCellProps) {
 
   const data = useMemo(() => {
     if (!config) return [];
-    const sourceCell = allCells.find(c => c.config?.label === config.sourceLabel);
+    const sources = allCells.filter(c => c.config?.label === config.sourceLabel);
+    const sourceCell = sources[0];
+    if (sources.length !== 1 || sourceCell.executionState !== 'success') return [];
     if (!sourceCell?.lastResult || sourceCell.lastResult.type !== 'table') return [];
     const { columns, rows } = sourceCell.lastResult;
     if (!columns || !rows) return [];

@@ -104,6 +104,8 @@ pub struct ActiveSession {
     /// Stable id of the saved connection that opened this session. Direct
     /// debug connections leave this unset.
     pub saved_connection_id: Option<String>,
+    /// Workspace resolved by the backend that opened this session.
+    pub workspace_id: Option<String>,
     pub masking: Option<Arc<SessionMasking>>,
     pub tunnel: Option<SshTunnel>,
     pub proxy_tunnel: Option<ProxyTunnel>,
@@ -260,6 +262,7 @@ impl SessionManager {
                 config,
                 display_name,
                 saved_connection_id: None,
+                workspace_id: None,
                 masking: None,
                 tunnel,
                 proxy_tunnel,
@@ -368,6 +371,57 @@ impl SessionManager {
         ))
     }
 
+    pub async fn workspace_id(&self, session_id: SessionId) -> Option<String> {
+        self.sessions
+            .read()
+            .await
+            .get(&session_id)?
+            .workspace_id
+            .clone()
+    }
+
+    /// Workspace-scoped operations must reject sessions with unknown origins too.
+    pub async fn require_workspace(
+        &self,
+        session_id: SessionId,
+        workspace_id: &str,
+    ) -> EngineResult<()> {
+        if !workspace_id.is_empty()
+            && self.workspace_id(session_id).await.as_deref() == Some(workspace_id)
+        {
+            Ok(())
+        } else {
+            Err(EngineError::internal(
+                "Session does not belong to the active workspace",
+            ))
+        }
+    }
+
+    /// Bind once, before publishing the session: an active-workspace switch must
+    /// not relabel pending writes or sessions kept open by another surface.
+    pub async fn bind_workspace(
+        &self,
+        session_id: SessionId,
+        workspace_id: &str,
+    ) -> EngineResult<()> {
+        if workspace_id.is_empty() {
+            return Err(EngineError::internal("Missing workspace identity"));
+        }
+        let mut sessions = self.sessions.write().await;
+        let session = sessions
+            .get_mut(&session_id)
+            .ok_or_else(|| EngineError::session_not_found(session_id.0.to_string()))?;
+        if session
+            .workspace_id
+            .as_deref()
+            .is_some_and(|current| current != workspace_id)
+        {
+            return Err(EngineError::internal("Session workspace cannot be changed"));
+        }
+        session.workspace_id = Some(workspace_id.to_owned());
+        Ok(())
+    }
+
     /// Returns a stable identifier for the *connection* backing a session.
     pub async fn connection_key(&self, session_id: SessionId) -> Option<String> {
         let sessions = self.sessions.read().await;
@@ -426,11 +480,18 @@ impl SessionManager {
     }
 
     /// Rules changed in the app apply to the sessions already open.
-    pub async fn update_connection_masking(&self, connection_id: &str, config: &ConnectionMasking) {
+    pub async fn update_connection_masking(
+        &self,
+        workspace_id: &str,
+        connection_id: &str,
+        config: &ConnectionMasking,
+    ) {
         let masking = SessionMasking::for_connection(connection_id, config);
         let mut sessions = self.sessions.write().await;
         for session in sessions.values_mut() {
-            if session.saved_connection_id.as_deref() == Some(connection_id) {
+            if session.saved_connection_id.as_deref() == Some(connection_id)
+                && session.workspace_id.as_deref() == Some(workspace_id)
+            {
                 session.masking = masking.clone();
             }
         }
@@ -802,5 +863,131 @@ mod tests {
     fn allows_production_without_ssh_tunnel() {
         let config = config_with("production", None);
         assert!(enforce_ssh_host_key_policy(&config).is_ok());
+    }
+
+    async fn workspace_session(manager: &SessionManager, connection_id: &str) -> SessionId {
+        let id = SessionId(uuid::Uuid::new_v4());
+        manager.sessions.write().await.insert(
+            id,
+            ActiveSession {
+                driver_id: "postgres".into(),
+                config: config_with("development", None),
+                display_name: "Fixture".into(),
+                saved_connection_id: Some(connection_id.into()),
+                workspace_id: None,
+                masking: None,
+                tunnel: None,
+                proxy_tunnel: None,
+                health: ConnectionHealth::Healthy,
+                consecutive_failures: 0,
+            },
+        );
+        id
+    }
+
+    #[tokio::test]
+    async fn workspace_operations_require_a_live_session_with_known_matching_origin() {
+        let manager = SessionManager::new(Arc::new(DriverRegistry::new()));
+        let session = workspace_session(&manager, "same-id").await;
+        assert!(manager.require_workspace(session, "default").await.is_err());
+        assert!(manager.require_workspace(session, "").await.is_err());
+        manager
+            .bind_workspace(session, "workspace-a")
+            .await
+            .unwrap();
+        assert!(
+            manager
+                .require_workspace(session, "workspace-a")
+                .await
+                .is_ok()
+        );
+        assert!(
+            manager
+                .require_workspace(session, "workspace-b")
+                .await
+                .is_err()
+        );
+        manager.sessions.write().await.remove(&session);
+        assert!(
+            manager
+                .require_workspace(session, "workspace-a")
+                .await
+                .is_err()
+        );
+    }
+
+    #[tokio::test]
+    async fn workspace_binding_is_immutable_and_missing_sessions_cannot_be_bound() {
+        let manager = SessionManager::new(Arc::new(DriverRegistry::new()));
+        let session = workspace_session(&manager, "same-id").await;
+        assert!(manager.workspace_id(session).await.is_none());
+        assert!(manager.bind_workspace(session, "").await.is_err());
+        manager
+            .bind_workspace(session, "workspace-a")
+            .await
+            .unwrap();
+        manager
+            .bind_workspace(session, "workspace-a")
+            .await
+            .unwrap();
+        assert!(
+            manager
+                .bind_workspace(session, "workspace-b")
+                .await
+                .is_err()
+        );
+        assert_eq!(
+            manager.workspace_id(session).await.as_deref(),
+            Some("workspace-a")
+        );
+        manager.sessions.write().await.remove(&session);
+        assert!(
+            manager
+                .bind_workspace(session, "workspace-a")
+                .await
+                .is_err()
+        );
+        assert!(manager.workspace_id(session).await.is_none());
+    }
+
+    #[tokio::test]
+    async fn workspace_masking_updates_never_change_a_copied_connections_other_sessions() {
+        use qore_core::masking::{MaskMode, MaskingRule};
+        let manager = SessionManager::new(Arc::new(DriverRegistry::new()));
+        let a1 = workspace_session(&manager, "same-id").await;
+        let a2 = workspace_session(&manager, "same-id").await;
+        let b = workspace_session(&manager, "same-id").await;
+        let unrelated = workspace_session(&manager, "other-id").await;
+        let legacy = workspace_session(&manager, "same-id").await;
+        for session in [a1, a2, unrelated] {
+            manager
+                .bind_workspace(session, "workspace-a")
+                .await
+                .unwrap();
+        }
+        manager.bind_workspace(b, "workspace-b").await.unwrap();
+        let rules = ConnectionMasking {
+            rules: vec![MaskingRule {
+                table: "users".into(),
+                column: "secret".into(),
+                mode: MaskMode::Hidden,
+            }],
+            mask_detected_columns: false,
+        };
+        for session in [a1, a2, b, unrelated, legacy] {
+            manager.set_masking(session, &rules).await;
+        }
+        manager
+            .update_connection_masking("workspace-a", "same-id", &ConnectionMasking::default())
+            .await;
+        assert!(manager.masking(a1).await.is_none());
+        assert!(manager.masking(a2).await.is_none());
+        for session in [b, unrelated, legacy] {
+            assert!(manager.masking(session).await.is_some());
+        }
+        manager
+            .update_connection_masking("workspace-a", "same-id", &rules)
+            .await;
+        assert!(manager.masking(a1).await.is_some());
     }
 }

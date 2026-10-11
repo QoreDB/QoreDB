@@ -20,6 +20,43 @@ export interface ChangelogEntry {
  */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.1.40',
+    date: '2026-10-11',
+    items: [
+      {
+        title: 'Workspace and saved-data integrity',
+        description:
+          'Saved documents and connection actions stay tied to their workspace; file writes are atomic.',
+        type: 'fix',
+      },
+      {
+        title: 'Inline editing and keyboard focus',
+        description:
+          'Edits preserve loaded pages and focus. Escape cancels the cell without closing its tab.',
+        type: 'fix',
+      },
+      {
+        title: 'Exact federated results',
+        description:
+          'Result types and exact values are preserved; source decimals above 28 digits are rejected.',
+        type: 'fix',
+        proOnly: true,
+      },
+      {
+        title: 'History and bulk-write safeguards',
+        description:
+          'Workspace origins, masking, retention and bulk-write validation are enforced.',
+        type: 'fix',
+      },
+      {
+        title: 'Linux packaging',
+        description:
+          'Fixes AppImage builds with modern libraries and includes CLI/MCP tools in AUR.',
+        type: 'fix',
+      },
+    ],
+  },
+  {
     version: '0.1.39',
     date: '2026-09-16',
     items: [

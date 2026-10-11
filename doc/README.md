@@ -13,6 +13,7 @@ roles. Contributor instructions are shared through [AGENTS.md](../AGENTS.md).
 | Add or extend a driver | [Driver guide](development/DRIVERS.md) | [Driver limitations](tests/DRIVER_LIMITATIONS.md) |
 | Add a command or change IPC | [Command guide](development/COMMANDS.md) | [Architecture](development/ARCHITECTURE.md) |
 | Choose tests and Cargo features | [Testing matrix](development/TESTING.md) | [SSH](tests/TESTING_SSH.md), [MCP](tests/TESTING_MCP.md) |
+| Track cloud compatibility without dedicated accounts | [Cloud compatibility](development/CLOUD_COMPATIBILITY.md) | [Driver limitations](tests/DRIVER_LIMITATIONS.md) |
 | Change UI or translations | [Frontend instructions](../src/AGENTS.md) | [Design rules](rules/DESIGN.md) |
 | Create/move code across modules | [Licensing](development/LICENSING.md) | [Apache-2.0](../LICENSE), [BUSL-1.1](../LICENSE-BSL) |
 | Improve agent work or resume a task | [Agent workflow](development/AGENT_WORKFLOW.md) | [Readiness audit](audits/AGENT_READINESS.md) |

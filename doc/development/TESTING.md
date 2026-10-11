@@ -4,6 +4,10 @@ Run commands from the repository root unless stated otherwise. Choose checks by
 changed behavior and package. Setup is in [CONTRIBUTING.md](../../CONTRIBUTING.md);
 script definitions live in [package.json](../../package.json).
 
+For hosted databases, follow the [cloud compatibility policy](CLOUD_COMPATIBILITY.md):
+distinguish local engines, simulated responses and live-provider checks. Missing
+cloud accounts do not block v0.1.40; unexecuted scenarios remain unverified.
+
 ## Select the relevant checks
 
 | Change | First checks | Broaden when needed |

@@ -1,2 +1,0 @@
-[mcp_servers.qoredb]
-command = "/home/raphael/dev/perso/QoreDB/src-tauri/target/release/qore-mcp"

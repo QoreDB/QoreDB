@@ -136,6 +136,10 @@ pub struct SaveConnectionInput {
     #[serde(default)]
     pub ssl_ca_cert: Option<String>,
     #[serde(default)]
+    pub ssl_client_cert: Option<String>,
+    #[serde(default)]
+    pub ssl_client_key: Option<String>,
+    #[serde(default)]
     pub options: std::collections::HashMap<String, String>,
     /// `None` keeps the stored rules.
     #[serde(default)]
@@ -374,6 +378,8 @@ pub async fn save_connection(
         clickhouse_cluster: input.clickhouse_cluster,
         search_auth_mode: input.search_auth_mode,
         ssl_ca_cert: input.ssl_ca_cert,
+        ssl_client_cert: input.ssl_client_cert,
+        ssl_client_key: input.ssl_client_key,
         masking: ConnectionMasking::default(),
         project_id: input.project_id,
     };

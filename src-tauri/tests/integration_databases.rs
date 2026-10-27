@@ -178,6 +178,8 @@ fn postgres_config() -> ConnectionConfig {
         clickhouse_cluster: None,
         search_auth_mode: None,
         ssl_ca_cert: None,
+        ssl_client_cert: None,
+        ssl_client_key: None,
     }
 }
 
@@ -203,6 +205,8 @@ fn mysql_config() -> ConnectionConfig {
         clickhouse_cluster: None,
         search_auth_mode: None,
         ssl_ca_cert: None,
+        ssl_client_cert: None,
+        ssl_client_key: None,
     }
 }
 
@@ -228,6 +232,8 @@ fn mongo_config() -> ConnectionConfig {
         clickhouse_cluster: None,
         search_auth_mode: None,
         ssl_ca_cert: None,
+        ssl_client_cert: None,
+        ssl_client_key: None,
     }
 }
 
@@ -255,6 +261,8 @@ fn clickhouse_config() -> ConnectionConfig {
         clickhouse_cluster: None,
         search_auth_mode: None,
         ssl_ca_cert: None,
+        ssl_client_cert: None,
+        ssl_client_key: None,
     }
 }
 
@@ -280,6 +288,8 @@ fn redis_config() -> ConnectionConfig {
         clickhouse_cluster: None,
         search_auth_mode: None,
         ssl_ca_cert: None,
+        ssl_client_cert: None,
+        ssl_client_key: None,
     }
 }
 
@@ -305,6 +315,8 @@ fn sqlserver_config() -> ConnectionConfig {
         clickhouse_cluster: None,
         search_auth_mode: None,
         ssl_ca_cert: None,
+        ssl_client_cert: None,
+        ssl_client_key: None,
     }
 }
 
@@ -332,6 +344,8 @@ fn cassandra_config() -> ConnectionConfig {
         clickhouse_cluster: None,
         search_auth_mode: None,
         ssl_ca_cert: None,
+        ssl_client_cert: None,
+        ssl_client_key: None,
     }
 }
 
@@ -370,6 +384,8 @@ fn elasticsearch_config() -> ConnectionConfig {
         clickhouse_cluster: None,
         search_auth_mode: Some("none".to_string()),
         ssl_ca_cert: None,
+        ssl_client_cert: None,
+        ssl_client_key: None,
     }
 }
 
@@ -1900,6 +1916,8 @@ fn embedded_config(driver: &str, path: &std::path::Path) -> ConnectionConfig {
         clickhouse_cluster: None,
         search_auth_mode: None,
         ssl_ca_cert: None,
+        ssl_client_cert: None,
+        ssl_client_key: None,
     }
 }
 
@@ -2409,6 +2427,38 @@ async fn redis_wire_compatible_a1_e2e() -> EngineResult<()> {
 }
 
 #[tokio::test]
+async fn sqlserver_namespaces_keep_user_schemas_e2e() -> EngineResult<()> {
+    let Some((driver, session, _config)) = connect_or_skip(
+        connect_sqlserver().await,
+        Service::SqlServer,
+        "sqlserver_namespaces_keep_user_schemas_e2e",
+    )?
+    else {
+        return Ok(());
+    };
+
+    // `_` is a LIKE wildcard in T-SQL: a `db_%` filter also hid `dbo` and
+    // any user schema named like `dbuser1`.
+    let schema = format!("dbuser{}", Uuid::new_v4().simple());
+    driver
+        .execute(session, &format!("CREATE SCHEMA [{schema}]"), QueryId::new())
+        .await?;
+
+    let listed = driver.list_namespaces(session).await;
+    driver
+        .execute(session, &format!("DROP SCHEMA [{schema}]"), QueryId::new())
+        .await?;
+    let schemas: Vec<String> = listed?.into_iter().filter_map(|ns| ns.schema).collect();
+
+    assert!(schemas.iter().any(|s| s == "dbo"), "{schemas:?}");
+    assert!(schemas.contains(&schema), "{schemas:?}");
+    assert!(!schemas.iter().any(|s| s == "db_owner"), "{schemas:?}");
+
+    driver.disconnect(session).await?;
+    Ok(())
+}
+
+#[tokio::test]
 async fn azure_sql_wire_compatible_a1_e2e() -> EngineResult<()> {
     let Some((base_driver, base_session, config)) = connect_or_skip(
         connect_sqlserver().await,
@@ -2503,6 +2553,8 @@ async fn documentdb_refuses_an_unverifiable_certificate() -> EngineResult<()> {
 
     let without_ca = ConnectionConfig {
         ssl_ca_cert: None,
+        ssl_client_cert: None,
+        ssl_client_key: None,
         ..with_ca
     };
     assert!(

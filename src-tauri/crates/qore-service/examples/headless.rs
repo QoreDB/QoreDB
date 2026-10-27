@@ -33,6 +33,8 @@ async fn main() {
         clickhouse_cluster: None,
         search_auth_mode: None,
         ssl_ca_cert: None,
+        ssl_client_cert: None,
+        ssl_client_key: None,
     };
 
     let session = qore_service::connection::connect(&ctx.session_manager, config)

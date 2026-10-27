@@ -109,6 +109,7 @@ fn select_backend(config: &SshTunnelConfig) -> EngineResult<Box<dyn SshTunnelBac
     let auth_label = match config.auth {
         SshAuth::Password { .. } => "password",
         SshAuth::Key { .. } => "key",
+        SshAuth::Agent {} => "agent",
     };
 
     Err(EngineError::SshError {
@@ -133,7 +134,7 @@ impl SshTunnelBackend for OpenSshBackend {
     }
 
     fn supports_auth(&self, auth: &SshAuth) -> bool {
-        matches!(auth, SshAuth::Key { .. })
+        matches!(auth, SshAuth::Key { .. } | SshAuth::Agent {})
     }
 
     async fn open(
@@ -165,11 +166,12 @@ impl SshTunnelBackend for OpenSshBackend {
             }
         };
 
-        if let SshAuth::Key {
-            private_key_path, ..
-        } = &config.auth
-        {
-            validate_private_key_path(private_key_path)?;
+        match &config.auth {
+            SshAuth::Key {
+                private_key_path, ..
+            } => validate_private_key_path(private_key_path)?,
+            SshAuth::Agent {} => ensure_agent_reachable(std::env::var_os("SSH_AUTH_SOCK"))?,
+            SshAuth::Password { .. } => {}
         }
 
         let known_hosts_path = config
@@ -321,8 +323,6 @@ fn build_ssh_command(
         .arg("-o")
         .arg(format!("GlobalKnownHostsFile={}", null_device))
         .arg("-o")
-        .arg("IdentitiesOnly=yes")
-        .arg("-o")
         .arg("PreferredAuthentications=publickey")
         .arg("-L")
         .arg(format!(
@@ -354,8 +354,14 @@ fn build_ssh_command(
                     message: "Key passphrase was provided but is not supported by the native OpenSSH tunnel backend. Load the key into ssh-agent (recommended) or use an unencrypted key.".into(),
                 });
             }
-            cmd.arg("-i").arg(private_key_path);
+            cmd.arg("-o")
+                .arg("IdentitiesOnly=yes")
+                .arg("-i")
+                .arg(private_key_path);
         }
+        // Agent identities are only offered when IdentitiesOnly is off and no
+        // `-i` narrows the candidates.
+        SshAuth::Agent {} => {}
     }
 
     cmd.arg(format!("{}@{}", config.username, config.host));
@@ -414,6 +420,17 @@ fn validate_private_key_path(path: &str) -> EngineResult<()> {
         });
     }
     Ok(())
+}
+
+/// The Windows OpenSSH client falls back to the agent's named pipe; elsewhere
+/// an app launched outside a login shell may not inherit `SSH_AUTH_SOCK`.
+fn ensure_agent_reachable(auth_sock: Option<std::ffi::OsString>) -> EngineResult<()> {
+    if cfg!(windows) || auth_sock.is_some_and(|s| !s.is_empty()) {
+        return Ok(());
+    }
+    Err(EngineError::SshError {
+        message: "No SSH agent found: SSH_AUTH_SOCK is not set for QoreDB. Start your agent (ssh-agent, KeePassXC, 1Password…) before launching QoreDB, or use a private key file.".into(),
+    })
 }
 
 /// Sanitize SSH stderr output to avoid leaking sensitive internal details.
@@ -555,6 +572,76 @@ mod tests {
         let stderr = "user@internal-host: Permission denied\nsome other info";
         let sanitized = sanitize_ssh_stderr(stderr);
         assert!(sanitized.contains("Permission denied"));
+    }
+
+    #[test]
+    fn agent_auth_offers_agent_identities() {
+        let cfg = SshTunnelConfig {
+            host: "ssh.example.com".to_string(),
+            port: 2222,
+            username: "user".to_string(),
+            auth: SshAuth::Agent {},
+            host_key_policy: SshHostKeyPolicy::AcceptNew,
+            known_hosts_path: None,
+            proxy_jump: None,
+            connect_timeout_secs: 10,
+            keepalive_interval_secs: 30,
+            keepalive_count_max: 3,
+        };
+
+        let args = cmd_args(
+            &build_ssh_command(&cfg, "/tmp/qoredb_known_hosts", 50000, "postgres", 5432)
+                .expect("agent auth should build"),
+        );
+        assert!(!args.iter().any(|a| a == "-i"), "{args:?}");
+        assert!(!args.iter().any(|a| a == "IdentitiesOnly=yes"), "{args:?}");
+        assert!(args.iter().any(|a| a == "PreferredAuthentications=publickey"));
+        assert_eq!(args.last().map(String::as_str), Some("user@ssh.example.com"));
+        assert!(select_backend(&cfg).is_ok());
+    }
+
+    #[test]
+    fn key_auth_pins_the_identity_file() {
+        let cfg = SshTunnelConfig {
+            host: "ssh.example.com".to_string(),
+            port: 22,
+            username: "user".to_string(),
+            auth: SshAuth::Key {
+                private_key_path: "id_ed25519".to_string(),
+                passphrase: None,
+            },
+            host_key_policy: SshHostKeyPolicy::AcceptNew,
+            known_hosts_path: None,
+            proxy_jump: None,
+            connect_timeout_secs: 10,
+            keepalive_interval_secs: 30,
+            keepalive_count_max: 3,
+        };
+
+        let args = cmd_args(
+            &build_ssh_command(&cfg, "/tmp/qoredb_known_hosts", 50000, "postgres", 5432)
+                .expect("key auth should build"),
+        );
+        let i = args.iter().position(|a| a == "-i").expect("-i is passed");
+        assert_eq!(args[i + 1], "id_ed25519");
+        assert!(args.iter().any(|a| a == "IdentitiesOnly=yes"));
+    }
+
+    #[test]
+    fn missing_agent_socket_is_reported() {
+        assert!(ensure_agent_reachable(Some("/run/user/1000/ssh-agent.sock".into())).is_ok());
+        if cfg!(windows) {
+            assert!(ensure_agent_reachable(None).is_ok());
+        } else {
+            for sock in [None, Some(std::ffi::OsString::new())] {
+                match ensure_agent_reachable(sock) {
+                    Err(EngineError::SshError { message }) => {
+                        assert!(message.contains("SSH_AUTH_SOCK"))
+                    }
+                    other => panic!("unexpected result: {other:?}"),
+                }
+            }
+        }
     }
 
     #[test]

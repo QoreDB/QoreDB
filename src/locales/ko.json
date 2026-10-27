@@ -333,7 +333,13 @@
       "keepaliveCountMax": "Keepalive 최대값",
       "summaryMissingHost": "(호스트?)",
       "summaryKey": "키:",
-      "summaryMissingKey": "키:?"
+      "summaryMissingKey": "키:?",
+      "authMethod": "인증 방식",
+      "authKey": "키 파일",
+      "authAgent": "SSH 에이전트",
+      "summaryAgent": "에이전트",
+      "agentModeInfo": "실행 중인 SSH 에이전트(ssh-agent, KeePassXC, 1Password 등)가 제공하는 키를 사용합니다.",
+      "agentModeHint": "QoreDB를 시작하기 전에 에이전트가 실행 중이어야 합니다. 확인: ssh-add -l"
     },
     "proxy": {
       "enableProxy": "네트워크 프록시 사용",
@@ -433,6 +439,15 @@
       "removeConfirmTitle": "프로덕션 연결의 마스킹 해제",
       "removeConfirmDescription": "마스킹된 값이 결과, 내보내기, 에이전트 응답에서 다시 표시됩니다.",
       "removeConfirmLabel": "마스킹 해제"
+    },
+    "tls": {
+      "title": "TLS 인증서",
+      "caCert": "CA 인증서",
+      "caCertHint": "서버 검증에 사용할 PEM 파일(sslrootcert). 사설 CA로 CA 검증 또는 전체 검증 시 필요합니다.",
+      "clientCert": "클라이언트 인증서",
+      "clientCertHint": "서버에 제시할 PEM 인증서(sslcert).",
+      "clientKey": "클라이언트 개인 키",
+      "clientKeyHint": "클라이언트 인증서에 대응하는 암호화되지 않은 PEM 키(sslkey)."
     }
   },
   "sidebar": {

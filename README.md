@@ -182,7 +182,8 @@ DBeaver, pgAdmin, phpMyAdmin do the job — but they feel slow, dated, and full 
 <summary><b>Security &amp; reliability</b></summary>
 
 - **Secure vault** — Native OS keychain storage (Argon2) + optional app lock
-- **SSH tunneling** — Native OpenSSH client with proxy jump support
+- **SSH tunneling** — Native OpenSSH client with proxy jump support, key file or SSH agent authentication
+- **PostgreSQL client certificates** — CA certificate, client certificate and private key for `verify-ca` / `verify-full` and mutual TLS
 - **SQL Server Windows authentication** — NTLM (username/password) and SSPI/Kerberos (integrated, no credentials)
 - **Environment safety** — Dev/Staging/Prod guards, dangerous query detection, read-only mode
 - **Query rate limiting** — Per-connection guardrail against accidental runaway query loops, plus a filesystem capability allow-list

@@ -106,6 +106,20 @@ pub fn normalize_config(mut config: ConnectionConfig) -> Result<ConnectionConfig
         }
     }
 
+    for path in [
+        &mut config.ssl_ca_cert,
+        &mut config.ssl_client_cert,
+        &mut config.ssl_client_key,
+    ] {
+        *path = path
+            .take()
+            .map(|p| p.trim().to_string())
+            .filter(|p| !p.is_empty());
+    }
+    if config.ssl_client_cert.is_some() != config.ssl_client_key.is_some() {
+        return Err("A TLS client certificate and its private key must be set together".to_string());
+    }
+
     config.environment = normalize_environment(&config.environment)?;
 
     if let Some(ref mut ssh) = config.ssh_tunnel {
@@ -138,6 +152,7 @@ pub fn normalize_config(mut config: ConnectionConfig) -> Result<ConnectionConfig
                     return Err("SSH key path is required".to_string());
                 }
             }
+            SshAuth::Agent {} => {}
         }
     }
 
@@ -224,5 +239,37 @@ mod tests {
                 assert_eq!(result.unwrap_err(), "Username is required");
             }
         }
+    }
+
+    #[test]
+    fn tls_client_identity_needs_both_files() {
+        let base = ConnectionConfig {
+            driver: "postgres".into(),
+            host: "db".into(),
+            port: 5432,
+            username: "app".into(),
+            ssl: true,
+            ssl_ca_cert: Some("  ".into()),
+            ..Default::default()
+        };
+
+        let only_cert = ConnectionConfig {
+            ssl_client_cert: Some("/certs/client.crt".into()),
+            ..base.clone()
+        };
+        assert_eq!(
+            normalize_config(only_cert).unwrap_err(),
+            "A TLS client certificate and its private key must be set together"
+        );
+
+        let both = normalize_config(ConnectionConfig {
+            ssl_client_cert: Some(" /certs/client.crt ".into()),
+            ssl_client_key: Some("/certs/client.key".into()),
+            ..base
+        })
+        .unwrap();
+        assert_eq!(both.ssl_ca_cert, None);
+        assert_eq!(both.ssl_client_cert.as_deref(), Some("/certs/client.crt"));
+        assert_eq!(both.ssl_client_key.as_deref(), Some("/certs/client.key"));
     }
 }

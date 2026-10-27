@@ -333,7 +333,13 @@
       "keepaliveCountMax": "Макс. keepalive",
       "summaryMissingHost": "(хост?)",
       "summaryKey": "ключ:",
-      "summaryMissingKey": "ключ:?"
+      "summaryMissingKey": "ключ:?",
+      "authMethod": "Аутентификация",
+      "authKey": "Файл ключа",
+      "authAgent": "SSH-агент",
+      "summaryAgent": "агент",
+      "agentModeInfo": "Использует ключи запущенного SSH-агента (ssh-agent, KeePassXC, 1Password…).",
+      "agentModeHint": "Агент должен быть запущен до старта QoreDB. Проверка: ssh-add -l"
     },
     "proxy": {
       "enableProxy": "Использовать сетевой прокси",
@@ -433,6 +439,15 @@
       "removeConfirmTitle": "Снять маскирование на рабочем подключении",
       "removeConfirmDescription": "Маскированные значения снова станут видны в результатах, экспорте и ответах агентов.",
       "removeConfirmLabel": "Снять маскирование"
+    },
+    "tls": {
+      "title": "TLS-сертификаты",
+      "caCert": "Сертификат CA",
+      "caCertHint": "PEM-файл для проверки сервера (sslrootcert). Нужен для проверки CA и полной проверки с частным CA.",
+      "clientCert": "Клиентский сертификат",
+      "clientCertHint": "PEM-сертификат, предъявляемый серверу (sslcert).",
+      "clientKey": "Закрытый ключ клиента",
+      "clientKeyHint": "Незашифрованный PEM-ключ клиентского сертификата (sslkey)."
     }
   },
   "sidebar": {

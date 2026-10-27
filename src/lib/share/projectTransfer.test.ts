@@ -120,6 +120,8 @@ it('preserves exported safety and transport metadata without importing secrets',
   const metadata = {
     ssl_mode: 'verify-full',
     ssl_ca_cert: '/synthetic/ca.pem',
+    ssl_client_cert: '/synthetic/client.crt',
+    ssl_client_key: '/synthetic/client.key',
     options: { application_name: 'qualification' },
     mssql_auth: 'sql_password' as const,
     clickhouse_cluster: 'synthetic',

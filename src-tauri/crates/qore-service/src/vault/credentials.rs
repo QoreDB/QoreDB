@@ -74,6 +74,12 @@ pub struct SavedConnection {
     /// legacy connections.
     #[serde(default)]
     pub ssl_ca_cert: Option<String>,
+    /// Path to a TLS client certificate (PEM). `None` on legacy connections.
+    #[serde(default)]
+    pub ssl_client_cert: Option<String>,
+    /// Path to the TLS client private key (PEM). `None` on legacy connections.
+    #[serde(default)]
+    pub ssl_client_key: Option<String>,
     /// Driver options preserved from a parsed connection URL.
     #[serde(default)]
     pub options: std::collections::HashMap<String, String>,
@@ -88,7 +94,7 @@ pub struct SshTunnelInfo {
     pub host: String,
     pub port: u16,
     pub username: String,
-    /// "password" or "key"
+    /// "password", "key" or "agent"
     pub auth_type: String,
     /// Path to private key (if key auth)
     pub key_path: Option<String>,
@@ -155,6 +161,7 @@ impl SavedConnection {
                                 .map(|s| s.expose().clone()),
                         }
                     }
+                    "agent" => SshAuth::Agent {},
                     "password" => SshAuth::Password {
                         password: creds
                             .ssh_password
@@ -248,6 +255,8 @@ impl SavedConnection {
             clickhouse_cluster: self.clickhouse_cluster.clone(),
             search_auth_mode: self.search_auth_mode.clone(),
             ssl_ca_cert: self.ssl_ca_cert.clone(),
+            ssl_client_cert: self.ssl_client_cert.clone(),
+            ssl_client_key: self.ssl_client_key.clone(),
         })
     }
 }
@@ -292,6 +301,8 @@ mod tests {
             clickhouse_cluster: None,
             search_auth_mode: None,
             ssl_ca_cert: None,
+            ssl_client_cert: None,
+            ssl_client_key: None,
             masking: Default::default(),
             project_id: "proj".to_string(),
         }
@@ -347,6 +358,26 @@ mod tests {
             other => panic!("unexpected auth: {other:?}"),
         }
         assert_eq!(ssh.host_key_policy, SshHostKeyPolicy::Strict);
+
+        Ok(())
+    }
+
+    #[test]
+    fn ssh_agent_config_needs_no_key_file() -> EngineResult<()> {
+        let mut connection = base_connection("agent", "accept_new");
+        if let Some(ref mut ssh) = connection.ssh_tunnel {
+            ssh.key_path = None;
+        }
+        let creds = StoredCredentials {
+            db_password: Sensitive::new("db".to_string()),
+            ssh_password: None,
+            ssh_key_passphrase: None,
+            proxy_password: None,
+        };
+
+        let config = connection.to_connection_config(&creds)?;
+        let ssh = config.ssh_tunnel.expect("ssh config missing");
+        assert!(matches!(ssh.auth, SshAuth::Agent {}), "{:?}", ssh.auth);
 
         Ok(())
     }

@@ -155,7 +155,7 @@ ed25519-dalek = { version = "2", features = ["serde"] }
 minisign-verify = "0.2"
 wasmi = { version = "1.0.9", default-features = false, features = ["std"] }
 
-zip = { version = "6", default-features = false, features = ["deflate"] }
+zip = { version = "9", default-features = false, features = ["deflate"] }
 
 [target."cfg(not(any(target_os = \"android\", target_os = \"ios\")))".dependencies]
 tauri-plugin-updater = "2"

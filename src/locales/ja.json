@@ -333,7 +333,13 @@
       "keepaliveCountMax": "キープアライブ最大回数",
       "summaryMissingHost": "(ホスト?)",
       "summaryKey": "鍵:",
-      "summaryMissingKey": "鍵:?"
+      "summaryMissingKey": "鍵:?",
+      "authMethod": "認証方式",
+      "authKey": "鍵ファイル",
+      "authAgent": "SSH エージェント",
+      "summaryAgent": "エージェント",
+      "agentModeInfo": "実行中の SSH エージェント（ssh-agent、KeePassXC、1Password など）が提供する鍵を使用します。",
+      "agentModeHint": "QoreDB の起動前にエージェントを起動しておく必要があります。確認: ssh-add -l"
     },
     "proxy": {
       "enableProxy": "ネットワークプロキシを使用",
@@ -433,6 +439,15 @@
       "removeConfirmTitle": "本番接続のマスキングを解除",
       "removeConfirmDescription": "マスクされていた値が、結果・エクスポート・エージェントの応答で再び表示されます。",
       "removeConfirmLabel": "マスキングを解除"
+    },
+    "tls": {
+      "title": "TLS 証明書",
+      "caCert": "CA 証明書",
+      "caCertHint": "サーバーの検証に使う PEM ファイル（sslrootcert）。プライベート CA で CA 検証・完全検証を行う場合に必要です。",
+      "clientCert": "クライアント証明書",
+      "clientCertHint": "サーバーに提示する PEM 証明書（sslcert）。",
+      "clientKey": "クライアント秘密鍵",
+      "clientKeyHint": "クライアント証明書に対応する暗号化されていない PEM 鍵（sslkey）。"
     }
   },
   "sidebar": {

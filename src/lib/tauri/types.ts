@@ -27,6 +27,10 @@ export interface ConnectionConfig {
   search_auth_mode?: SearchAuthMode;
   /** Path to a custom CA certificate (PEM) for TLS verification. */
   ssl_ca_cert?: string;
+  /** Path to a TLS client certificate (PEM). */
+  ssl_client_cert?: string;
+  /** Path to the private key (PEM) of `ssl_client_cert`. */
+  ssl_client_key?: string;
   /** Driver options preserved from a parsed URL. */
   options?: Record<string, string>;
 }
@@ -64,7 +68,10 @@ export interface SshTunnelConfig {
 
 export type SshAuth =
   | { Password: { password: string } }
-  | { Key: { private_key_path: string; passphrase?: string } };
+  | { Key: { private_key_path: string; passphrase?: string } }
+  | { Agent: Record<string, never> };
+
+export type SshAuthMethod = 'key' | 'agent';
 
 export interface ConnectionResponse {
   success: boolean;
@@ -102,6 +109,10 @@ export interface SavedConnection {
   search_auth_mode?: SearchAuthMode;
   /** Path to a custom CA certificate (PEM) for TLS verification. */
   ssl_ca_cert?: string;
+  /** Path to a TLS client certificate (PEM). */
+  ssl_client_cert?: string;
+  /** Path to the private key (PEM) of `ssl_client_cert`. */
+  ssl_client_key?: string;
   /** Driver options preserved from a parsed URL. */
   options?: Record<string, string>;
   /** Omitted when the connection has no masking. */

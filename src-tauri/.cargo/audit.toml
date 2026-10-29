@@ -58,4 +58,16 @@ ignore = [
     # Fix requires rkyv 0.8.x, but rust_decimal 1.42 pins rkyv ^0.7. Optional feature only:
     # QoreDB never enables rust_decimal/rkyv, so the crate is resolved in Cargo.lock but never compiled.
     "RUSTSEC-2026-0235",
+
+    # zip < 9 - ZipArchive::extract() follows symlinks, keeps SUID/SGID bits and creates
+    # symlinks outside the destination. QoreDB's own zip dependency is on 9.x; the
+    # remaining copies are transitive and no released version of their parent accepts zip 9:
+    # - zip 4 via tauri-plugin-updater 2.10.1: extract() runs only on Windows, after the
+    #   update bundle has passed minisign verification against QoreDB's public key.
+    # - zip 6 via libduckdb-sys (build-dependency): extracts the official DuckDB release
+    #   archive at build time only.
+    # - zip 7 via rust_xlsxwriter: reads one theme entry with by_name(), never extract().
+    "RUSTSEC-2026-0367",
+    "RUSTSEC-2026-0368",
+    "RUSTSEC-2026-0369",
 ]

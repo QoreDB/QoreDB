@@ -8,6 +8,7 @@ import type {
   MssqlAuthMode,
   SearchAuthMode,
   SnowflakeAuthMode,
+  SshAuthMethod,
 } from '@/lib/tauri';
 
 export interface ConnectionFormData {
@@ -37,6 +38,9 @@ export interface ConnectionFormData {
   bigqueryBillingProject: string;
   /** Path to a custom CA certificate (PEM) for TLS verification. */
   sslCaCert: string;
+  /** TLS client identity (PostgreSQL family). Both paths or neither. */
+  sslClientCert: string;
+  sslClientKey: string;
   poolMaxConnections: number;
   poolMinConnections: number;
   poolAcquireTimeoutSecs: number;
@@ -44,6 +48,7 @@ export interface ConnectionFormData {
   sshHost: string;
   sshPort: number;
   sshUsername: string;
+  sshAuthMethod: SshAuthMethod;
   sshKeyPath: string;
   sshHostKeyPolicy: 'accept_new' | 'strict' | 'insecure_no_check';
   sshProxyJump: string;
@@ -86,6 +91,8 @@ export const initialConnectionFormData: ConnectionFormData = {
   bigqueryLocation: '',
   bigqueryBillingProject: '',
   sslCaCert: '',
+  sslClientCert: '',
+  sslClientKey: '',
   poolMaxConnections: 5,
   poolMinConnections: 0,
   poolAcquireTimeoutSecs: 30,
@@ -93,6 +100,7 @@ export const initialConnectionFormData: ConnectionFormData = {
   sshHost: '',
   sshPort: 22,
   sshUsername: '',
+  sshAuthMethod: 'key',
   sshKeyPath: '',
   sshHostKeyPolicy: 'accept_new',
   sshProxyJump: '',

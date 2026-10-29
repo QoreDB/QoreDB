@@ -2710,7 +2710,7 @@ pub fn build_pg_connection_string(config: &ConnectionConfig, default_db: &str) -
     let encoded_pass = utf8_percent_encode(&config.password, NON_ALPHANUMERIC);
     let encoded_db = utf8_percent_encode(db, DB_SEGMENT);
 
-    format!(
+    let mut conn_str = format!(
         "postgres://{}:{}@{}:{}/{}?sslmode={}",
         encoded_user,
         encoded_pass,
@@ -2718,7 +2718,24 @@ pub fn build_pg_connection_string(config: &ConnectionConfig, default_db: &str) -
         config.port,
         encoded_db,
         ssl_mode
-    )
+    );
+
+    if ssl_mode != "disable" {
+        for (key, path) in [
+            ("sslrootcert", &config.ssl_ca_cert),
+            ("sslcert", &config.ssl_client_cert),
+            ("sslkey", &config.ssl_client_key),
+        ] {
+            if let Some(path) = path.as_deref().filter(|p| !p.is_empty()) {
+                conn_str.push_str(&format!(
+                    "&{key}={}",
+                    utf8_percent_encode(path, NON_ALPHANUMERIC)
+                ));
+            }
+        }
+    }
+
+    conn_str
 }
 
 #[cfg(test)]
@@ -2750,6 +2767,46 @@ mod tests {
             namespace_statement("motherduck", Some(&namespace), false).as_deref(),
             Some("USE \"analytics\".\"sales\"")
         );
+    }
+
+    #[test]
+    fn tls_files_reach_the_connection_string_encoded() {
+        use std::str::FromStr;
+
+        let config = ConnectionConfig {
+            host: "db".into(),
+            port: 5432,
+            username: "app".into(),
+            ssl: true,
+            ssl_mode: Some("verify-full".into()),
+            ssl_ca_cert: Some("/certs/ca.crt".into()),
+            ssl_client_cert: Some(r"C:\Users\me\My Certs\client&1.crt".into()),
+            ssl_client_key: Some("/certs/client#key.pem".into()),
+            ..Default::default()
+        };
+        let conn_str = build_pg_connection_string(&config, "postgres");
+        assert!(conn_str.contains("sslmode=verify-full"));
+
+        let (_, query) = conn_str.split_once('?').unwrap();
+        let params: HashMap<&str, String> = query
+            .split('&')
+            .filter_map(|pair| pair.split_once('='))
+            .map(|(k, v)| (k, percent_encoding::percent_decode_str(v).decode_utf8_lossy().into_owned()))
+            .collect();
+        assert_eq!(params["sslrootcert"], "/certs/ca.crt");
+        assert_eq!(params["sslcert"], r"C:\Users\me\My Certs\client&1.crt");
+        assert_eq!(params["sslkey"], "/certs/client#key.pem");
+        sqlx::postgres::PgConnectOptions::from_str(&conn_str).unwrap();
+
+        let disabled = build_pg_connection_string(
+            &ConnectionConfig {
+                ssl: false,
+                ssl_mode: None,
+                ..config
+            },
+            "postgres",
+        );
+        assert!(!disabled.contains("sslcert"), "{disabled}");
     }
 
     #[test]

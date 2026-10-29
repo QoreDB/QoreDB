@@ -231,13 +231,16 @@ fn extract_archive(bytes: &[u8], staging: &Path) -> Result<(), String> {
             .map_err(|e| format!("Could not read archive entry: {e}"))?;
 
         // Reject anything that isn't a flat file at the archive root.
-        let name = entry
-            .enclosed_name()
-            .ok_or_else(|| format!("Archive entry {} has an unsafe path", entry.name()))?;
+        let name = entry.enclosed_name().ok_or_else(|| {
+            format!(
+                "Archive entry {} has an unsafe path",
+                String::from_utf8_lossy(entry.name_raw())
+            )
+        })?;
         if name.components().count() != 1 {
             return Err(format!(
                 "Archive entry {} is not at the root — marketplace archives must be flat",
-                entry.name()
+                String::from_utf8_lossy(entry.name_raw())
             ));
         }
         if entry.is_dir() {

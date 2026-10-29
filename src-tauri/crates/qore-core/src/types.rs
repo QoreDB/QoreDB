@@ -82,10 +82,17 @@ pub struct ConnectionConfig {
     #[serde(default)]
     pub search_auth_mode: Option<String>,
     /// Path to a custom CA certificate (PEM) used to verify the server's TLS
-    /// certificate. Currently honoured by the search drivers; `None` keeps the
-    /// system trust store.
+    /// certificate. Honoured by the PostgreSQL family and by the drivers that
+    /// read it explicitly; `None` keeps the system trust store.
     #[serde(default)]
     pub ssl_ca_cert: Option<String>,
+    /// Path to a client certificate (PEM) presented during the TLS handshake.
+    /// Currently honoured by the PostgreSQL family.
+    #[serde(default)]
+    pub ssl_client_cert: Option<String>,
+    /// Path to the private key (PEM) matching `ssl_client_cert`.
+    #[serde(default)]
+    pub ssl_client_key: Option<String>,
     /// Driver options carried verbatim from a parsed connection URL.
     #[serde(default)]
     pub options: HashMap<String, String>,
@@ -113,6 +120,8 @@ impl Default for ConnectionConfig {
             clickhouse_cluster: None,
             search_auth_mode: None,
             ssl_ca_cert: None,
+            ssl_client_cert: None,
+            ssl_client_key: None,
             options: HashMap::new(),
         }
     }
@@ -149,6 +158,8 @@ impl std::fmt::Debug for ConnectionConfig {
             .field("clickhouse_cluster", &self.clickhouse_cluster)
             .field("search_auth_mode", &self.search_auth_mode)
             .field("ssl_ca_cert", &self.ssl_ca_cert)
+            .field("ssl_client_cert", &self.ssl_client_cert)
+            .field("ssl_client_key", &self.ssl_client_key)
             .field("options", &self.options)
             .finish()
     }
@@ -275,6 +286,9 @@ pub enum SshAuth {
         #[serde(skip_serializing)]
         passphrase: Option<String>,
     },
+    /// Identities offered by the running SSH agent (`SSH_AUTH_SOCK`, or the
+    /// OpenSSH agent pipe on Windows). No key file is read by QoreDB.
+    Agent {},
 }
 
 impl std::fmt::Debug for SshAuth {
@@ -297,6 +311,7 @@ impl std::fmt::Debug for SshAuth {
                     .field("passphrase", &passphrase)
                     .finish()
             }
+            SshAuth::Agent {} => f.write_str("SshAuth::Agent"),
         }
     }
 }
@@ -462,6 +477,8 @@ mod tests {
             clickhouse_cluster: None,
             search_auth_mode: None,
             ssl_ca_cert: None,
+            ssl_client_cert: None,
+            ssl_client_key: None,
         };
         let dbg = format!("{:?}", cfg);
         assert!(dbg.contains("[REDACTED]"), "expected redaction in {dbg}");

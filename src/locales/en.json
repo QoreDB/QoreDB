@@ -362,7 +362,13 @@
       "keepaliveCountMax": "Keepalive max",
       "summaryMissingHost": "(host?)",
       "summaryKey": "key:",
-      "summaryMissingKey": "key:?"
+      "summaryMissingKey": "key:?",
+      "authMethod": "Authentication",
+      "authKey": "Key file",
+      "authAgent": "SSH agent",
+      "summaryAgent": "agent",
+      "agentModeInfo": "Uses the keys offered by your running SSH agent (ssh-agent, KeePassXC, 1Password…).",
+      "agentModeHint": "The agent must be running before QoreDB starts. Check with: ssh-add -l"
     },
     "proxy": {
       "enableProxy": "Use Network Proxy",
@@ -462,6 +468,15 @@
       "removeConfirmTitle": "Remove masking on a production connection",
       "removeConfirmDescription": "Masked values will be visible again in results, exports and agent answers.",
       "removeConfirmLabel": "Remove masking"
+    },
+    "tls": {
+      "title": "TLS certificates",
+      "caCert": "CA certificate",
+      "caCertHint": "PEM file used to verify the server (sslrootcert). Required for Verify CA and Verify Full with a private CA.",
+      "clientCert": "Client certificate",
+      "clientCertHint": "PEM certificate presented to the server (sslcert).",
+      "clientKey": "Client private key",
+      "clientKeyHint": "Unencrypted PEM key matching the client certificate (sslkey)."
     }
   },
   "sidebar": {

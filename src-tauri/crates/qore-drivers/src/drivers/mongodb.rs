@@ -3197,6 +3197,8 @@ mod tests {
         let config = ConnectionConfig {
             ssl: true,
             ssl_ca_cert: None,
+            ssl_client_cert: None,
+            ssl_client_key: None,
             ..Default::default()
         };
         MongoDriver::apply_custom_ca(&mut options, &config).unwrap();

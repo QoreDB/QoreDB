@@ -43,6 +43,12 @@ the user when picking `text` without a matching index.
   This requires the same role or the `pg_signal_backend` privilege.
 - Namespace listing is scoped to the current database; cross-database browsing
   is not supported.
+- TLS files (`ssl_ca_cert`, `ssl_client_cert`, `ssl_client_key`) are passed to
+  sqlx as `sslrootcert`, `sslcert` and `sslkey` for PostgreSQL, Supabase, Neon,
+  TimescaleDB, YugabyteDB and CockroachDB. The client key must be an
+  unencrypted PEM file (PKCS#8, PKCS#1 or SEC1); rustls cannot read
+  passphrase-protected keys. Unlike libpq, `sslmode=require` with a CA file
+  does not verify the server: choose `verify-ca` or `verify-full`.
 
 ## MySQL
 

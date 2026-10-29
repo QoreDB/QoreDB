@@ -333,7 +333,13 @@
       "keepaliveCountMax": "Máximo de keepalive",
       "summaryMissingHost": "(host?)",
       "summaryKey": "chave:",
-      "summaryMissingKey": "chave:?"
+      "summaryMissingKey": "chave:?",
+      "authMethod": "Autenticação",
+      "authKey": "Arquivo de chave",
+      "authAgent": "Agente SSH",
+      "summaryAgent": "agente",
+      "agentModeInfo": "Usa as chaves oferecidas pelo seu agente SSH em execução (ssh-agent, KeePassXC, 1Password…).",
+      "agentModeHint": "O agente precisa estar em execução antes de iniciar o QoreDB. Verifique com: ssh-add -l"
     },
     "proxy": {
       "enableProxy": "Usar proxy de rede",
@@ -433,6 +439,15 @@
       "removeConfirmTitle": "Remover mascaramento em uma conexão de produção",
       "removeConfirmDescription": "Os valores mascarados voltarão a aparecer em resultados, exportações e respostas de agentes.",
       "removeConfirmLabel": "Remover mascaramento"
+    },
+    "tls": {
+      "title": "Certificados TLS",
+      "caCert": "Certificado CA",
+      "caCertHint": "Arquivo PEM usado para verificar o servidor (sslrootcert). Necessário para Verificar CA e Verificação Completa com uma CA privada.",
+      "clientCert": "Certificado do cliente",
+      "clientCertHint": "Certificado PEM apresentado ao servidor (sslcert).",
+      "clientKey": "Chave privada do cliente",
+      "clientKeyHint": "Chave PEM não criptografada do certificado do cliente (sslkey)."
     }
   },
   "sidebar": {

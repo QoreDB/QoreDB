@@ -19,6 +19,13 @@ ignore = [
   # quick-xml NsReader unbounded namespace-declaration allocation: same fix (0.41.0) and same plist pin as above.
   # Transitive via tauri (tauri-build -> tauri-utils -> plist); parses only build/bundle .plist, never untrusted XML.
   { id = "RUSTSEC-2026-0195", reason = "quick-xml via tauri/plist, no upstream fix, not exploitable in our context" },
+  # zip < 9 ZipArchive::extract() symlink and SUID/SGID issues. QoreDB's own zip is 9.x; the transitive
+  # copies have no released parent accepting zip 9: tauri-plugin-updater (extract() on Windows only, after
+  # minisign verification), libduckdb-sys (build-time extraction of the official DuckDB archive) and
+  # rust_xlsxwriter (reads one theme entry with by_name()). See .cargo/audit.toml.
+  { id = "RUSTSEC-2026-0367", reason = "zip < 9 via updater/duckdb build/xlsxwriter, no upstream fix, extract() never sees untrusted archives" },
+  { id = "RUSTSEC-2026-0368", reason = "zip < 9 via updater/duckdb build/xlsxwriter, no upstream fix, extract() never sees untrusted archives" },
+  { id = "RUSTSEC-2026-0369", reason = "zip < 9 via updater/duckdb build/xlsxwriter, no upstream fix, extract() never sees untrusted archives" },
 ]
 
 [licenses]

@@ -432,8 +432,10 @@ impl DataEngine for SqlServerDriver {
         let stream = conn
             .simple_query(
                 "SELECT name FROM sys.schemas \
-                 WHERE name NOT IN ('guest', 'sys', 'INFORMATION_SCHEMA') \
-                 AND name NOT LIKE 'db_%' \
+                 WHERE name NOT IN ('guest', 'sys', 'INFORMATION_SCHEMA', \
+                 'db_owner', 'db_accessadmin', 'db_securityadmin', 'db_ddladmin', \
+                 'db_backupoperator', 'db_datareader', 'db_datawriter', \
+                 'db_denydatareader', 'db_denydatawriter') \
                  ORDER BY name",
             )
             .await
@@ -2340,6 +2342,8 @@ mod tests {
             clickhouse_cluster: None,
             search_auth_mode: None,
             ssl_ca_cert: None,
+            ssl_client_cert: None,
+            ssl_client_key: None,
         }
     }
 

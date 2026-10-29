@@ -15,6 +15,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
+import type { SshAuthMethod } from '@/lib/tauri';
 import { cn } from '@/lib/utils';
 
 import { Field } from './Field';
@@ -42,6 +43,10 @@ export function SshTunnelSection(props: {
   const [isOpen, setIsOpen] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const hostKeyPolicyId = useId();
+  const authMethods: { value: SshAuthMethod; label: string }[] = [
+    { value: 'key', label: t('connection.ssh.authKey') },
+    { value: 'agent', label: t('connection.ssh.authAgent') },
+  ];
 
   const summary = useMemo(() => {
     if (!formData.useSshTunnel) return '';
@@ -56,9 +61,12 @@ export function SshTunnelSection(props: {
       ? `${formData.sshHost}:${formData.sshPort || 22}`
       : t('connection.ssh.summaryMissingHost');
     const userPrefix = formData.sshUsername ? `${formData.sshUsername}@` : '';
-    const keyPart = formData.sshKeyPath
-      ? `${t('connection.ssh.summaryKey')} ${getPathBasename(formData.sshKeyPath)}`
-      : t('connection.ssh.summaryMissingKey');
+    const keyPart =
+      formData.sshAuthMethod === 'agent'
+        ? t('connection.ssh.summaryAgent')
+        : formData.sshKeyPath
+          ? `${t('connection.ssh.summaryKey')} ${getPathBasename(formData.sshKeyPath)}`
+          : t('connection.ssh.summaryMissingKey');
 
     return `${userPrefix}${hostPart} · ${keyPart} · ${policyLabel}`;
   }, [formData, t]);
@@ -125,22 +133,51 @@ export function SshTunnelSection(props: {
                 />
               </Field>
 
-              <Field label={t('connection.ssh.keyPath')} labelClassName={SMALL_LABEL}>
-                <Input
-                  placeholder={t('connection.ssh.keyPathPlaceholder')}
-                  value={formData.sshKeyPath}
-                  onChange={e => onChange('sshKeyPath', e.target.value)}
-                />
-              </Field>
+              <div className="space-y-2">
+                <Label className={SMALL_LABEL}>{t('connection.ssh.authMethod')}</Label>
+                <div className="flex gap-2">
+                  {authMethods.map(({ value, label }) => (
+                    <Button
+                      key={value}
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className={cn(
+                        'h-auto flex-1 px-3 py-2 rounded-md text-xs font-semibold border-2 transition-all',
+                        formData.sshAuthMethod === value
+                          ? 'border-primary bg-primary/10 text-primary'
+                          : 'border-border bg-background hover:bg-muted text-muted-foreground'
+                      )}
+                      onClick={() => onChange('sshAuthMethod', value)}
+                    >
+                      {label}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+
+              {formData.sshAuthMethod === 'key' && (
+                <Field label={t('connection.ssh.keyPath')} labelClassName={SMALL_LABEL}>
+                  <Input
+                    placeholder={t('connection.ssh.keyPathPlaceholder')}
+                    value={formData.sshKeyPath}
+                    onChange={e => onChange('sshKeyPath', e.target.value)}
+                  />
+                </Field>
+              )}
 
               <div className="flex items-start gap-2 rounded-md border border-border bg-muted/30 p-2">
                 <Info size={14} className="mt-0.5 shrink-0 text-muted-foreground" />
                 <div className="space-y-1">
                   <p className="text-xs font-medium text-foreground">
-                    {t('connection.ssh.sshAgentInfo')}
+                    {formData.sshAuthMethod === 'agent'
+                      ? t('connection.ssh.agentModeInfo')
+                      : t('connection.ssh.sshAgentInfo')}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    {t('connection.ssh.sshAgentHint')}
+                    {formData.sshAuthMethod === 'agent'
+                      ? t('connection.ssh.agentModeHint')
+                      : t('connection.ssh.sshAgentHint')}
                   </p>
                 </div>
               </div>

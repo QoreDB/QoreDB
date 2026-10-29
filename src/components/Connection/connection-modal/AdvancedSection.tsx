@@ -15,11 +15,13 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
+import { isPostgresWireFamily } from '@/lib/connection/driverCapabilities';
 import { getDriverMetadata } from '@/lib/connection/drivers';
 import { cn } from '@/lib/utils';
 import { Field } from './Field';
 import { ProxySection } from './ProxySection';
 import { SshTunnelSection } from './SshTunnelSection';
+import { TlsFilesSection } from './TlsFilesSection';
 import type { ConnectionFormData } from './types';
 
 interface AdvancedSectionProps {
@@ -103,6 +105,13 @@ export function AdvancedSection({
               </Select>
             </div>
           )}
+
+          {!hideUrlDerivedFields &&
+            formData.ssl &&
+            formData.sslMode !== 'disable' &&
+            isPostgresWireFamily(formData.driver) && (
+              <TlsFilesSection formData={formData} onChange={onChange} />
+            )}
 
           {driverMeta.supportsSQL && (
             <div className="space-y-2">

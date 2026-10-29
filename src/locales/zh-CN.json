@@ -333,7 +333,13 @@
       "keepaliveCountMax": "最大心跳次数",
       "summaryMissingHost": "（主机？）",
       "summaryKey": "密钥：",
-      "summaryMissingKey": "密钥：？"
+      "summaryMissingKey": "密钥：？",
+      "authMethod": "认证方式",
+      "authKey": "密钥文件",
+      "authAgent": "SSH 代理",
+      "summaryAgent": "代理",
+      "agentModeInfo": "使用正在运行的 SSH 代理（ssh-agent、KeePassXC、1Password 等）提供的密钥。",
+      "agentModeHint": "代理必须在 QoreDB 启动前运行。可用以下命令检查：ssh-add -l"
     },
     "proxy": {
       "enableProxy": "使用网络代理",
@@ -433,6 +439,15 @@
       "removeConfirmTitle": "移除生产连接上的脱敏",
       "removeConfirmDescription": "被脱敏的值将在结果、导出和代理回答中重新可见。",
       "removeConfirmLabel": "移除脱敏"
+    },
+    "tls": {
+      "title": "TLS 证书",
+      "caCert": "CA 证书",
+      "caCertHint": "用于验证服务器的 PEM 文件（sslrootcert）。使用私有 CA 进行 CA 验证或完全验证时必需。",
+      "clientCert": "客户端证书",
+      "clientCertHint": "提交给服务器的 PEM 证书（sslcert）。",
+      "clientKey": "客户端私钥",
+      "clientKeyHint": "与客户端证书匹配的未加密 PEM 私钥（sslkey）。"
     }
   },
   "sidebar": {

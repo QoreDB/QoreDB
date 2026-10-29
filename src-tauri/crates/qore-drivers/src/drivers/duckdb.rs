@@ -2496,6 +2496,8 @@ mod tests {
             clickhouse_cluster: None,
             search_auth_mode: None,
             ssl_ca_cert: None,
+            ssl_client_cert: None,
+            ssl_client_key: None,
         }
     }
 
@@ -2524,6 +2526,8 @@ mod tests {
             clickhouse_cluster: None,
             search_auth_mode: None,
             ssl_ca_cert: None,
+            ssl_client_cert: None,
+            ssl_client_key: None,
         };
 
         let session_id = driver.connect(&config).await.unwrap();
@@ -2555,6 +2559,8 @@ mod tests {
             clickhouse_cluster: None,
             search_auth_mode: None,
             ssl_ca_cert: None,
+            ssl_client_cert: None,
+            ssl_client_key: None,
         };
 
         let session_id = driver.connect(&config).await.unwrap();
@@ -2614,6 +2620,8 @@ mod tests {
             clickhouse_cluster: None,
             search_auth_mode: None,
             ssl_ca_cert: None,
+            ssl_client_cert: None,
+            ssl_client_key: None,
         };
 
         let session_id = driver.connect(&config).await.unwrap();
@@ -2650,6 +2658,8 @@ mod tests {
             clickhouse_cluster: None,
             search_auth_mode: None,
             ssl_ca_cert: None,
+            ssl_client_cert: None,
+            ssl_client_key: None,
         };
 
         let session_id = driver.connect(&config).await.unwrap();

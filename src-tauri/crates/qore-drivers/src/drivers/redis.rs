@@ -2090,6 +2090,8 @@ mod tests {
             clickhouse_cluster: None,
             search_auth_mode: None,
             ssl_ca_cert: None,
+            ssl_client_cert: None,
+            ssl_client_key: None,
         };
 
         let conn_str = RedisDriver::build_connection_string(&config);
@@ -2119,6 +2121,8 @@ mod tests {
             clickhouse_cluster: None,
             search_auth_mode: None,
             ssl_ca_cert: None,
+            ssl_client_cert: None,
+            ssl_client_key: None,
         };
 
         let conn_str = RedisDriver::build_connection_string(&config);
@@ -2148,6 +2152,8 @@ mod tests {
             clickhouse_cluster: None,
             search_auth_mode: None,
             ssl_ca_cert: None,
+            ssl_client_cert: None,
+            ssl_client_key: None,
         };
 
         let conn_str = RedisDriver::build_connection_string(&config);

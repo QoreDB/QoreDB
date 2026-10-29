@@ -302,6 +302,17 @@ export function isMySqlFamily(driver: Driver | string): boolean {
   );
 }
 
+/**
+ * Drivers that connect through the shared PostgreSQL wire client and honour
+ * its TLS files. MotherDuck is left out: its endpoint uses a public CA and
+ * token authentication.
+ */
+export function isPostgresWireFamily(driver: Driver | string): boolean {
+  return ['postgres', 'supabase', 'neon', 'timescaledb', 'yugabytedb', 'cockroachdb'].includes(
+    driver
+  );
+}
+
 export function isRelationalDatabase(driver: Driver | string): boolean {
   return getDriverMetadata(driver).supportsSQL;
 }

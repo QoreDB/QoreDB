@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { isDocumentDatabase } from '@/lib/connection/driverCapabilities';
+import { isDocumentDatabase, isPostgresWireFamily } from '@/lib/connection/driverCapabilities';
 import { Driver, isKeyValueDriver } from '@/lib/connection/drivers';
 import { normalizeMasking } from '@/lib/masking';
 import type { ConnectionConfig, Environment, SavedConnection } from '@/lib/tauri';
@@ -43,6 +43,45 @@ function hostFor(formData: ConnectionFormData): string {
   return formData.driver === Driver.BigQuery ? 'bigquery.googleapis.com' : formData.host;
 }
 
+function tlsClientFiles(formData: ConnectionFormData) {
+  const usesClientIdentity = isPostgresWireFamily(formData.driver) && formData.ssl;
+  return {
+    ssl_client_cert: (usesClientIdentity && formData.sslClientCert.trim()) || undefined,
+    ssl_client_key: (usesClientIdentity && formData.sslClientKey.trim()) || undefined,
+  };
+}
+
+type PgTlsField = 'sslCaCert' | 'sslClientCert' | 'sslClientKey';
+
+const PG_TLS_FILE_PARAMS: Record<string, PgTlsField> = {
+  sslrootcert: 'sslCaCert',
+  sslcert: 'sslClientCert',
+  sslkey: 'sslClientKey',
+};
+
+/**
+ * Moves the TLS file paths of a PostgreSQL URL out of the pass-through
+ * options, so the dedicated fields stay the single source of truth. A
+ * parameter missing from the URL clears its field.
+ */
+export function extractPgTlsFiles(
+  driver: Driver,
+  options: Record<string, string> | undefined
+): { options: Record<string, string> | undefined; files: Partial<Record<PgTlsField, string>> } {
+  if (!isPostgresWireFamily(driver)) return { options, files: {} };
+  const rest = { ...options };
+  const files: Partial<Record<PgTlsField, string>> = {};
+  for (const [param, field] of Object.entries(PG_TLS_FILE_PARAMS)) {
+    files[field] = rest[param] ?? '';
+    delete rest[param];
+  }
+  return { options: options ? rest : undefined, files };
+}
+
+function sshKeyPath(formData: ConnectionFormData): string | undefined {
+  return formData.sshAuthMethod === 'key' ? formData.sshKeyPath : undefined;
+}
+
 export function buildConnectionConfig(formData: ConnectionFormData): ConnectionConfig {
   return {
     driver: formData.driver,
@@ -60,6 +99,7 @@ export function buildConnectionConfig(formData: ConnectionFormData): ConnectionC
         : undefined,
     search_auth_mode: isSearchDriver(formData.driver) ? formData.searchAuthMode : undefined,
     ssl_ca_cert: formData.sslCaCert.trim() || undefined,
+    ...tlsClientFiles(formData),
     options: driverOptions(formData),
     pool_max_connections: formData.poolMaxConnections,
     pool_min_connections: formData.poolMinConnections,
@@ -71,12 +111,10 @@ export function buildConnectionConfig(formData: ConnectionFormData): ConnectionC
           host: formData.sshHost,
           port: formData.sshPort,
           username: formData.sshUsername,
-          auth: {
-            Key: {
-              private_key_path: formData.sshKeyPath,
-              passphrase: undefined,
-            },
-          },
+          auth:
+            formData.sshAuthMethod === 'agent'
+              ? { Agent: {} }
+              : { Key: { private_key_path: formData.sshKeyPath, passphrase: undefined } },
           host_key_policy: formData.sshHostKeyPolicy,
           proxy_jump: formData.sshProxyJump || undefined,
           connect_timeout_secs: formData.sshConnectTimeoutSecs,
@@ -123,6 +161,7 @@ export function buildSavedConnection(
         : undefined,
     search_auth_mode: isSearchDriver(formData.driver) ? formData.searchAuthMode : undefined,
     ssl_ca_cert: formData.sslCaCert.trim() || undefined,
+    ...tlsClientFiles(formData),
     options: driverOptions(formData),
     pool_max_connections: formData.poolMaxConnections,
     pool_min_connections: formData.poolMinConnections,
@@ -133,8 +172,8 @@ export function buildSavedConnection(
           host: formData.sshHost,
           port: formData.sshPort,
           username: formData.sshUsername,
-          auth_type: 'key',
-          key_path: formData.sshKeyPath,
+          auth_type: formData.sshAuthMethod,
+          key_path: sshKeyPath(formData),
           host_key_policy: formData.sshHostKeyPolicy,
           proxy_jump: formData.sshProxyJump || undefined,
           connect_timeout_secs: formData.sshConnectTimeoutSecs,
@@ -169,8 +208,8 @@ export function buildSaveConnectionInput(
           host: formData.sshHost,
           port: formData.sshPort,
           username: formData.sshUsername,
-          auth_type: 'key',
-          key_path: formData.sshKeyPath,
+          auth_type: formData.sshAuthMethod,
+          key_path: sshKeyPath(formData),
           key_passphrase: undefined,
           host_key_policy: formData.sshHostKeyPolicy,
           proxy_jump: formData.sshProxyJump || undefined,
@@ -254,8 +293,14 @@ export function getMissingRequirements(formData: ConnectionFormData): string[] {
   if (formData.useSshTunnel) {
     if (!formData.sshHost) missing.push('connection.ssh.host');
     if (!formData.sshUsername) missing.push('connection.ssh.username');
-    if (!formData.sshKeyPath) missing.push('connection.ssh.keyPath');
+    if (formData.sshAuthMethod === 'key' && !formData.sshKeyPath) {
+      missing.push('connection.ssh.keyPath');
+    }
   }
+
+  const { ssl_client_cert, ssl_client_key } = tlsClientFiles(formData);
+  if (ssl_client_cert && !ssl_client_key) missing.push('connection.tls.clientKey');
+  if (ssl_client_key && !ssl_client_cert) missing.push('connection.tls.clientCert');
 
   return missing;
 }

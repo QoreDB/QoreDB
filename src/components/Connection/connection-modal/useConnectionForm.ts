@@ -7,7 +7,7 @@ import { detectDriverFromDsn } from '@/lib/connection/dsnDetector';
 import { resolveMotherDuckHost } from '@/lib/connection/motherduck';
 import { EMPTY_MASKING } from '@/lib/masking';
 import type { ConnectionMasking, PartialConnectionConfig, SavedConnection } from '@/lib/tauri';
-import { isConnectionFormValid } from './mappers';
+import { extractPgTlsFiles, isConnectionFormValid } from './mappers';
 import { type ConnectionFormData, initialConnectionFormData } from './types';
 
 function mapDriverString(driver: string | undefined): Driver | undefined {
@@ -198,6 +198,8 @@ export function useConnectionForm(options: {
         bigqueryLocation: editConnection.options?.location ?? '',
         bigqueryBillingProject: editConnection.options?.billing_project ?? '',
         sslCaCert: editConnection.ssl_ca_cert ?? '',
+        sslClientCert: editConnection.ssl_client_cert ?? '',
+        sslClientKey: editConnection.ssl_client_key ?? '',
         poolMaxConnections: editConnection.pool_max_connections ?? 5,
         poolMinConnections: editConnection.pool_min_connections ?? 0,
         poolAcquireTimeoutSecs: editConnection.pool_acquire_timeout_secs ?? 30,
@@ -205,6 +207,7 @@ export function useConnectionForm(options: {
         sshHost: sshTunnel ? sshTunnel.host : '',
         sshPort: sshTunnel ? sshTunnel.port : 22,
         sshUsername: sshTunnel ? sshTunnel.username : '',
+        sshAuthMethod: sshTunnel?.auth_type === 'agent' ? 'agent' : 'key',
         sshKeyPath: sshTunnel ? sshTunnel.key_path || '' : '',
         sshHostKeyPolicy: sshTunnel
           ? (sshTunnel.host_key_policy as ConnectionFormData['sshHostKeyPolicy'])
@@ -297,6 +300,7 @@ export function useConnectionForm(options: {
       const port = config.port ?? DEFAULT_PORTS[driver];
       const password = config.password ?? prev.password;
       const host = config.host ?? prev.host;
+      const tls = extractPgTlsFiles(driver, config.options);
 
       return {
         ...prev,
@@ -315,7 +319,8 @@ export function useConnectionForm(options: {
         sslMode:
           normalizeSslMode(config.options) ??
           (driver === Driver.Motherduck && !prev.sslMode ? 'verify-full' : prev.sslMode),
-        options: config.options ?? prev.options,
+        ...tls.files,
+        options: tls.options ?? prev.options,
       };
     });
   }, []);

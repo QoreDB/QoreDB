@@ -14,7 +14,6 @@ import {
   FileSpreadsheet,
   Link2,
   ListFilter,
-  Loader2,
   Search,
   Sparkles,
   Wand2,
@@ -32,7 +31,6 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
 import { SearchScopeControl, type SearchScopeState } from './SearchScopeControl';
 import type { RowData } from './utils/dataGridUtils';
@@ -50,9 +48,6 @@ interface DataGridToolbarProps {
   setShowFilters: (show: boolean) => void;
   onSaveSnapshot?: () => void;
   onExplainWithAi?: () => void;
-  aiExplanation?: string | null;
-  aiExplainLoading?: boolean;
-  onDismissAiExplanation?: () => void;
   onGenerateData?: () => void;
   searchScope?: SearchScopeState;
 }
@@ -70,9 +65,6 @@ export function DataGridToolbar({
   setShowFilters,
   onSaveSnapshot,
   onExplainWithAi,
-  aiExplanation,
-  aiExplainLoading,
-  onDismissAiExplanation,
   onGenerateData,
   searchScope,
 }: DataGridToolbarProps) {
@@ -223,42 +215,15 @@ export function DataGridToolbar({
       </DropdownMenu>
       {/* AI Explain */}
       {onExplainWithAi && (
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button
-              variant="ghost"
-              size="sm"
-              className={cn('h-7 px-2 text-xs gap-1', aiExplanation && 'text-accent')}
-              onClick={!aiExplanation && !aiExplainLoading ? onExplainWithAi : undefined}
-              disabled={aiExplainLoading}
-            >
-              {aiExplainLoading ? (
-                <Loader2 size={14} className="animate-spin" />
-              ) : (
-                <Sparkles size={14} />
-              )}
-              <span>{t('ai.explainResults')}</span>
-            </Button>
-          </PopoverTrigger>
-          {aiExplanation && (
-            <PopoverContent align="end" className="w-80 max-h-64 overflow-auto">
-              <div className="space-y-2">
-                <p className="text-xs whitespace-pre-wrap">{aiExplanation}</p>
-                {onDismissAiExplanation && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-6 text-xs w-full"
-                    onClick={onDismissAiExplanation}
-                  >
-                    <X size={12} className="mr-1" />
-                    {t('common.close')}
-                  </Button>
-                )}
-              </div>
-            </PopoverContent>
-          )}
-        </Popover>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-7 px-2 text-xs gap-1"
+          onClick={onExplainWithAi}
+        >
+          <Sparkles size={14} />
+          <span>{t('ai.explainResults')}</span>
+        </Button>
       )}
       {onGenerateData && (
         <Button

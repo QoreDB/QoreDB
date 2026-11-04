@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import {
+  BookOpen,
   Columns3,
   Eraser,
   Eye,
@@ -13,8 +14,10 @@ import {
   Trash2,
   Wrench,
 } from 'lucide-react';
-import { Fragment, useEffect, useState } from 'react';
+import { Fragment, lazy, Suspense, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+
+const SemanticContextDialog = lazy(() => import('@/components/AI/SemanticContextDialog'));
 
 import { DangerConfirmDialog } from '@/components/Guard/DangerConfirmDialog';
 import { CSVImportDialog } from '@/components/Import/CSVImportDialog';
@@ -175,6 +178,7 @@ export function TableContextMenu({
   const [dangerAction, setDangerAction] = useState<DangerAction>(null);
   const [loading, setLoading] = useState(false);
   const [vrDialogOpen, setVrDialogOpen] = useState(false);
+  const [semanticOpen, setSemanticOpen] = useState(false);
   const [maintenanceOpen, setMaintenanceOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [alterOpen, setAlterOpen] = useState(false);
@@ -363,6 +367,13 @@ export function TableContextMenu({
             </ContextMenuItem>
           )}
 
+          {(onAiGenerate || onAiExplain) && (
+            <ContextMenuItem onClick={() => setSemanticOpen(true)}>
+              <BookOpen size={14} className="mr-2" />
+              {t('ai.semanticContext.menuItem')}
+            </ContextMenuItem>
+          )}
+
           {!isDocument && (
             <ContextMenuItem onClick={handleOpenImport} disabled={readOnly}>
               <FileUp size={14} className="mr-2" />
@@ -488,6 +499,18 @@ export function TableContextMenu({
             onVirtualRelationChanged?.();
           }}
         />
+      )}
+
+      {semanticOpen && (
+        <Suspense fallback={null}>
+          <SemanticContextDialog
+            open={semanticOpen}
+            onOpenChange={setSemanticOpen}
+            sessionId={sessionId}
+            namespace={collection.namespace}
+            tableName={tableName}
+          />
+        </Suspense>
       )}
     </>
   );

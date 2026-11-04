@@ -719,6 +719,8 @@
     "redo": "やり直し",
     "toggleVariables": "変数",
     "editTitle": "クリックしてタイトルを編集",
+    "draftQuotaExceeded": "ノートブックの下書きがローカルストレージの上限を超えました",
+    "draftQuotaExceededHint": "編集内容が失われないよう、ファイル (.qnb) に保存してください。",
     "cellCountLabel": "{{count}} セル",
     "variableDescriptionHint": "任意の説明",
     "doubleClickToEdit": "ダブルクリックで編集",
@@ -730,7 +732,9 @@
     "addCellAi": "AIセル",
     "aiPlaceholder": "クエリを自然言語で記述してください…",
     "aiGenerate": "SQLを生成",
-    "aiCellInserted": "下にSQLセルを挿入しました"
+    "aiCellInserted": "下にSQLセルを挿入しました",
+    "insertSummaryMarkdown": "Markdown セルとして挿入",
+    "generateDocumentation": "AI でドキュメントを生成"
   },
   "replay": {
     "cancelledReport": "再実行をキャンセルしました。実行済みのクエリは保持されます。実行中のクエリは完了した可能性があります。",
@@ -1109,6 +1113,41 @@
         "idle": "10分間操作のないセッションは閉じられます。",
         "audit": "すべての呼び出しはソース「mcp」として監査ログに記録されます。"
       }
+    },
+    "localData": {
+      "title": "ローカルデータとディスク使用量",
+      "description": "app_data_dir 内のカテゴリ別ディスク使用量を確認し、個別にパージします。",
+      "securityNotice": "vault.enc 内の認証情報は AES-256-GCM で暗号化されています。以下のカテゴリは機密マスクと保持制限付きのローカルファイルとして保存されます。",
+      "totalUsage": "ローカルストレージ合計: {{size}}",
+      "fileCount": "{{count}} ファイル",
+      "purge": "パージ",
+      "confirmTitle": "ローカルデータのパージ",
+      "confirmDescription": "「{{category}}」のすべてのローカルファイルを完全に削除してもよろしいですか？",
+      "confirmAction": "完全に削除",
+      "purgeSuccess": "{{category}} をパージしました。",
+      "purgeError": "ローカルデータのパージに失敗しました。",
+      "categories": {
+        "time_travel": {
+          "title": "Time Travel 履歴",
+          "description": "変更前後のローカル履歴 (time-travel/)。保持日数と最大サイズで制限されます。"
+        },
+        "replay": {
+          "title": "Query Replay キャプチャ",
+          "description": "ワークスペースごとに分離されたクエリ再生キャプチャ (replays/)。"
+        },
+        "snapshots": {
+          "title": "データスナップショット",
+          "description": "比較・オフライン確認用に保存されたスナップショット (snapshots/*.json)。"
+        },
+        "audit_logs": {
+          "title": "監査ログとアプリケーションログ",
+          "description": "インターセプター監査ログ (interceptor/audit.jsonl) とアプリログ (logs/)。"
+        },
+        "ai_models": {
+          "title": "ローカル AI ランタイムとモデル",
+          "description": "ダウンロード済みの Qore AI Local ランタイムと GGUF モデル (ai-local/)。"
+        }
+      }
     }
   },
   "table": {
@@ -1425,6 +1464,14 @@
       "applied": "マスキングを適用しました",
       "appliedNextRun": "マスキングを保存しました。次回の実行から適用されます。",
       "removed": "マスキングを解除しました"
+    },
+    "anchor": {
+      "filter_mismatch": "フィルター外",
+      "filter_mismatchTooltip": "編集された行は現在の列フィルターに一致しませんが、再読み込みまでこの位置に固定されます。",
+      "order_changed": "順序変更",
+      "order_changedTooltip": "ソート列の値が変更されました。再読み込みまで現在の位置に固定されます。",
+      "inserted": "挿入済み",
+      "insertedTooltip": "挿入された行は次回の再読み込みまで先頭に固定表示されます。"
     }
   },
   "export": {
@@ -1688,7 +1735,10 @@
     "tabBar": "開いているタブ",
     "databaseTree": "データベースツリー",
     "statusBar": "ステータスバー",
-    "help": "ヘルプ"
+    "help": "ヘルプ",
+    "resizeSidebar": "サイドバーのサイズを変更",
+    "resizeEditor": "SQLエディターのサイズを変更",
+    "resizeAiPanel": "AIアシスタントパネルのサイズを変更"
   },
   "zenMode": {
     "enabled": "Zen モード — Esc キーで終了"
@@ -2106,7 +2156,9 @@
       "new": "新規",
       "modified": "変更済み",
       "deleted": "削除済み"
-    }
+    },
+    "quotaExceeded": "サンドボックスの変更がローカルストレージの上限を超えました",
+    "quotaExceededHint": "保留中の変更を適用または破棄して空き容量を確保してください。"
   },
   "interceptor": {
     "title": "クエリインターセプター",
@@ -2912,6 +2964,22 @@
       "summarizeSchema": "このスキーマを要約",
       "tableTitle": "テーブル {{table}}",
       "schemaTitle": "スキーマ {{namespace}}"
+    },
+    "semanticContext": {
+      "menuItem": "ビジネスコンテキスト (.qoredb)",
+      "title": "ビジネスコンテキスト — {{table}}",
+      "description": ".qoredb/context.json にこのテーブルとルールを記録し、AI クエリを強化します。",
+      "tableDescription": "テーブルの説明",
+      "tableDescriptionPlaceholder": "例: 顧客の請求書",
+      "domain": "ドメイン",
+      "domainPlaceholder": "例: 請求",
+      "columnsTitle": "カラムの意味",
+      "columnPlaceholder": "意味 ({{type}})",
+      "implicitRelations": "暗黙のリレーション (1行に1つ)",
+      "implicitRelationsPlaceholder": "user_id -> users.id",
+      "businessRules": "ワークスペースのビジネスルール (1行に1つ)",
+      "businessRulesPlaceholder": "例: 有効なユーザーは deleted_at IS NULL",
+      "saved": "ビジネスコンテキストを .qoredb/context.json に保存しました"
     }
   },
   "agentChat": {
@@ -3008,7 +3076,12 @@
     "insertLeftJoin": "LEFT JOIN",
     "insertComma": "クロスジョイン",
     "insertWhere": "WHERE",
-    "insertRaw": "参照"
+    "insertRaw": "参照",
+    "cacheHit": "キャッシュ",
+    "liveFetch": "ライブ",
+    "rowsShort": "行",
+    "projectedColumns": "射影カラム",
+    "refreshCacheTooltip": "キャッシュをバイパスしてすべてのフェデレーションソースを再取得"
   },
   "maintenance": {
     "title": "テーブルメンテナンス",

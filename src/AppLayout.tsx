@@ -167,6 +167,7 @@ export function AppLayout() {
     width: sidebarWidth,
     sidebarRef,
     handleMouseDown: handleSidebarResizeStart,
+    handleKeyDown: handleSidebarResizeKeyDown,
     resetWidth: resetSidebarWidth,
   } = useResizableSidebar();
   const tourManager = useTourManager();
@@ -1030,10 +1031,11 @@ export function AppLayout() {
               />
               <button
                 type="button"
-                aria-label="Resize sidebar"
+                aria-label={t('a11y.resizeSidebar')}
                 onMouseDown={handleSidebarResizeStart}
                 onDoubleClick={resetSidebarWidth}
-                className="w-1 shrink-0 cursor-col-resize bg-transparent hover:bg-accent/50 active:bg-accent transition-colors border-0 p-0 outline-none"
+                onKeyDown={handleSidebarResizeKeyDown}
+                className="w-1 shrink-0 cursor-col-resize bg-transparent hover:bg-accent/50 focus-visible:bg-accent/60 active:bg-accent transition-colors border-0 p-0 outline-none"
               />
             </aside>
           )}
@@ -1498,6 +1500,7 @@ function AppContent({
             onQueryDraftChange={value => onUpdateQueryDraft(activeTab.id, value)}
             initialShowAiPanel={activeTab.showAiPanel}
             aiTableContext={activeTab.aiTableContext}
+            initialAiExplain={activeTab.aiPendingExplain}
           />
         </div>
       </ErrorBoundary>

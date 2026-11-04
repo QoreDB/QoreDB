@@ -6,6 +6,7 @@ import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { notify } from '../notify';
 import { exportToHtml, exportToMarkdown } from './notebookExport';
 import { importFromMarkdown, importFromSql } from './notebookImport';
 import { loadDraft, openNotebookFromFile, saveDraft, saveNotebookToFile } from './notebookIO';
@@ -155,9 +156,23 @@ describe('notebook file round trips (native plugins replaced by Node file IO)', 
       rows: [{ values: ['synthetic-sensitive-row'] }],
     };
     notebook.variables = { amount: { name: 'amount', type: 'number', currentValue: '42' } };
-    saveDraft('fixture', notebook);
+    expect(saveDraft('fixture', notebook)).toBe(true);
     expect(storage.get('qnb_draft_fixture')).not.toContain('synthetic-sensitive-row');
     expect(loadDraft('fixture')?.variables.amount.currentValue).toBe('42');
+  });
+
+  it('notifies explicitly when saving a draft exceeds localStorage quota', () => {
+    const warnSpy = vi.spyOn(notify, 'warning').mockImplementation(() => {});
+    vi.stubGlobal('localStorage', {
+      setItem: () => {
+        throw new DOMException('QuotaExceededError', 'QuotaExceededError');
+      },
+      getItem: () => null,
+    });
+    const notebook = createEmptyNotebook();
+    expect(saveDraft('fixture', notebook)).toBe(false);
+    expect(warnSpy).toHaveBeenCalledTimes(1);
+    warnSpy.mockRestore();
   });
 
   it('writes escaped HTML and excludes results unless requested', async () => {

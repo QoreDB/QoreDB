@@ -11,7 +11,7 @@ use std::time::Duration;
 use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use tauri::Emitter;
+use tauri::{Emitter, Manager};
 use tokio::sync::{mpsc, oneshot};
 use uuid::Uuid;
 
@@ -254,6 +254,7 @@ fn agent_system_prompt(
     driver_id: &str,
     environment: &str,
     schema_overview: Option<&str>,
+    semantic_overview: Option<&str>,
     redact_sensitive: bool,
 ) -> String {
     let overview = schema_overview
@@ -263,6 +264,9 @@ fn agent_system_prompt(
                  verify with tools when unsure):\n{overview}\n"
             )
         })
+        .unwrap_or_default();
+    let semantic = semantic_overview
+        .map(|sem| format!("\nSemantic Memory (.qoredb/context.json):\n{sem}\n"))
         .unwrap_or_default();
     let privacy = if redact_sensitive {
         "\n- Sensitive columns (emails, person names, phones, secrets) are \
@@ -278,7 +282,7 @@ fn agent_system_prompt(
         "You are QoreDB's database agent. You answer questions about the user's \
          database by exploring it yourself with the provided tools, executing \
          read-only queries and reading the results.\n\
-         Current connection driver: {driver_id}. Environment: {environment}.\n{overview}\
+         Current connection driver: {driver_id}. Environment: {environment}.\n{overview}{semantic}\
          Guidelines:\n\
          - Explore before querying: describe the relevant tables \
          instead of guessing column names.\n\
@@ -351,6 +355,16 @@ async fn run_inner(
         }
     };
     let redact_sensitive = !request.config.allow_sensitive_data;
+    let semantic_overview = if let Some(ws_mgr) =
+        window.try_state::<crate::commands::workspace::SharedWorkspaceManager>()
+    {
+        let ws_path = ws_mgr.lock().await.active().path.clone();
+        let sem = crate::ai::semantic_memory::load_semantic_context(&ws_path);
+        crate::ai::semantic_memory::format_semantic_block(&sem, &[], &[], redact_sensitive)
+    } else {
+        None
+    };
+
     let mut conversation: Vec<AgentMessage> = Vec::with_capacity(request.history.len() + 2);
     conversation.push(AgentMessage {
         role: AiRole::System,
@@ -358,6 +372,7 @@ async fn run_inner(
             &driver_id,
             &environment_str,
             schema_overview.as_deref(),
+            semantic_overview.as_deref(),
             redact_sensitive,
         ),
         reasoning_content: None,

@@ -18,9 +18,10 @@ import { IndexSuggestions } from './IndexSuggestions';
 interface ExplainPlanViewProps {
   result: QueryResult;
   dialect?: Driver;
+  query?: string;
 }
 
-export function ExplainPlanView({ result, dialect }: ExplainPlanViewProps) {
+export function ExplainPlanView({ result, dialect, query }: ExplainPlanViewProps) {
   const { t } = useTranslation();
   const plan = useMemo(() => parseExplainPlan(result), [result]);
 
@@ -35,6 +36,7 @@ export function ExplainPlanView({ result, dialect }: ExplainPlanViewProps) {
   if (plan.type === 'text') {
     return (
       <div className="flex-1 overflow-auto p-3">
+        <IndexSuggestions dialect={dialect} query={query} />
         <pre className="text-xs font-mono whitespace-pre-wrap wrap-break-word">{plan.text}</pre>
       </div>
     );
@@ -42,7 +44,7 @@ export function ExplainPlanView({ result, dialect }: ExplainPlanViewProps) {
 
   return (
     <div className="flex-1 overflow-auto p-3">
-      <IndexSuggestions root={plan.root} dialect={dialect} />
+      <IndexSuggestions root={plan.root} dialect={dialect} query={query} />
       <div className="space-y-0.5">
         <PlanTreeNode node={plan.root} maxCost={plan.rootCost} depth={0} defaultExpanded />
       </div>

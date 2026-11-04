@@ -71,6 +71,7 @@ interface NotebookCellProps {
   onToggleCollapsed?: () => void;
   onRunFromHere?: () => void;
   onInsertSqlBelow?: (source: string) => void;
+  onInsertMarkdownBelow?: (source: string) => void;
 }
 
 const borderStateMap: Record<CellExecutionState, string> = {
@@ -119,6 +120,7 @@ export function NotebookCell({
   onToggleCollapsed,
   onRunFromHere,
   onInsertSqlBelow,
+  onInsertMarkdownBelow,
 }: NotebookCellProps) {
   const { t } = useTranslation();
   const [showSuccessBorder, setShowSuccessBorder] = useState(false);
@@ -335,6 +337,7 @@ export function NotebookCell({
                     namespace={namespace}
                     onSourceChange={onSourceChange}
                     onExecute={onExecute}
+                    onInsertMarkdownBelow={onInsertMarkdownBelow}
                   />
                 )}
                 {cell.type === 'markdown' && (

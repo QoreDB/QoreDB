@@ -46,6 +46,7 @@ interface QueryPanelResultsProps {
   onRowsDeleted: () => void;
   onEditDocument: (doc: Record<string, unknown>, idValue?: Value) => void;
   onFixWithAi?: (query: string, error: string) => void;
+  onExplainResultWithAi?: (query: string, summary: string) => void;
   onOverrideLimits?: (query: string, kind: 'truncated' | 'timeout') => void;
 }
 
@@ -68,6 +69,7 @@ export function QueryPanelResults({
   onRowsDeleted,
   onEditDocument,
   onFixWithAi,
+  onExplainResultWithAi,
   onOverrideLimits,
 }: QueryPanelResultsProps) {
   const { t } = useTranslation();
@@ -195,7 +197,11 @@ export function QueryPanelResults({
               </div>
             </div>
           ) : activeResult.kind === 'explain' && activeResult.result ? (
-            <ExplainPlanView result={activeResult.result} dialect={dialect} />
+            <ExplainPlanView
+              result={activeResult.result}
+              dialect={dialect}
+              query={activeResult.query}
+            />
           ) : activeResult.result ? (
             isDocumentBased ? (
               <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
@@ -226,6 +232,7 @@ export function QueryPanelResults({
                   environment={environment}
                   readOnly={readOnly}
                   exportQuery={activeResult.query}
+                  onExplainResultWithAi={onExplainResultWithAi}
                   footerMode="none"
                 />
               </div>

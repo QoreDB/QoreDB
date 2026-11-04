@@ -668,36 +668,14 @@ grille dépend de ce rechargement pour afficher la nouvelle valeur.
 
 La [première tranche v0.1.40](../tests/V0_1_40_INLINE_EDIT_2026-10-04.md)
 conserve maintenant les pages après relecture canonique pour les éditions hors
-clé/tri/filtre, sans recherche et avec un ordre stable. Les cas non garantis
-gardent le rechargement décrit ici ; déplacement et sortie de filtre ne sont
-pas traités par une réorganisation locale des pages.
+clé/tri/filtre, sans recherche et avec un ordre stable.
 
-Cette base est **correcte** sous keyset : repartir de zéro ne peut ni dupliquer
-ni sauter de ligne. Elle est en revanche brutale — dix pages parcourues sont
-perdues à chaque cellule modifiée — et elle rend les trois règles ci-dessous
-inapplicables telles quelles, puisqu'elles supposent toutes que les lignes
-chargées survivent à l'édition :
+La **seconde tranche (v0.1.41)** finalise l'ancrage local sur curseur (`src/lib/query/tableRowUpdate.ts`, `src/hooks/useInfiniteTableData.ts`, `src/components/Grid/DataGridTableBody.tsx`) :
 
-- une ligne éditée reste ancrée à sa position d'origine jusqu'au prochain
-  rechargement explicite ;
-- une ligne qui sort du prédicat de filtre après édition est signalée, pas
-  masquée silencieusement ;
-- une ligne insérée localement reste visible jusqu'au rechargement, même si le
-  curseur l'aurait placée ailleurs.
-
-Les trois demandent la même primitive absente : muter en place le jeu de lignes
-chargées, en localisant la ligne par sa clé primaire. Cela implique de changer
-la signature de `onRowsUpdated` pour qu'elle porte la clé et les valeurs
-modifiées, de la propager depuis `useInlineEdit`, et — pour la deuxième règle —
-d'évaluer les filtres de colonne côté client afin de marquer la ligne qui en
-sort. La recherche serveur, elle, ne peut pas être réévaluée localement : la
-règle ne peut donc porter que sur les filtres de colonne, et doit le dire.
-
-Non livré. C'est le seul point de cette verticale que je laisse ouvert, et
-délibérément : la réécriture porte sur le chemin d'édition, qu'aucun test ne
-couvre ici, et une erreur y afficherait des valeurs périmées sans rien signaler.
-La base actuelle étant correcte, le risque de la refonte dépasse le gain tant
-qu'elle n'est pas vérifiable.
+- une ligne éditée dont la colonne de tri change (par édition directe ou via un trigger à la relecture canonique) reste ancrée à sa position d'origine dans les pages chargées avec un badge discret **« Ordre modifié »** (`order_changed`) jusqu'au prochain rechargement explicite ;
+- une ligne éditée qui sort du prédicat de filtre de colonne actif (`matchesColumnFilter`) reste ancrée à sa position locale avec un badge **« Hors filtre »** (`filter_mismatch`) au lieu d'être masquée silencieusement ou de jeter les pages chargées ;
+- une ligne insérée localement (`reconcileTableRowInsert` / `insertRowLocally`) est ancrée en tête des pages chargées avec un badge **« Insérée »** (`inserted`) jusqu'au prochain rechargement ;
+- seule la modification de la clé primaire (ou une recherche plein texte serveur active / un ordre instable) continue de déclencher un `reload` complet.
 
 ### 9.7 Décision de setting
 

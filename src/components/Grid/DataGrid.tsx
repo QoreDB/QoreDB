@@ -38,15 +38,15 @@ import {
 import { Checkbox } from '@/components/ui/checkbox';
 import { useShareLinks } from '@/hooks/useShareLinks';
 import { useStreamingExport } from '@/hooks/useStreamingExport';
-import { aiExplainResult } from '@/lib/ai';
 import { BULK_EDIT_CORE_LIMIT } from '@/lib/bulkEdit';
 import { type Driver, getDriverMetadata } from '@/lib/connection/drivers';
 import { type ExportDataDetail, UI_EVENT_EXPORT_DATA } from '@/lib/events/uiEvents';
 import type { ExportConfig } from '@/lib/export';
 import { indexedLeadingColumns } from '@/lib/query/indexCost';
-import type { TableCellUpdateHandler } from '@/lib/query/tableRowUpdate';
+import type { RowAnchorReason, TableCellUpdateHandler } from '@/lib/query/tableRowUpdate';
 import { applyOverlay, emptyOverlayResult, type OverlayResult } from '@/lib/sandbox/sandboxOverlay';
 import type { SandboxChange, SandboxDeleteDisplay } from '@/lib/sandbox/sandboxTypes';
+import { createQueryTab } from '@/lib/tabs';
 import type {
   CancelSupport,
   ColumnFilter,
@@ -62,6 +62,7 @@ import type {
 } from '@/lib/tauri';
 import { useAiPreferences } from '@/providers/AiPreferencesProvider';
 import { useLicense } from '@/providers/LicenseProvider';
+import { useTabActions } from '@/providers/TabProvider';
 import { DataGridColumnHeader } from './DataGridColumnHeader';
 import { DataGridHeader } from './DataGridHeader';
 import { DataGridPagination } from './DataGridPagination';
@@ -155,6 +156,7 @@ interface DataGridProps {
   onRowClick?: (row: RowData) => void;
   onRowsUpdated?: () => void;
   onUpdateCell?: TableCellUpdateHandler;
+  rowAnchors?: ReadonlyMap<number, RowAnchorReason>;
   onOpenRelatedTable?: (
     namespace: Namespace,
     tableName: string,
@@ -192,6 +194,7 @@ interface DataGridProps {
   onServerSearchChange?: (term: string) => void;
   onServerColumnFiltersChange?: (filters: ColumnFilter[]) => void;
   exportQuery?: string;
+  onExplainResultWithAi?: (query: string, summary: string) => void;
   footerMode?: 'auto' | 'pagination' | 'infinite' | 'none';
   /** SQL dialect for embedded previews (Bulk Edit, etc.). Defaults to Postgres. */
   driver?: Driver;
@@ -216,6 +219,7 @@ export function DataGrid({
   onRowClick,
   onRowsUpdated,
   onUpdateCell,
+  rowAnchors,
   onOpenRelatedTable,
   sandboxMode = false,
   pendingChanges = [],
@@ -245,6 +249,7 @@ export function DataGrid({
   onServerSearchChange,
   onServerColumnFiltersChange,
   exportQuery,
+  onExplainResultWithAi,
   footerMode = 'auto',
   driver,
   connectionId,
@@ -895,9 +900,8 @@ export function DataGrid({
   );
 
   const { isFeatureEnabled } = useLicense();
-  const { getConfig, isReady: aiReady } = useAiPreferences();
-  const [aiExplanation, setAiExplanation] = useState<string | null>(null);
-  const [aiExplainLoading, setAiExplainLoading] = useState(false);
+  const { isReady: aiReady } = useAiPreferences();
+  const { openTab } = useTabActions();
   const canExplainWithAi = isFeatureEnabled('ai') && Boolean(sessionId) && aiReady;
   const canNlFilter =
     isFeatureEnabled('ai') &&
@@ -916,20 +920,20 @@ export function DataGrid({
     Boolean(tableName) &&
     Boolean(namespace);
 
-  const handleExplainWithAi = useCallback(async () => {
-    if (!sessionId || !result || aiExplainLoading) return;
-    setAiExplainLoading(true);
-    try {
-      const summary = `${result.rows.length} rows, ${result.columns.length} columns (${result.columns.map(c => c.name).join(', ')})`;
-      const queryUsed = exportQuery || '';
-      const response = await aiExplainResult(sessionId, queryUsed, summary, getConfig(), namespace);
-      setAiExplanation(response.content);
-    } catch {
-      setAiExplanation(null);
-    } finally {
-      setAiExplainLoading(false);
+  const handleExplainWithAi = useCallback(() => {
+    if (!sessionId || !result) return;
+    const summary = `${result.rows.length} rows, ${result.columns.length} columns (${result.columns.map(c => c.name).join(', ')})`;
+    const queryUsed = exportQuery || (tableName ? `SELECT * FROM ${tableName}` : '');
+    if (onExplainResultWithAi) {
+      onExplainResultWithAi(queryUsed, summary);
+      return;
     }
-  }, [sessionId, result, aiExplainLoading, exportQuery, getConfig, namespace]);
+    const tab = createQueryTab(queryUsed || undefined, namespace);
+    tab.showAiPanel = true;
+    tab.aiTableContext = tableName;
+    tab.aiPendingExplain = { query: queryUsed, summary };
+    openTab(tab);
+  }, [sessionId, result, exportQuery, tableName, onExplainResultWithAi, namespace, openTab]);
 
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
@@ -1062,9 +1066,6 @@ export function DataGrid({
               : undefined
           }
           onExplainWithAi={canExplainWithAi ? handleExplainWithAi : undefined}
-          aiExplanation={aiExplanation}
-          aiExplainLoading={aiExplainLoading}
-          onDismissAiExplanation={() => setAiExplanation(null)}
           onGenerateData={
             canGenerateData
               ? () => {
@@ -1110,6 +1111,7 @@ export function DataGrid({
             rows={rows}
             rowVirtualizer={rowVirtualizer}
             rowMetadataMap={overlayResult.rowMetadata}
+            rowAnchors={rowAnchors}
             sandboxMode={sandboxMode}
             columnsCount={columns.length}
           />
@@ -1207,6 +1209,9 @@ export function DataGrid({
             namespace={namespace}
             tableName={tableName}
             driver={driver}
+            tableSchema={tableSchema ?? null}
+            sandboxMode={sandboxMode}
+            onSandboxUpdate={onSandboxUpdate}
             onExecuted={() => onRowsUpdated?.()}
           />
         </Suspense>

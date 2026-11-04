@@ -2,6 +2,8 @@
 
 // Sandbox state and preferences, persisted to localStorage.
 
+import i18n from '../../i18n';
+import { notify } from '../notify';
 import type { Namespace, RowData, TableSchema, Value } from '../tauri';
 import type {
   SandboxChange,
@@ -25,6 +27,20 @@ const DEFAULT_PREFERENCES: SandboxPreferences = {
 
 type SandboxListener = (sessionId: string) => void;
 const listeners: Set<SandboxListener> = new Set();
+
+function notifySandboxQuotaExceeded(isBackup = false): void {
+  const title = i18n.t('sandbox.quotaExceeded', {
+    defaultValue: 'Local storage quota exceeded for Sandbox changes',
+  });
+  const description = i18n.t('sandbox.quotaExceededHint', {
+    defaultValue: 'Apply or discard pending changes to free space.',
+  });
+  if (isBackup) {
+    notify.warning(title, { description });
+  } else {
+    notify.error(title, undefined, { description });
+  }
+}
 
 function generateChangeId(): string {
   return `change_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
@@ -50,8 +66,23 @@ export function getSandboxState(): SandboxState {
   }
 }
 
-export function saveSandboxState(state: SandboxState): void {
-  localStorage.setItem(STATE_KEY, JSON.stringify(state));
+export function saveSandboxState(state: SandboxState): boolean {
+  const serialized = JSON.stringify(state);
+  try {
+    localStorage.setItem(STATE_KEY, serialized);
+    return true;
+  } catch {
+    try {
+      // Backups duplicate active session changes; evict backup storage first so
+      // the primary sandbox buffer can still be persisted when near the quota.
+      localStorage.removeItem?.(BACKUP_KEY);
+      localStorage.setItem(STATE_KEY, serialized);
+      return true;
+    } catch {
+      notifySandboxQuotaExceeded(false);
+      return false;
+    }
+  }
 }
 
 export function getSandboxPreferences(): SandboxPreferences {
@@ -75,7 +106,11 @@ export function setSandboxPreferences(prefs: Partial<SandboxPreferences>): void 
   if (typeof updated.panelPageSize === 'number' && updated.panelPageSize < 20) {
     updated.panelPageSize = 20;
   }
-  localStorage.setItem(PREFS_KEY, JSON.stringify(updated));
+  try {
+    localStorage.setItem(PREFS_KEY, JSON.stringify(updated));
+  } catch {
+    notifySandboxQuotaExceeded(true);
+  }
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent(PREFS_EVENT, { detail: updated }));
   }
@@ -409,7 +444,7 @@ function getSandboxBackups(): Record<string, SandboxBackup> {
   }
 }
 
-export function saveSandboxBackup(connectionId: string, sessionId: string): void {
+export function saveSandboxBackup(connectionId: string, sessionId: string): boolean {
   const session = getSandboxSession(sessionId);
   const backups = getSandboxBackups();
   backups[connectionId] = {
@@ -418,7 +453,13 @@ export function saveSandboxBackup(connectionId: string, sessionId: string): void
     changes: session.changes,
     savedAt: Date.now(),
   };
-  localStorage.setItem(BACKUP_KEY, JSON.stringify(backups));
+  try {
+    localStorage.setItem(BACKUP_KEY, JSON.stringify(backups));
+    return true;
+  } catch {
+    notifySandboxQuotaExceeded(true);
+    return false;
+  }
 }
 
 export function getSandboxBackup(connectionId: string): SandboxBackup | null {
@@ -430,7 +471,11 @@ export function clearSandboxBackup(connectionId: string): void {
   const backups = getSandboxBackups();
   if (backups[connectionId]) {
     delete backups[connectionId];
-    localStorage.setItem(BACKUP_KEY, JSON.stringify(backups));
+    try {
+      localStorage.setItem(BACKUP_KEY, JSON.stringify(backups));
+    } catch {
+      // Ignore quota errors when shrinking backups
+    }
   }
 }
 
@@ -449,6 +494,41 @@ export function createInsertChange(
     newValues,
     schema,
   });
+}
+
+export function createBulkInsertChanges(
+  sessionId: string,
+  namespace: Namespace,
+  tableName: string,
+  rows: Array<Record<string, Value>>,
+  schema?: TableSchema
+): SandboxChange[] {
+  if (rows.length === 0) return [];
+  const state = getSandboxState();
+  const session = state.sessions[sessionId] ?? {
+    sessionId,
+    isActive: true,
+    activatedAt: Date.now(),
+    changes: [],
+  };
+  const now = Date.now();
+  const created: SandboxChange[] = rows.map(newValues => ({
+    id: generateChangeId(),
+    timestamp: now,
+    sessionId,
+    type: 'insert',
+    namespace,
+    tableName,
+    newValues,
+    schema,
+  }));
+  session.changes.push(...created);
+  state.sessions[sessionId] = session;
+  if (!saveSandboxState(state)) {
+    return [];
+  }
+  notifyListeners(sessionId);
+  return created;
 }
 
 export function createUpdateChange(

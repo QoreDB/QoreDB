@@ -19,7 +19,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Driver } from '@/lib/connection/drivers';
 import { generateSeedData, type SeedDataResult } from '@/lib/dataGenerator';
-import { executeQuery, type Namespace } from '@/lib/tauri';
+import { createBulkInsertChanges } from '@/lib/sandbox/sandboxStore';
+import { executeQuery, type Namespace, type TableSchema, type Value } from '@/lib/tauri';
 
 interface DataGeneratorDialogProps {
   open: boolean;
@@ -29,6 +30,13 @@ interface DataGeneratorDialogProps {
   tableName: string;
   connectionId?: string;
   driver?: Driver;
+  tableSchema?: TableSchema | null;
+  sandboxMode?: boolean;
+  onSandboxUpdate?: (
+    primaryKey: Record<string, Value>,
+    oldValues: Record<string, Value>,
+    newValues: Record<string, Value>
+  ) => void;
   /** Called after rows are inserted so the grid can refresh. */
   onExecuted?: () => void;
 }
@@ -44,6 +52,8 @@ export function DataGeneratorDialog({
   tableName,
   connectionId,
   driver = Driver.Postgres,
+  tableSchema,
+  sandboxMode = false,
   onExecuted,
 }: DataGeneratorDialogProps) {
   const { t } = useTranslation();
@@ -69,6 +79,22 @@ export function DataGeneratorDialog({
 
   async function handleExecute() {
     if (!result) return;
+    if (sandboxMode) {
+      const rows = result.rows ?? [];
+      if (rows.length === 0) return;
+      const created = createBulkInsertChanges(
+        sessionId,
+        namespace,
+        tableName,
+        rows,
+        tableSchema ?? undefined
+      );
+      if (created.length === 0) return;
+      toast.success(t('bulkEdit.queuedInSandbox', { count: created.length }));
+      onOpenChange(false);
+      return;
+    }
+
     const statements = result.sql
       .split('\n\n')
       .map(s => s.trim())
@@ -161,8 +187,15 @@ export function DataGeneratorDialog({
           )}
 
           {result && (
-            <div className="h-64 overflow-hidden rounded-md border border-border">
-              <SqlPreview value={result.sql} dialect={driver} className="h-full" />
+            <div className="space-y-2">
+              {sandboxMode && (
+                <p className="text-xs text-muted-foreground">
+                  {t('bulkEdit.sandboxNote', { count: result.rowCount })}
+                </p>
+              )}
+              <div className="h-64 overflow-hidden rounded-md border border-border">
+                <SqlPreview value={result.sql} dialect={driver} className="h-full" />
+              </div>
             </div>
           )}
         </div>
@@ -180,7 +213,7 @@ export function DataGeneratorDialog({
               </Button>
               <Button onClick={handleExecute} disabled={executing} className="gap-1.5">
                 {executing ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />}
-                {t('dataGenerator.execute')}
+                {sandboxMode ? t('bulkEdit.addToSandbox') : t('dataGenerator.execute')}
               </Button>
             </>
           )}

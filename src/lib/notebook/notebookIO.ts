@@ -3,6 +3,8 @@
 import { open as openDialog, save } from '@tauri-apps/plugin-dialog';
 import { readTextFile } from '@tauri-apps/plugin-fs';
 import { writeTextFileAtomic } from '@/lib/tauri/fileOutput';
+import i18n from '../../i18n';
+import { notify } from '../notify';
 import { getWorkspaceState } from '../stores/workspaceStore';
 import type { QoreNotebook } from './notebookTypes';
 
@@ -18,7 +20,7 @@ function getWorkspaceNotebookDir(): string | undefined {
 }
 
 /** Strip runtime-only fields before saving */
-function stripForSave(notebook: QoreNotebook, includeResults: boolean): QoreNotebook {
+export function stripForSave(notebook: QoreNotebook, includeResults: boolean): QoreNotebook {
   return {
     ...notebook,
     metadata: { ...notebook.metadata, updatedAt: new Date().toISOString() },
@@ -26,6 +28,8 @@ function stripForSave(notebook: QoreNotebook, includeResults: boolean): QoreNote
       ...cell,
       executionState: 'idle' as const, // stale/running/success/error all reset to idle on save
       lastResult: includeResults ? cell.lastResult : undefined,
+      executedAt: includeResults ? cell.executedAt : undefined,
+      executionTimeMs: includeResults ? cell.executionTimeMs : undefined,
     })),
     variables: Object.fromEntries(
       Object.entries(notebook.variables).map(([k, v]) => [k, { ...v, currentValue: undefined }])
@@ -169,14 +173,26 @@ export function consumePendingNotebook(path: string): QoreNotebook | null {
   return nb ?? null;
 }
 
-export function saveDraft(tabId: string, notebook: QoreNotebook): void {
+export function saveDraft(tabId: string, notebook: QoreNotebook): boolean {
   try {
+    const stripped = stripForSave(notebook, false);
     localStorage.setItem(
       `qnb_draft_${tabId}`,
-      JSON.stringify({ ...stripForSave(notebook, false), variables: notebook.variables })
+      JSON.stringify({ ...stripped, variables: notebook.variables })
     );
+    return true;
   } catch {
-    /* storage full, ignore */
+    notify.warning(
+      i18n.t('notebook.draftQuotaExceeded', {
+        defaultValue: 'Local storage quota exceeded for notebook draft',
+      }),
+      {
+        description: i18n.t('notebook.draftQuotaExceededHint', {
+          defaultValue: 'Save this notebook to a file (.qnb) so your latest edits are not lost.',
+        }),
+      }
+    );
+    return false;
   }
 }
 

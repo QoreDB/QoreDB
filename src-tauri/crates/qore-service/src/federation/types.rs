@@ -18,6 +18,8 @@ pub struct FederatedTableRef {
     pub table: String,
     /// Local alias used in the DuckDB rewritten query (e.g., "__fed_users_0")
     pub local_alias: String,
+    /// Optional SQL alias given to the table in FROM/JOIN (e.g., "u" in `FROM prod_pg.public.users u`)
+    pub sql_alias: Option<String>,
 }
 
 /// Source fetch plan for a single federated table.
@@ -83,7 +85,7 @@ pub fn normalize_alias(name: &str) -> String {
 pub const DEFAULT_ROW_LIMIT: u64 = 100_000;
 
 /// Options for a federation query execution.
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Default, Deserialize)]
 pub struct FederationQueryOptions {
     /// Query timeout in milliseconds (default: 60_000)
     pub timeout_ms: Option<u64>,
@@ -93,6 +95,9 @@ pub struct FederationQueryOptions {
     pub query_id: Option<String>,
     /// Row limit per source table (default: 100_000)
     pub row_limit_per_source: Option<u64>,
+    /// Bypass and refresh the short-lived federation source cache
+    #[serde(default)]
+    pub refresh_sources: Option<bool>,
 }
 
 /// A federation source exposed to the frontend.
@@ -120,6 +125,12 @@ pub struct SourceFetchResult {
     pub fetch_time_ms: f64,
     /// Whether the row limit was hit
     pub row_limit_hit: bool,
+    /// Columns projected at the source (`None` = `*`)
+    pub projected_columns: Option<Vec<String>>,
+    /// Simple predicates pushed down to the source `WHERE` clause
+    pub pushed_predicates: Vec<String>,
+    /// Whether this source result was served from the short-lived federation cache
+    pub cache_hit: bool,
 }
 
 /// Extended federation query response with source metadata.

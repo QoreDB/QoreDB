@@ -10,7 +10,11 @@ import {
   recordPaginationPage,
 } from '@/lib/diagnostics/paginationMetrics';
 import { estimatePayloadBytes, TAB_PAYLOAD_BUDGET_BYTES } from '@/lib/query/payloadSize';
-import type { TableCellUpdateHandler } from '@/lib/query/tableRowUpdate';
+import {
+  type RowAnchorReason,
+  reconcileTableRowInsert,
+  type TableCellUpdateHandler,
+} from '@/lib/query/tableRowUpdate';
 import type {
   ColumnFilter,
   ColumnInfo,
@@ -22,6 +26,7 @@ import type {
   SearchMode,
   SortDirection,
   TotalRowsSource,
+  Value,
 } from '@/lib/tauri';
 import { cancelQuery, queryTable } from '@/lib/tauri';
 
@@ -79,6 +84,10 @@ interface UseInfiniteTableDataReturn {
   /** Like reload(), but forces fresh data even when a valid cache entry exists. */
   refresh: () => void;
   updateCell: TableCellUpdateHandler;
+  /** Locally anchored row states keyed by row index in `data.rows`, cleared on reload. */
+  rowAnchors: ReadonlyMap<number, RowAnchorReason>;
+  /** Anchors a newly inserted row locally at the head of loaded pages until reload. */
+  insertRowLocally: (insertedValues: Record<string, Value>) => void;
 }
 
 export function useInfiniteTableData({
@@ -105,6 +114,9 @@ export function useInfiniteTableData({
     allRowsRef.current = next;
     setRows(next);
   }, []);
+  const [rowAnchors, setRowAnchors] = useState<ReadonlyMap<number, RowAnchorReason>>(
+    () => new Map()
+  );
   const [columns, setColumns] = useState<ColumnInfo[]>([]);
   const [totalRows, setTotalRows] = useState<number | null>(null);
   const [totalRowsSource, setTotalRowsSource] = useState<TotalRowsSource | null>(null);
@@ -453,6 +465,7 @@ export function useInfiniteTableData({
         // that follows overwrite a number the user paid a scan for.
         knownTotalRef.current = null;
         setAllRows([]);
+        setRowAnchors(new Map());
         setTotalRows(null);
         setTotalRowsSource(null);
         setTotalRowsAsOf(null);
@@ -592,6 +605,22 @@ export function useInfiniteTableData({
             if (!replacement) return false;
             payloadBytesRef.current = replacement.payloadBytes;
             setAllRows(replacement.rows);
+            setRowAnchors(prev => {
+              const previousReason = prev.get(replacement.rowIndex);
+              const nextReason =
+                replacement.anchorReason ??
+                (previousReason === 'inserted' || previousReason === 'order_changed'
+                  ? previousReason
+                  : undefined);
+              if (nextReason === previousReason) return prev;
+              const next = new Map(prev);
+              if (nextReason) {
+                next.set(replacement.rowIndex, nextReason);
+              } else {
+                next.delete(replacement.rowIndex);
+              }
+              return next;
+            });
             return true;
           },
           reload: () => {
@@ -617,6 +646,36 @@ export function useInfiniteTableData({
       setAllRows,
       t,
     ]
+  );
+
+  const insertRowLocally = useCallback(
+    (insertedValues: Record<string, Value>) => {
+      const inserted = reconcileTableRowInsert(
+        allRowsRef.current,
+        columns,
+        insertedValues,
+        payloadBytesRef.current
+      );
+      if (!inserted) {
+        reload();
+        return;
+      }
+      bypassCacheRef.current = true;
+      setCached(false);
+      setCachedAgeMs(undefined);
+      payloadBytesRef.current = inserted.payloadBytes;
+      setAllRows(inserted.rows);
+      setRowAnchors(prev => {
+        const next = new Map<number, RowAnchorReason>();
+        next.set(0, 'inserted');
+        for (const [idx, reason] of prev) {
+          next.set(idx + 1, reason);
+        }
+        return next;
+      });
+      setTotalRows(prev => (typeof prev === 'number' ? prev + 1 : prev));
+    },
+    [columns, reload, setAllRows]
   );
 
   const data = useMemo<QueryResult | null>(() => {
@@ -653,5 +712,7 @@ export function useInfiniteTableData({
     reload,
     refresh,
     updateCell,
+    rowAnchors,
+    insertRowLocally,
   };
 }

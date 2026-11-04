@@ -152,3 +152,29 @@ export async function duplicateSavedConnection(
 }> {
   return invoke('duplicate_saved_connection', { projectId, connectionId });
 }
+
+export type LocalDataCategory = 'time_travel' | 'replay' | 'snapshots' | 'audit_logs' | 'ai_models';
+
+export interface LocalDataCategoryUsage {
+  category: LocalDataCategory;
+  path: string;
+  bytes: number;
+  file_count: number;
+  encrypted_at_rest: boolean;
+}
+
+export interface LocalDataUsageResponse {
+  app_data_dir: string;
+  total_bytes: number;
+  categories: LocalDataCategoryUsage[];
+}
+
+export async function getLocalDataUsage(): Promise<LocalDataUsageResponse> {
+  return invoke('get_local_data_usage');
+}
+
+export async function purgeLocalDataCategory(
+  category: LocalDataCategory
+): Promise<LocalDataUsageResponse> {
+  return invoke('purge_local_data_category', { category });
+}

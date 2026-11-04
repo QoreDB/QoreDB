@@ -14,10 +14,54 @@ use sqlparser::{
 use std::num::NonZeroUsize;
 use std::sync::{Mutex, OnceLock};
 
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum SqlOperationKind {
+    Select,
+    Insert,
+    Update,
+    Delete,
+    Create,
+    Alter,
+    Drop,
+    Truncate,
+    Grant,
+    Revoke,
+    Execute,
+    #[default]
+    Other,
+}
+
+impl SqlOperationKind {
+    fn priority(self) -> u8 {
+        match self {
+            Self::Drop => 10,
+            Self::Truncate => 9,
+            Self::Delete => 8,
+            Self::Update => 7,
+            Self::Alter => 6,
+            Self::Insert => 5,
+            Self::Create => 4,
+            Self::Grant | Self::Revoke => 3,
+            Self::Execute => 2,
+            Self::Other => 1,
+            Self::Select => 0,
+        }
+    }
+
+    fn merge(self, other: Self) -> Self {
+        if other.priority() > self.priority() {
+            other
+        } else {
+            self
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct SqlSafetyAnalysis {
     pub is_mutation: bool,
     pub is_dangerous: bool,
+    pub operation: SqlOperationKind,
 }
 
 type AnalyzeCache = Mutex<LruCache<(String, String), Result<SqlSafetyAnalysis, String>>>;
@@ -100,6 +144,7 @@ fn analyze_sql_uncached(driver_id: &str, trimmed: &str) -> Result<SqlSafetyAnaly
     let mut analysis = SqlSafetyAnalysis {
         is_mutation: false,
         is_dangerous: false,
+        operation: SqlOperationKind::Select,
     };
 
     for statement in statements {
@@ -109,6 +154,8 @@ fn analyze_sql_uncached(driver_id: &str, trimmed: &str) -> Result<SqlSafetyAnaly
         if is_dangerous_statement(&statement) {
             analysis.is_dangerous = true;
         }
+        let op = classify_statement_operation(&statement);
+        analysis.operation = analysis.operation.merge(op);
     }
 
     Ok(analysis)
@@ -121,10 +168,12 @@ fn analyze_clickhouse(trimmed: &str) -> SqlSafetyAnalysis {
     // still flags as dangerous.
     let mut is_mutation = false;
     let mut is_dangerous = false;
+    let mut operation = SqlOperationKind::Select;
     for stmt in trimmed.split(';') {
         if stmt.trim().is_empty() {
             continue;
         }
+        operation = operation.merge(classify_clickhouse_operation(stmt));
         match classify(stmt) {
             ClickHouseQueryClass::Read => {}
             ClickHouseQueryClass::Mutation => is_mutation = true,
@@ -143,6 +192,31 @@ fn analyze_clickhouse(trimmed: &str) -> SqlSafetyAnalysis {
     SqlSafetyAnalysis {
         is_mutation,
         is_dangerous,
+        operation,
+    }
+}
+
+fn classify_clickhouse_operation(stmt: &str) -> SqlOperationKind {
+    let stripped = strip_leading_sql_noise(stmt);
+    let first = stripped
+        .split_whitespace()
+        .next()
+        .unwrap_or("")
+        .to_ascii_uppercase();
+    match first.as_str() {
+        "SELECT" | "WITH" | "SHOW" | "EXPLAIN" | "DESCRIBE" | "DESC" | "EXISTS" => {
+            SqlOperationKind::Select
+        }
+        "INSERT" => SqlOperationKind::Insert,
+        "UPDATE" => SqlOperationKind::Update,
+        "DELETE" => SqlOperationKind::Delete,
+        "CREATE" => SqlOperationKind::Create,
+        "ALTER" | "OPTIMIZE" => SqlOperationKind::Alter,
+        "DROP" => SqlOperationKind::Drop,
+        "TRUNCATE" => SqlOperationKind::Truncate,
+        "GRANT" => SqlOperationKind::Grant,
+        "REVOKE" => SqlOperationKind::Revoke,
+        _ => SqlOperationKind::Other,
     }
 }
 
@@ -403,6 +477,7 @@ fn statement_returns_rows(statement: &Statement) -> bool {
 
 fn is_dangerous_statement(statement: &Statement) -> bool {
     match statement {
+        Statement::Query(query) => query_is_dangerous(query),
         Statement::Drop { .. }
         | Statement::DropFunction(_)
         | Statement::DropDomain(_)
@@ -424,6 +499,133 @@ fn is_dangerous_statement(statement: &Statement) -> bool {
             analyze, statement, ..
         } if *analyze => is_dangerous_statement(statement),
         _ => false,
+    }
+}
+
+fn query_is_dangerous(query: &Query) -> bool {
+    if let Some(with) = &query.with {
+        if with
+            .cte_tables
+            .iter()
+            .any(|cte| query_is_dangerous(&cte.query))
+        {
+            return true;
+        }
+    }
+    set_expr_is_dangerous(&query.body)
+}
+
+fn set_expr_is_dangerous(expr: &SetExpr) -> bool {
+    match expr {
+        SetExpr::Query(query) => query_is_dangerous(query),
+        SetExpr::SetOperation { left, right, .. } => {
+            set_expr_is_dangerous(left) || set_expr_is_dangerous(right)
+        }
+        SetExpr::Update(stmt)
+        | SetExpr::Delete(stmt)
+        | SetExpr::Insert(stmt)
+        | SetExpr::Merge(stmt) => is_dangerous_statement(stmt),
+        SetExpr::Select(_) | SetExpr::Values(_) | SetExpr::Table(_) => false,
+    }
+}
+
+fn classify_statement_operation(statement: &Statement) -> SqlOperationKind {
+    match statement {
+        Statement::Query(query) => classify_query_operation(query),
+        Statement::Insert(_) => SqlOperationKind::Insert,
+        Statement::Update(_) => SqlOperationKind::Update,
+        Statement::Delete(_) => SqlOperationKind::Delete,
+        Statement::Truncate(_) => SqlOperationKind::Truncate,
+        Statement::Drop { .. }
+        | Statement::DropFunction(_)
+        | Statement::DropDomain(_)
+        | Statement::DropProcedure { .. }
+        | Statement::DropExtension { .. }
+        | Statement::DropSecret { .. }
+        | Statement::DropPolicy { .. }
+        | Statement::DropConnector { .. }
+        | Statement::DropTrigger { .. } => SqlOperationKind::Drop,
+        Statement::AlterTable(_)
+        | Statement::AlterSchema(_)
+        | Statement::AlterIndex { .. }
+        | Statement::AlterView { .. }
+        | Statement::AlterType(_)
+        | Statement::AlterRole { .. }
+        | Statement::AlterPolicy { .. }
+        | Statement::AlterConnector { .. }
+        | Statement::AlterSession { .. }
+        | Statement::AlterUser(_) => SqlOperationKind::Alter,
+        Statement::CreateTable(_)
+        | Statement::CreateView { .. }
+        | Statement::CreateIndex(_)
+        | Statement::CreateSchema { .. }
+        | Statement::CreateDatabase { .. }
+        | Statement::CreateFunction(_)
+        | Statement::CreateProcedure { .. }
+        | Statement::CreateTrigger { .. }
+        | Statement::CreateType { .. }
+        | Statement::CreateSequence { .. }
+        | Statement::CreateRole { .. }
+        | Statement::CreateDomain(_)
+        | Statement::CreateExtension { .. }
+        | Statement::CreateMacro { .. }
+        | Statement::CreatePolicy { .. }
+        | Statement::CreateSecret { .. }
+        | Statement::CreateServer(_)
+        | Statement::CreateStage { .. }
+        | Statement::CreateUser(_)
+        | Statement::CreateVirtualTable { .. }
+        | Statement::CreateConnector(_) => SqlOperationKind::Create,
+        Statement::Grant { .. } => SqlOperationKind::Grant,
+        Statement::Revoke { .. } => SqlOperationKind::Revoke,
+        Statement::Execute { .. } | Statement::Call(_) => SqlOperationKind::Execute,
+        Statement::Explain {
+            analyze, statement, ..
+        } => {
+            if *analyze {
+                classify_statement_operation(statement)
+            } else {
+                SqlOperationKind::Select
+            }
+        }
+        Statement::ExplainTable { .. }
+        | Statement::ShowFunctions { .. }
+        | Statement::ShowVariable { .. }
+        | Statement::ShowStatus { .. }
+        | Statement::ShowVariables { .. }
+        | Statement::ShowCreate { .. }
+        | Statement::ShowColumns { .. }
+        | Statement::ShowDatabases { .. }
+        | Statement::ShowSchemas { .. }
+        | Statement::ShowCharset(_)
+        | Statement::ShowObjects(_)
+        | Statement::ShowTables { .. }
+        | Statement::ShowViews { .. }
+        | Statement::ShowCollation { .. } => SqlOperationKind::Select,
+        _ => SqlOperationKind::Other,
+    }
+}
+
+fn classify_query_operation(query: &Query) -> SqlOperationKind {
+    let mut op = classify_set_expr_operation(&query.body);
+    if let Some(with) = &query.with {
+        for cte in &with.cte_tables {
+            op = op.merge(classify_query_operation(&cte.query));
+        }
+    }
+    op
+}
+
+fn classify_set_expr_operation(expr: &SetExpr) -> SqlOperationKind {
+    match expr {
+        SetExpr::Query(query) => classify_query_operation(query),
+        SetExpr::SetOperation { left, right, .. } => {
+            classify_set_expr_operation(left).merge(classify_set_expr_operation(right))
+        }
+        SetExpr::Insert(_) => SqlOperationKind::Insert,
+        SetExpr::Update(_) | SetExpr::Merge(_) => SqlOperationKind::Update,
+        SetExpr::Delete(_) => SqlOperationKind::Delete,
+        SetExpr::Select(_) | SetExpr::Values(_) | SetExpr::Table(_) => SqlOperationKind::Select,
     }
 }
 
@@ -776,6 +978,8 @@ mod tests {
         .expect("should parse");
 
         assert!(analysis.is_mutation);
+        assert!(!analysis.is_dangerous);
+        assert_eq!(analysis.operation, SqlOperationKind::Update);
     }
 
     #[test]
@@ -787,6 +991,34 @@ mod tests {
         .expect("should parse");
 
         assert!(analysis.is_mutation);
+        assert!(!analysis.is_dangerous);
+        assert_eq!(analysis.operation, SqlOperationKind::Delete);
+    }
+
+    #[test]
+    fn postgres_delete_cte_without_where_is_dangerous() {
+        let analysis = analyze_sql(
+            "postgres",
+            "WITH d AS (DELETE FROM users RETURNING *) SELECT * FROM d",
+        )
+        .expect("should parse");
+
+        assert!(analysis.is_mutation);
+        assert!(analysis.is_dangerous);
+        assert_eq!(analysis.operation, SqlOperationKind::Delete);
+    }
+
+    #[test]
+    fn postgres_update_cte_without_where_is_dangerous() {
+        let analysis = analyze_sql(
+            "postgres",
+            "WITH u AS (UPDATE users SET name = 'x' RETURNING *) SELECT * FROM u",
+        )
+        .expect("should parse");
+
+        assert!(analysis.is_mutation);
+        assert!(analysis.is_dangerous);
+        assert_eq!(analysis.operation, SqlOperationKind::Update);
     }
 
     #[test]

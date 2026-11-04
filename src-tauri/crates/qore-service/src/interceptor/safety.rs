@@ -58,7 +58,7 @@ fn get_builtin_rules() -> Vec<SafetyRule> {
             environments: vec![Environment::Production, Environment::Staging],
             operations: vec![QueryOperationType::Update],
             action: SafetyAction::RequireConfirmation,
-            pattern: Some(r"^UPDATE\s+\S+\s+SET\s+[^;]+$".to_string()), // UPDATE without WHERE
+            pattern: None,
             builtin: true,
         },
         SafetyRule {
@@ -70,7 +70,7 @@ fn get_builtin_rules() -> Vec<SafetyRule> {
             environments: vec![Environment::Production, Environment::Staging],
             operations: vec![QueryOperationType::Delete],
             action: SafetyAction::RequireConfirmation,
-            pattern: Some(r"^DELETE\s+FROM\s+\S+\s*$".to_string()), // DELETE without WHERE
+            pattern: None,
             builtin: true,
         },
         SafetyRule {
@@ -249,6 +249,16 @@ impl SafetyEngine {
             return None;
         }
 
+        // Built-in no-WHERE rules rely on the AST safety analysis (`context.is_dangerous`),
+        // which accurately handles WHERE clauses, trailing semicolons, and data-modifying CTEs.
+        if matches!(
+            rule.id.as_str(),
+            "builtin-confirm-update-no-where" | "builtin-confirm-delete-no-where"
+        ) && !context.is_dangerous
+        {
+            return None;
+        }
+
         if let Some(ref pattern_str) = rule.pattern {
             if !self.matches_pattern(pattern_str, &context.query) {
                 return None;
@@ -305,6 +315,9 @@ mod tests {
     use super::*;
 
     fn make_context(env: Environment, op: QueryOperationType, query: &str) -> QueryContext {
+        let is_dangerous = qore_sql::safety::analyze_sql("postgres", query)
+            .map(|a| a.is_dangerous)
+            .unwrap_or_else(|_| op.is_destructive());
         QueryContext {
             session_id: "test".to_string(),
             query: query.to_string(),
@@ -313,7 +326,7 @@ mod tests {
             database: None,
             operation_type: op,
             is_mutation: op.is_mutation(),
-            is_dangerous: op.is_destructive(),
+            is_dangerous,
             acknowledged: false,
             read_only: false,
             source: super::super::types::QuerySource::User,
@@ -359,5 +372,91 @@ mod tests {
         let result = engine.check(&context);
         assert!(!result.allowed);
         assert!(result.requires_confirmation);
+    }
+
+    #[test]
+    fn test_update_with_where_allowed_in_staging_and_production() {
+        let engine = SafetyEngine::new();
+        for env in [Environment::Staging, Environment::Production] {
+            let context = make_context(
+                env,
+                QueryOperationType::Update,
+                "UPDATE users SET name = 'x' WHERE id = 1",
+            );
+            let result = engine.check(&context);
+            assert!(result.allowed, "UPDATE with WHERE should be allowed in {env:?}");
+        }
+    }
+
+    #[test]
+    fn test_update_without_where_with_semicolon_requires_confirmation() {
+        let engine = SafetyEngine::new();
+        for env in [Environment::Staging, Environment::Production] {
+            let context = make_context(
+                env,
+                QueryOperationType::Update,
+                "UPDATE users SET name = 'x';",
+            );
+            let result = engine.check(&context);
+            assert!(!result.allowed, "UPDATE without WHERE should require confirmation in {env:?}");
+            assert!(result.requires_confirmation);
+            assert_eq!(
+                result.triggered_rule.as_deref(),
+                Some("builtin-confirm-update-no-where")
+            );
+        }
+    }
+
+    #[test]
+    fn test_delete_without_where_with_semicolon_in_staging_requires_confirmation() {
+        let engine = SafetyEngine::new();
+        let context = make_context(
+            Environment::Staging,
+            QueryOperationType::Delete,
+            "DELETE FROM users;",
+        );
+        let result = engine.check(&context);
+        assert!(!result.allowed);
+        assert!(result.requires_confirmation);
+        assert_eq!(
+            result.triggered_rule.as_deref(),
+            Some("builtin-confirm-delete-no-where")
+        );
+
+        let safe_context = make_context(
+            Environment::Staging,
+            QueryOperationType::Delete,
+            "DELETE FROM users WHERE id = 1;",
+        );
+        assert!(engine.check(&safe_context).allowed);
+    }
+
+    #[test]
+    fn test_modifying_cte_without_where_triggers_safety_rule_via_pipeline() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let pipeline = super::super::pipeline::InterceptorPipeline::new(dir.path().to_path_buf());
+        let query = "WITH d AS (DELETE FROM users RETURNING *) SELECT * FROM d;";
+        let analysis = qore_sql::safety::analyze_sql("postgres", query).expect("parse CTE");
+        let context = pipeline.build_context(
+            "sess",
+            query,
+            "postgres",
+            Environment::Staging,
+            false,
+            false,
+            None,
+            Some(&analysis),
+            false,
+        );
+        assert_eq!(context.operation_type, QueryOperationType::Delete);
+        assert!(context.is_dangerous);
+
+        let result = pipeline.pre_execute(&context);
+        assert!(!result.allowed);
+        assert!(result.requires_confirmation);
+        assert_eq!(
+            result.triggered_rule.as_deref(),
+            Some("builtin-confirm-delete-no-where")
+        );
     }
 }

@@ -517,6 +517,7 @@ pub async fn run_federated_query(
         stream: Some(false),
         query_id: None,
         row_limit_per_source: None,
+        refresh_sources: None,
     };
     let outcome = execute_federation(query, &alias_map, &ctx.session_manager, &options)
         .await

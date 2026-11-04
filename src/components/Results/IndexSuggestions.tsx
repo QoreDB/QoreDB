@@ -7,22 +7,30 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import type { Driver } from '@/lib/connection/drivers';
 import type { PlanNode } from '@/lib/query/explainPlanParser';
-import { suggestIndexesFromPlan, supportsIndexSuggestions } from '@/lib/query/indexSuggestions';
+import {
+  suggestIndexesFromPlan,
+  suggestIndexesFromSqlQuery,
+  supportsIndexSuggestions,
+} from '@/lib/query/indexSuggestions';
 import { useLicense } from '@/providers/LicenseProvider';
 
 interface IndexSuggestionsProps {
-  root: PlanNode;
+  root?: PlanNode;
   dialect?: Driver;
+  query?: string;
 }
 
-export function IndexSuggestions({ root, dialect }: IndexSuggestionsProps) {
+export function IndexSuggestions({ root, dialect, query }: IndexSuggestionsProps) {
   const { t } = useTranslation();
   const { isFeatureEnabled } = useLicense();
 
   const suggestions = useMemo(() => {
     if (!dialect || !supportsIndexSuggestions(dialect)) return [];
-    return suggestIndexesFromPlan(root, dialect);
-  }, [root, dialect]);
+    const fromPlan = root ? suggestIndexesFromPlan(root, dialect) : [];
+    if (fromPlan.length > 0) return fromPlan;
+    if (query) return suggestIndexesFromSqlQuery(query, dialect);
+    return [];
+  }, [root, dialect, query]);
 
   if (!isFeatureEnabled('index_suggestions') || suggestions.length === 0) {
     return null;

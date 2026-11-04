@@ -719,6 +719,8 @@
     "redo": "Повторить",
     "toggleVariables": "Переменные",
     "editTitle": "Нажмите для редактирования названия",
+    "draftQuotaExceeded": "Превышена квота локального хранилища для черновика блокнота",
+    "draftQuotaExceededHint": "Сохраните этот блокнот в файл (.qnb), чтобы не потерять последние изменения.",
     "cellCountLabel": "{{count}} ячеек(а)",
     "variableDescriptionHint": "Необязательное описание",
     "doubleClickToEdit": "Дважды нажмите для редактирования",
@@ -730,7 +732,9 @@
     "addCellAi": "ИИ-ячейка",
     "aiPlaceholder": "Опишите запрос на естественном языке…",
     "aiGenerate": "Сгенерировать SQL",
-    "aiCellInserted": "SQL-ячейка вставлена ниже"
+    "aiCellInserted": "SQL-ячейка вставлена ниже",
+    "insertSummaryMarkdown": "Вставить как ячейку Markdown",
+    "generateDocumentation": "Сгенерировать документацию с ИИ"
   },
   "replay": {
     "cancelledReport": "Повтор отменён. Выполненные запросы сохранены; запрос, который уже выполнялся, мог завершиться.",
@@ -1136,6 +1140,41 @@
         "idle": "Сессии, неактивные 10 минут, закрываются.",
         "audit": "Каждый вызов записывается в журнал аудита с источником «mcp»."
       }
+    },
+    "localData": {
+      "title": "Локальные данные и хранилище",
+      "description": "Просмотр использования диска в app_data_dir по категориям и выборочная очистка.",
+      "securityNotice": "Учётные данные в vault.enc зашифрованы (AES-256-GCM). Категории ниже хранятся в локальных файлах с маскированием секретов и лимитами хранения.",
+      "totalUsage": "Всего занято локально: {{size}}",
+      "fileCount": "файлов: {{count}}",
+      "purge": "Очистить",
+      "confirmTitle": "Очистить категорию локальных данных",
+      "confirmDescription": "Вы уверены, что хотите безвозвратно удалить все локальные файлы в «{{category}}»?",
+      "confirmAction": "Очистить безвозвратно",
+      "purgeSuccess": "Категория «{{category}}» очищена.",
+      "purgeError": "Не удалось очистить локальные данные.",
+      "categories": {
+        "time_travel": {
+          "title": "История Time Travel",
+          "description": "Локальный журнал изменений до/после (time-travel/), ограниченный сроком хранения и размером."
+        },
+        "replay": {
+          "title": "Записи Query Replay",
+          "description": "Записанные запуски и результаты Replay (replays/), изолированные по рабочим областям."
+        },
+        "snapshots": {
+          "title": "Снимки данных (Snapshots)",
+          "description": "Сохранённые снимки результатов (snapshots/*.json) для сравнения и просмотра."
+        },
+        "audit_logs": {
+          "title": "Журнал аудита и логи приложения",
+          "description": "Журнал аудита перехватчика (interceptor/audit.jsonl) и логи приложения (logs/)."
+        },
+        "ai_models": {
+          "title": "Локальная среда и модели ИИ",
+          "description": "Загруженные исполняемые файлы Qore AI Local и модели GGUF (ai-local/)."
+        }
+      }
     }
   },
   "table": {
@@ -1452,6 +1491,14 @@
       "applied": "Маскирование применено",
       "appliedNextRun": "Маскирование сохранено: действует со следующего запуска.",
       "removed": "Маскирование снято"
+    },
+    "anchor": {
+      "filter_mismatch": "Вне фильтра",
+      "filter_mismatchTooltip": "Изменённая строка больше не соответствует активным фильтрам и закреплена до перезагрузки.",
+      "order_changed": "Порядок изменён",
+      "order_changedTooltip": "Значение столбца сортировки изменилось; строка закреплена на текущей позиции до перезагрузки.",
+      "inserted": "Добавлена",
+      "insertedTooltip": "Вставленная строка закреплена в начале загруженных страниц до перезагрузки."
     }
   },
   "export": {
@@ -1715,7 +1762,10 @@
     "tabBar": "Открытые вкладки",
     "databaseTree": "Дерево баз данных",
     "statusBar": "Строка состояния",
-    "help": "Помощь"
+    "help": "Помощь",
+    "resizeSidebar": "Изменить размер боковой панели",
+    "resizeEditor": "Изменить размер SQL-редактора",
+    "resizeAiPanel": "Изменить размер панели ИИ-ассистента"
   },
   "zenMode": {
     "enabled": "Режим фокусировки — нажмите Esc для выхода"
@@ -2133,7 +2183,9 @@
       "new": "НОВАЯ",
       "modified": "Изменённая",
       "deleted": "Удалённая"
-    }
+    },
+    "quotaExceeded": "Превышена квота локального хранилища для изменений песочницы",
+    "quotaExceededHint": "Примените или отмените ожидающие изменения, чтобы освободить место."
   },
   "interceptor": {
     "title": "Перехватчик запросов",
@@ -2939,6 +2991,22 @@
       "summarizeSchema": "Кратко описать схему",
       "tableTitle": "Таблица {{table}}",
       "schemaTitle": "Схема {{namespace}}"
+    },
+    "semanticContext": {
+      "menuItem": "Бизнес-контекст (.qoredb)",
+      "title": "Бизнес-контекст — {{table}}",
+      "description": "Опишите таблицу и правила проекта в .qoredb/context.json для улучшения AI-запросов.",
+      "tableDescription": "Описание таблицы",
+      "tableDescriptionPlaceholder": "напр., Счета клиентов",
+      "domain": "Домен",
+      "domainPlaceholder": "напр., биллинг",
+      "columnsTitle": "Значение колонок",
+      "columnPlaceholder": "Значение ({{type}})",
+      "implicitRelations": "Неявные связи (по одной на строку)",
+      "implicitRelationsPlaceholder": "user_id -> users.id",
+      "businessRules": "Бизнес-правила проекта (по одному на строку)",
+      "businessRulesPlaceholder": "напр., Активные пользователи имеют deleted_at IS NULL",
+      "saved": "Бизнес-контекст сохранён в .qoredb/context.json"
     }
   },
   "agentChat": {
@@ -3038,7 +3106,12 @@
     "insertLeftJoin": "LEFT JOIN",
     "insertComma": "Перекрёстное соединение",
     "insertWhere": "WHERE",
-    "insertRaw": "Ссылка"
+    "insertRaw": "Ссылка",
+    "cacheHit": "Кэш",
+    "liveFetch": "Онлайн",
+    "rowsShort": "строк",
+    "projectedColumns": "Проецируемые столбцы",
+    "refreshCacheTooltip": "Обойти кэш и заново загрузить все федеративные источники"
   },
   "maintenance": {
     "title": "Обслуживание таблицы",

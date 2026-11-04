@@ -159,11 +159,96 @@ export function suggestIndexesFromPlan(root: PlanNode, driver: Driver): IndexSug
     .slice(0, MAX_SUGGESTIONS);
 }
 
-/** EXPLAIN-plan index suggestions only cover relational engines with a tree plan. */
+const FROM_TABLE_RE = /\bfrom\s+([`"[\]\w.]+)/i;
+const WHERE_CLAUSE_RE =
+  /\bwhere\s+([\s\S]+?)(?:\bgroup\s+by\b|\border\s+by\b|\blimit\b|\boffset\b|;|$)/i;
+const ORDER_BY_RE = /\border\s+by\s+([\s\S]+?)(?:\blimit\b|\boffset\b|;|$)/i;
+
+function extractTableFromSql(sql: string): string | null {
+  const match = sql.match(FROM_TABLE_RE);
+  if (!match) return null;
+  const raw = match[1].replace(/[`"[\]]/g, '');
+  const parts = raw.split('.').filter(Boolean);
+  const table = parts[parts.length - 1];
+  if (!table || STOPWORDS.has(table.toLowerCase()) || !VALID_COLUMN.test(table)) {
+    return null;
+  }
+  return table;
+}
+
+function extractOrderByColumns(orderByClause: string): string[] {
+  const cols: string[] = [];
+  for (const part of orderByClause.split(',')) {
+    const token = part
+      .trim()
+      .replace(/\b(?:asc|desc|nulls\s+first|nulls\s+last)\b/gi, '')
+      .trim();
+    const normalized = normalizeColumn(token);
+    if (normalized) {
+      cols.push(normalized);
+    }
+  }
+  return cols;
+}
+
+/**
+ * Derive a heuristic CREATE INDEX suggestion from a raw SQL query (used in Query Trends,
+ * Slow Queries, and text EXPLAIN plans where a structured tree plan is not available).
+ */
+export function suggestIndexesFromSqlQuery(
+  sql: string,
+  driver: Driver = Driver.Postgres
+): IndexSuggestion[] {
+  const cleanedSql = sql.replace(/^explain(?:\s*\([^)]*\)|\s+analyze|\s+query\s+plan)*\s+/i, '');
+  const table = extractTableFromSql(cleanedSql);
+  if (!table) return [];
+
+  const seen = new Set<string>();
+  const columns: string[] = [];
+  const pushCol = (col: string) => {
+    const key = col.toLowerCase();
+    if (!seen.has(key) && columns.length < MAX_COLUMNS) {
+      seen.add(key);
+      columns.push(col);
+    }
+  };
+
+  const whereMatch = cleanedSql.match(WHERE_CLAUSE_RE);
+  if (whereMatch) {
+    for (const col of extractFilterColumns(whereMatch[1])) {
+      pushCol(col);
+    }
+  }
+
+  const orderMatch = cleanedSql.match(ORDER_BY_RE);
+  if (orderMatch) {
+    for (const col of extractOrderByColumns(orderMatch[1])) {
+      pushCol(col);
+    }
+  }
+
+  if (columns.length === 0) return [];
+
+  const indexName = buildIndexName(table, columns);
+  return [
+    {
+      table,
+      columns,
+      reason: 'fullTableScan',
+      indexName,
+      sql: buildCreateIndexSql(table, columns, indexName, driver),
+    },
+  ];
+}
+
+/** EXPLAIN-plan and SQL index suggestions cover relational SQL engines. */
 export function supportsIndexSuggestions(driver: Driver): boolean {
   return (
     driver === Driver.Postgres ||
     isMySqlFamily(driver) ||
+    driver === Driver.Sqlite ||
+    driver === Driver.SqlServer ||
+    driver === Driver.AzureSql ||
     driver === Driver.Cockroachdb ||
     driver === Driver.YugabyteDb ||
     driver === Driver.Supabase ||

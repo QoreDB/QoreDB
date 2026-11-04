@@ -8,8 +8,10 @@
 use std::collections::{HashMap, HashSet};
 
 use sqlparser::ast::{
-    Expr, FunctionArguments, ObjectNamePart, OrderByKind, Query, Select, SelectItem, SetExpr,
-    Statement, TableFactor, TableWithJoins,
+    BinaryOperator, Distinct, Expr, FunctionArg, FunctionArgExpr, FunctionArguments, GroupByExpr,
+    JoinConstraint, JoinOperator, ObjectNamePart, OrderByKind, Query, Select, SelectItem,
+    SelectItemQualifiedWildcardKind, SetExpr, Statement, TableFactor, TableWithJoins,
+    UnaryOperator, Value as AstValue,
 };
 use sqlparser::dialect::GenericDialect;
 use sqlparser::parser::Parser;
@@ -78,7 +80,7 @@ pub fn parse_federation_refs(
     let mut federated_refs = Vec::new();
     let mut counter = 0u32;
 
-    for (parts, _alias) in refs {
+    for (parts, sql_alias) in refs {
         if parts.len() >= 3 {
             let alias_candidate = parts[0].to_lowercase();
             if known_aliases.contains(&alias_candidate) {
@@ -106,6 +108,7 @@ pub fn parse_federation_refs(
                     namespace,
                     table,
                     local_alias,
+                    sql_alias,
                 });
             }
         }
@@ -190,10 +193,11 @@ fn collect_select_refs(select: &Select, refs: &mut Vec<(Vec<String>, Option<Stri
 
 fn collect_table_factor_refs(factor: &TableFactor, refs: &mut Vec<(Vec<String>, Option<String>)>) {
     match factor {
-        TableFactor::Table { name, .. } => {
+        TableFactor::Table { name, alias, .. } => {
             let parts = name_parts(name);
             if parts.len() >= 3 {
-                refs.push((parts, None));
+                let sql_alias = alias.as_ref().map(|a| a.name.value.clone());
+                refs.push((parts, sql_alias));
             }
         }
         TableFactor::Derived { subquery, .. } => {
@@ -279,11 +283,20 @@ fn rewrite_table_with_joins(twj: &mut TableWithJoins, mappings: &HashMap<String,
     for join in &mut twj.joins {
         rewrite_table_factor(&mut join.relation, mappings);
         match &mut join.join_operator {
-            sqlparser::ast::JoinOperator::Inner(constraint)
-            | sqlparser::ast::JoinOperator::LeftOuter(constraint)
-            | sqlparser::ast::JoinOperator::RightOuter(constraint)
-            | sqlparser::ast::JoinOperator::FullOuter(constraint) => {
-                if let sqlparser::ast::JoinConstraint::On(expr) = constraint {
+            JoinOperator::Join(constraint)
+            | JoinOperator::Inner(constraint)
+            | JoinOperator::Left(constraint)
+            | JoinOperator::LeftOuter(constraint)
+            | JoinOperator::Right(constraint)
+            | JoinOperator::RightOuter(constraint)
+            | JoinOperator::FullOuter(constraint)
+            | JoinOperator::Semi(constraint)
+            | JoinOperator::LeftSemi(constraint)
+            | JoinOperator::RightSemi(constraint)
+            | JoinOperator::Anti(constraint)
+            | JoinOperator::LeftAnti(constraint)
+            | JoinOperator::RightAnti(constraint) => {
+                if let JoinConstraint::On(expr) = constraint {
                     rewrite_expr(expr, mappings);
                 }
             }
@@ -448,6 +461,683 @@ fn sanitize_identifier(s: &str) -> String {
         })
         .collect::<String>()
         .to_lowercase()
+}
+
+/// A simple single-column predicate candidate for source pushdown.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CandidatePredicate {
+    pub column: String,
+    pub kind: PredicateKind,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum PredicateKind {
+    Comparison {
+        op: &'static str,
+        literal_sql: String,
+    },
+    IsNull,
+    IsNotNull,
+    InList {
+        negated: bool,
+        literals_sql: Vec<String>,
+    },
+}
+
+/// Extracted per-source optimization hints from the AST.
+#[derive(Debug, Clone, Default)]
+pub struct SourceOptimizationAnalysis {
+    /// Projected columns needed from this source (`None` means `SELECT *`).
+    pub columns: Option<Vec<String>>,
+    /// Candidate simple predicates that reference only this source.
+    pub predicates: Vec<CandidatePredicate>,
+}
+
+/// Analyzes a federation SQL query and returns per-source column projections
+/// and candidate pushdown predicates aligned with `refs`.
+///
+/// Falls back conservatively to `columns: None` (`SELECT *`) and empty predicates
+/// whenever the query uses CTEs, set operations (`UNION`, etc.), subqueries,
+/// wildcards (`*` / `alias.*`), or ambiguous unqualified columns.
+pub fn analyze_source_optimizations(
+    sql: &str,
+    refs: &[FederatedTableRef],
+) -> Vec<SourceOptimizationAnalysis> {
+    let default_analysis = || vec![SourceOptimizationAnalysis::default(); refs.len()];
+
+    if refs.is_empty() {
+        return Vec::new();
+    }
+
+    let Ok(statements) = Parser::parse_sql(&GenericDialect {}, sql.trim()) else {
+        return default_analysis();
+    };
+    if statements.len() != 1 {
+        return default_analysis();
+    }
+    let Statement::Query(query) = &statements[0] else {
+        return default_analysis();
+    };
+
+    if query.with.is_some() {
+        return default_analysis();
+    }
+
+    let SetExpr::Select(select) = &*query.body else {
+        return default_analysis();
+    };
+
+    // Inspect FROM / JOIN relations to verify they match `refs` 1-to-1 and
+    // track which sources sit on the nullable side of an outer join.
+    let mut nullable_in_outer_join = Vec::with_capacity(refs.len());
+    let mut fallback_all_columns = false;
+
+    for twj in &select.from {
+        if !matches!(twj.relation, TableFactor::Table { .. }) {
+            return default_analysis();
+        }
+        let has_right_or_full = twj.joins.iter().any(|j| {
+            matches!(
+                j.join_operator,
+                JoinOperator::Right(_)
+                    | JoinOperator::RightOuter(_)
+                    | JoinOperator::RightSemi(_)
+                    | JoinOperator::RightAnti(_)
+                    | JoinOperator::FullOuter(_)
+            )
+        });
+        nullable_in_outer_join.push(has_right_or_full);
+
+        for join in &twj.joins {
+            if !matches!(join.relation, TableFactor::Table { .. }) {
+                return default_analysis();
+            }
+            let join_nullable = has_right_or_full
+                || !matches!(
+                    join.join_operator,
+                    JoinOperator::Join(_) | JoinOperator::Inner(_) | JoinOperator::CrossJoin(_)
+                );
+            nullable_in_outer_join.push(join_nullable);
+
+            if let Some(constraint) = extract_join_constraint(&join.join_operator) {
+                if matches!(
+                    constraint,
+                    JoinConstraint::Using(_) | JoinConstraint::Natural
+                ) {
+                    fallback_all_columns = true;
+                }
+            }
+        }
+    }
+
+    if nullable_in_outer_join.len() != refs.len() {
+        return default_analysis();
+    }
+
+    let mut columns_per_source: Vec<Vec<String>> = vec![Vec::new(); refs.len()];
+    let mut wildcard_source: Vec<bool> = vec![false; refs.len()];
+    let mut select_aliases: HashSet<String> = HashSet::new();
+    for item in &select.projection {
+        if let SelectItem::ExprWithAlias { alias, .. } = item {
+            select_aliases.insert(alias.value.to_lowercase());
+        }
+    }
+
+    let mut ctx = ColumnCollector {
+        refs,
+        columns_per_source: &mut columns_per_source,
+        wildcard_source: &mut wildcard_source,
+        fallback_all_columns: &mut fallback_all_columns,
+        select_aliases: &select_aliases,
+        allow_select_alias: false,
+    };
+
+    // 1. SELECT projection
+    for item in &select.projection {
+        match item {
+            SelectItem::Wildcard(_) => {
+                *ctx.fallback_all_columns = true;
+            }
+            SelectItem::QualifiedWildcard(kind, _) => {
+                if let SelectItemQualifiedWildcardKind::ObjectName(obj_name) = kind {
+                    let parts = name_parts(obj_name);
+                    if let Some(src_idx) = resolve_table_qualifier(&parts, refs) {
+                        ctx.wildcard_source[src_idx] = true;
+                    } else {
+                        *ctx.fallback_all_columns = true;
+                    }
+                } else {
+                    *ctx.fallback_all_columns = true;
+                }
+            }
+            SelectItem::UnnamedExpr(expr) | SelectItem::ExprWithAlias { expr, .. } => {
+                ctx.visit_expr(expr);
+            }
+        }
+    }
+
+    // 2. JOIN ON conditions
+    for twj in &select.from {
+        for join in &twj.joins {
+            if let Some(JoinConstraint::On(expr)) = extract_join_constraint(&join.join_operator) {
+                ctx.visit_expr(expr);
+            }
+        }
+    }
+
+    // 3. WHERE selection
+    if let Some(ref selection) = select.selection {
+        ctx.visit_expr(selection);
+    }
+
+    // 4. GROUP BY / HAVING / ORDER BY / DISTINCT ON (SELECT aliases are in scope)
+    ctx.allow_select_alias = true;
+
+    match &select.group_by {
+        GroupByExpr::All(_) => {
+            *ctx.fallback_all_columns = true;
+        }
+        GroupByExpr::Expressions(exprs, _) => {
+            for expr in exprs {
+                ctx.visit_expr(expr);
+            }
+        }
+    }
+
+    if let Some(ref having) = select.having {
+        ctx.visit_expr(having);
+    }
+
+    if let Some(ref order_by) = query.order_by {
+        match &order_by.kind {
+            OrderByKind::All(_) => {
+                *ctx.fallback_all_columns = true;
+            }
+            OrderByKind::Expressions(exprs) => {
+                for expr_with_order in exprs {
+                    ctx.visit_expr(&expr_with_order.expr);
+                }
+            }
+        }
+    }
+
+    if let Some(Distinct::On(ref exprs)) = select.distinct {
+        for expr in exprs {
+            ctx.visit_expr(expr);
+        }
+    }
+
+    // 5. Extract simple pushdown predicates from top-level WHERE conjunctions
+    let mut predicates_per_source: Vec<Vec<CandidatePredicate>> = vec![Vec::new(); refs.len()];
+    if let Some(ref selection) = select.selection {
+        let mut conjuncts = Vec::new();
+        collect_and_conjuncts(selection, &mut conjuncts);
+        for conjunct in conjuncts {
+            if let Some((src_idx, predicate)) = extract_simple_predicate(conjunct, refs) {
+                if !nullable_in_outer_join[src_idx] {
+                    predicates_per_source[src_idx].push(predicate);
+                }
+            }
+        }
+    }
+
+    let mut results = Vec::with_capacity(refs.len());
+    for i in 0..refs.len() {
+        let columns = if fallback_all_columns || wildcard_source[i] || columns_per_source[i].is_empty()
+        {
+            None
+        } else {
+            Some(columns_per_source[i].clone())
+        };
+        results.push(SourceOptimizationAnalysis {
+            columns,
+            predicates: predicates_per_source[i].clone(),
+        });
+    }
+
+    results
+}
+
+struct ColumnCollector<'a> {
+    refs: &'a [FederatedTableRef],
+    columns_per_source: &'a mut [Vec<String>],
+    wildcard_source: &'a mut [bool],
+    fallback_all_columns: &'a mut bool,
+    select_aliases: &'a HashSet<String>,
+    allow_select_alias: bool,
+}
+
+impl ColumnCollector<'_> {
+    fn add_column(&mut self, source_idx: usize, column: &str) {
+        let list = &mut self.columns_per_source[source_idx];
+        if !list.iter().any(|c| c.eq_ignore_ascii_case(column)) {
+            list.push(column.to_string());
+        }
+    }
+
+    fn visit_expr(&mut self, expr: &Expr) {
+        if *self.fallback_all_columns {
+            return;
+        }
+        match expr {
+            Expr::Identifier(ident) => {
+                if self.allow_select_alias
+                    && self.select_aliases.contains(&ident.value.to_lowercase())
+                {
+                    return;
+                }
+                if self.refs.len() == 1 {
+                    self.add_column(0, &ident.value);
+                } else {
+                    *self.fallback_all_columns = true;
+                }
+            }
+            Expr::CompoundIdentifier(idents) => {
+                let parts: Vec<String> = idents.iter().map(|i| i.value.clone()).collect();
+                if let Some((src_idx, col)) = resolve_compound_column(&parts, self.refs) {
+                    self.add_column(src_idx, &col);
+                } else {
+                    *self.fallback_all_columns = true;
+                }
+            }
+            Expr::Value(_) | Expr::TypedString { .. } => {}
+            Expr::BinaryOp { left, right, .. }
+            | Expr::AnyOp { left, right, .. }
+            | Expr::AllOp { left, right, .. } => {
+                self.visit_expr(left);
+                self.visit_expr(right);
+            }
+            Expr::UnaryOp { expr: inner, .. }
+            | Expr::Nested(inner)
+            | Expr::Cast { expr: inner, .. }
+            | Expr::IsNull(inner)
+            | Expr::IsNotNull(inner)
+            | Expr::IsTrue(inner)
+            | Expr::IsFalse(inner)
+            | Expr::IsUnknown(inner)
+            | Expr::IsNotUnknown(inner)
+            | Expr::Extract { expr: inner, .. }
+            | Expr::Ceil { expr: inner, .. }
+            | Expr::Floor { expr: inner, .. }
+            | Expr::Collate { expr: inner, .. }
+            | Expr::AtTimeZone {
+                timestamp: inner, ..
+            } => {
+                self.visit_expr(inner);
+            }
+            Expr::Between {
+                expr: inner,
+                low,
+                high,
+                ..
+            } => {
+                self.visit_expr(inner);
+                self.visit_expr(low);
+                self.visit_expr(high);
+            }
+            Expr::InList {
+                expr: inner, list, ..
+            } => {
+                self.visit_expr(inner);
+                for item in list {
+                    self.visit_expr(item);
+                }
+            }
+            Expr::Like {
+                expr: inner,
+                pattern,
+                ..
+            }
+            | Expr::ILike {
+                expr: inner,
+                pattern,
+                ..
+            }
+            | Expr::SimilarTo {
+                expr: inner,
+                pattern,
+                ..
+            } => {
+                self.visit_expr(inner);
+                self.visit_expr(pattern);
+            }
+            Expr::Case {
+                operand,
+                conditions,
+                else_result,
+                ..
+            } => {
+                if let Some(op) = operand {
+                    self.visit_expr(op);
+                }
+                for cw in conditions {
+                    self.visit_expr(&cw.condition);
+                    self.visit_expr(&cw.result);
+                }
+                if let Some(else_r) = else_result {
+                    self.visit_expr(else_r);
+                }
+            }
+            Expr::Function(func) => {
+                if func.over.is_some() || !func.within_group.is_empty() || func.filter.is_some() {
+                    *self.fallback_all_columns = true;
+                    return;
+                }
+                if let FunctionArguments::List(ref arg_list) = func.args {
+                    for arg in &arg_list.args {
+                        match arg {
+                            FunctionArg::Unnamed(FunctionArgExpr::Expr(e))
+                            | FunctionArg::Named {
+                                arg: FunctionArgExpr::Expr(e),
+                                ..
+                            }
+                            | FunctionArg::ExprNamed {
+                                arg: FunctionArgExpr::Expr(e),
+                                ..
+                            } => {
+                                self.visit_expr(e);
+                            }
+                            FunctionArg::Unnamed(FunctionArgExpr::QualifiedWildcard(obj_name)) => {
+                                let parts = name_parts(obj_name);
+                                if let Some(src_idx) = resolve_table_qualifier(&parts, self.refs) {
+                                    self.wildcard_source[src_idx] = true;
+                                } else {
+                                    *self.fallback_all_columns = true;
+                                }
+                            }
+                            FunctionArg::Unnamed(FunctionArgExpr::Wildcard) => {
+                                // `COUNT(*)` does not require extra columns if at least one column
+                                // is already projected; if a source has 0 columns at the end, it
+                                // automatically falls back to `None` (`SELECT *`).
+                            }
+                            _ => {
+                                *self.fallback_all_columns = true;
+                            }
+                        }
+                    }
+                }
+            }
+            Expr::Tuple(exprs) => {
+                for e in exprs {
+                    self.visit_expr(e);
+                }
+            }
+            _ => {
+                *self.fallback_all_columns = true;
+            }
+        }
+    }
+}
+
+fn extract_join_constraint(op: &JoinOperator) -> Option<&JoinConstraint> {
+    match op {
+        JoinOperator::Join(constraint)
+        | JoinOperator::Inner(constraint)
+        | JoinOperator::Left(constraint)
+        | JoinOperator::LeftOuter(constraint)
+        | JoinOperator::Right(constraint)
+        | JoinOperator::RightOuter(constraint)
+        | JoinOperator::FullOuter(constraint)
+        | JoinOperator::Semi(constraint)
+        | JoinOperator::LeftSemi(constraint)
+        | JoinOperator::RightSemi(constraint)
+        | JoinOperator::Anti(constraint)
+        | JoinOperator::LeftAnti(constraint)
+        | JoinOperator::RightAnti(constraint) => Some(constraint),
+        _ => None,
+    }
+}
+
+fn ref_dotted_name(r: &FederatedTableRef) -> String {
+    if let Some(ref schema) = r.namespace.schema {
+        build_dotted_name(&[
+            r.connection_alias.clone(),
+            r.namespace.database.clone(),
+            schema.clone(),
+            r.table.clone(),
+        ])
+    } else {
+        build_dotted_name(&[
+            r.connection_alias.clone(),
+            r.namespace.database.clone(),
+            r.table.clone(),
+        ])
+    }
+}
+
+/// Resolves a table qualifier (from `alias.*` or `conn.db.table.*`) to a unique source index.
+fn resolve_table_qualifier(parts: &[String], refs: &[FederatedTableRef]) -> Option<usize> {
+    if parts.len() >= 3 {
+        let dotted = build_dotted_name(parts);
+        let matches: Vec<usize> = refs
+            .iter()
+            .enumerate()
+            .filter(|(_, r)| ref_dotted_name(r) == dotted)
+            .map(|(i, _)| i)
+            .collect();
+        if matches.len() == 1 {
+            return Some(matches[0]);
+        }
+    }
+    if parts.len() == 1 {
+        let qual = parts[0].to_lowercase();
+        let matches: Vec<usize> = refs
+            .iter()
+            .enumerate()
+            .filter(|(_, r)| {
+                r.sql_alias
+                    .as_ref()
+                    .is_some_and(|a| a.eq_ignore_ascii_case(&qual))
+                    || (r.sql_alias.is_none() && r.table.eq_ignore_ascii_case(&qual))
+            })
+            .map(|(i, _)| i)
+            .collect();
+        if matches.len() == 1 {
+            return Some(matches[0]);
+        }
+    }
+    None
+}
+
+/// Resolves a compound identifier (`u.col` or `conn.db.table.col`) to `(source_idx, column_name)`.
+fn resolve_compound_column(
+    parts: &[String],
+    refs: &[FederatedTableRef],
+) -> Option<(usize, String)> {
+    if parts.len() >= 4 {
+        let max_prefix = parts.len() - 1;
+        for prefix_len in (3..=max_prefix).rev() {
+            if let Some(src_idx) = resolve_table_qualifier(&parts[..prefix_len], refs) {
+                return Some((src_idx, parts[prefix_len].clone()));
+            }
+        }
+    }
+    if parts.len() >= 2 {
+        if let Some(src_idx) = resolve_table_qualifier(&parts[..1], refs) {
+            return Some((src_idx, parts[1].clone()));
+        }
+    }
+    None
+}
+
+/// Resolves an AST expression that is a simple column reference to `(source_idx, column_name)`.
+fn resolve_simple_column_expr(
+    expr: &Expr,
+    refs: &[FederatedTableRef],
+) -> Option<(usize, String)> {
+    match expr {
+        Expr::Nested(inner) => resolve_simple_column_expr(inner, refs),
+        Expr::Identifier(ident) if refs.len() == 1 => Some((0, ident.value.clone())),
+        Expr::CompoundIdentifier(idents) => {
+            if idents.len() == 2 {
+                let parts = vec![idents[0].value.clone(), idents[1].value.clone()];
+                resolve_compound_column(&parts, refs)
+            } else if idents.len() == 4 || idents.len() == 5 {
+                let parts: Vec<String> = idents.iter().map(|i| i.value.clone()).collect();
+                // Only match when the column is the final part (not nested struct/JSON path).
+                let prefix_len = parts.len() - 1;
+                resolve_table_qualifier(&parts[..prefix_len], refs)
+                    .map(|src_idx| (src_idx, parts[prefix_len].clone()))
+            } else {
+                None
+            }
+        }
+        _ => None,
+    }
+}
+
+fn collect_and_conjuncts<'a>(expr: &'a Expr, out: &mut Vec<&'a Expr>) {
+    match expr {
+        Expr::Nested(inner) => collect_and_conjuncts(inner, out),
+        Expr::BinaryOp {
+            left,
+            op: BinaryOperator::And,
+            right,
+        } => {
+            collect_and_conjuncts(left, out);
+            collect_and_conjuncts(right, out);
+        }
+        other => out.push(other),
+    }
+}
+
+fn extract_simple_predicate(
+    expr: &Expr,
+    refs: &[FederatedTableRef],
+) -> Option<(usize, CandidatePredicate)> {
+    match expr {
+        Expr::Nested(inner) => extract_simple_predicate(inner, refs),
+        Expr::BinaryOp { left, op, right } => {
+            if let Some((src_idx, column)) = resolve_simple_column_expr(left, refs) {
+                let op_str = comparison_op_str(op, false)?;
+                let literal_sql = render_sql_literal(right)?;
+                return Some((
+                    src_idx,
+                    CandidatePredicate {
+                        column,
+                        kind: PredicateKind::Comparison {
+                            op: op_str,
+                            literal_sql,
+                        },
+                    },
+                ));
+            }
+            if let Some((src_idx, column)) = resolve_simple_column_expr(right, refs) {
+                let op_str = comparison_op_str(op, true)?;
+                let literal_sql = render_sql_literal(left)?;
+                return Some((
+                    src_idx,
+                    CandidatePredicate {
+                        column,
+                        kind: PredicateKind::Comparison {
+                            op: op_str,
+                            literal_sql,
+                        },
+                    },
+                ));
+            }
+            None
+        }
+        Expr::IsNull(inner) => {
+            let (src_idx, column) = resolve_simple_column_expr(inner, refs)?;
+            Some((
+                src_idx,
+                CandidatePredicate {
+                    column,
+                    kind: PredicateKind::IsNull,
+                },
+            ))
+        }
+        Expr::IsNotNull(inner) => {
+            let (src_idx, column) = resolve_simple_column_expr(inner, refs)?;
+            Some((
+                src_idx,
+                CandidatePredicate {
+                    column,
+                    kind: PredicateKind::IsNotNull,
+                },
+            ))
+        }
+        Expr::InList {
+            expr: inner,
+            list,
+            negated,
+        } => {
+            if list.is_empty() {
+                return None;
+            }
+            let (src_idx, column) = resolve_simple_column_expr(inner, refs)?;
+            let mut literals_sql = Vec::with_capacity(list.len());
+            for item in list {
+                literals_sql.push(render_sql_literal(item)?);
+            }
+            Some((
+                src_idx,
+                CandidatePredicate {
+                    column,
+                    kind: PredicateKind::InList {
+                        negated: *negated,
+                        literals_sql,
+                    },
+                },
+            ))
+        }
+        _ => None,
+    }
+}
+
+fn comparison_op_str(op: &BinaryOperator, flipped: bool) -> Option<&'static str> {
+    match (op, flipped) {
+        (BinaryOperator::Eq, _) => Some("="),
+        (BinaryOperator::NotEq, _) => Some("!="),
+        (BinaryOperator::Lt, false) | (BinaryOperator::Gt, true) => Some("<"),
+        (BinaryOperator::LtEq, false) | (BinaryOperator::GtEq, true) => Some("<="),
+        (BinaryOperator::Gt, false) | (BinaryOperator::Lt, true) => Some(">"),
+        (BinaryOperator::GtEq, false) | (BinaryOperator::LtEq, true) => Some(">="),
+        _ => None,
+    }
+}
+
+fn render_sql_literal(expr: &Expr) -> Option<String> {
+    match expr {
+        Expr::Nested(inner) => render_sql_literal(inner),
+        Expr::Value(val) => match &val.value {
+            AstValue::Number(n, _) => {
+                if !n.is_empty()
+                    && n.chars()
+                        .all(|c| c.is_ascii_digit() || matches!(c, '.' | '+' | '-' | 'e' | 'E'))
+                {
+                    Some(n.clone())
+                } else {
+                    None
+                }
+            }
+            AstValue::SingleQuotedString(s) => Some(format!("'{}'", s.replace('\'', "''"))),
+            AstValue::Boolean(b) => Some(if *b {
+                "TRUE".to_string()
+            } else {
+                "FALSE".to_string()
+            }),
+            _ => None,
+        },
+        Expr::UnaryOp {
+            op: UnaryOperator::Minus,
+            expr: inner,
+        } => {
+            if let Expr::Value(val) = &**inner {
+                if let AstValue::Number(n, _) = &val.value {
+                    if !n.is_empty()
+                        && n.chars()
+                            .all(|c| c.is_ascii_digit() || matches!(c, '.' | '+' | '-' | 'e' | 'E'))
+                    {
+                        return Some(format!("-{n}"));
+                    }
+                }
+            }
+            None
+        }
+        _ => None,
+    }
 }
 
 #[cfg(test)]

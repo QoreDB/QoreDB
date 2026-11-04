@@ -390,6 +390,8 @@ export function TableBrowser({
     reload,
     refresh,
     updateCell,
+    rowAnchors,
+    insertRowLocally,
   } = useInfiniteTableData({
     sessionId,
     namespace,
@@ -955,6 +957,7 @@ export function TableBrowser({
             initialFilter={searchFilter?.value}
             onRowsUpdated={reload}
             onUpdateCell={updateCell}
+            rowAnchors={rowAnchors}
             onOpenRelatedTable={onOpenRelatedTable}
             sandboxMode={sandboxActive}
             pendingChanges={sandboxChanges}
@@ -1030,6 +1033,7 @@ export function TableBrowser({
               new Set(data?.columns.filter(column => column.masked).map(column => column.name))
             }
             onSuccess={reload}
+            onInsertSuccess={insertRowLocally}
             sandboxMode={sandboxActive}
             onSandboxInsert={handleSandboxInsert}
             onSandboxUpdate={handleSandboxUpdate}

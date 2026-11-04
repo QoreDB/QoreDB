@@ -719,6 +719,8 @@
     "redo": "다시 실행",
     "toggleVariables": "변수",
     "editTitle": "클릭하여 제목 편집",
+    "draftQuotaExceeded": "노트북 임시 저장본이 로컬 저장소 할당량을 초과했습니다",
+    "draftQuotaExceededHint": "최신 수정 사항을 잃지 않도록 파일(.qnb)로 저장하세요.",
     "cellCountLabel": "{{count}}개 셀",
     "variableDescriptionHint": "선택적 설명",
     "doubleClickToEdit": "더블 클릭하여 편집",
@@ -730,7 +732,9 @@
     "addCellAi": "AI 셀",
     "aiPlaceholder": "쿼리를 자연어로 설명하세요…",
     "aiGenerate": "SQL 생성",
-    "aiCellInserted": "아래에 SQL 셀을 삽입했습니다"
+    "aiCellInserted": "아래에 SQL 셀을 삽입했습니다",
+    "insertSummaryMarkdown": "Markdown 셀로 삽입",
+    "generateDocumentation": "AI로 문서 생성"
   },
   "replay": {
     "cancelledReport": "재실행이 취소되었습니다. 실행된 쿼리는 보존되며, 진행 중이던 쿼리는 완료되었을 수 있습니다.",
@@ -1109,6 +1113,41 @@
         "idle": "10분 동안 유휴 상태인 세션은 종료됩니다.",
         "audit": "모든 호출은 소스 “mcp”로 감사 로그에 기록됩니다."
       }
+    },
+    "localData": {
+      "title": "로컬 데이터 및 디스크 저장소",
+      "description": "app_data_dir의 카테고리별 디스크 사용량을 확인하고 개별적으로 정리합니다.",
+      "securityNotice": "vault.enc의 자격 증명은 AES-256-GCM으로 암호화되어 저장됩니다. 아래 항목은 비밀 마스킹 및 보존 한도가 적용된 로컬 파일로 저장됩니다.",
+      "totalUsage": "총 로컬 저장소: {{size}}",
+      "fileCount": "파일 {{count}}개",
+      "purge": "정리",
+      "confirmTitle": "로컬 데이터 카테고리 정리",
+      "confirmDescription": "\"{{category}}\"의 모든 로컬 파일을 영구적으로 삭제하시겠습니까?",
+      "confirmAction": "영구 정리",
+      "purgeSuccess": "{{category}} 정리 완료.",
+      "purgeError": "로컬 데이터 정리에 실패했습니다.",
+      "categories": {
+        "time_travel": {
+          "title": "Time Travel 기록",
+          "description": "보존 기간 및 최대 크기로 제한되는 로컬 변경 이력 (time-travel/)."
+        },
+        "replay": {
+          "title": "Query Replay 캡처",
+          "description": "워크스페이스별로 분리된 쿼리 리플레이 캡처 (replays/)."
+        },
+        "snapshots": {
+          "title": "데이터 스냅샷",
+          "description": "비교 및 오프라인 확인을 위해 저장된 결과 스냅샷 (snapshots/*.json)."
+        },
+        "audit_logs": {
+          "title": "감사 추적 및 애플리케이션 로그",
+          "description": "인터셉터 감사 로그 (interceptor/audit.jsonl) 및 앱 로그 (logs/)."
+        },
+        "ai_models": {
+          "title": "로컬 AI 런타임 및 모델",
+          "description": "다운로드된 Qore AI Local 바이너리 및 GGUF 모델 (ai-local/)."
+        }
+      }
     }
   },
   "table": {
@@ -1425,6 +1464,14 @@
       "applied": "마스킹이 적용되었습니다",
       "appliedNextRun": "마스킹이 저장되었습니다. 다음 실행부터 적용됩니다.",
       "removed": "마스킹이 해제되었습니다"
+    },
+    "anchor": {
+      "filter_mismatch": "필터 제외됨",
+      "filter_mismatchTooltip": "수정된 행이 현재 필터와 일치하지 않지만 다음 새로고침 전까지 현재 위치에 고정됩니다.",
+      "order_changed": "정렬 변경됨",
+      "order_changedTooltip": "정렬 열 값이 변경되었으며 다음 새로고침 전까지 현재 위치에 고정됩니다.",
+      "inserted": "삽입됨",
+      "insertedTooltip": "로컬에 삽입된 행이 다음 새로고침 전까지 상단에 고정됩니다."
     }
   },
   "export": {
@@ -1688,7 +1735,10 @@
     "tabBar": "열린 탭",
     "databaseTree": "데이터베이스 트리",
     "statusBar": "상태 표시줄",
-    "help": "도움말"
+    "help": "도움말",
+    "resizeSidebar": "사이드바 크기 조절",
+    "resizeEditor": "SQL 편집기 크기 조절",
+    "resizeAiPanel": "AI 어시스턴트 패널 크기 조절"
   },
   "zenMode": {
     "enabled": "집중 모드 — Esc를 눌러 종료"
@@ -2106,7 +2156,9 @@
       "new": "신규",
       "modified": "수정됨",
       "deleted": "삭제됨"
-    }
+    },
+    "quotaExceeded": "샌드박스 변경 사항이 로컬 저장소 할당량을 초과했습니다",
+    "quotaExceededHint": "대기 중인 변경 사항을 적용하거나 취소하여 공간을 확보하세요."
   },
   "interceptor": {
     "title": "쿼리 인터셉터",
@@ -2912,6 +2964,22 @@
       "summarizeSchema": "이 스키마 요약",
       "tableTitle": "테이블 {{table}}",
       "schemaTitle": "스키마 {{namespace}}"
+    },
+    "semanticContext": {
+      "menuItem": "비즈니스 컨텍스트 (.qoredb)",
+      "title": "비즈니스 컨텍스트 — {{table}}",
+      "description": ".qoredb/context.json에 테이블과 워크스페이스 규칙을 기록하여 AI 쿼리를 보강합니다.",
+      "tableDescription": "테이블 설명",
+      "tableDescriptionPlaceholder": "예: 고객 청구서",
+      "domain": "도메인",
+      "domainPlaceholder": "예: 청구",
+      "columnsTitle": "컬럼 의미",
+      "columnPlaceholder": "의미 ({{type}})",
+      "implicitRelations": "암시적 관계 (줄당 하나)",
+      "implicitRelationsPlaceholder": "user_id -> users.id",
+      "businessRules": "워크스페이스 비즈니스 규칙 (줄당 하나)",
+      "businessRulesPlaceholder": "예: 활성 사용자는 deleted_at IS NULL",
+      "saved": "비즈니스 컨텍스트가 .qoredb/context.json에 저장되었습니다"
     }
   },
   "agentChat": {
@@ -3008,7 +3076,12 @@
     "insertLeftJoin": "LEFT JOIN",
     "insertComma": "크로스 조인",
     "insertWhere": "WHERE",
-    "insertRaw": "참조"
+    "insertRaw": "참조",
+    "cacheHit": "캐시",
+    "liveFetch": "실시간",
+    "rowsShort": "행",
+    "projectedColumns": "투영된 열",
+    "refreshCacheTooltip": "캐시를 건너뛰고 모든 연합 소스를 다시 가져옵니다"
   },
   "maintenance": {
     "title": "테이블 유지보수",

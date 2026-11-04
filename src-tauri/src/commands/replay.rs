@@ -57,6 +57,10 @@ impl ReplayState {
         let project = self.recorder.project_id()?;
         self.captures(&project).ok()
     }
+
+    pub fn is_busy(&self) -> bool {
+        self.running.load(Ordering::SeqCst) || self.recorder.project_id().is_some()
+    }
 }
 
 pub type SharedReplayState = Arc<ReplayState>;

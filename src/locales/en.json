@@ -748,6 +748,8 @@
     "redo": "Redo",
     "toggleVariables": "Variables",
     "editTitle": "Click to edit title",
+    "draftQuotaExceeded": "Local storage quota exceeded for notebook draft",
+    "draftQuotaExceededHint": "Save this notebook to a file (.qnb) so your latest edits are not lost.",
     "cellCountLabel": "{{count}} cell(s)",
     "variableDescriptionHint": "Optional description",
     "doubleClickToEdit": "Double-click to edit",
@@ -759,7 +761,9 @@
     "addCellAi": "AI cell",
     "aiPlaceholder": "Describe the query in natural language…",
     "aiGenerate": "Generate SQL",
-    "aiCellInserted": "SQL cell inserted below"
+    "aiCellInserted": "SQL cell inserted below",
+    "insertSummaryMarkdown": "Insert as Markdown cell",
+    "generateDocumentation": "Generate documentation with AI"
   },
   "replay": {
     "cancelledReport": "Replay cancelled. Completed queries are preserved; an in-flight query may have finished.",
@@ -1147,6 +1151,41 @@
         "idle": "Sessions idle for 10 minutes are closed.",
         "audit": "Every call is written to the audit log with the source “mcp”."
       }
+    },
+    "localData": {
+      "title": "Local Data & Disk Storage",
+      "description": "Inspect disk usage in app_data_dir by category and purge local data granularly.",
+      "securityNotice": "Credentials in vault.enc and shared exports are encrypted at rest (AES-256-GCM). Categories below are stored as local files with secret redaction on logs/replays and configurable retention caps.",
+      "totalUsage": "Total local storage: {{size}}",
+      "fileCount": "{{count}} files",
+      "purge": "Purge",
+      "confirmTitle": "Purge local data category",
+      "confirmDescription": "Are you sure you want to permanently delete all local files in \"{{category}}\"? This action cannot be undone.",
+      "confirmAction": "Purge permanently",
+      "purgeSuccess": "{{category}} purged.",
+      "purgeError": "Failed to purge local data category.",
+      "categories": {
+        "time_travel": {
+          "title": "Time Travel History",
+          "description": "Local before/after mutation changelog (time-travel/), bounded by retention days and max file size."
+        },
+        "replay": {
+          "title": "Query Replay Captures",
+          "description": "Recorded query replay runs and result snapshots (replays/), isolated per workspace with secret redaction."
+        },
+        "snapshots": {
+          "title": "Data Snapshots",
+          "description": "Saved result-set snapshots (snapshots/*.json) created manually for comparison and offline inspection."
+        },
+        "audit_logs": {
+          "title": "Audit Trail & Application Logs",
+          "description": "Interceptor audit log (interceptor/audit.jsonl) and rotating application logs (logs/) with automatic secret redaction."
+        },
+        "ai_models": {
+          "title": "Local AI Runtime & Models",
+          "description": "Downloaded Qore AI Local runtime binaries and GGUF weights (ai-local/) verified by SHA-256."
+        }
+      }
     }
   },
   "table": {
@@ -1469,6 +1508,14 @@
       "applied": "Masking applied",
       "appliedNextRun": "Masking saved: it applies from the next run.",
       "removed": "Masking removed"
+    },
+    "anchor": {
+      "filter_mismatch": "Out of filter",
+      "filter_mismatchTooltip": "Edited row no longer matches active column filters; kept anchored until next reload.",
+      "order_changed": "Order changed",
+      "order_changedTooltip": "Sort column value changed; row kept anchored at its current position until next reload.",
+      "inserted": "Inserted",
+      "insertedTooltip": "Locally inserted row anchored at the top of loaded pages until next reload."
     }
   },
   "export": {
@@ -1733,7 +1780,10 @@
     "tabBar": "Open tabs",
     "databaseTree": "Database tree",
     "statusBar": "Status bar",
-    "help": "Help"
+    "help": "Help",
+    "resizeSidebar": "Resize sidebar",
+    "resizeEditor": "Resize SQL editor",
+    "resizeAiPanel": "Resize AI assistant panel"
   },
   "zenMode": {
     "enabled": "Zen Mode — Press Esc to exit"
@@ -2154,7 +2204,9 @@
       "new": "NEW",
       "modified": "Modified",
       "deleted": "Deleted"
-    }
+    },
+    "quotaExceeded": "Local storage quota exceeded for Sandbox changes",
+    "quotaExceededHint": "Apply or discard pending changes to free space."
   },
   "interceptor": {
     "title": "Query Interceptor",
@@ -2960,6 +3012,22 @@
       "summarizeSchema": "Summarize this schema",
       "tableTitle": "Table {{table}}",
       "schemaTitle": "Schema {{namespace}}"
+    },
+    "semanticContext": {
+      "menuItem": "Business context (.qoredb)",
+      "title": "Business context — {{table}}",
+      "description": "Annotate this table and workspace rules in .qoredb/context.json to enrich AI queries.",
+      "tableDescription": "Table description",
+      "tableDescriptionPlaceholder": "e.g. Customer billing invoices",
+      "domain": "Domain",
+      "domainPlaceholder": "e.g. billing",
+      "columnsTitle": "Column meanings",
+      "columnPlaceholder": "Meaning ({{type}})",
+      "implicitRelations": "Implicit relations (one per line)",
+      "implicitRelationsPlaceholder": "user_id -> users.id",
+      "businessRules": "Workspace business rules (one per line)",
+      "businessRulesPlaceholder": "e.g. Active users have deleted_at IS NULL",
+      "saved": "Business context saved to .qoredb/context.json"
     }
   },
   "agentChat": {
@@ -3057,7 +3125,12 @@
     "insertLeftJoin": "LEFT JOIN",
     "insertComma": "Cross join",
     "insertWhere": "WHERE",
-    "insertRaw": "Reference"
+    "insertRaw": "Reference",
+    "cacheHit": "Cache",
+    "liveFetch": "Live",
+    "rowsShort": "rows",
+    "projectedColumns": "Projected columns",
+    "refreshCacheTooltip": "Bypass cache and re-fetch all federated sources"
   },
   "maintenance": {
     "title": "Table Maintenance",

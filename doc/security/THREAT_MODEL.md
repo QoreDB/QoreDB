@@ -17,8 +17,8 @@ QoreDB is a desktop application (Tauri/Rust) that connects to user databases. Th
 
 - **Threat**: Malware on the user's machine stealing saved passwords.
 - **Mitigation**:
-  - Credentials are stored in the OS Keychain (via `keyring` crate), not plain text files.
-  - Access requires OS-level authentication (e.g. TouchID/Password on macOS).
+  - Credentials are stored in the OS Keychain (via `keyring` crate) or inside `vault.enc` (encrypted at rest with Argon2id key derivation and AES-256-GCM when a master password is configured), never in plain text files.
+  - Access to OS Keychain entries is governed by the operating system's unlocked login keychain policy; QoreDB does not enforce a separate biometric/TouchID prompt on every read.
   - Internal memory uses `Sensitive<String>` to redact passwords in logs/debug output.
 
 ### 2. Accidental Data Destruction
@@ -44,10 +44,10 @@ QoreDB is a desktop application (Tauri/Rust) that connects to user databases. Th
 
 - **Threat**: Application logs containing connection strings or query results.
 - **Mitigation**:
-  - Structured logging (`tracing`) with redaction.
+  - Structured logging (`tracing`) with credential and secret redaction.
   - Query results are NOT logged by default.
-  - Logs are stored locally in user's home directory (`~/.qoredb/logs`).
-  - **Current limitation**: The interceptor audit/profiling pipeline currently stores raw query text locally for audit entries and slow-query samples.
+  - Logs and audit trails are stored under `paths::app_data_dir()` (`logs/` and `interceptor/audit.jsonl`).
+  - The interceptor audit and slow-query profiling pipelines pass queries through `redact_query` before persistence on disk.
 
 ### 5. Sensitive Data Persisted in Local UI State
 
@@ -91,3 +91,17 @@ QoreDB is a desktop application (Tauri/Rust) that connects to user databases. Th
   - Source fetches of a federated query run the planner's generated `SELECT` directly on each session: the audit log holds one entry for the federated query, not one per source.
   - The app's master-password lock is not shared: the server reads secrets from the OS keyring directly, so a vault locked in the app stays readable by an agent as long as the keyring is unlocked. The exposure flag is the effective gate.
   - Query results are returned to the agent and may be sent to a remote model by the client; only columns covered by masking rules are hidden.
+
+## Local Data Directory (`app_data_dir`) Governance
+
+All persistent application files live under `paths::app_data_dir()` (`com.qoredb.app` in the OS data directory). Users can inspect disk usage per category and trigger confirmed granular purges from **Settings > Security / Data (`Local Data & Disk Storage`)**.
+
+| Subpath | Purpose | Encrypted at rest | Redaction & Retention Guarantees |
+| --- | --- | --- | --- |
+| `vault.enc` | Connection metadata & encrypted credentials when master password is set | Yes (`AES-256-GCM` + `Argon2id`) | Secrets stored in OS Keychain or encrypted vault |
+| `share/` | Temporary prepared encrypted exports | Yes (`AES-256-GCM`) | Cleaned up after upload or cancellation |
+| `time-travel/` | Local before/after mutation changelog (`*.jsonl`) | No | Sensitive & masked columns redacted prior to capture; bounded by retention days, max entries, and max file size; purgeable from Settings |
+| `replays/` | Query Replay Lab captures and run reports | No | Scoped per workspace (`project_id`); configurable secret redaction policy (`redact` / `strip` / `raw`); purgeable from Settings |
+| `snapshots/` | Manually saved result-set snapshots (`*.json`) | No | Explicit user-initiated saves; purgeable individually or in bulk from Settings |
+| `interceptor/` & `logs/` | Interceptor audit trail (`audit.jsonl`) and rotating app logs | No | Automatic secret redaction (`redact_query` and log scrubber); bounded rotation; purgeable from Settings without resetting `interceptor/config.json` |
+| `ai-local/` | Qore AI Local runtime binary and GGUF model weights | No | Verified against SHA-256 manifest hashes on install; runtime stopped and directory removable from Settings |

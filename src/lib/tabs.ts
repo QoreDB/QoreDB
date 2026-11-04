@@ -52,6 +52,7 @@ export interface OpenTab {
   // AI-specific
   showAiPanel?: boolean;
   aiTableContext?: string;
+  aiPendingExplain?: { query: string; summary: string };
   // Notebook-specific
   notebookPath?: string;
   notebookDirty?: boolean;

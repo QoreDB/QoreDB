@@ -719,6 +719,8 @@
     "redo": "Rehacer",
     "toggleVariables": "Variables",
     "editTitle": "Haz clic para editar el título",
+    "draftQuotaExceeded": "Cuota de almacenamiento local superada para el borrador del notebook",
+    "draftQuotaExceededHint": "Guarda este notebook en un archivo (.qnb) para no perder tus cambios.",
     "cellCountLabel": "{{count}} celda(s)",
     "variableDescriptionHint": "Descripción opcional",
     "doubleClickToEdit": "Doble clic para editar",
@@ -730,7 +732,9 @@
     "addCellAi": "Celda IA",
     "aiPlaceholder": "Describe la consulta en lenguaje natural…",
     "aiGenerate": "Generar SQL",
-    "aiCellInserted": "Celda SQL insertada debajo"
+    "aiCellInserted": "Celda SQL insertada debajo",
+    "insertSummaryMarkdown": "Insertar como celda Markdown",
+    "generateDocumentation": "Generar documentación con IA"
   },
   "replay": {
     "cancelledReport": "Reproducción cancelada. Se conservan las consultas ejecutadas; la consulta en curso puede haber terminado.",
@@ -1118,6 +1122,41 @@
         "idle": "Las sesiones inactivas durante 10 minutos se cierran.",
         "audit": "Cada llamada se registra en el log de auditoría con la fuente «mcp»."
       }
+    },
+    "localData": {
+      "title": "Datos locales y almacenamiento en disco",
+      "description": "Inspeccione el uso de disco en app_data_dir por categoría y purgue datos locales.",
+      "securityNotice": "Las credenciales en vault.enc están cifradas en reposo (AES-256-GCM). Las categorías siguientes se guardan como archivos locales con redacción de secretos y límites de retención.",
+      "totalUsage": "Almacenamiento local total: {{size}}",
+      "fileCount": "{{count}} archivos",
+      "purge": "Purgar",
+      "confirmTitle": "Purgar categoría de datos locales",
+      "confirmDescription": "¿Seguro que desea eliminar permanentemente todos los archivos locales de \"{{category}}\"?",
+      "confirmAction": "Purgar permanentemente",
+      "purgeSuccess": "{{category}} purgada.",
+      "purgeError": "Error al purgar los datos locales.",
+      "categories": {
+        "time_travel": {
+          "title": "Historial Time Travel",
+          "description": "Registro local de mutaciones antes/después (time-travel/), limitado por retención y tamaño."
+        },
+        "replay": {
+          "title": "Capturas de Query Replay",
+          "description": "Capturas de ejecución de consultas (replays/), aisladas por espacio de trabajo."
+        },
+        "snapshots": {
+          "title": "Instantáneas de datos",
+          "description": "Instantáneas guardadas manualmente (snapshots/*.json) para comparación e inspección."
+        },
+        "audit_logs": {
+          "title": "Registro de auditoría y logs",
+          "description": "Auditoría del interceptor (interceptor/audit.jsonl) y registros de aplicación (logs/)."
+        },
+        "ai_models": {
+          "title": "Modelos y runtime de IA local",
+          "description": "Binarios y modelos GGUF descargados de Qore AI Local (ai-local/)."
+        }
+      }
     }
   },
   "table": {
@@ -1434,6 +1473,14 @@
       "applied": "Enmascaramiento aplicado",
       "appliedNextRun": "Enmascaramiento guardado: se aplica desde la próxima ejecución.",
       "removed": "Enmascaramiento eliminado"
+    },
+    "anchor": {
+      "filter_mismatch": "Fuera de filtro",
+      "filter_mismatchTooltip": "La fila editada ya no coincide con los filtros activos; permanece anclada hasta recargar.",
+      "order_changed": "Orden modificado",
+      "order_changedTooltip": "El valor de ordenación cambió; la fila permanece anclada hasta recargar.",
+      "inserted": "Insertada",
+      "insertedTooltip": "Fila insertada anclada localmente hasta la próxima recarga."
     }
   },
   "export": {
@@ -1697,7 +1744,10 @@
     "tabBar": "Pestañas abiertas",
     "databaseTree": "Árbol de bases de datos",
     "statusBar": "Barra de estado",
-    "help": "Ayuda"
+    "help": "Ayuda",
+    "resizeSidebar": "Redimensionar barra lateral",
+    "resizeEditor": "Redimensionar editor SQL",
+    "resizeAiPanel": "Redimensionar panel de asistente IA"
   },
   "zenMode": {
     "enabled": "Modo Zen — Presiona Esc para salir"
@@ -2115,7 +2165,9 @@
       "new": "NUEVO",
       "modified": "Modificado",
       "deleted": "Eliminado"
-    }
+    },
+    "quotaExceeded": "Cuota de almacenamiento local superada para los cambios de Sandbox",
+    "quotaExceededHint": "Aplica o descarta los cambios pendientes para liberar espacio."
   },
   "interceptor": {
     "title": "Interceptor de consultas",
@@ -2921,6 +2973,22 @@
       "summarizeSchema": "Resumir este esquema",
       "tableTitle": "Tabla {{table}}",
       "schemaTitle": "Esquema {{namespace}}"
+    },
+    "semanticContext": {
+      "menuItem": "Contexto de negocio (.qoredb)",
+      "title": "Contexto de negocio — {{table}}",
+      "description": "Anota esta tabla y las reglas del proyecto en .qoredb/context.json para enriquecer las consultas de IA.",
+      "tableDescription": "Descripción de la tabla",
+      "tableDescriptionPlaceholder": "p. ej., Facturas de clientes",
+      "domain": "Dominio",
+      "domainPlaceholder": "p. ej., facturación",
+      "columnsTitle": "Significado de las columnas",
+      "columnPlaceholder": "Significado ({{type}})",
+      "implicitRelations": "Relaciones implícitas (una por línea)",
+      "implicitRelationsPlaceholder": "user_id -> users.id",
+      "businessRules": "Reglas de negocio del proyecto (una por línea)",
+      "businessRulesPlaceholder": "p. ej., Usuarios activos tienen deleted_at IS NULL",
+      "saved": "Contexto de negocio guardado en .qoredb/context.json"
     }
   },
   "agentChat": {
@@ -3018,7 +3086,12 @@
     "insertLeftJoin": "LEFT JOIN",
     "insertComma": "Cross join",
     "insertWhere": "WHERE",
-    "insertRaw": "Referencia"
+    "insertRaw": "Referencia",
+    "cacheHit": "Caché",
+    "liveFetch": "Directo",
+    "rowsShort": "filas",
+    "projectedColumns": "Columnas proyectadas",
+    "refreshCacheTooltip": "Omitir la caché y volver a consultar todas las fuentes federadas"
   },
   "maintenance": {
     "title": "Mantenimiento de tabla",

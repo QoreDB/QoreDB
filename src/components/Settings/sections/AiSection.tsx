@@ -350,7 +350,15 @@ function ProviderRow({
                   platform: localRuntimeStatus?.platform ?? '—',
                   architecture: localRuntimeStatus?.architecture ?? '—',
                 })}
+                {localRuntimeStatus?.recommended_ctx_size
+                  ? ` · ctx ${localRuntimeStatus.recommended_ctx_size.toLocaleString()}`
+                  : ''}
               </p>
+              {localRuntimeStatus?.memory_warning && (
+                <p className="mt-1.5 text-amber-600 dark:text-amber-400">
+                  {localRuntimeStatus.memory_warning}
+                </p>
+              )}
               {(localRuntimeStatus?.state === 'not_installed' ||
                 localRuntimeStatus?.state === 'error' ||
                 isInstalling ||

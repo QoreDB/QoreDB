@@ -8,9 +8,13 @@
 use std::collections::HashMap;
 
 use qore_core::error::{EngineError, EngineResult};
+use qore_core::masking::ConnectionMasking;
 use qore_sql::generator::SqlDialect;
 
-use super::parser::{build_dotted_name, parse_federation_refs, rewrite_query};
+use super::parser::{
+    CandidatePredicate, PredicateKind, SourceOptimizationAnalysis, analyze_source_optimizations,
+    build_dotted_name, parse_federation_refs, rewrite_query,
+};
 use super::types::{
     ConnectionAliasMap, DEFAULT_ROW_LIMIT, FederatedTableRef, FederationPlan, SourceFetchPlan,
 };
@@ -26,8 +30,9 @@ pub fn build_plan(
 ) -> EngineResult<FederationPlan> {
     let known_aliases = alias_map.keys().cloned().collect();
     let federated_refs = parse_federation_refs(sql, &known_aliases)?;
+    let optimizations = analyze_source_optimizations(sql, &federated_refs);
 
-    let sources = resolve_sources(&federated_refs, alias_map, row_limit)?;
+    let sources = resolve_sources(&federated_refs, &optimizations, alias_map, row_limit)?;
     let mappings = build_rewrite_mappings(&federated_refs);
     let duckdb_query = rewrite_query(sql, &mappings)?;
 
@@ -42,13 +47,14 @@ pub fn build_plan(
 /// Resolves each federated table reference to a `SourceFetchPlan`.
 fn resolve_sources(
     refs: &[FederatedTableRef],
+    optimizations: &[SourceOptimizationAnalysis],
     alias_map: &ConnectionAliasMap,
     row_limit: Option<u64>,
 ) -> EngineResult<Vec<SourceFetchPlan>> {
     let effective_limit = row_limit.unwrap_or(DEFAULT_ROW_LIMIT);
     let mut sources = Vec::with_capacity(refs.len());
 
-    for table_ref in refs {
+    for (idx, table_ref) in refs.iter().enumerate() {
         let entry = alias_map.get(&table_ref.connection_alias).ok_or_else(|| {
             let available: Vec<&String> = alias_map.keys().collect();
             EngineError::validation(format!(
@@ -62,17 +68,103 @@ fn resolve_sources(
             ))
         })?;
 
+        let is_sql_driver = !matches!(entry.driver_id.as_str(), "mongodb" | "documentdb")
+            && SqlDialect::from_driver_id(&entry.driver_id).is_some();
+
+        let (columns, pushdown_predicates) = if is_sql_driver {
+            let dialect =
+                SqlDialect::from_driver_id(&entry.driver_id).unwrap_or(SqlDialect::Postgres);
+            if let Some(opt) = optimizations.get(idx) {
+                let preds = opt
+                    .predicates
+                    .iter()
+                    .map(|p| render_candidate_predicate(p, dialect))
+                    .collect();
+                (opt.columns.clone(), preds)
+            } else {
+                (None, Vec::new())
+            }
+        } else {
+            (None, Vec::new())
+        };
+
         sources.push(SourceFetchPlan {
             table_ref: table_ref.clone(),
             session_id: entry.session_id,
             driver_id: entry.driver_id.clone(),
-            columns: None,                   // v1: fetch all columns (SELECT *)
-            pushdown_predicates: Vec::new(), // v1: no pushdown (conservative)
+            columns,
+            pushdown_predicates,
             row_limit: effective_limit,
         });
     }
 
     Ok(sources)
+}
+
+fn render_candidate_predicate(pred: &CandidatePredicate, dialect: SqlDialect) -> String {
+    let quoted_col = dialect.quote_ident(&pred.column);
+    match &pred.kind {
+        PredicateKind::Comparison { op, literal_sql } => {
+            format!("{quoted_col} {op} {literal_sql}")
+        }
+        PredicateKind::IsNull => format!("{quoted_col} IS NULL"),
+        PredicateKind::IsNotNull => format!("{quoted_col} IS NOT NULL"),
+        PredicateKind::InList {
+            negated,
+            literals_sql,
+        } => {
+            let list_str = literals_sql.join(", ");
+            if *negated {
+                format!("{quoted_col} NOT IN ({list_str})")
+            } else {
+                format!("{quoted_col} IN ({list_str})")
+            }
+        }
+    }
+}
+
+/// Removes any pushdown predicates that reference a masked column on `source`.
+///
+/// Masked columns are replaced with masked text after fetching from the source
+/// database and before loading into DuckDB. Pushing a raw-value filter to the
+/// source database on a masked column would leak information via filter
+/// selectivity, so those predicates must only be evaluated by DuckDB on the
+/// post-masked values.
+pub fn strip_masked_predicates(source: &mut SourceFetchPlan, masking: &ConnectionMasking) {
+    if masking.is_empty() || source.pushdown_predicates.is_empty() {
+        return;
+    }
+    let table_name = source.table_ref.table.clone();
+    source.pushdown_predicates.retain(|pred| {
+        if let Some(col) = extract_leading_quoted_ident(pred) {
+            masking.mode_for(Some(&table_name), &col).is_none()
+        } else {
+            false
+        }
+    });
+}
+
+fn extract_leading_quoted_ident(predicate: &str) -> Option<String> {
+    let trimmed = predicate.trim_start();
+    let quote_char = trimmed.chars().next()?;
+    if quote_char != '"' && quote_char != '`' {
+        return None;
+    }
+    let mut chars = trimmed[quote_char.len_utf8()..].chars().peekable();
+    let mut ident = String::new();
+    while let Some(ch) = chars.next() {
+        if ch == quote_char {
+            if chars.peek() == Some(&quote_char) {
+                ident.push(quote_char);
+                let _ = chars.next();
+            } else {
+                return Some(ident);
+            }
+        } else {
+            ident.push(ch);
+        }
+    }
+    None
 }
 
 /// Builds the rewrite mapping from original dotted names to local DuckDB aliases.
@@ -263,5 +355,111 @@ mod tests {
             source_sql.contains(r#""collection":"events""#),
             "MongoDB source query should use JSON format with correct collection, got: {source_sql}"
         );
+    }
+
+    #[test]
+    fn projects_columns_and_pushes_simple_predicates_per_sql_source() {
+        let sql = "SELECT u.email, COUNT(p.id) AS total \
+                   FROM prod_pg.public.users u \
+                   JOIN app_mysql.mydb.profile p ON p.user_id = u.id \
+                   WHERE u.active = true AND u.age >= 18 AND p.status IN ('gold', 'silver') AND p.deleted_at IS NULL \
+                   GROUP BY u.email \
+                   ORDER BY total DESC";
+        let alias_map = test_alias_map();
+        let plan = build_plan(sql, &alias_map, Some(1000), false).unwrap();
+
+        assert_eq!(
+            plan.sources[0].columns,
+            Some(vec![
+                "email".to_string(),
+                "id".to_string(),
+                "active".to_string(),
+                "age".to_string(),
+            ])
+        );
+        assert_eq!(
+            plan.sources[0].pushdown_predicates,
+            vec!["\"active\" = TRUE", "\"age\" >= 18"]
+        );
+        let pg_sql = build_source_query(&plan.sources[0]);
+        assert_eq!(
+            pg_sql,
+            "SELECT \"email\", \"id\", \"active\", \"age\" FROM \"users\" WHERE \"active\" = TRUE AND \"age\" >= 18 LIMIT 1000"
+        );
+
+        assert_eq!(
+            plan.sources[1].columns,
+            Some(vec![
+                "id".to_string(),
+                "user_id".to_string(),
+                "status".to_string(),
+                "deleted_at".to_string(),
+            ])
+        );
+        assert_eq!(
+            plan.sources[1].pushdown_predicates,
+            vec![
+                "`status` IN ('gold', 'silver')",
+                "`deleted_at` IS NULL"
+            ]
+        );
+        let mysql_sql = build_source_query(&plan.sources[1]);
+        assert_eq!(
+            mysql_sql,
+            "SELECT `id`, `user_id`, `status`, `deleted_at` FROM `profile` WHERE `status` IN ('gold', 'silver') AND `deleted_at` IS NULL LIMIT 1000"
+        );
+
+        // Full WHERE clause remains in duckdb_query as a safety net.
+        assert!(plan.duckdb_query.contains("WHERE"));
+        assert!(plan.duckdb_query.contains("u.active = true"));
+    }
+
+    #[test]
+    fn wildcard_falls_back_to_select_star_while_preserving_pushdown() {
+        let sql = "SELECT u.*, p.bio FROM prod_pg.public.users u JOIN app_mysql.mydb.profile p ON p.user_id = u.id WHERE u.country = 'FR'";
+        let alias_map = test_alias_map();
+        let plan = build_plan(sql, &alias_map, None, false).unwrap();
+
+        assert_eq!(plan.sources[0].columns, None);
+        assert_eq!(plan.sources[0].pushdown_predicates, vec!["\"country\" = 'FR'"]);
+        assert_eq!(
+            plan.sources[1].columns,
+            Some(vec!["bio".to_string(), "user_id".to_string()])
+        );
+    }
+
+    #[test]
+    fn does_not_push_cross_source_or_outer_join_nullable_predicates() {
+        let sql = "SELECT u.id FROM prod_pg.public.users u \
+                   LEFT JOIN app_mysql.mydb.profile p ON p.user_id = u.id \
+                   WHERE u.created_at > p.updated_at AND p.id IS NULL";
+        let alias_map = test_alias_map();
+        let plan = build_plan(sql, &alias_map, None, false).unwrap();
+
+        assert!(plan.sources[0].pushdown_predicates.is_empty());
+        assert!(plan.sources[1].pushdown_predicates.is_empty());
+    }
+
+    #[test]
+    fn strips_pushdown_predicates_on_masked_columns() {
+        use qore_core::masking::{MaskMode, MaskingRule};
+
+        let sql = "SELECT u.email, u.country FROM prod_pg.public.users u WHERE u.email = 'alice@example.com' AND u.country = 'FR'";
+        let alias_map = test_alias_map();
+        let mut plan = build_plan(sql, &alias_map, None, false).unwrap();
+
+        assert_eq!(plan.sources[0].pushdown_predicates.len(), 2);
+
+        let masking = ConnectionMasking {
+            rules: vec![MaskingRule {
+                table: "users".to_string(),
+                column: "email".to_string(),
+                mode: MaskMode::Partial,
+            }],
+            mask_detected_columns: false,
+        };
+        strip_masked_predicates(&mut plan.sources[0], &masking);
+
+        assert_eq!(plan.sources[0].pushdown_predicates, vec!["\"country\" = 'FR'"]);
     }
 }

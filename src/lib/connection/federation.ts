@@ -16,6 +16,9 @@ export interface SourceFetchInfo {
   row_count: number;
   fetch_time_ms: number;
   row_limit_hit: boolean;
+  projected_columns?: string[] | null;
+  pushed_predicates?: string[];
+  cache_hit?: boolean;
 }
 
 export interface FederationMeta {
@@ -38,6 +41,7 @@ export interface FederationQueryOptions {
   stream?: boolean;
   queryId?: string;
   rowLimitPerSource?: number;
+  refreshSources?: boolean;
   streamHandlers?: QueryStreamHandlers;
 }
 
@@ -56,6 +60,7 @@ export async function executeFederationQuery(
           stream: options.stream,
           query_id: options.queryId,
           row_limit_per_source: options.rowLimitPerSource,
+          refresh_sources: options.refreshSources,
         }
       : undefined,
     onStream: channel,

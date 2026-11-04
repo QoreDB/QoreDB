@@ -4,8 +4,11 @@ import { useCallback, useEffect, useState } from 'react';
 import { useNotebook } from '@/hooks/useNotebook';
 import { useSchemaCache } from '@/hooks/useSchemaCache';
 import { useTourManager } from '@/hooks/useTourManager';
+import { aiExplainResult, aiSummarizeSchema } from '@/lib/ai';
 import { Driver } from '@/lib/connection/drivers';
+import { notify } from '@/lib/notify';
 import type { DriverCapabilities, Environment, Namespace } from '@/lib/tauri';
+import { useAiPreferences } from '@/providers/AiPreferencesProvider';
 import { NotebookCellList } from './NotebookCellList';
 import { NotebookToolbar } from './NotebookToolbar';
 import { NotebookVariableBar } from './NotebookVariableBar';
@@ -87,6 +90,42 @@ export function NotebookTab({
 
   const hasVariables = Object.keys(nb.notebook.variables).length > 0;
   const [showVariableBar, setShowVariableBar] = useState(hasVariables);
+  const { getConfig, isReady: aiReady } = useAiPreferences();
+  const [generatingDocumentation, setGeneratingDocumentation] = useState(false);
+
+  const handleGenerateDocumentation = useCallback(async () => {
+    if (!sessionId || !aiReady || generatingDocumentation) return;
+    setGeneratingDocumentation(true);
+    try {
+      const sqlCells = nb.notebook.cells.filter(
+        c => (c.type === 'sql' || c.type === 'mongo') && c.source.trim().length > 0
+      );
+      if (sqlCells.length > 0) {
+        const combinedQueries = sqlCells
+          .map((c, idx) => `-- Cell ${idx + 1}\n${c.source.trim()}`)
+          .join('\n\n');
+        const response = await aiExplainResult(
+          sessionId,
+          combinedQueries,
+          `Notebook "${nb.notebook.metadata.title}" with ${sqlCells.length} query cell(s). Generate structured Markdown documentation explaining the purpose and steps of this notebook.`,
+          getConfig(),
+          effectiveNamespace ?? undefined
+        );
+        nb.addCell('markdown', nb.focusedCellId ?? undefined, response.content);
+      } else {
+        const response = await aiSummarizeSchema(
+          sessionId,
+          getConfig(),
+          effectiveNamespace ?? undefined
+        );
+        nb.addCell('markdown', nb.focusedCellId ?? undefined, response.content);
+      }
+    } catch (err) {
+      notify.error(err instanceof Error ? err.message : String(err));
+    } finally {
+      setGeneratingDocumentation(false);
+    }
+  }, [sessionId, aiReady, generatingDocumentation, nb, getConfig, effectiveNamespace]);
 
   useEffect(() => {
     if (hasVariables) setShowVariableBar(true);
@@ -232,6 +271,8 @@ export function NotebookTab({
         onImport={nb.importFromFile}
         onExport={format => nb.exportToFile(format)}
         onToggleVariables={handleToggleVariables}
+        onGenerateDocumentation={aiReady && sessionId ? handleGenerateDocumentation : undefined}
+        generatingDocumentation={generatingDocumentation}
       />
       {showVariableBar && (
         <NotebookVariableBar

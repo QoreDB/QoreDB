@@ -20,6 +20,7 @@ interface SqlCellProps {
   namespace?: Namespace | null;
   onSourceChange: (source: string) => void;
   onExecute: () => void;
+  onInsertMarkdownBelow?: (markdown: string) => void;
 }
 
 export function SqlCell({
@@ -30,6 +31,7 @@ export function SqlCell({
   namespace,
   onSourceChange,
   onExecute,
+  onInsertMarkdownBelow,
 }: SqlCellProps) {
   const { t } = useTranslation();
   const [showResults, setShowResults] = useState(true);
@@ -86,6 +88,7 @@ export function SqlCell({
                 query={cell.source}
                 sessionId={sessionId}
                 namespace={namespace}
+                onInsertMarkdownBelow={onInsertMarkdownBelow}
               />
             </>
           )}

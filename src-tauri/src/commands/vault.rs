@@ -438,6 +438,15 @@ pub async fn save_connection(
         Ok(()) => {
             refresh_session_masking(&state, &workspace_id, &connection.id, &connection.masking)
                 .await;
+            let session_manager = std::sync::Arc::clone(&state.lock().await.session_manager);
+            session_manager
+                .update_connection_policy(
+                    &workspace_id,
+                    &connection.id,
+                    connection.environment.as_str(),
+                    connection.read_only,
+                )
+                .await;
             Ok(VaultResponse {
                 success: true,
                 error: None,

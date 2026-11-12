@@ -497,6 +497,24 @@ impl SessionManager {
         }
     }
 
+    pub async fn update_connection_policy(
+        &self,
+        workspace_id: &str,
+        connection_id: &str,
+        environment: &str,
+        read_only: bool,
+    ) {
+        let mut sessions = self.sessions.write().await;
+        for session in sessions.values_mut() {
+            if session.saved_connection_id.as_deref() == Some(connection_id)
+                && session.workspace_id.as_deref() == Some(workspace_id)
+            {
+                session.config.environment = environment.to_owned();
+                session.config.read_only = read_only;
+            }
+        }
+    }
+
     pub async fn is_read_only(&self, session_id: SessionId) -> EngineResult<bool> {
         let sessions = self.sessions.read().await;
         let session = sessions
@@ -950,6 +968,44 @@ mod tests {
                 .is_err()
         );
         assert!(manager.workspace_id(session).await.is_none());
+    }
+
+    #[tokio::test]
+    async fn saved_environment_and_read_only_apply_to_open_sessions_of_that_connection() {
+        let manager = SessionManager::new(Arc::new(DriverRegistry::new()));
+        let edited = workspace_session(&manager, "same-id").await;
+        let other_workspace = workspace_session(&manager, "same-id").await;
+        let other_connection = workspace_session(&manager, "other-id").await;
+        let unbound = workspace_session(&manager, "same-id").await;
+        manager.bind_workspace(edited, "workspace-a").await.unwrap();
+        manager
+            .bind_workspace(other_workspace, "workspace-b")
+            .await
+            .unwrap();
+        manager
+            .bind_workspace(other_connection, "workspace-a")
+            .await
+            .unwrap();
+
+        manager
+            .update_connection_policy("workspace-a", "same-id", "production", true)
+            .await;
+        assert_eq!(manager.get_environment(edited).await.unwrap(), "production");
+        assert!(manager.is_production(edited).await.unwrap());
+        assert!(manager.is_read_only(edited).await.unwrap());
+        for session in [other_workspace, other_connection, unbound] {
+            assert_eq!(
+                manager.get_environment(session).await.unwrap(),
+                "development"
+            );
+            assert!(!manager.is_read_only(session).await.unwrap());
+        }
+
+        manager
+            .update_connection_policy("workspace-a", "same-id", "development", false)
+            .await;
+        assert!(!manager.is_production(edited).await.unwrap());
+        assert!(!manager.is_read_only(edited).await.unwrap());
     }
 
     #[tokio::test]

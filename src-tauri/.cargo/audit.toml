@@ -59,15 +59,30 @@ ignore = [
     # QoreDB never enables rust_decimal/rkyv, so the crate is resolved in Cargo.lock but never compiled.
     "RUSTSEC-2026-0235",
 
-    # zip < 9 - ZipArchive::extract() follows symlinks, keeps SUID/SGID bits and creates
-    # symlinks outside the destination. QoreDB's own zip dependency is on 9.x; the
-    # remaining copies are transitive and no released version of their parent accepts zip 9:
+    # zip < 9 - ZipArchive::extract() follows symlinks, keeps SUID/SGID bits, creates
+    # symlinks outside the destination (0367-0369) and aborts on a symlink entry with a huge
+    # declared size (0429). QoreDB's own zip dependency is on 9.x; the remaining copies are
+    # transitive:
     # - zip 4 via tauri-plugin-updater 2.10.1: extract() runs only on Windows, after the
     #   update bundle has passed minisign verification against QoreDB's public key.
+    #   The updater moves to zip 9 in 2.14, which requires tauri >= 2.12.
     # - zip 6 via libduckdb-sys (build-dependency): extracts the official DuckDB release
     #   archive at build time only.
-    # - zip 7 via rust_xlsxwriter: reads one theme entry with by_name(), never extract().
+    # - zip 7 via rust_xlsxwriter 0.93: reads one theme entry with by_name(), never
+    #   extract(). rust_xlsxwriter moves to zip 9 in 0.102.
     "RUSTSEC-2026-0367",
     "RUSTSEC-2026-0368",
     "RUSTSEC-2026-0369",
+    "RUSTSEC-2026-0429",
+
+    # rmcp < 3.9 - Streamable HTTP clients buffer response bodies without a size limit.
+    # qore-mcp enables only the server and stdio transports; no rmcp client is compiled.
+    "RUSTSEC-2026-0462",
+
+    # libsqlite3-sys < 0.39 - bundled SQLite < 3.54 can return uninitialized page-cache
+    # memory when a database is opened with a crafted -wal file of a different page size.
+    # Pinned by sqlx-sqlite (0.8: ^0.30.1, 0.9.0: < 0.38); no sqlx release accepts 0.39.
+    # Reachable: the SQLite driver opens user-selected files, so exposure needs a
+    # database/-wal pair crafted by someone else. Remove once sqlx accepts 0.39.
+    "RUSTSEC-2026-0459",
 ]

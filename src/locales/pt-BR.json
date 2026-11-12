@@ -95,7 +95,10 @@
       "secretsDescription": "Forneça os valores dos segredos declarados pelo plugin no manifesto. Os valores são armazenados no chaveiro do SO e nunca saem deste dispositivo.",
       "disabledErrorsBanner": "Este plugin foi desativado após {{count}} erros consecutivos. Reative-o pelo botão quando o problema for resolvido.",
       "inertBanner": "Este plugin está ativado, mas você não concedeu nenhuma permissão a ele, então ainda não pode fazer nada.",
-      "grantCta": "Conceder permissões"
+      "grantCta": "Conceder permissões",
+      "cellActions": "Ações de célula",
+      "cellRenderers": "Renderizadores de célula",
+      "allColumns": "todas as colunas"
     },
     "themes": {
       "title": "Temas de plugins",
@@ -156,6 +159,13 @@
       "remove": "Remover segredo",
       "show": "Exibir valor",
       "hide": "Ocultar valor"
+    },
+    "cell": {
+      "previewWith": "Pré-visualizar com",
+      "actions": "Ações de plugins",
+      "resultFor": "Resultado da coluna {{column}}",
+      "running": "Executando o plugin…",
+      "failed": "O plugin falhou: {{message}}"
     }
   },
   "pluginOutput": {
@@ -499,7 +509,11 @@
     "stats": "{{matches}} correspondências em {{tables}} tabelas ({{time}}ms)",
     "truncated": "Resultados truncados",
     "hint": "Digite pelo menos 2 caracteres para pesquisar",
-    "footerHint": "Clique em um resultado para abrir a tabela"
+    "footerHint": "Clique em um resultado para abrir a tabela",
+    "matchCount_one": "{{count}} correspondência",
+    "matchCount_other": "{{count}} correspondências",
+    "moreColumns_one": "+{{count}} outra",
+    "moreColumns_other": "+{{count}} outras"
   },
   "tabs": {
     "newTab": "Nova aba",
@@ -1320,7 +1334,8 @@
       "execTooltip": "Tempo de Processamento no Backend",
       "transferTooltip": "Tempo de Rede/Transferência",
       "totalTooltip": "Tempo Total de Ida e Volta"
-    }
+    },
+    "closeResult": "Fechar o resultado {{label}}"
   },
   "results": {
     "affectedRows": "{{count}} linha(s) afetada(s) em {{time}}ms",
@@ -1747,7 +1762,15 @@
     "help": "Ajuda",
     "resizeSidebar": "Redimensionar barra lateral",
     "resizeEditor": "Redimensionar editor SQL",
-    "resizeAiPanel": "Redimensionar painel do assistente de IA"
+    "resizeAiPanel": "Redimensionar painel do assistente de IA",
+    "query": {
+      "running": "Consulta em execução…",
+      "failed": "A consulta falhou. O erro aparece no painel de resultados.",
+      "timedOut": "A consulta excedeu o tempo limite.",
+      "done": "Consulta concluída em {{ms}} ms.",
+      "rows_one": "Consulta concluída: {{count}} linha em {{ms}} ms.",
+      "rows_other": "Consulta concluída: {{count}} linhas em {{ms}} ms."
+    }
   },
   "zenMode": {
     "enabled": "Modo Zen — Pressione Esc para sair"
@@ -1870,7 +1893,15 @@
     "keyspacesHeader": "KEYSPACES",
     "dataset": "Dataset",
     "datasets": "Datasets",
-    "datasetsHeader": "DATASETS"
+    "datasetsHeader": "DATASETS",
+    "mapping": {
+      "expand": "Mostrar o mapping de {{name}}",
+      "collapse": "Ocultar o mapping de {{name}}",
+      "label": "Mapping de {{name}}",
+      "empty": "Nenhum campo mapeado",
+      "failed": "Não foi possível carregar o mapping",
+      "subfield": "subcampo {{type}}"
+    }
   },
   "createTable": {
     "title": "Criar Tabela",
@@ -2371,7 +2402,10 @@
         "environments": "Aplicar aos ambientes",
         "operations": "Operações correspondentes",
         "action": "Ação",
-        "pattern": "Padrão da consulta (regex)"
+        "pattern": "Padrão da consulta (regex)",
+        "operationsHint": "Deixe vazio para abranger todas as operações",
+        "namePlaceholder": "Bloquear consultas perigosas",
+        "descriptionPlaceholder": "Evita perda acidental de dados"
       },
       "actions": {
         "block": "Bloquear consulta",
@@ -3959,5 +3993,21 @@
     "exported": "Script SQL exportado",
     "exportError": "Falha na exportação",
     "copied": "SQL copiado"
+  },
+  "timescale": {
+    "hypertable": "hypertable",
+    "timeDimension": "tempo",
+    "spaceDimension": "espaço",
+    "chunkInterval": "chunks de {{value}}",
+    "partitions": "{{value}} partições",
+    "compression": "Compressão",
+    "retention": "Retenção",
+    "disabled": "desativada",
+    "after": "após {{value}}",
+    "enabledNoPolicy": "ativada, sem política",
+    "dropAfter": "excluir após {{value}}",
+    "noPolicy": "sem política",
+    "chunks_one": "{{count}} chunk",
+    "chunks_other": "{{count}} chunks"
   }
 }

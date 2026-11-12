@@ -20,6 +20,7 @@ import {
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
+import { HypertableInfoSection } from '@/components/Browser/HypertableInfoSection';
 import { ChangesPanel, MigrationPreview, SandboxToggle } from '@/components/Sandbox';
 import { Button } from '@/components/ui/button';
 import {
@@ -29,6 +30,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { useHypertables } from '@/hooks/useHypertables';
 import { useTourManager } from '@/hooks/useTourManager';
 import { buildCreateIndexSQL, buildQualifiedTableName } from '@/lib/ddl';
 import { onTableChange } from '@/lib/events/tableEvents';
@@ -1248,6 +1250,7 @@ function TableInfoPanel({
   const [dropLoading, setDropLoading] = useState(false);
 
   const driverMeta = getDriverMetadata(driver);
+  const hypertable = useHypertables(sessionId, namespace, driver).find(h => h.name === tableName);
   const loadStats = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -1465,6 +1468,8 @@ function TableInfoPanel({
           </div>
         </div>
       ) : null}
+
+      {hypertable && <HypertableInfoSection hypertable={hypertable} />}
 
       {/* Maintenance Info (PostgreSQL) */}
       {(stats.lastVacuum || stats.lastAnalyze) && (

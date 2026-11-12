@@ -95,7 +95,10 @@
       "secretsDescription": "Proporciona los valores de los secretos declarados por el complemento en su manifiesto. Los valores se almacenan en el llavero del SO y nunca salen de este dispositivo.",
       "disabledErrorsBanner": "Este complemento se desactivó tras {{count}} errores consecutivos. Vuelve a activarlo con el interruptor cuando se resuelva el problema.",
       "inertBanner": "Este complemento está activado pero no le has concedido ningún permiso, así que todavía no puede hacer nada.",
-      "grantCta": "Conceder permisos"
+      "grantCta": "Conceder permisos",
+      "cellActions": "Acciones de celda",
+      "cellRenderers": "Renderizadores de celda",
+      "allColumns": "todas las columnas"
     },
     "themes": {
       "title": "Temas de complementos",
@@ -156,6 +159,13 @@
       "remove": "Eliminar secreto",
       "show": "Mostrar valor",
       "hide": "Ocultar valor"
+    },
+    "cell": {
+      "previewWith": "Vista previa con",
+      "actions": "Acciones de plugins",
+      "resultFor": "Resultado para la columna {{column}}",
+      "running": "Ejecutando el plugin…",
+      "failed": "El plugin falló: {{message}}"
     }
   },
   "pluginOutput": {
@@ -499,7 +509,11 @@
     "stats": "{{matches}} coincidencias en {{tables}} tablas ({{time}}ms)",
     "truncated": "Resultados truncados",
     "hint": "Ingresa al menos 2 caracteres para buscar",
-    "footerHint": "Haz clic en un resultado para abrir la tabla"
+    "footerHint": "Haz clic en un resultado para abrir la tabla",
+    "matchCount_one": "{{count}} coincidencia",
+    "matchCount_other": "{{count}} coincidencias",
+    "moreColumns_one": "+{{count}} más",
+    "moreColumns_other": "+{{count}} más"
   },
   "tabs": {
     "newTab": "Nueva pestaña",
@@ -1320,7 +1334,8 @@
       "execTooltip": "Tiempo de procesamiento del backend",
       "transferTooltip": "Tiempo de red/transferencia",
       "totalTooltip": "Tiempo total de ida y vuelta"
-    }
+    },
+    "closeResult": "Cerrar el resultado {{label}}"
   },
   "results": {
     "affectedRows": "{{count}} fila(s) afectada(s) en {{time}}ms",
@@ -1747,7 +1762,15 @@
     "help": "Ayuda",
     "resizeSidebar": "Redimensionar barra lateral",
     "resizeEditor": "Redimensionar editor SQL",
-    "resizeAiPanel": "Redimensionar panel de asistente IA"
+    "resizeAiPanel": "Redimensionar panel de asistente IA",
+    "query": {
+      "running": "Consulta en curso…",
+      "failed": "La consulta falló. El error se muestra en el panel de resultados.",
+      "timedOut": "La consulta superó el tiempo límite.",
+      "done": "Consulta terminada en {{ms}} ms.",
+      "rows_one": "Consulta terminada: {{count}} fila en {{ms}} ms.",
+      "rows_other": "Consulta terminada: {{count}} filas en {{ms}} ms."
+    }
   },
   "zenMode": {
     "enabled": "Modo Zen — Presiona Esc para salir"
@@ -1870,7 +1893,15 @@
     "keyspacesHeader": "KEYSPACES",
     "dataset": "Dataset",
     "datasets": "Datasets",
-    "datasetsHeader": "DATASETS"
+    "datasetsHeader": "DATASETS",
+    "mapping": {
+      "expand": "Mostrar el mapping de {{name}}",
+      "collapse": "Ocultar el mapping de {{name}}",
+      "label": "Mapping de {{name}}",
+      "empty": "Ningún campo mapeado",
+      "failed": "No se pudo cargar el mapping",
+      "subfield": "subcampo {{type}}"
+    }
   },
   "createTable": {
     "title": "Crear tabla",
@@ -2371,7 +2402,10 @@
         "environments": "Aplicar a entornos",
         "operations": "Operaciones coincidentes",
         "action": "Acción",
-        "pattern": "Patrón de consulta (regex)"
+        "pattern": "Patrón de consulta (regex)",
+        "operationsHint": "Déjalo vacío para incluir todas las operaciones",
+        "namePlaceholder": "Bloquear consultas peligrosas",
+        "descriptionPlaceholder": "Evita la pérdida accidental de datos"
       },
       "actions": {
         "block": "Bloquear consulta",
@@ -3959,5 +3993,21 @@
     "exported": "Script SQL exportado",
     "exportError": "Error al exportar",
     "copied": "SQL copiado"
+  },
+  "timescale": {
+    "hypertable": "hypertable",
+    "timeDimension": "tiempo",
+    "spaceDimension": "espacio",
+    "chunkInterval": "chunks de {{value}}",
+    "partitions": "{{value}} particiones",
+    "compression": "Compresión",
+    "retention": "Retención",
+    "disabled": "desactivada",
+    "after": "tras {{value}}",
+    "enabledNoPolicy": "activada, sin política",
+    "dropAfter": "eliminar tras {{value}}",
+    "noPolicy": "sin política",
+    "chunks_one": "{{count}} chunk",
+    "chunks_other": "{{count}} chunks"
   }
 }

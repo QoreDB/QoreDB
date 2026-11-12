@@ -3,9 +3,7 @@
 //! TimescaleDB Driver
 //!
 //! TimescaleDB is a PostgreSQL extension for time-series data. This driver
-//! is a thin wrapper over the shared `pg_compat` helpers exposing a distinct
-//! `driver_id` for telemetry and UI branding. Future work may surface
-//! hypertables and continuous aggregates as first-class objects in the tree.
+//! wraps the shared `pg_compat` helpers and adds hypertable metadata.
 
 use async_trait::async_trait;
 
@@ -13,7 +11,7 @@ use crate::drivers::pg_compat::{self, SessionMap};
 use qore_core::error::EngineResult;
 use qore_core::traits::{DataEngine, StreamSender};
 use qore_core::types::{
-    CancelSupport, CollectionList, CollectionListOptions, ConnectionConfig, ForeignKey,
+    CancelSupport, CollectionList, CollectionListOptions, ConnectionConfig, ForeignKey, Hypertable,
     MaintenanceOperationInfo, MaintenanceRequest, MaintenanceResult, Namespace,
     PaginatedQueryResult, PaginationCapability, QueryId, QueryResult, RoutineDefinition,
     RoutineList, RoutineListOptions, RoutineOperationResult, RoutineType, RowData, SessionId,
@@ -329,6 +327,14 @@ impl DataEngine for TimescaleDbDriver {
             arguments,
         )
         .await
+    }
+
+    async fn list_hypertables(
+        &self,
+        session: SessionId,
+        namespace: &Namespace,
+    ) -> EngineResult<Vec<Hypertable>> {
+        pg_compat::hypertables::list_hypertables(&self.sessions, session, namespace).await
     }
 
     fn supports_triggers(&self) -> bool {

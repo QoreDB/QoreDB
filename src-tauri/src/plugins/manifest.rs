@@ -2,7 +2,7 @@
 
 //! `plugin.json` parsing and validation.
 
-use super::{PluginContributions, PluginManifest, RuntimeSpec};
+use super::{CellContribution, PluginContributions, PluginManifest, RuntimeSpec, ViewerMatch};
 
 const CURRENT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -53,6 +53,13 @@ pub fn validate_manifest(m: &PluginManifest) -> Result<(), String> {
     if !m.contributes.commands.is_empty() && m.runtime.is_none() {
         return Err(
             "Command contributions require a 'runtime' block to receive the command hook".into(),
+        );
+    }
+    if (!m.contributes.cell_actions.is_empty() || !m.contributes.cell_renderers.is_empty())
+        && m.runtime.is_none()
+    {
+        return Err(
+            "Cell action and renderer contributions require a 'runtime' block to run them".into(),
         );
     }
     Ok(())
@@ -147,32 +154,24 @@ fn validate_contributions(c: &PluginContributions) -> Result<(), String> {
         // At least one match criterion — a viewer that matches nothing would
         // never fire; one that matches everything would override every cell
         // and is almost certainly a mistake.
-        let has_match = viewer
-            .match_on
-            .column_type
-            .as_deref()
-            .is_some_and(|s| !s.trim().is_empty())
-            || viewer
-                .match_on
-                .name_pattern
-                .as_deref()
-                .is_some_and(|s| !s.trim().is_empty());
-        if !has_match {
+        if !has_match(&viewer.match_on) {
             return Err(format!(
                 "Result viewer '{}' must declare a 'columnType' or 'namePattern' match",
                 viewer.id
             ));
         }
-        // The frontend treats `*` as the only wildcard; reject anything that
-        // smells like a regex so we don't accidentally honour an unsafe pattern
-        // later.
-        if let Some(pat) = viewer.match_on.name_pattern.as_deref() {
-            if pat.contains(['/', '\\', '^', '$', '(', ')', '[', ']', '{', '}', '|']) {
-                return Err(format!(
-                    "Result viewer '{}' name pattern may only contain '*' wildcards",
-                    viewer.id
-                ));
-            }
+        validate_name_pattern("Result viewer", &viewer.id, &viewer.match_on)?;
+    }
+    for action in &c.cell_actions {
+        validate_cell_contribution("Cell action", action)?;
+    }
+    for renderer in &c.cell_renderers {
+        validate_cell_contribution("Cell renderer", renderer)?;
+        if !renderer.match_on.as_ref().is_some_and(has_match) {
+            return Err(format!(
+                "Cell renderer '{}' must declare a 'columnType' or 'namePattern' match",
+                renderer.id
+            ));
         }
     }
     for command in &c.commands {
@@ -182,6 +181,44 @@ fn validate_contributions(c: &PluginContributions) -> Result<(), String> {
         if command.label.trim().is_empty() {
             return Err(format!("Command '{}' has an empty label", command.id));
         }
+    }
+    Ok(())
+}
+
+fn has_match(m: &ViewerMatch) -> bool {
+    m.column_type
+        .as_deref()
+        .is_some_and(|s| !s.trim().is_empty())
+        || m.name_pattern
+            .as_deref()
+            .is_some_and(|s| !s.trim().is_empty())
+}
+
+// The frontend treats `*` as the only wildcard; anything regex-like is
+// rejected so an unsafe pattern is never honoured later.
+fn validate_name_pattern(kind: &str, id: &str, m: &ViewerMatch) -> Result<(), String> {
+    if let Some(pat) = m.name_pattern.as_deref() {
+        if pat.contains(['/', '\\', '^', '$', '(', ')', '[', ']', '{', '}', '|']) {
+            return Err(format!(
+                "{kind} '{id}' name pattern may only contain '*' wildcards"
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn validate_cell_contribution(kind: &str, c: &CellContribution) -> Result<(), String> {
+    if c.id.trim().is_empty() {
+        return Err(format!("{kind} contributions require a non-empty id"));
+    }
+    if c.id.contains("::") {
+        return Err(format!("{kind} id '{}' must not contain '::'", c.id));
+    }
+    if c.label.trim().is_empty() {
+        return Err(format!("{kind} '{}' has an empty label", c.id));
+    }
+    if let Some(m) = &c.match_on {
+        validate_name_pattern(kind, &c.id, m)?;
     }
     Ok(())
 }
@@ -501,6 +538,57 @@ mod tests {
                        "integrity":"sha256-E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855"}
         }"#;
         assert!(manifest(json).unwrap_err().contains("lowercase"));
+    }
+
+    #[test]
+    fn accepts_cell_actions_and_renderers_with_a_runtime() {
+        let json = r#"{
+            "id":"acme.x","name":"X","version":"1.0.0",
+            "runtime":{"abiVersion":1,"entry":"plugin.wasm"},
+            "contributes":{
+                "cellActions":[{"id":"decode","label":"Decode JWT"}],
+                "cellRenderers":[{"id":"geo","label":"Geo","match":{"columnType":"geometry"}}]
+            }
+        }"#;
+        let m = manifest(json).unwrap();
+        assert_eq!(m.contributes.cell_actions.len(), 1);
+        assert!(m.contributes.cell_actions[0].match_on.is_none());
+        assert_eq!(m.contributes.cell_renderers.len(), 1);
+    }
+
+    #[test]
+    fn rejects_cell_actions_without_a_runtime() {
+        let json = r#"{
+            "id":"acme.x","name":"X","version":"1.0.0",
+            "contributes":{"cellActions":[{"id":"decode","label":"Decode"}]}
+        }"#;
+        assert!(manifest(json).unwrap_err().contains("runtime"));
+    }
+
+    #[test]
+    fn rejects_cell_renderer_without_a_match() {
+        let json = r#"{
+            "id":"acme.x","name":"X","version":"1.0.0",
+            "runtime":{"abiVersion":1,"entry":"plugin.wasm"},
+            "contributes":{"cellRenderers":[{"id":"geo","label":"Geo"}]}
+        }"#;
+        assert!(manifest(json).unwrap_err().contains("match"));
+    }
+
+    #[test]
+    fn rejects_cell_action_with_regex_pattern_or_namespaced_id() {
+        let regex = r#"{
+            "id":"acme.x","name":"X","version":"1.0.0",
+            "runtime":{"abiVersion":1,"entry":"plugin.wasm"},
+            "contributes":{"cellActions":[{"id":"a","label":"A","match":{"namePattern":"^tok(en)?$"}}]}
+        }"#;
+        assert!(manifest(regex).unwrap_err().contains("wildcards"));
+        let namespaced = r#"{
+            "id":"acme.x","name":"X","version":"1.0.0",
+            "runtime":{"abiVersion":1,"entry":"plugin.wasm"},
+            "contributes":{"cellActions":[{"id":"a::b","label":"A"}]}
+        }"#;
+        assert!(manifest(namespaced).unwrap_err().contains("::"));
     }
 
     #[test]

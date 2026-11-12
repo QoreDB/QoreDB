@@ -95,7 +95,10 @@
       "secretsDescription": "플러그인이 매니페스트에 선언한 비밀의 값을 제공하세요. 값은 OS 키링에 저장되며 이 기기를 벗어나지 않습니다.",
       "disabledErrorsBanner": "이 플러그인은 {{count}}회 연속 오류로 인해 비활성화되었습니다. 문제를 해결한 후 토글로 다시 활성화하세요.",
       "inertBanner": "이 플러그인은 활성화되어 있지만 권한을 부여하지 않아 아직 아무 작업도 할 수 없습니다.",
-      "grantCta": "권한 부여"
+      "grantCta": "권한 부여",
+      "cellActions": "셀 작업",
+      "cellRenderers": "셀 렌더러",
+      "allColumns": "모든 열"
     },
     "themes": {
       "title": "플러그인 테마",
@@ -156,6 +159,13 @@
       "remove": "비밀 제거",
       "show": "값 표시",
       "hide": "값 숨기기"
+    },
+    "cell": {
+      "previewWith": "미리보기:",
+      "actions": "플러그인 작업",
+      "resultFor": "{{column}} 열의 결과",
+      "running": "플러그인 실행 중…",
+      "failed": "플러그인 실패: {{message}}"
     }
   },
   "pluginOutput": {
@@ -499,7 +509,9 @@
     "stats": "{{tables}}개 테이블에서 {{matches}}개 일치 ({{time}}ms)",
     "truncated": "결과가 잘렸습니다",
     "hint": "검색하려면 2자 이상 입력하세요",
-    "footerHint": "결과를 클릭하면 테이블이 열립니다"
+    "footerHint": "결과를 클릭하면 테이블이 열립니다",
+    "matchCount_other": "{{count}}개 일치",
+    "moreColumns_other": "+{{count}}개 더"
   },
   "tabs": {
     "newTab": "새 탭",
@@ -1311,7 +1323,8 @@
       "execTooltip": "백엔드 처리 시간",
       "transferTooltip": "네트워크/전송 시간",
       "totalTooltip": "총 왕복 시간"
-    }
+    },
+    "closeResult": "결과 {{label}} 닫기"
   },
   "results": {
     "affectedRows": "{{time}}ms 동안 {{count}}개 행 영향 받음",
@@ -1738,7 +1751,14 @@
     "help": "도움말",
     "resizeSidebar": "사이드바 크기 조절",
     "resizeEditor": "SQL 편집기 크기 조절",
-    "resizeAiPanel": "AI 어시스턴트 패널 크기 조절"
+    "resizeAiPanel": "AI 어시스턴트 패널 크기 조절",
+    "query": {
+      "running": "쿼리 실행 중…",
+      "failed": "쿼리가 실패했습니다. 오류는 결과 패널에 표시됩니다.",
+      "timedOut": "쿼리 시간이 초과되었습니다.",
+      "done": "쿼리가 {{ms}}ms 만에 완료되었습니다.",
+      "rows_other": "쿼리 완료: {{count}}개 행, {{ms}}ms."
+    }
   },
   "zenMode": {
     "enabled": "집중 모드 — Esc를 눌러 종료"
@@ -1861,7 +1881,15 @@
     "keyspacesHeader": "키스페이스",
     "dataset": "데이터세트",
     "datasets": "데이터세트",
-    "datasetsHeader": "데이터세트"
+    "datasetsHeader": "데이터세트",
+    "mapping": {
+      "expand": "{{name}} 매핑 표시",
+      "collapse": "{{name}} 매핑 숨기기",
+      "label": "{{name}} 매핑",
+      "empty": "매핑된 필드 없음",
+      "failed": "매핑을 불러올 수 없습니다",
+      "subfield": "{{type}} 하위 필드"
+    }
   },
   "createTable": {
     "title": "테이블 만들기",
@@ -2362,7 +2390,10 @@
         "environments": "적용 환경",
         "operations": "일치 작업",
         "action": "동작",
-        "pattern": "쿼리 패턴 (정규식)"
+        "pattern": "쿼리 패턴 (정규식)",
+        "operationsHint": "비워 두면 모든 작업에 적용됩니다",
+        "namePlaceholder": "위험한 쿼리 차단",
+        "descriptionPlaceholder": "실수로 인한 데이터 손실 방지"
       },
       "actions": {
         "block": "쿼리 차단",
@@ -3948,5 +3979,20 @@
     "exported": "SQL 스크립트를 내보냈습니다",
     "exportError": "내보내기 실패",
     "copied": "SQL이 복사되었습니다"
+  },
+  "timescale": {
+    "hypertable": "하이퍼테이블",
+    "timeDimension": "시간",
+    "spaceDimension": "공간",
+    "chunkInterval": "청크 간격 {{value}}",
+    "partitions": "파티션 {{value}}개",
+    "compression": "압축",
+    "retention": "보존",
+    "disabled": "비활성화",
+    "after": "{{value}} 후",
+    "enabledNoPolicy": "활성화됨(정책 없음)",
+    "dropAfter": "{{value}} 후 삭제",
+    "noPolicy": "정책 없음",
+    "chunks_other": "청크 {{count}}개"
   }
 }

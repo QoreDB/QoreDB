@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { X } from 'lucide-react';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useId, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Environment, QueryOperationType, SafetyRule } from '../../lib/tauri/interceptor';
 import { Button } from '../ui/button';
 import { Checkbox } from '../ui/checkbox';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
+import { ModalShell } from '../ui/modal-shell';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 
 interface SafetyRuleEditorProps {
@@ -41,6 +42,7 @@ const ACTIONS: Array<{ value: SafetyRule['action']; label: string }> = [
 
 export function SafetyRuleEditor({ rule, onSave, onCancel }: SafetyRuleEditorProps) {
   const { t } = useTranslation();
+  const titleId = useId();
   const isEditing = !!rule;
 
   const [name, setName] = useState(rule?.name || '');
@@ -119,125 +121,140 @@ export function SafetyRuleEditor({ rule, onSave, onCancel }: SafetyRuleEditorPro
   ]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/50" onClick={onCancel} />
+    <ModalShell
+      open
+      onClose={onCancel}
+      labelledBy={titleId}
+      overlayClassName="bg-black/50"
+      containerClassName="items-center"
+      contentClassName="bg-background rounded-lg shadow-xl border border-border w-full max-w-lg max-h-[90vh] overflow-hidden flex flex-col"
+    >
+      <div className="flex items-center justify-between p-4 border-b border-border">
+        <h2 id={titleId} className="text-lg font-semibold">
+          {isEditing ? t('interceptor.safety.editRule') : t('interceptor.safety.addRule')}
+        </h2>
+        <button
+          type="button"
+          onClick={onCancel}
+          aria-label={t('common.close')}
+          className="p-1 rounded hover:bg-muted transition-colors"
+        >
+          <X className="w-5 h-5" />
+        </button>
+      </div>
 
-      <div className="relative bg-background rounded-lg shadow-xl border border-border w-full max-w-lg mx-4 max-h-[90vh] overflow-hidden flex flex-col">
-        <div className="flex items-center justify-between p-4 border-b border-border">
-          <h2 className="text-lg font-semibold">
-            {isEditing ? t('interceptor.safety.editRule') : t('interceptor.safety.addRule')}
-          </h2>
-          <button
-            type="button"
-            onClick={onCancel}
-            className="p-1 rounded hover:bg-muted transition-colors"
+      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        <div className="space-y-2">
+          <Label htmlFor="rule-name">{t('interceptor.safety.ruleFields.name')}</Label>
+          <Input
+            id="rule-name"
+            value={name}
+            onChange={e => setName(e.target.value)}
+            placeholder={t('interceptor.safety.ruleFields.namePlaceholder')}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="rule-description">{t('interceptor.safety.ruleFields.description')}</Label>
+          <Input
+            id="rule-description"
+            value={description}
+            onChange={e => setDescription(e.target.value)}
+            placeholder={t('interceptor.safety.ruleFields.descriptionPlaceholder')}
+          />
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Checkbox
+            id="rule-enabled"
+            checked={enabled}
+            onCheckedChange={checked => setEnabled(!!checked)}
+          />
+          <Label htmlFor="rule-enabled">{t('interceptor.safety.ruleFields.enabled')}</Label>
+        </div>
+
+        <div className="space-y-2">
+          <Label id={`${titleId}-environments`}>
+            {t('interceptor.safety.ruleFields.environments')}
+          </Label>
+          <fieldset
+            aria-labelledby={`${titleId}-environments`}
+            className="m-0 flex min-w-0 flex-wrap gap-3 border-0 p-0"
           >
-            <X className="w-5 h-5" />
-          </button>
+            {ENVIRONMENTS.map(env => (
+              <label key={env} className="flex items-center gap-2 text-sm">
+                <Checkbox
+                  checked={environments.includes(env)}
+                  onCheckedChange={checked => handleEnvironmentToggle(env, !!checked)}
+                />
+                {t(`environment.${env}`)}
+              </label>
+            ))}
+          </fieldset>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="rule-name">{t('interceptor.safety.ruleFields.name')}</Label>
-            <Input
-              id="rule-name"
-              value={name}
-              onChange={e => setName(e.target.value)}
-              placeholder="Block dangerous queries"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="rule-description">
-              {t('interceptor.safety.ruleFields.description')}
-            </Label>
-            <Input
-              id="rule-description"
-              value={description}
-              onChange={e => setDescription(e.target.value)}
-              placeholder="Prevents accidental data loss"
-            />
-          </div>
-
-          <div className="flex items-center gap-2">
-            <Checkbox
-              id="rule-enabled"
-              checked={enabled}
-              onCheckedChange={checked => setEnabled(!!checked)}
-            />
-            <Label htmlFor="rule-enabled">{t('interceptor.safety.ruleFields.enabled')}</Label>
-          </div>
-
-          <div className="space-y-2">
-            <Label>{t('interceptor.safety.ruleFields.environments')}</Label>
-            <div className="flex flex-wrap gap-3">
-              {ENVIRONMENTS.map(env => (
-                <label key={env} className="flex items-center gap-2 text-sm">
-                  <Checkbox
-                    checked={environments.includes(env)}
-                    onCheckedChange={checked => handleEnvironmentToggle(env, !!checked)}
-                  />
-                  {t(`environment.${env}`)}
-                </label>
-              ))}
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label>{t('interceptor.safety.ruleFields.operations')}</Label>
-            <p className="text-xs text-muted-foreground">Leave empty to match all operations</p>
-            <div className="grid grid-cols-3 gap-2">
-              {OPERATION_TYPES.map(op => (
-                <label key={op} className="flex items-center gap-2 text-sm">
-                  <Checkbox
-                    checked={operations.includes(op)}
-                    onCheckedChange={checked => handleOperationToggle(op, !!checked)}
-                  />
-                  {t(`interceptor.operations.${op}`)}
-                </label>
-              ))}
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label>{t('interceptor.safety.ruleFields.action')}</Label>
-            <Select value={action} onValueChange={v => setAction(v as SafetyRule['action'])}>
-              <SelectTrigger className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {ACTIONS.map(({ value, label }) => (
-                  <SelectItem key={value} value={value}>
-                    {t(label)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="rule-pattern">{t('interceptor.safety.ruleFields.pattern')}</Label>
-            <p className="text-xs text-muted-foreground">Optional regex to match query text</p>
-            <Input
-              id="rule-pattern"
-              value={pattern}
-              onChange={e => handlePatternChange(e.target.value)}
-              placeholder="DROP\s+TABLE"
-              className={patternError ? 'border-destructive' : ''}
-            />
-            {patternError && <p className="text-xs text-destructive">{patternError}</p>}
-          </div>
+        <div className="space-y-2">
+          <Label id={`${titleId}-operations`}>
+            {t('interceptor.safety.ruleFields.operations')}
+          </Label>
+          <p id={`${titleId}-operations-hint`} className="text-xs text-muted-foreground">
+            {t('interceptor.safety.ruleFields.operationsHint')}
+          </p>
+          <fieldset
+            aria-labelledby={`${titleId}-operations`}
+            aria-describedby={`${titleId}-operations-hint`}
+            className="m-0 grid min-w-0 grid-cols-3 gap-2 border-0 p-0"
+          >
+            {OPERATION_TYPES.map(op => (
+              <label key={op} className="flex items-center gap-2 text-sm">
+                <Checkbox
+                  checked={operations.includes(op)}
+                  onCheckedChange={checked => handleOperationToggle(op, !!checked)}
+                />
+                {t(`interceptor.operations.${op}`)}
+              </label>
+            ))}
+          </fieldset>
         </div>
 
-        <div className="flex items-center justify-end gap-2 p-4 border-t border-border">
-          <Button variant="outline" onClick={onCancel}>
-            {t('common.cancel')}
-          </Button>
-          <Button onClick={handleSave} disabled={!isValid}>
-            {t('common.save')}
-          </Button>
+        <div className="space-y-2">
+          <Label>{t('interceptor.safety.ruleFields.action')}</Label>
+          <Select value={action} onValueChange={v => setAction(v as SafetyRule['action'])}>
+            <SelectTrigger className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {ACTIONS.map(({ value, label }) => (
+                <SelectItem key={value} value={value}>
+                  {t(label)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="rule-pattern">{t('interceptor.safety.ruleFields.pattern')}</Label>
+          <p className="text-xs text-muted-foreground">Optional regex to match query text</p>
+          <Input
+            id="rule-pattern"
+            value={pattern}
+            onChange={e => handlePatternChange(e.target.value)}
+            placeholder="DROP\s+TABLE"
+            className={patternError ? 'border-destructive' : ''}
+          />
+          {patternError && <p className="text-xs text-destructive">{patternError}</p>}
         </div>
       </div>
-    </div>
+
+      <div className="flex items-center justify-end gap-2 p-4 border-t border-border">
+        <Button variant="outline" onClick={onCancel}>
+          {t('common.cancel')}
+        </Button>
+        <Button onClick={handleSave} disabled={!isValid}>
+          {t('common.save')}
+        </Button>
+      </div>
+    </ModalShell>
   );
 }

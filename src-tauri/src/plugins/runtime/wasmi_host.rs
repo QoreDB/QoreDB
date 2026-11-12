@@ -17,6 +17,9 @@
 //!   at the JSON [`Decision`] it produced.
 //! - `post_execute(ptr: i32, len: i32)` *(optional)* — receives a JSON
 //!   `{context, result}` envelope; returns nothing.
+//! - `cell_action` / `render_cell(ptr: i32, len: i32) -> i64` *(optional)* —
+//!   receive a JSON [`CellInput`] and return a packed pointer to a JSON
+//!   [`CellOutput`]. They run with only `log` and `storage` available.
 //!
 //! Phase 2 capability host functions (see [`host_fns`]) are always registered;
 //! whether they do anything depends on the per-invocation consent set.
@@ -26,8 +29,9 @@ use std::sync::Arc;
 use wasmi::{Engine, Linker, Module, Store, StoreLimits, StoreLimitsBuilder};
 
 use super::{
-    Budget, Decision, HookContext, InvocationServices, PluginError, PluginInstance, PluginRuntime,
-    PostExecuteResult, QueryReadPayload, host_fns,
+    Budget, CellHookKind, CellInput, CellOutput, Decision, HookContext, InvocationServices,
+    PluginError, PluginInstance, PluginRuntime, PostExecuteResult, QueryReadPayload, cell,
+    host_fns,
 };
 
 /// A WASM page is 64 KiB — the unit `Budget::memory_pages` is denominated in.
@@ -108,7 +112,7 @@ struct WasmiInstance {
 impl PluginInstance for WasmiInstance {
     fn pre_execute(&mut self, context: &HookContext) -> Result<Decision, PluginError> {
         let input = serde_json::to_vec(context).map_err(|e| PluginError::Abi(e.to_string()))?;
-        let (mut store, instance) = build_store_and_instance(self, None)?;
+        let (mut store, instance) = build_store_and_instance(self, None, false)?;
 
         let hook = match instance.get_typed_func::<(i32, i32), i64>(&store, PRE_EXECUTE_EXPORT) {
             Ok(func) => func,
@@ -138,7 +142,7 @@ impl PluginInstance for WasmiInstance {
     ) -> Result<(), PluginError> {
         let envelope = serde_json::json!({ "context": context, "result": result });
         let input = serde_json::to_vec(&envelope).map_err(|e| PluginError::Abi(e.to_string()))?;
-        let (mut store, instance) = build_store_and_instance(self, payload)?;
+        let (mut store, instance) = build_store_and_instance(self, payload, false)?;
 
         let hook = match instance.get_typed_func::<(i32, i32), ()>(&store, POST_EXECUTE_EXPORT) {
             Ok(func) => func,
@@ -157,7 +161,7 @@ impl PluginInstance for WasmiInstance {
     ) -> Result<serde_json::Value, PluginError> {
         let envelope = serde_json::json!({ "id": command_id, "args": args });
         let input = serde_json::to_vec(&envelope).map_err(|e| PluginError::Abi(e.to_string()))?;
-        let (mut store, instance) = build_store_and_instance(self, None)?;
+        let (mut store, instance) = build_store_and_instance(self, None, false)?;
 
         let hook = instance
             .get_typed_func::<(i32, i32), i64>(&store, COMMAND_EXPORT)
@@ -182,6 +186,42 @@ impl PluginInstance for WasmiInstance {
             .map_err(|e| PluginError::Abi(e.to_string()))?;
         serde_json::from_slice(&out).map_err(|e| PluginError::Abi(e.to_string()))
     }
+
+    fn cell_hook(
+        &mut self,
+        kind: CellHookKind,
+        input: &CellInput,
+    ) -> Result<CellOutput, PluginError> {
+        let bytes = cell::encode_input(input)?;
+        let (mut store, instance) = build_store_and_instance(self, None, true)?;
+
+        let export = kind.export_name();
+        let hook = instance
+            .get_typed_func::<(i32, i32), i64>(&store, export)
+            .map_err(|_| PluginError::Abi(format!("plugin does not export the '{export}' hook")))?;
+        let (ptr, len) = write_input(&mut store, &instance, &bytes)?;
+        let packed = hook
+            .call(&mut store, (ptr, len))
+            .map_err(|e| map_call_error(&store, e))?;
+        if packed == 0 {
+            return Err(PluginError::Abi(format!("'{export}' returned no output")));
+        }
+        let memory = instance
+            .get_memory(&store, "memory")
+            .ok_or_else(|| PluginError::Abi("plugin exports no memory".into()))?;
+        let (out_ptr, out_len) = unpack(packed);
+        if out_len > cell::MAX_CELL_OUTPUT_BYTES {
+            return Err(PluginError::Abi(format!(
+                "cell output exceeds {} bytes",
+                cell::MAX_CELL_OUTPUT_BYTES
+            )));
+        }
+        let mut out = vec![0u8; out_len];
+        memory
+            .read(&store, out_ptr, &mut out)
+            .map_err(|e| PluginError::Abi(e.to_string()))?;
+        cell::parse_output(&out)
+    }
 }
 
 /// Spins up a fresh `Store` + `Linker` and instantiates the module against
@@ -190,6 +230,7 @@ impl PluginInstance for WasmiInstance {
 fn build_store_and_instance(
     inst: &WasmiInstance,
     query_result: Option<Arc<QueryReadPayload>>,
+    restricted: bool,
 ) -> Result<(Store<StoreData>, wasmi::Instance), PluginError> {
     let memory_size_bytes = (inst.budget.memory_pages as usize).saturating_mul(WASM_PAGE_BYTES);
     let limits = StoreLimitsBuilder::new()
@@ -199,6 +240,12 @@ fn build_store_and_instance(
 
     let mut services = inst.services.clone();
     services.query_result = query_result;
+    if restricted {
+        services.consent = Arc::new(cell::restrict_consent(&services.consent));
+        services.http_allowed_hosts = Arc::new(Vec::new());
+        services.fs_root = None;
+        services.secret_names = Arc::new(Vec::new());
+    }
 
     let mut store = Store::new(&inst.engine, StoreData { limits, services });
     store.limiter(|data| &mut data.limits);

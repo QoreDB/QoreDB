@@ -251,5 +251,13 @@ export function useResizableSidebar() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  return { width, sidebarRef, handleMouseDown, handleKeyDown, resetWidth };
+  return {
+    width,
+    minWidth: MIN_SIDEBAR_WIDTH,
+    maxWidth: getMaxWidth(),
+    sidebarRef,
+    handleMouseDown,
+    handleKeyDown,
+    resetWidth,
+  };
 }

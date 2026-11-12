@@ -95,7 +95,10 @@
       "secretsDescription": "マニフェストでプラグインが宣言したシークレットの値を提供します。値は OS のキーチェーンに保存され、このデバイスから出ません。",
       "disabledErrorsBanner": "このプラグインは連続 {{count}} 回のエラーのため停止しました。問題を解決したらトグルで再度有効にしてください。",
       "inertBanner": "このプラグインは有効ですが、権限が付与されていないため、まだ何もできません。",
-      "grantCta": "権限を付与"
+      "grantCta": "権限を付与",
+      "cellActions": "セルアクション",
+      "cellRenderers": "セルレンダラー",
+      "allColumns": "すべての列"
     },
     "themes": {
       "title": "プラグインテーマ",
@@ -156,6 +159,13 @@
       "remove": "シークレットを削除",
       "show": "値を表示",
       "hide": "値を非表示"
+    },
+    "cell": {
+      "previewWith": "プレビュー:",
+      "actions": "プラグインのアクション",
+      "resultFor": "列 {{column}} の結果",
+      "running": "プラグインを実行中…",
+      "failed": "プラグインが失敗しました: {{message}}"
     }
   },
   "pluginOutput": {
@@ -499,7 +509,9 @@
     "stats": "{{matches}} 件一致（{{tables}} テーブル、{{time}}ms）",
     "truncated": "結果が切り詰められました",
     "hint": "2文字以上入力して検索",
-    "footerHint": "結果をクリックしてテーブルを開く"
+    "footerHint": "結果をクリックしてテーブルを開く",
+    "matchCount_other": "{{count}} 件一致",
+    "moreColumns_other": "他 {{count}} 件"
   },
   "tabs": {
     "newTab": "新しいタブ",
@@ -1311,7 +1323,8 @@
       "execTooltip": "バックエンド処理時間",
       "transferTooltip": "ネットワーク/転送時間",
       "totalTooltip": "合計ラウンドトリップ"
-    }
+    },
+    "closeResult": "結果 {{label}} を閉じる"
   },
   "results": {
     "affectedRows": "{{count}} 行が {{time}}ms で影響を受けました",
@@ -1738,7 +1751,14 @@
     "help": "ヘルプ",
     "resizeSidebar": "サイドバーのサイズを変更",
     "resizeEditor": "SQLエディターのサイズを変更",
-    "resizeAiPanel": "AIアシスタントパネルのサイズを変更"
+    "resizeAiPanel": "AIアシスタントパネルのサイズを変更",
+    "query": {
+      "running": "クエリを実行中…",
+      "failed": "クエリが失敗しました。エラーは結果パネルに表示されています。",
+      "timedOut": "クエリがタイムアウトしました。",
+      "done": "クエリは {{ms}} ms で完了しました。",
+      "rows_other": "クエリ完了: {{count}} 行（{{ms}} ms）。"
+    }
   },
   "zenMode": {
     "enabled": "Zen モード — Esc キーで終了"
@@ -1861,7 +1881,15 @@
     "keyspacesHeader": "キースペース",
     "dataset": "データセット",
     "datasets": "データセット",
-    "datasetsHeader": "データセット"
+    "datasetsHeader": "データセット",
+    "mapping": {
+      "expand": "{{name}} のマッピングを表示",
+      "collapse": "{{name}} のマッピングを非表示",
+      "label": "{{name}} のマッピング",
+      "empty": "マッピングされたフィールドはありません",
+      "failed": "マッピングを読み込めませんでした",
+      "subfield": "{{type}} サブフィールド"
+    }
   },
   "createTable": {
     "title": "テーブルを作成",
@@ -2362,7 +2390,10 @@
         "environments": "適用する環境",
         "operations": "一致する操作",
         "action": "アクション",
-        "pattern": "クエリパターン（正規表現）"
+        "pattern": "クエリパターン（正規表現）",
+        "operationsHint": "空欄にするとすべての操作に適用されます",
+        "namePlaceholder": "危険なクエリをブロック",
+        "descriptionPlaceholder": "誤ったデータ損失を防止"
       },
       "actions": {
         "block": "クエリをブロック",
@@ -3948,5 +3979,20 @@
     "exported": "SQLスクリプトをエクスポートしました",
     "exportError": "エクスポートに失敗しました",
     "copied": "SQLをコピーしました"
+  },
+  "timescale": {
+    "hypertable": "ハイパーテーブル",
+    "timeDimension": "時間",
+    "spaceDimension": "空間",
+    "chunkInterval": "チャンク間隔 {{value}}",
+    "partitions": "{{value}} パーティション",
+    "compression": "圧縮",
+    "retention": "保持",
+    "disabled": "無効",
+    "after": "{{value}} 後",
+    "enabledNoPolicy": "有効（ポリシーなし）",
+    "dropAfter": "{{value}} 後に削除",
+    "noPolicy": "ポリシーなし",
+    "chunks_other": "{{count}} チャンク"
   }
 }

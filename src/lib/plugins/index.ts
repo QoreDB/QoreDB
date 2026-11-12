@@ -4,6 +4,8 @@
 
 import { invoke } from '@/lib/transport';
 import type {
+  CellHookKind,
+  CellOutput,
   InstalledPlugin,
   PluginCapabilityKind,
   PluginContributions,
@@ -91,5 +93,19 @@ export async function runPluginCommand(namespacedId: string, args?: unknown): Pr
   });
 }
 
+export async function runPluginCellHook(
+  namespacedId: string,
+  kind: CellHookKind,
+  value: unknown,
+  column: { name: string; dataType?: string }
+): Promise<CellOutput> {
+  const { pluginId, localId } = splitContributionId(namespacedId);
+  return invoke('run_plugin_cell_hook', {
+    pluginId,
+    kind,
+    input: { id: localId, value, column: { name: column.name, dataType: column.dataType ?? null } },
+  });
+}
+
 export * from './types';
-export { findViewerFor } from './viewers';
+export { findCellContributions, findViewerFor } from './viewers';

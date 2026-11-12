@@ -18,9 +18,9 @@
 
 | | Findings |
 | --- | --- |
-| **Resolved** (18) | A1, A2, B1, B2, B3, B4, B5, B9, C1, C2, C5, C6, C7, C8, C9, D2, D6, D8 |
+| **Resolved** (19) | A1, A2, B1, B2, B3, B4, B5, B6, B9, C1, C2, C5, C6, C7, C8, C9, D2, D6, D8 |
 | **Partially resolved** (2) | C10 (migrations fixed, query path not), D1 (one of four comments) |
-| **Open** (10) | B6, B7, B8, B10, B11, C3, C4, D7, D9, D10 |
+| **Open** (9) | B7, B8, B10, B11, C3, C4, D7, D9, D10 |
 
 B9 and C8 were fixed on 2026-08-02, the day of this re-verification pass; their
 notes record what shipped.
@@ -325,6 +325,8 @@ Settings."
 ### B6. "No code execution" is false for plugins
 
 > **Re-verified 2026-08-02** — **Open.** `README.md:122`, `doc/FEATURES.csv:94` and `plugins/mod.rs:5-9` still say no code is executed, while `wasmi` still runs `run_pre_execute` on the query path (`commands/query.rs:217`). The drift has widened: the runtime gained capabilities and secrets modules since this was written.
+>
+> **Fixed 2026-11-12 (v0.1.41).** The README plugin bullet, the `Plugin System Foundation` row of `doc/FEATURES.csv` and the `plugins/mod.rs` header now describe the sandboxed WASM runtime (fuel and memory budgets, per-capability consent, optional sha256 integrity) and its hooks, commands, cell actions and cell renderers.
 
 **Where claimed:** `README.md:120` ("Install declarative plugins ... no code
 execution"), `doc/FEATURES.csv:93` ("Déclaratif uniquement — aucune exécution de

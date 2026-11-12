@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { AiAssistantPanel } from '@/components/AI/AiAssistantPanel';
@@ -12,6 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { ResizeHandle } from '@/components/ui/resize-handle';
 import {
   clampPanelSize,
   computeKeyboardResizeDelta,
@@ -83,6 +84,7 @@ import { DeferredQueryLibraryModal as QueryLibraryModal } from './DeferredQueryL
 import { QueryPanelEditor } from './QueryPanelEditor';
 import { QueryPanelResults, type QueryResultEntry } from './QueryPanelResults';
 import { QueryPanelToolbar } from './QueryPanelToolbar';
+import { QueryStatusAnnouncer } from './QueryStatusAnnouncer';
 import {
   extractUseDatabase,
   getCollectionFromQuery,
@@ -269,6 +271,8 @@ export function QueryPanel({
   );
   const containerRef = useRef<HTMLDivElement>(null);
   const editorPaneRef = useRef<HTMLDivElement>(null);
+  const editorPaneId = useId();
+  const aiPaneId = useId();
   const resizeDragRef = useRef({ active: false, startY: 0, startHeight: 0, expanded: false });
   const latestEditorHeight = useRef(editorHeight);
   const prevEditorHeightRef = useRef(DEFAULT_EDITOR_HEIGHT);
@@ -1313,6 +1317,7 @@ export function QueryPanel({
       />
 
       <div
+        id={editorPaneId}
         ref={editorPaneRef}
         data-tour="query-editor"
         className={
@@ -1344,15 +1349,20 @@ export function QueryPanel({
 
         {showAiPanel && (
           <>
-            <button
-              type="button"
-              aria-label={t('a11y.resizeAiPanel')}
+            <ResizeHandle
+              orientation="vertical"
+              label={t('a11y.resizeAiPanel')}
+              value={aiPanelWidth}
+              min={MIN_AI_PANEL_WIDTH}
+              max={getMaxAiPanelWidth()}
+              controls={aiPaneId}
               onMouseDown={handleAiResizeMouseDown}
               onDoubleClick={handleResetAiPanelWidth}
               onKeyDown={handleAiResizeKeyDown}
-              className="w-1 shrink-0 cursor-col-resize bg-transparent hover:bg-accent/50 focus-visible:bg-accent/60 active:bg-accent transition-colors border-0 p-0 outline-none"
+              className="w-1 shrink-0 cursor-col-resize bg-transparent hover:bg-accent/50 focus-visible:bg-accent/60 active:bg-accent transition-colors"
             />
             <div
+              id={aiPaneId}
               ref={aiPaneRef}
               style={{ width: aiPanelWidth, minWidth: aiPanelWidth }}
               className="border-l border-border shrink-0"
@@ -1377,17 +1387,22 @@ export function QueryPanel({
       </div>
 
       {/* Resize handle */}
-      <button
-        type="button"
-        aria-label={t('a11y.resizeEditor')}
+      <ResizeHandle
+        orientation="horizontal"
+        label={t('a11y.resizeEditor')}
+        value={editorHeight}
+        min={MIN_EDITOR_HEIGHT}
+        max={getMaxEditorHeight()}
+        controls={editorPaneId}
         onMouseDown={handleResizeMouseDown}
         onDoubleClick={handleResetEditorHeight}
         onKeyDown={handleEditorResizeKeyDown}
-        className="h-1.5 shrink-0 cursor-row-resize group flex items-center justify-center hover:bg-accent/10 focus-visible:bg-accent/20 transition-colors border-0 p-0 outline-none w-full"
+        className="h-1.5 shrink-0 cursor-row-resize group flex items-center justify-center hover:bg-accent/10 focus-visible:bg-accent/20 transition-colors w-full"
       >
         <span className="w-8 h-0.5 rounded-full bg-muted-foreground/20 group-hover:bg-accent/60 group-focus-visible:bg-accent transition-colors" />
-      </button>
+      </ResizeHandle>
 
+      <QueryStatusAnnouncer loading={loading} results={results} panelError={panelError} />
       <div data-tour="query-results" className="flex min-h-0 min-w-0 flex-1 overflow-hidden">
         <QueryPanelResults
           panelError={panelError}

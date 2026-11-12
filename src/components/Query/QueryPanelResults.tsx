@@ -103,29 +103,33 @@ export function QueryPanelResults({
                 const label = `${baseLabel}${timeLabel}`;
                 const isActive = entry.id === activeResultId;
                 return (
-                  <button
-                    type="button"
+                  <div
                     key={entry.id}
-                    onClick={() => onSelectResult(entry.id)}
                     className={cn(
-                      'group flex items-center gap-2 px-3 h-7 rounded-md text-xs transition-colors',
+                      'group flex items-center rounded-md text-xs transition-colors',
                       isActive
                         ? 'bg-background border border-border text-foreground shadow-sm'
                         : 'text-muted-foreground hover:text-foreground hover:bg-muted/60'
                     )}
-                    title={entry.query}
                   >
-                    <span className="truncate max-w-48">{label}</span>
-                    <span
-                      className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-foreground"
-                      onClick={event => {
-                        event.stopPropagation();
-                        onCloseResult(entry.id);
-                      }}
+                    <button
+                      type="button"
+                      aria-pressed={isActive}
+                      onClick={() => onSelectResult(entry.id)}
+                      className="flex h-7 items-center pl-3 pr-1 rounded-l-md focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
+                      title={entry.query}
+                    >
+                      <span className="truncate max-w-48">{label}</span>
+                    </button>
+                    <button
+                      type="button"
+                      aria-label={t('query.closeResult', { label })}
+                      onClick={() => onCloseResult(entry.id)}
+                      className="mr-1 rounded p-0.5 text-muted-foreground opacity-0 group-hover:opacity-100 focus-visible:opacity-100 hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
                     >
                       <X size={12} />
-                    </span>
-                  </button>
+                    </button>
+                  </div>
                 );
               })}
             </div>

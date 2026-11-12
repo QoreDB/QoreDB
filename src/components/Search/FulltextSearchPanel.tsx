@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { AlertCircle, ChevronRight, Database, Loader2, Search, Table2, X } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import {
@@ -15,6 +15,7 @@ import {
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
+import { ModalShell } from '../ui/modal-shell';
 import { Switch } from '../ui/switch';
 
 interface FulltextSearchPanelProps {
@@ -76,6 +77,7 @@ export function FulltextSearchPanel({
   const [result, setResult] = useState<FulltextSearchResponse | null>(null);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const inputRef = useRef<HTMLInputElement>(null);
+  const titleId = useId();
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Focus input when opened
@@ -87,19 +89,6 @@ export function FulltextSearchPanel({
       setExpandedGroups(new Set());
     }
   }, [isOpen]);
-
-  // Handle keyboard shortcuts
-  useEffect(() => {
-    function handleKeyDown(e: KeyboardEvent) {
-      if (!isOpen) return;
-      if (e.key === 'Escape') {
-        onClose();
-      }
-    }
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
 
   const performSearch = useCallback(
     async (searchTerm: string) => {
@@ -195,187 +184,195 @@ export function FulltextSearchPanel({
   const groupedMatches = result?.success ? groupMatchesByTable(result.matches) : [];
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-start justify-center pt-[10vh] bg-background/80 backdrop-blur-sm p-4"
-      onClick={onClose}
+    <ModalShell
+      open={isOpen}
+      onClose={onClose}
+      labelledBy={titleId}
+      initialFocusRef={inputRef}
+      overlayClassName="bg-background/80 backdrop-blur-sm"
+      containerClassName="items-start pt-[10vh]"
+      contentClassName="w-full max-w-2xl bg-background border border-border rounded-lg shadow-2xl overflow-hidden flex flex-col ring-1 ring-border max-h-[80vh]"
     >
-      <div
-        className="w-full max-w-2xl bg-background border border-border rounded-lg shadow-2xl overflow-hidden flex flex-col ring-1 ring-border max-h-[80vh]"
-        onClick={e => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/30">
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/30">
+        <div className="flex items-center gap-2">
+          <Database className="w-5 h-5 text-primary" />
+          <h2 id={titleId} className="font-semibold">
+            {t('fulltextSearch.title')}
+          </h2>
+        </div>
+        <Button variant="ghost" size="icon" onClick={onClose} aria-label={t('common.close')}>
+          <X className="w-4 h-4" />
+        </Button>
+      </div>
+
+      {/* Search input */}
+      <div className="p-4 border-b border-border space-y-3">
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              ref={inputRef}
+              className="pl-9 pr-4"
+              type="text"
+              placeholder={t('fulltextSearch.placeholder')}
+              value={query}
+              onChange={e => handleSearchChange(e.target.value)}
+            />
+          </div>
+          {loading && <Loader2 className="w-5 h-5 animate-spin text-primary" />}
+        </div>
+
+        <div className="flex items-center gap-4 text-sm">
           <div className="flex items-center gap-2">
-            <Database className="w-5 h-5 text-primary" />
-            <h2 className="font-semibold">{t('fulltextSearch.title')}</h2>
-          </div>
-          <Button variant="ghost" size="icon" onClick={onClose}>
-            <X className="w-4 h-4" />
-          </Button>
-        </div>
-
-        {/* Search input */}
-        <div className="p-4 border-b border-border space-y-3">
-          <div className="flex items-center gap-2">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input
-                ref={inputRef}
-                className="pl-9 pr-4"
-                type="text"
-                placeholder={t('fulltextSearch.placeholder')}
-                value={query}
-                onChange={e => handleSearchChange(e.target.value)}
-              />
-            </div>
-            {loading && <Loader2 className="w-5 h-5 animate-spin text-primary" />}
-          </div>
-
-          <div className="flex items-center gap-4 text-sm">
-            <div className="flex items-center gap-2">
-              <Switch
-                id="case-sensitive"
-                checked={caseSensitive}
-                onCheckedChange={checked => {
-                  setCaseSensitive(checked);
-                  if (query.trim().length >= 2) {
-                    performSearch(query);
-                  }
-                }}
-              />
-              <Label htmlFor="case-sensitive" className="text-muted-foreground">
-                {t('fulltextSearch.caseSensitive')}
-              </Label>
-            </div>
-          </div>
-        </div>
-
-        {/* Results */}
-        <div className="flex-1 overflow-y-auto">
-          {!sessionId ? (
-            <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-              <AlertCircle className="w-8 h-8 mb-2" />
-              <p>{t('fulltextSearch.noConnection')}</p>
-            </div>
-          ) : result?.error ? (
-            <div className="flex flex-col items-center justify-center py-12 text-destructive">
-              <AlertCircle className="w-8 h-8 mb-2" />
-              <p>{result.error}</p>
-            </div>
-          ) : result?.success && groupedMatches.length === 0 && query.trim().length >= 2 ? (
-            <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-              <Search className="w-8 h-8 mb-2 opacity-50" />
-              <p>{t('fulltextSearch.noResults')}</p>
-              <p className="text-xs mt-1">
-                {t('fulltextSearch.searchedTables', { count: result.tables_searched })}
-              </p>
-            </div>
-          ) : groupedMatches.length > 0 ? (
-            <div className="py-2">
-              {/* Stats bar */}
-              <div className="px-4 py-2 text-xs text-muted-foreground border-b border-border bg-muted/20">
-                {t('fulltextSearch.stats', {
-                  matches: result?.total_matches,
-                  tables: result?.tables_searched,
-                  time: result?.search_time_ms.toFixed(0),
-                })}
-                {result?.truncated && (
-                  <span className="ml-2 text-amber-500">({t('fulltextSearch.truncated')})</span>
-                )}
-              </div>
-
-              {/* Grouped results */}
-              {groupedMatches.map(group => {
-                const key = `${group.namespace.database}:${group.namespace.schema ?? ''}:${group.tableName}`;
-                const isExpanded = expandedGroups.has(key);
-
-                return (
-                  <div key={key} className="border-b border-border last:border-b-0">
-                    {/* Group header */}
-                    <button
-                      className="w-full flex items-center gap-2 px-4 py-2.5 hover:bg-muted/50 transition-colors text-left"
-                      onClick={() => toggleGroup(key)}
-                    >
-                      <ChevronRight
-                        className={cn(
-                          'w-4 h-4 text-muted-foreground transition-transform',
-                          isExpanded && 'rotate-90'
-                        )}
-                      />
-                      <Table2 className="w-4 h-4 text-primary" />
-                      <span className="font-medium">
-                        {group.namespace.schema
-                          ? `${group.namespace.database}.${group.namespace.schema}.${group.tableName}`
-                          : `${group.namespace.database}.${group.tableName}`}
-                      </span>
-                      <span className="text-xs text-muted-foreground ml-auto">
-                        {group.matches.length} {group.matches.length === 1 ? 'match' : 'matches'}
-                      </span>
-                    </button>
-
-                    {/* Matches */}
-                    {isExpanded && (
-                      <div className="bg-muted/20">
-                        {group.matches.map((match, idx) => (
-                          <div
-                            key={idx}
-                            className="px-4 py-2 pl-10 border-t border-border/50 hover:bg-muted/30 cursor-pointer"
-                            onClick={() =>
-                              handleTableClick(match.namespace, match.table_name, match.column_name)
-                            }
-                          >
-                            <div className="flex items-center gap-2 text-sm">
-                              <span className="text-muted-foreground font-mono text-xs">
-                                {match.column_name}:
-                              </span>
-                              <span className="truncate">
-                                <HighlightedText
-                                  text={match.value_preview}
-                                  highlight={query}
-                                  caseSensitive={caseSensitive}
-                                />
-                              </span>
-                            </div>
-                            {/* Row preview */}
-                            <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1 text-xs text-muted-foreground">
-                              {match.row_preview.slice(0, 4).map(([colName, value]) => (
-                                <span key={colName} className="truncate max-w-37.5">
-                                  <span className="font-medium">{colName}:</span>{' '}
-                                  {formatValue(value)}
-                                </span>
-                              ))}
-                              {match.row_preview.length > 4 && (
-                                <span className="italic">+{match.row_preview.length - 4} more</span>
-                              )}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-              <Search className="w-8 h-8 mb-2 opacity-50" />
-              <p>{t('fulltextSearch.hint')}</p>
-            </div>
-          )}
-        </div>
-
-        {/* Footer */}
-        <div className="flex items-center justify-between px-4 py-2 border-t border-border bg-muted/20 text-xs text-muted-foreground">
-          <span>{t('fulltextSearch.footerHint')}</span>
-          <div className="flex items-center gap-1">
-            <kbd className="px-1.5 py-0.5 rounded bg-muted border border-border font-mono text-[10px]">
-              esc
-            </kbd>{' '}
-            {t('browser.close')}
+            <Switch
+              id="case-sensitive"
+              checked={caseSensitive}
+              onCheckedChange={checked => {
+                setCaseSensitive(checked);
+                if (query.trim().length >= 2) {
+                  performSearch(query);
+                }
+              }}
+            />
+            <Label htmlFor="case-sensitive" className="text-muted-foreground">
+              {t('fulltextSearch.caseSensitive')}
+            </Label>
           </div>
         </div>
       </div>
-    </div>
+
+      {/* Results */}
+      <div className="flex-1 overflow-y-auto">
+        {!sessionId ? (
+          <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+            <AlertCircle className="w-8 h-8 mb-2" />
+            <p>{t('fulltextSearch.noConnection')}</p>
+          </div>
+        ) : result?.error ? (
+          <div className="flex flex-col items-center justify-center py-12 text-destructive">
+            <AlertCircle className="w-8 h-8 mb-2" />
+            <p>{result.error}</p>
+          </div>
+        ) : result?.success && groupedMatches.length === 0 && query.trim().length >= 2 ? (
+          <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+            <Search className="w-8 h-8 mb-2 opacity-50" />
+            <p>{t('fulltextSearch.noResults')}</p>
+            <p className="text-xs mt-1">
+              {t('fulltextSearch.searchedTables', { count: result.tables_searched })}
+            </p>
+          </div>
+        ) : groupedMatches.length > 0 ? (
+          <div className="py-2">
+            {/* Stats bar */}
+            <div className="px-4 py-2 text-xs text-muted-foreground border-b border-border bg-muted/20">
+              {t('fulltextSearch.stats', {
+                matches: result?.total_matches,
+                tables: result?.tables_searched,
+                time: result?.search_time_ms.toFixed(0),
+              })}
+              {result?.truncated && (
+                <span className="ml-2 text-amber-500">({t('fulltextSearch.truncated')})</span>
+              )}
+            </div>
+
+            {/* Grouped results */}
+            {groupedMatches.map(group => {
+              const key = `${group.namespace.database}:${group.namespace.schema ?? ''}:${group.tableName}`;
+              const isExpanded = expandedGroups.has(key);
+
+              return (
+                <div key={key} className="border-b border-border last:border-b-0">
+                  {/* Group header */}
+                  <button
+                    type="button"
+                    aria-expanded={isExpanded}
+                    className="w-full flex items-center gap-2 px-4 py-2.5 hover:bg-muted/50 transition-colors text-left"
+                    onClick={() => toggleGroup(key)}
+                  >
+                    <ChevronRight
+                      className={cn(
+                        'w-4 h-4 text-muted-foreground transition-transform',
+                        isExpanded && 'rotate-90'
+                      )}
+                    />
+                    <Table2 className="w-4 h-4 text-primary" />
+                    <span className="font-medium">
+                      {group.namespace.schema
+                        ? `${group.namespace.database}.${group.namespace.schema}.${group.tableName}`
+                        : `${group.namespace.database}.${group.tableName}`}
+                    </span>
+                    <span className="text-xs text-muted-foreground ml-auto">
+                      {t('fulltextSearch.matchCount', { count: group.matches.length })}
+                    </span>
+                  </button>
+
+                  {/* Matches */}
+                  {isExpanded && (
+                    <div className="bg-muted/20">
+                      {group.matches.map((match, idx) => (
+                        <button
+                          type="button"
+                          key={idx}
+                          className="block w-full text-left px-4 py-2 pl-10 border-t border-border/50 hover:bg-muted/30 focus:outline-none focus-visible:bg-muted/40 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/40"
+                          onClick={() =>
+                            handleTableClick(match.namespace, match.table_name, match.column_name)
+                          }
+                        >
+                          <div className="flex items-center gap-2 text-sm">
+                            <span className="text-muted-foreground font-mono text-xs">
+                              {match.column_name}:
+                            </span>
+                            <span className="truncate">
+                              <HighlightedText
+                                text={match.value_preview}
+                                highlight={query}
+                                caseSensitive={caseSensitive}
+                              />
+                            </span>
+                          </div>
+                          {/* Row preview */}
+                          <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1 text-xs text-muted-foreground">
+                            {match.row_preview.slice(0, 4).map(([colName, value]) => (
+                              <span key={colName} className="truncate max-w-37.5">
+                                <span className="font-medium">{colName}:</span> {formatValue(value)}
+                              </span>
+                            ))}
+                            {match.row_preview.length > 4 && (
+                              <span className="italic">
+                                {t('fulltextSearch.moreColumns', {
+                                  count: match.row_preview.length - 4,
+                                })}
+                              </span>
+                            )}
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+            <Search className="w-8 h-8 mb-2 opacity-50" />
+            <p>{t('fulltextSearch.hint')}</p>
+          </div>
+        )}
+      </div>
+
+      {/* Footer */}
+      <div className="flex items-center justify-between px-4 py-2 border-t border-border bg-muted/20 text-xs text-muted-foreground">
+        <span>{t('fulltextSearch.footerHint')}</span>
+        <div className="flex items-center gap-1">
+          <kbd className="px-1.5 py-0.5 rounded bg-muted border border-border font-mono text-[10px]">
+            esc
+          </kbd>{' '}
+          {t('browser.close')}
+        </div>
+      </div>
+    </ModalShell>
   );
 }
 

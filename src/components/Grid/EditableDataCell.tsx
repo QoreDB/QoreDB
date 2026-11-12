@@ -4,6 +4,7 @@ import { Binary } from 'lucide-react';
 import {
   lazy,
   memo,
+  type ReactNode,
   type RefObject,
   Suspense,
   useCallback,
@@ -13,12 +14,13 @@ import {
 } from 'react';
 import { useTranslation } from 'react-i18next';
 import { isBinaryType } from '@/lib/binaryUtils';
-import { findViewerFor } from '@/lib/plugins';
+import { findCellContributions, findViewerFor } from '@/lib/plugins';
 import type { ForeignKey, Namespace, RelationFilter, Value } from '@/lib/tauri';
 import { cn } from '@/lib/utils';
 import { usePlugins } from '@/providers/PluginProvider';
 import { ForeignKeyPeekTooltip } from './ForeignKeyPeekTooltip';
 import type { PeekState } from './hooks/useForeignKeyPeek';
+import { PluginCellMenu } from './PluginCellMenu';
 import { PluginCellRenderer } from './PluginCellRenderer';
 import { formatCellPreview, type RowData } from './utils/dataGridUtils';
 
@@ -100,6 +102,30 @@ export const EditableDataCell = memo(function EditableDataCell({
         : findViewerFor({ name: columnId, columnType: dataType }, contributions.resultViewers),
     [columnId, dataType, contributions.resultViewers]
   );
+
+  const cellColumn = { name: columnId, columnType: dataType };
+  const cellActions =
+    contributions.cellActions.length === 0
+      ? []
+      : findCellContributions(cellColumn, contributions.cellActions);
+  const cellRenderers =
+    contributions.cellRenderers.length === 0
+      ? []
+      : findCellContributions(cellColumn, contributions.cellRenderers);
+  const withPluginMenu = (node: ReactNode) =>
+    isEditing || (cellActions.length === 0 && cellRenderers.length === 0) ? (
+      node
+    ) : (
+      <PluginCellMenu
+        actions={cellActions}
+        renderers={cellRenderers}
+        value={value}
+        columnName={columnId}
+        dataType={dataType}
+      >
+        {node}
+      </PluginCellMenu>
+    );
 
   const handleBlobClick = useCallback(() => {
     if (isBinary && typeof value === 'string' && value.length > 0) {
@@ -209,10 +235,10 @@ export const EditableDataCell = memo(function EditableDataCell({
   );
 
   if (!canPeek || !foreignKey || !peekKey) {
-    return cellContent;
+    return withPluginMenu(cellContent);
   }
 
-  return (
+  return withPluginMenu(
     <ForeignKeyPeekTooltip
       peekKey={peekKey}
       peekState={peekState}

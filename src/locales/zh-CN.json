@@ -95,7 +95,10 @@
       "secretsDescription": "为插件在清单中声明的密钥提供值。值存储在操作系统钥匙串中，绝不离开本设备。",
       "disabledErrorsBanner": "该插件因连续 {{count}} 次出错已被停用。问题解决后请通过开关重新启用。",
       "inertBanner": "该插件已启用，但你尚未授予任何权限，因此暂时无法执行任何操作。",
-      "grantCta": "授予权限"
+      "grantCta": "授予权限",
+      "cellActions": "单元格操作",
+      "cellRenderers": "单元格渲染器",
+      "allColumns": "所有列"
     },
     "themes": {
       "title": "插件主题",
@@ -156,6 +159,13 @@
       "remove": "移除密钥",
       "show": "显示值",
       "hide": "隐藏值"
+    },
+    "cell": {
+      "previewWith": "预览方式",
+      "actions": "插件操作",
+      "resultFor": "列 {{column}} 的结果",
+      "running": "正在运行插件…",
+      "failed": "插件运行失败：{{message}}"
     }
   },
   "pluginOutput": {
@@ -499,7 +509,9 @@
     "stats": "在 {{tables}} 个表中找到 {{matches}} 个匹配项（{{time}}毫秒）",
     "truncated": "结果已截断",
     "hint": "输入至少 2 个字符以开始搜索",
-    "footerHint": "点击结果打开对应表"
+    "footerHint": "点击结果打开对应表",
+    "matchCount_other": "{{count}} 个匹配",
+    "moreColumns_other": "另外 {{count}} 个"
   },
   "tabs": {
     "newTab": "新建标签页",
@@ -1311,7 +1323,8 @@
       "execTooltip": "后端处理时间",
       "transferTooltip": "网络/传输时间",
       "totalTooltip": "总往返时间"
-    }
+    },
+    "closeResult": "关闭结果 {{label}}"
   },
   "results": {
     "affectedRows": "{{count}} 行受影响，耗时 {{time}}毫秒",
@@ -1738,7 +1751,14 @@
     "help": "帮助",
     "resizeSidebar": "调整侧边栏大小",
     "resizeEditor": "调整 SQL 编辑器大小",
-    "resizeAiPanel": "调整 AI 助手面板大小"
+    "resizeAiPanel": "调整 AI 助手面板大小",
+    "query": {
+      "running": "查询运行中…",
+      "failed": "查询失败。错误显示在结果面板中。",
+      "timedOut": "查询超时。",
+      "done": "查询在 {{ms}} 毫秒内完成。",
+      "rows_other": "查询完成：{{count}} 行，用时 {{ms}} 毫秒。"
+    }
   },
   "zenMode": {
     "enabled": "专注模式 — 按 Esc 退出"
@@ -1861,7 +1881,15 @@
     "keyspacesHeader": "键空间",
     "dataset": "数据集",
     "datasets": "数据集",
-    "datasetsHeader": "数据集"
+    "datasetsHeader": "数据集",
+    "mapping": {
+      "expand": "显示 {{name}} 的映射",
+      "collapse": "隐藏 {{name}} 的映射",
+      "label": "{{name}} 的映射",
+      "empty": "没有映射字段",
+      "failed": "无法加载映射",
+      "subfield": "{{type}} 子字段"
+    }
   },
   "createTable": {
     "title": "创建表",
@@ -2362,7 +2390,10 @@
         "environments": "应用到的环境",
         "operations": "匹配的操作",
         "action": "动作",
-        "pattern": "查询模式（正则表达式）"
+        "pattern": "查询模式（正则表达式）",
+        "operationsHint": "留空则匹配所有操作",
+        "namePlaceholder": "阻止危险查询",
+        "descriptionPlaceholder": "防止意外的数据丢失"
       },
       "actions": {
         "block": "阻止查询",
@@ -3948,5 +3979,20 @@
     "exported": "已导出 SQL 脚本",
     "exportError": "导出失败",
     "copied": "已复制 SQL"
+  },
+  "timescale": {
+    "hypertable": "超表",
+    "timeDimension": "时间",
+    "spaceDimension": "空间",
+    "chunkInterval": "分块间隔 {{value}}",
+    "partitions": "{{value}} 个分区",
+    "compression": "压缩",
+    "retention": "保留",
+    "disabled": "已禁用",
+    "after": "{{value}} 后",
+    "enabledNoPolicy": "已启用，无策略",
+    "dropAfter": "{{value}} 后删除",
+    "noPolicy": "无策略",
+    "chunks_other": "{{count}} 个分块"
   }
 }

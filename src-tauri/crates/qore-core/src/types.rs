@@ -1192,6 +1192,28 @@ pub struct TriggerList {
     pub total_count: u32,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct HypertableDimension {
+    pub column_name: String,
+    /// `Time` or `Space`, as reported by TimescaleDB.
+    pub dimension_type: String,
+    pub time_interval: Option<String>,
+    pub integer_interval: Option<i64>,
+    pub num_partitions: Option<i32>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct Hypertable {
+    pub name: String,
+    pub num_chunks: Option<i64>,
+    pub compression_enabled: bool,
+    pub dimensions: Vec<HypertableDimension>,
+    /// `compress_after` of the compression policy job, if any.
+    pub compress_after: Option<String>,
+    /// `drop_after` of the retention policy job, if any.
+    pub drop_after: Option<String>,
+}
+
 /// Status of a MySQL scheduled event
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum EventStatus {

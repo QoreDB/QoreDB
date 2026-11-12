@@ -8,6 +8,7 @@
 //! and memory-bounded: a plugin can never block or crash QoreDB.
 
 pub mod capabilities;
+pub mod cell;
 mod host_fns;
 mod manager;
 pub mod secrets;
@@ -22,6 +23,7 @@ use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc::UnboundedSender;
 
 pub use capabilities::CapabilityKind;
+pub use cell::{CellHookKind, CellInput, CellOutput};
 pub use manager::PluginHost;
 pub use storage::PluginStorage;
 pub use wasmi_host::WasmiRuntime;
@@ -215,4 +217,10 @@ pub trait PluginInstance: Send {
         command_id: &str,
         args: &serde_json::Value,
     ) -> Result<serde_json::Value, PluginError>;
+
+    fn cell_hook(
+        &mut self,
+        kind: CellHookKind,
+        input: &CellInput,
+    ) -> Result<CellOutput, PluginError>;
 }

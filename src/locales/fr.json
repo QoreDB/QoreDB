@@ -97,7 +97,10 @@
       "secretsDescription": "Fournis les valeurs des secrets déclarés par le plugin dans son manifeste. Les valeurs sont stockées dans le trousseau de l'OS et ne quittent jamais cette machine.",
       "disabledErrorsBanner": "Ce plugin a été désactivé après {{count}} erreurs consécutives. Réactivez-le via l'interrupteur une fois le problème résolu.",
       "inertBanner": "Ce plugin est activé mais vous ne lui avez accordé aucune permission : il ne peut donc rien faire pour l'instant.",
-      "grantCta": "Accorder les permissions"
+      "grantCta": "Accorder les permissions",
+      "cellActions": "Actions de cellule",
+      "cellRenderers": "Rendus de cellule",
+      "allColumns": "toutes les colonnes"
     },
     "themes": {
       "title": "Thèmes d'extension",
@@ -159,6 +162,13 @@
       "remove": "Supprimer le secret",
       "show": "Afficher la valeur",
       "hide": "Masquer la valeur"
+    },
+    "cell": {
+      "previewWith": "Aperçu avec",
+      "actions": "Actions des plugins",
+      "resultFor": "Résultat pour la colonne {{column}}",
+      "running": "Exécution du plugin…",
+      "failed": "Échec du plugin : {{message}}"
     }
   },
   "pluginOutput": {
@@ -528,7 +538,11 @@
     "stats": "{{matches}} résultats dans {{tables}} tables ({{time}}ms)",
     "truncated": "Résultats tronqués",
     "hint": "Entrez au moins 2 caractères pour rechercher",
-    "footerHint": "Cliquez sur un résultat pour ouvrir la table"
+    "footerHint": "Cliquez sur un résultat pour ouvrir la table",
+    "matchCount_one": "{{count}} correspondance",
+    "matchCount_other": "{{count}} correspondances",
+    "moreColumns_one": "+{{count}} autre",
+    "moreColumns_other": "+{{count}} autres"
   },
   "tabs": {
     "newTab": "Nouvel onglet",
@@ -1355,7 +1369,8 @@
       "execTooltip": "Temps de traitement Backend",
       "transferTooltip": "Temps réseau/transfert",
       "totalTooltip": "Temps total aller-retour"
-    }
+    },
+    "closeResult": "Fermer le résultat {{label}}"
   },
   "results": {
     "affectedRows": "{{count}} ligne(s) affectée(s) en {{time}}ms",
@@ -1783,7 +1798,15 @@
     "help": "Aide",
     "resizeSidebar": "Redimensionner la barre latérale",
     "resizeEditor": "Redimensionner l’éditeur SQL",
-    "resizeAiPanel": "Redimensionner le panneau assistant IA"
+    "resizeAiPanel": "Redimensionner le panneau assistant IA",
+    "query": {
+      "running": "Requête en cours…",
+      "failed": "Échec de la requête. L’erreur est affichée dans le panneau des résultats.",
+      "timedOut": "Délai de la requête dépassé.",
+      "done": "Requête terminée en {{ms}} ms.",
+      "rows_one": "Requête terminée : {{count}} ligne en {{ms}} ms.",
+      "rows_other": "Requête terminée : {{count}} lignes en {{ms}} ms."
+    }
   },
   "zenMode": {
     "enabled": "Mode Zen — Appuyez sur Échap pour quitter"
@@ -1909,7 +1932,15 @@
     "keyspacesHeader": "KEYSPACES",
     "dataset": "Dataset",
     "datasets": "Datasets",
-    "datasetsHeader": "DATASETS"
+    "datasetsHeader": "DATASETS",
+    "mapping": {
+      "expand": "Afficher le mapping de {{name}}",
+      "collapse": "Masquer le mapping de {{name}}",
+      "label": "Mapping de {{name}}",
+      "empty": "Aucun champ mappé",
+      "failed": "Impossible de charger le mapping",
+      "subfield": "sous-champ {{type}}"
+    }
   },
   "createTable": {
     "title": "Créer une table",
@@ -2410,7 +2441,10 @@
         "environments": "Appliquer aux environnements",
         "operations": "Opérations correspondantes",
         "action": "Action",
-        "pattern": "Pattern de requête (regex)"
+        "pattern": "Pattern de requête (regex)",
+        "operationsHint": "Laisser vide pour cibler toutes les opérations",
+        "namePlaceholder": "Bloquer les requêtes dangereuses",
+        "descriptionPlaceholder": "Évite les pertes de données accidentelles"
       },
       "actions": {
         "block": "Bloquer la requête",
@@ -3998,5 +4032,21 @@
     "exported": "Script SQL exporté",
     "exportError": "Échec de l’export",
     "copied": "SQL copié"
+  },
+  "timescale": {
+    "hypertable": "hypertable",
+    "timeDimension": "temps",
+    "spaceDimension": "espace",
+    "chunkInterval": "chunks de {{value}}",
+    "partitions": "{{value}} partitions",
+    "compression": "Compression",
+    "retention": "Rétention",
+    "disabled": "désactivée",
+    "after": "après {{value}}",
+    "enabledNoPolicy": "activée, sans politique",
+    "dropAfter": "suppression après {{value}}",
+    "noPolicy": "aucune politique",
+    "chunks_one": "{{count}} chunk",
+    "chunks_other": "{{count}} chunks"
   }
 }

@@ -184,6 +184,14 @@ pub fn get_contributions(dir: &Path) -> PluginContributions {
             c.id = format!("{pid}::{}", c.id);
             merged.commands.push(c);
         }
+        for mut a in plugin.manifest.contributes.cell_actions {
+            a.id = format!("{pid}::{}", a.id);
+            merged.cell_actions.push(a);
+        }
+        for mut r in plugin.manifest.contributes.cell_renderers {
+            r.id = format!("{pid}::{}", r.id);
+            merged.cell_renderers.push(r);
+        }
     }
     merged
 }

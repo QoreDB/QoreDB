@@ -97,7 +97,10 @@
       "secretsDescription": "Provide values for the secrets the plugin declared in its manifest. Values are stored in the OS keyring and never leave this device.",
       "disabledErrorsBanner": "This plugin was disabled after {{count}} consecutive errors. Re-enable it from the toggle once the issue is resolved.",
       "inertBanner": "This plugin is enabled but you haven't granted it any permission, so it can't do anything yet.",
-      "grantCta": "Grant permissions"
+      "grantCta": "Grant permissions",
+      "cellActions": "Cell actions",
+      "cellRenderers": "Cell renderers",
+      "allColumns": "all columns"
     },
     "themes": {
       "title": "Plugin themes",
@@ -159,6 +162,13 @@
       "remove": "Remove secret",
       "show": "Show value",
       "hide": "Hide value"
+    },
+    "cell": {
+      "previewWith": "Preview with",
+      "actions": "Plugin actions",
+      "resultFor": "Result for column {{column}}",
+      "running": "Running plugin…",
+      "failed": "The plugin failed: {{message}}"
     }
   },
   "pluginOutput": {
@@ -528,7 +538,11 @@
     "stats": "{{matches}} matches in {{tables}} tables ({{time}}ms)",
     "truncated": "Results truncated",
     "hint": "Enter at least 2 characters to search",
-    "footerHint": "Click a result to open the table"
+    "footerHint": "Click a result to open the table",
+    "matchCount_one": "{{count}} match",
+    "matchCount_other": "{{count}} matches",
+    "moreColumns_one": "+{{count}} more",
+    "moreColumns_other": "+{{count}} more"
   },
   "tabs": {
     "newTab": "New tab",
@@ -1355,7 +1369,8 @@
       "execTooltip": "Backend Process Time",
       "transferTooltip": "Network/Transfer Time",
       "totalTooltip": "Total Round Trip"
-    }
+    },
+    "closeResult": "Close result {{label}}"
   },
   "results": {
     "affectedRows": "{{count}} row(s) affected in {{time}}ms",
@@ -1783,7 +1798,15 @@
     "help": "Help",
     "resizeSidebar": "Resize sidebar",
     "resizeEditor": "Resize SQL editor",
-    "resizeAiPanel": "Resize AI assistant panel"
+    "resizeAiPanel": "Resize AI assistant panel",
+    "query": {
+      "running": "Query running…",
+      "failed": "Query failed. The error is shown in the results panel.",
+      "timedOut": "Query timed out.",
+      "done": "Query finished in {{ms}} ms.",
+      "rows_one": "Query finished: {{count}} row in {{ms}} ms.",
+      "rows_other": "Query finished: {{count}} rows in {{ms}} ms."
+    }
   },
   "zenMode": {
     "enabled": "Zen Mode — Press Esc to exit"
@@ -1909,7 +1932,15 @@
     "keyspacesHeader": "KEYSPACES",
     "dataset": "Dataset",
     "datasets": "Datasets",
-    "datasetsHeader": "DATASETS"
+    "datasetsHeader": "DATASETS",
+    "mapping": {
+      "expand": "Show mapping of {{name}}",
+      "collapse": "Hide mapping of {{name}}",
+      "label": "Mapping of {{name}}",
+      "empty": "No mapped fields",
+      "failed": "Could not load the mapping",
+      "subfield": "{{type}} sub-field"
+    }
   },
   "createTable": {
     "title": "Create Table",
@@ -2410,7 +2441,10 @@
         "environments": "Apply to environments",
         "operations": "Match operations",
         "action": "Action",
-        "pattern": "Query pattern (regex)"
+        "pattern": "Query pattern (regex)",
+        "operationsHint": "Leave empty to match all operations",
+        "namePlaceholder": "Block dangerous queries",
+        "descriptionPlaceholder": "Prevents accidental data loss"
       },
       "actions": {
         "block": "Block query",
@@ -3998,5 +4032,21 @@
     "exported": "SQL script exported",
     "exportError": "Export failed",
     "copied": "SQL copied"
+  },
+  "timescale": {
+    "hypertable": "hypertable",
+    "timeDimension": "time",
+    "spaceDimension": "space",
+    "chunkInterval": "chunks of {{value}}",
+    "partitions": "{{value}} partitions",
+    "compression": "Compression",
+    "retention": "Retention",
+    "disabled": "disabled",
+    "after": "after {{value}}",
+    "enabledNoPolicy": "enabled, no policy",
+    "dropAfter": "drop after {{value}}",
+    "noPolicy": "no policy",
+    "chunks_one": "{{count}} chunk",
+    "chunks_other": "{{count}} chunks"
   }
 }

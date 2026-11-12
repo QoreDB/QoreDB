@@ -95,7 +95,10 @@
       "secretsDescription": "Geben Sie Werte für die im Manifest deklarierten Geheimnisse an. Die Werte werden im Schlüsselbund des Betriebssystems gespeichert und verlassen dieses Gerät nicht.",
       "disabledErrorsBanner": "Dieses Plugin wurde nach {{count}} aufeinanderfolgenden Fehlern deaktiviert. Aktivieren Sie es über den Schalter erneut, sobald das Problem behoben ist.",
       "inertBanner": "Dieses Plugin ist aktiviert, aber Sie haben ihm keine Berechtigung erteilt, daher kann es noch nichts tun.",
-      "grantCta": "Berechtigungen erteilen"
+      "grantCta": "Berechtigungen erteilen",
+      "cellActions": "Zellaktionen",
+      "cellRenderers": "Zell-Renderer",
+      "allColumns": "alle Spalten"
     },
     "themes": {
       "title": "Plugin-Themen",
@@ -156,6 +159,13 @@
       "remove": "Geheimnis entfernen",
       "show": "Wert anzeigen",
       "hide": "Wert verbergen"
+    },
+    "cell": {
+      "previewWith": "Vorschau mit",
+      "actions": "Plugin-Aktionen",
+      "resultFor": "Ergebnis für Spalte {{column}}",
+      "running": "Plugin wird ausgeführt…",
+      "failed": "Plugin fehlgeschlagen: {{message}}"
     }
   },
   "pluginOutput": {
@@ -499,7 +509,11 @@
     "stats": "{{matches}} Treffer in {{tables}} Tabellen ({{time}}ms)",
     "truncated": "Ergebnisse gekürzt",
     "hint": "Geben Sie mindestens 2 Zeichen ein, um zu suchen",
-    "footerHint": "Klicken Sie auf ein Ergebnis, um die Tabelle zu öffnen"
+    "footerHint": "Klicken Sie auf ein Ergebnis, um die Tabelle zu öffnen",
+    "matchCount_one": "{{count}} Treffer",
+    "matchCount_other": "{{count}} Treffer",
+    "moreColumns_one": "+{{count}} weitere",
+    "moreColumns_other": "+{{count}} weitere"
   },
   "tabs": {
     "newTab": "Neuer Tab",
@@ -1320,7 +1334,8 @@
       "execTooltip": "Backend-Verarbeitungszeit",
       "transferTooltip": "Netzwerk-/Übertragungszeit",
       "totalTooltip": "Gesamte Umlaufzeit"
-    }
+    },
+    "closeResult": "Ergebnis {{label}} schließen"
   },
   "results": {
     "affectedRows": "{{count}} Zeile(n) betroffen in {{time}}ms",
@@ -1747,7 +1762,15 @@
     "help": "Hilfe",
     "resizeSidebar": "Seitenleiste vergrößern/verkleinern",
     "resizeEditor": "SQL-Editor vergrößern/verkleinern",
-    "resizeAiPanel": "KI-Assistentenbereich vergrößern/verkleinern"
+    "resizeAiPanel": "KI-Assistentenbereich vergrößern/verkleinern",
+    "query": {
+      "running": "Abfrage läuft…",
+      "failed": "Abfrage fehlgeschlagen. Der Fehler wird im Ergebnisbereich angezeigt.",
+      "timedOut": "Zeitüberschreitung der Abfrage.",
+      "done": "Abfrage in {{ms}} ms abgeschlossen.",
+      "rows_one": "Abfrage abgeschlossen: {{count}} Zeile in {{ms}} ms.",
+      "rows_other": "Abfrage abgeschlossen: {{count}} Zeilen in {{ms}} ms."
+    }
   },
   "zenMode": {
     "enabled": "Zen-Modus — Esc drücken zum Beenden"
@@ -1870,7 +1893,15 @@
     "keyspacesHeader": "KEYSPACES",
     "dataset": "Dataset",
     "datasets": "Datasets",
-    "datasetsHeader": "DATASETS"
+    "datasetsHeader": "DATASETS",
+    "mapping": {
+      "expand": "Mapping von {{name}} anzeigen",
+      "collapse": "Mapping von {{name}} ausblenden",
+      "label": "Mapping von {{name}}",
+      "empty": "Keine gemappten Felder",
+      "failed": "Mapping konnte nicht geladen werden",
+      "subfield": "{{type}}-Unterfeld"
+    }
   },
   "createTable": {
     "title": "Tabelle erstellen",
@@ -2371,7 +2402,10 @@
         "environments": "Auf Umgebungen anwenden",
         "operations": "Operationen abgleichen",
         "action": "Aktion",
-        "pattern": "Abfragemuster (Regex)"
+        "pattern": "Abfragemuster (Regex)",
+        "operationsHint": "Leer lassen, um alle Operationen zu erfassen",
+        "namePlaceholder": "Gefährliche Abfragen blockieren",
+        "descriptionPlaceholder": "Verhindert versehentlichen Datenverlust"
       },
       "actions": {
         "block": "Abfrage blockieren",
@@ -3959,5 +3993,21 @@
     "exported": "SQL-Skript exportiert",
     "exportError": "Export fehlgeschlagen",
     "copied": "SQL kopiert"
+  },
+  "timescale": {
+    "hypertable": "Hypertable",
+    "timeDimension": "Zeit",
+    "spaceDimension": "Raum",
+    "chunkInterval": "Chunks à {{value}}",
+    "partitions": "{{value}} Partitionen",
+    "compression": "Komprimierung",
+    "retention": "Aufbewahrung",
+    "disabled": "deaktiviert",
+    "after": "nach {{value}}",
+    "enabledNoPolicy": "aktiviert, keine Richtlinie",
+    "dropAfter": "Löschen nach {{value}}",
+    "noPolicy": "keine Richtlinie",
+    "chunks_one": "{{count}} Chunk",
+    "chunks_other": "{{count}} Chunks"
   }
 }

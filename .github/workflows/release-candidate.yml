@@ -40,8 +40,10 @@ jobs:
       PUBLIC_KEY_BASE64: ${{ secrets.PUBLIC_KEY_BASE64 }}
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@master
         with:
+          # Rust 1.100 moved OUT_DIR one level deeper; tauri-build < 2.7.4 then copies sidecars into target/<profile>/build.
+          toolchain: "1.99.1"
           targets: ${{ matrix.target }}
       - uses: swatinem/rust-cache@v2
         with:

@@ -102,8 +102,10 @@ jobs:
           sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libkrb5-dev
 
       - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@master
         with:
+          # Rust 1.100 moved OUT_DIR one level deeper; tauri-build < 2.7.4 then copies sidecars into target/<profile>/build.
+          toolchain: "1.99.1"
           targets: ${{ matrix.target }}
 
       - name: Rust cache

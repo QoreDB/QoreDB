@@ -14,7 +14,7 @@ use crate::engine::{
     TableSchema, sql_safety,
     types::{
         CollectionList, CollectionListOptions, CreationOptions, EventList, EventListOptions,
-        ForeignKey, Namespace, PaginatedQueryResult, QueryId, QueryResult, RoutineList,
+        ForeignKey, Hypertable, Namespace, PaginatedQueryResult, QueryId, QueryResult, RoutineList,
         RoutineListOptions, RoutineType, SequenceList, SequenceListOptions, TableQueryOptions,
         TriggerList, TriggerListOptions, Value,
     },
@@ -679,6 +679,39 @@ pub async fn list_triggers(
             error: Some(e.sanitized_message()),
         }),
     }
+}
+
+#[derive(Debug, Serialize)]
+pub struct HypertablesResponse {
+    pub success: bool,
+    pub data: Option<Vec<Hypertable>>,
+    pub error: Option<String>,
+}
+
+#[tauri::command]
+pub async fn list_hypertables(
+    state: State<'_, crate::SharedState>,
+    session_id: String,
+    namespace: Namespace,
+) -> Result<HypertablesResponse, String> {
+    let session_manager = state.session_manager().await;
+    let session = parse_session_id(&session_id)?;
+    let result = match session_manager.get_driver(session).await {
+        Ok(driver) => driver.list_hypertables(session, &namespace).await,
+        Err(e) => Err(e),
+    };
+    Ok(match result {
+        Ok(list) => HypertablesResponse {
+            success: true,
+            data: Some(list),
+            error: None,
+        },
+        Err(e) => HypertablesResponse {
+            success: false,
+            data: None,
+            error: Some(e.sanitized_message()),
+        },
+    })
 }
 
 #[derive(Debug, Serialize)]

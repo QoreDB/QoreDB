@@ -18,6 +18,7 @@ import { getSecretPolicy, setSecretPolicy } from '@/lib/replayPreferences';
 import { getSafetyPolicy, type SafetyPolicy, setSafetyPolicy } from '@/lib/tauri';
 import { useLicense } from '@/providers/LicenseProvider';
 import { SettingsCard } from '../SettingsCard';
+import { LocalDataCenterCard } from './LocalDataCenterCard';
 
 interface SecuritySectionProps {
   searchQuery?: string;
@@ -213,6 +214,8 @@ export function SecuritySection({ searchQuery }: SecuritySectionProps) {
       >
         <InterceptorSettingsPanel />
       </SettingsCard>
+
+      <LocalDataCenterCard searchQuery={searchQuery} />
     </>
   );
 }

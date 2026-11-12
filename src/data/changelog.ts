@@ -20,6 +20,75 @@ export interface ChangelogEntry {
  */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.1.41',
+    date: '2026-11-12',
+    items: [
+      {
+        title: 'Plugin cell actions and previews',
+        description:
+          'WASM plugins can add actions to the cell context menu and preview renderers. They return text, badges, JSON or tables drawn by QoreDB, and run without network, file or secret access.',
+        type: 'feature',
+      },
+      {
+        title: 'TimescaleDB hypertables',
+        description:
+          'Hypertables are flagged in the explorer; the Info tab shows their dimensions, chunk interval, chunk count, compression and retention policies.',
+        type: 'feature',
+      },
+      {
+        title: 'Elasticsearch and OpenSearch mappings',
+        description:
+          'Expand an index in the sidebar to browse its mapping: nested properties, field types and keyword/text sub-fields.',
+        type: 'feature',
+      },
+      {
+        title: 'Semantic context for AI',
+        description:
+          'Annotate tables and columns in .qoredb/context.json, shared through Git. The assistant and the agent use it when generating and explaining queries.',
+        type: 'feature',
+        proOnly: true,
+      },
+      {
+        title: 'Faster federated queries',
+        description:
+          'Only the columns a query uses are fetched, simple WHERE filters run on the source, and recent source reads are cached for the session.',
+        type: 'improvement',
+        proOnly: true,
+      },
+      {
+        title: 'Fix with AI and richer AI actions',
+        description:
+          'Fix a failed query from its error, explain results in the assistant thread, and summarize or document from notebooks.',
+        type: 'improvement',
+        proOnly: true,
+      },
+      {
+        title: 'Resizable panels and local data center',
+        description:
+          'Sidebar, AI panel and editor split resize with mouse or keyboard and are remembered per workspace. Settings show local data size per category and can purge it.',
+        type: 'improvement',
+      },
+      {
+        title: 'SSH agent and PostgreSQL client certificates',
+        description:
+          'Authenticate SSH tunnels through your SSH agent, and connect to PostgreSQL with a CA, client certificate and key.',
+        type: 'feature',
+      },
+      {
+        title: 'Accessibility',
+        description:
+          'Panel splitters are announced with their size, query progress is announced to screen readers, and search and library dialogs keep keyboard focus inside.',
+        type: 'improvement',
+      },
+      {
+        title: 'Safer safety rules',
+        description:
+          'Dangerous statements are detected from the parsed SQL, so comments and strings no longer fool the rules. Generated data respects Sandbox mode, and full local storage is reported instead of failing silently.',
+        type: 'fix',
+      },
+    ],
+  },
+  {
     version: '0.1.40',
     date: '2026-10-11',
     items: [

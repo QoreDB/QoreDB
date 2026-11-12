@@ -95,7 +95,10 @@
       "secretsDescription": "为插件在清单中声明的密钥提供值。值存储在操作系统钥匙串中，绝不离开本设备。",
       "disabledErrorsBanner": "该插件因连续 {{count}} 次出错已被停用。问题解决后请通过开关重新启用。",
       "inertBanner": "该插件已启用，但你尚未授予任何权限，因此暂时无法执行任何操作。",
-      "grantCta": "授予权限"
+      "grantCta": "授予权限",
+      "cellActions": "单元格操作",
+      "cellRenderers": "单元格渲染器",
+      "allColumns": "所有列"
     },
     "themes": {
       "title": "插件主题",
@@ -156,6 +159,13 @@
       "remove": "移除密钥",
       "show": "显示值",
       "hide": "隐藏值"
+    },
+    "cell": {
+      "previewWith": "预览方式",
+      "actions": "插件操作",
+      "resultFor": "列 {{column}} 的结果",
+      "running": "正在运行插件…",
+      "failed": "插件运行失败：{{message}}"
     }
   },
   "pluginOutput": {
@@ -499,7 +509,9 @@
     "stats": "在 {{tables}} 个表中找到 {{matches}} 个匹配项（{{time}}毫秒）",
     "truncated": "结果已截断",
     "hint": "输入至少 2 个字符以开始搜索",
-    "footerHint": "点击结果打开对应表"
+    "footerHint": "点击结果打开对应表",
+    "matchCount_other": "{{count}} 个匹配",
+    "moreColumns_other": "另外 {{count}} 个"
   },
   "tabs": {
     "newTab": "新建标签页",
@@ -719,6 +731,8 @@
     "redo": "重做",
     "toggleVariables": "变量",
     "editTitle": "点击编辑标题",
+    "draftQuotaExceeded": "笔记本草稿已超出本地存储配额",
+    "draftQuotaExceededHint": "请将此笔记本保存为文件 (.qnb)，以免丢失最新修改。",
     "cellCountLabel": "{{count}} 个单元格",
     "variableDescriptionHint": "可选描述",
     "doubleClickToEdit": "双击编辑",
@@ -730,7 +744,9 @@
     "addCellAi": "AI 单元格",
     "aiPlaceholder": "用自然语言描述查询…",
     "aiGenerate": "生成 SQL",
-    "aiCellInserted": "已在下方插入 SQL 单元格"
+    "aiCellInserted": "已在下方插入 SQL 单元格",
+    "insertSummaryMarkdown": "作为 Markdown 单元格插入",
+    "generateDocumentation": "使用 AI 生成文档"
   },
   "replay": {
     "cancelledReport": "重放已取消。已执行的查询会保留；正在执行的查询可能已完成。",
@@ -1109,6 +1125,41 @@
         "idle": "空闲 10 分钟的会话将被关闭。",
         "audit": "每次调用都会以来源“mcp”写入审计日志。"
       }
+    },
+    "localData": {
+      "title": "本地数据与磁盘空间",
+      "description": "按类别查看 app_data_dir 的磁盘占用情况并按需清理本地数据。",
+      "securityNotice": "vault.enc 中的凭据与共享导出均使用 AES-256-GCM 静态加密。以下类别以本地文件存储，具有密钥脱敏与保留上限控制。",
+      "totalUsage": "本地总占用：{{size}}",
+      "fileCount": "{{count}} 个文件",
+      "purge": "清理",
+      "confirmTitle": "清理本地数据类别",
+      "confirmDescription": "确定要永久删除“{{category}}”下的所有本地文件吗？此操作无法撤销。",
+      "confirmAction": "永久清理",
+      "purgeSuccess": "已清理 {{category}}。",
+      "purgeError": "清理本地数据失败。",
+      "categories": {
+        "time_travel": {
+          "title": "Time Travel 历史记录",
+          "description": "本地变更前后日志 (time-travel/)，受保留天数与最大文件大小限制。"
+        },
+        "replay": {
+          "title": "Query Replay 捕获数据",
+          "description": "查询回放记录与结果快照 (replays/)，按工作区隔离并自动脱敏。"
+        },
+        "snapshots": {
+          "title": "数据快照",
+          "description": "手动保存的结果集快照 (snapshots/*.json)，用于对比和离线查看。"
+        },
+        "audit_logs": {
+          "title": "审计日志与应用日志",
+          "description": "拦截器审计日志 (interceptor/audit.jsonl) 与应用运行日志 (logs/)。"
+        },
+        "ai_models": {
+          "title": "本地 AI 运行时与模型",
+          "description": "已下载并经 SHA-256 校验的 Qore AI Local 运行时与 GGUF 模型权重 (ai-local/)。"
+        }
+      }
     }
   },
   "table": {
@@ -1272,7 +1323,8 @@
       "execTooltip": "后端处理时间",
       "transferTooltip": "网络/传输时间",
       "totalTooltip": "总往返时间"
-    }
+    },
+    "closeResult": "关闭结果 {{label}}"
   },
   "results": {
     "affectedRows": "{{count}} 行受影响，耗时 {{time}}毫秒",
@@ -1425,6 +1477,14 @@
       "applied": "已应用脱敏",
       "appliedNextRun": "脱敏已保存：将从下次执行起生效。",
       "removed": "已移除脱敏"
+    },
+    "anchor": {
+      "filter_mismatch": "超出筛选",
+      "filter_mismatchTooltip": "编辑后的行不再匹配当前列筛选条件；在下次刷新前保持固定显示。",
+      "order_changed": "排序已变",
+      "order_changedTooltip": "排序列值已更改；在下次刷新前保持当前位置固定显示。",
+      "inserted": "新插入",
+      "insertedTooltip": "本地新插入的行在下次刷新前固定在已加载页面顶部。"
     }
   },
   "export": {
@@ -1688,7 +1748,17 @@
     "tabBar": "打开的标签页",
     "databaseTree": "数据库树",
     "statusBar": "状态栏",
-    "help": "帮助"
+    "help": "帮助",
+    "resizeSidebar": "调整侧边栏大小",
+    "resizeEditor": "调整 SQL 编辑器大小",
+    "resizeAiPanel": "调整 AI 助手面板大小",
+    "query": {
+      "running": "查询运行中…",
+      "failed": "查询失败。错误显示在结果面板中。",
+      "timedOut": "查询超时。",
+      "done": "查询在 {{ms}} 毫秒内完成。",
+      "rows_other": "查询完成：{{count}} 行，用时 {{ms}} 毫秒。"
+    }
   },
   "zenMode": {
     "enabled": "专注模式 — 按 Esc 退出"
@@ -1811,7 +1881,15 @@
     "keyspacesHeader": "键空间",
     "dataset": "数据集",
     "datasets": "数据集",
-    "datasetsHeader": "数据集"
+    "datasetsHeader": "数据集",
+    "mapping": {
+      "expand": "显示 {{name}} 的映射",
+      "collapse": "隐藏 {{name}} 的映射",
+      "label": "{{name}} 的映射",
+      "empty": "没有映射字段",
+      "failed": "无法加载映射",
+      "subfield": "{{type}} 子字段"
+    }
   },
   "createTable": {
     "title": "创建表",
@@ -2106,7 +2184,9 @@
       "new": "新增",
       "modified": "已修改",
       "deleted": "已删除"
-    }
+    },
+    "quotaExceeded": "沙盒更改已超出本地存储配额",
+    "quotaExceededHint": "请应用或放弃待处理的更改以释放空间。"
   },
   "interceptor": {
     "title": "查询拦截器",
@@ -2310,7 +2390,10 @@
         "environments": "应用到的环境",
         "operations": "匹配的操作",
         "action": "动作",
-        "pattern": "查询模式（正则表达式）"
+        "pattern": "查询模式（正则表达式）",
+        "operationsHint": "留空则匹配所有操作",
+        "namePlaceholder": "阻止危险查询",
+        "descriptionPlaceholder": "防止意外的数据丢失"
       },
       "actions": {
         "block": "阻止查询",
@@ -2912,6 +2995,22 @@
       "summarizeSchema": "总结该模式",
       "tableTitle": "表 {{table}}",
       "schemaTitle": "模式 {{namespace}}"
+    },
+    "semanticContext": {
+      "menuItem": "业务上下文 (.qoredb)",
+      "title": "业务上下文 — {{table}}",
+      "description": "在 .qoredb/context.json 中标注此表和工作区规则，以丰富 AI 查询。",
+      "tableDescription": "表说明",
+      "tableDescriptionPlaceholder": "例如：客户账单发票",
+      "domain": "业务域",
+      "domainPlaceholder": "例如：计费",
+      "columnsTitle": "列含义",
+      "columnPlaceholder": "含义 ({{type}})",
+      "implicitRelations": "隐式关联（每行一个）",
+      "implicitRelationsPlaceholder": "user_id -> users.id",
+      "businessRules": "工作区业务规则（每行一条）",
+      "businessRulesPlaceholder": "例如：活跃用户的 deleted_at IS NULL",
+      "saved": "业务上下文已保存到 .qoredb/context.json"
     }
   },
   "agentChat": {
@@ -3008,7 +3107,12 @@
     "insertLeftJoin": "LEFT JOIN",
     "insertComma": "交叉连接",
     "insertWhere": "WHERE",
-    "insertRaw": "引用"
+    "insertRaw": "引用",
+    "cacheHit": "缓存",
+    "liveFetch": "实时",
+    "rowsShort": "行",
+    "projectedColumns": "投影列",
+    "refreshCacheTooltip": "绕过缓存并重新获取所有联邦数据源"
   },
   "maintenance": {
     "title": "表维护",
@@ -3875,5 +3979,20 @@
     "exported": "已导出 SQL 脚本",
     "exportError": "导出失败",
     "copied": "已复制 SQL"
+  },
+  "timescale": {
+    "hypertable": "超表",
+    "timeDimension": "时间",
+    "spaceDimension": "空间",
+    "chunkInterval": "分块间隔 {{value}}",
+    "partitions": "{{value}} 个分区",
+    "compression": "压缩",
+    "retention": "保留",
+    "disabled": "已禁用",
+    "after": "{{value}} 后",
+    "enabledNoPolicy": "已启用，无策略",
+    "dropAfter": "{{value}} 后删除",
+    "noPolicy": "无策略",
+    "chunks_other": "{{count}} 个分块"
   }
 }

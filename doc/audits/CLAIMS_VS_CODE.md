@@ -18,9 +18,9 @@
 
 | | Findings |
 | --- | --- |
-| **Resolved** (13) | A1, A2, B1, B2, B3, B4, B5, B9, C1, C2, C8, D2, D8 |
+| **Resolved** (19) | A1, A2, B1, B2, B3, B4, B5, B6, B9, C1, C2, C5, C6, C7, C8, C9, D2, D6, D8 |
 | **Partially resolved** (2) | C10 (migrations fixed, query path not), D1 (one of four comments) |
-| **Open** (15) | B6, B7, B8, B10, B11, C3, C4, C5, C6, C7, C9, D6, D7, D9, D10 |
+| **Open** (9) | B7, B8, B10, B11, C3, C4, D7, D9, D10 |
 
 B9 and C8 were fixed on 2026-08-02, the day of this re-verification pass; their
 notes record what shipped.
@@ -325,6 +325,8 @@ Settings."
 ### B6. "No code execution" is false for plugins
 
 > **Re-verified 2026-08-02** — **Open.** `README.md:122`, `doc/FEATURES.csv:94` and `plugins/mod.rs:5-9` still say no code is executed, while `wasmi` still runs `run_pre_execute` on the query path (`commands/query.rs:217`). The drift has widened: the runtime gained capabilities and secrets modules since this was written.
+>
+> **Fixed 2026-11-12 (v0.1.41).** The README plugin bullet, the `Plugin System Foundation` row of `doc/FEATURES.csv` and the `plugins/mod.rs` header now describe the sandboxed WASM runtime (fuel and memory budgets, per-capability consent, optional sha256 integrity) and its hooks, commands, cell actions and cell renderers.
 
 **Where claimed:** `README.md:120` ("Install declarative plugins ... no code
 execution"), `doc/FEATURES.csv:93` ("Déclaratif uniquement — aucune exécution de
@@ -549,7 +551,7 @@ and would turn a caveat into a selling point.
 
 ### C5. The Data Generator bypasses Sandbox mode
 
-> **Re-verified 2026-08-02** — **Open.** `DataGeneratorDialog` still takes neither `sandboxMode` nor `onSandboxUpdate`.
+> **Re-verified 2026-11-04** — **Resolved.** `DataGrid.tsx` now passes `sandboxMode`, `tableSchema` and `onSandboxUpdate` to `DataGeneratorDialog.tsx`, and `generate_seed_data` returns structured row values so clicking the execute action while Sandbox mode is active stages the generated rows via `createBulkInsertChanges` instead of executing `INSERT` statements against the live database.
 
 **Reality:** `DataGeneratorDialog` has neither a `sandboxMode` nor an
 `onSandboxUpdate` prop (`src/components/Grid/DataGeneratorDialog.tsx:24-34`), and
@@ -575,7 +577,7 @@ generator's execute path while sandbox mode is active. Moving `SqlPreview` to
 
 ### C6. `localStorage` quota is unhandled in the sandbox
 
-> **Re-verified 2026-08-02** — **Open.** `saveSandboxState` (`sandboxStore.ts:53-55`) still has no `try`/`catch`, and `saveDraft` (`notebookIO.ts:87-93`) still swallows the quota error while serialising results.
+> **Re-verified 2026-11-04** — **Resolved.** `saveDraft` in `notebookIO.ts` applies `stripForSave(notebook, false)` (excluding `lastResult`, `executedAt` and `executionTimeMs`) and surfaces a warning notification on `QuotaExceededError`. `saveSandboxState` and `saveSandboxBackup` in `sandboxStore.ts` catch storage quota errors, evict duplicate backup storage before retrying primary state persistence, and notify the user explicitly when quota remains full.
 
 **Reality:** `saveSandboxState` (`src/lib/sandbox/sandboxStore.ts:53-55`) has no
 try/catch. The quota is roughly 5-10 MB. A `QuotaExceededError` propagates raw.
@@ -592,6 +594,8 @@ saves (`:20`) but not to drafts.
 ### C7. `THREAT_MODEL.md` claims a biometric control that does not exist
 
 > **Re-verified 2026-08-02** — **Open.** `THREAT_MODEL.md:21` still claims the TouchID requirement.
+>
+> **Fixed 2026-11-04 (v0.1.41).** `doc/security/THREAT_MODEL.md` now accurately documents OS Keychain access, `vault.enc` encryption (`Argon2id` + `AES-256-GCM`), and the full `app_data_dir` local storage governance matrix, paired with the `LocalDataCenterCard` in Settings.
 
 **Where claimed:** `doc/security/THREAT_MODEL.md:21` — "Access requires OS-level
 authentication (e.g. TouchID/Password on macOS)".
@@ -639,7 +643,7 @@ after the user clicks Generate.
 
 ### C9. Two built-in safety rules do not do what they are named
 
-> **Re-verified 2026-08-02** — **Open.** The pattern at `safety.rs:61` is unchanged, and `is_dangerous` is still only written (`safety.rs:316`), never read by `check_rule`.
+> **Re-verified 2026-11-04** — **Resolved.** `builtin-confirm-update-no-where` and `builtin-confirm-delete-no-where` in `safety.rs` no longer use regex patterns; `SafetyEngine::check_rule` now checks `context.is_dangerous` and `InterceptorPipeline::build_context_with_source` derives `operation_type` from the AST (`SqlSafetyAnalysis.operation`), covering trailing semicolons, `Staging`, and data-modifying CTEs (`WITH d AS (DELETE ...)`).
 
 **Reality:** `builtin-confirm-update-no-where` uses the pattern
 `^UPDATE\s+\S+\s+SET\s+[^;]+$` (`qore-service/src/interceptor/safety.rs:61`).
@@ -703,6 +707,8 @@ against intent. That is a defensible product position — it is just not what
 ### D6. `THREAT_MODEL.md` denies a feature that exists
 
 > **Re-verified 2026-08-02** — **Open.** `THREAT_MODEL.md:50` still denies the redaction that ships.
+>
+> **Fixed 2026-11-04 (v0.1.41).** `doc/security/THREAT_MODEL.md` now documents `paths::app_data_dir()` and the `redact_query` pass applied before audit and slow-query persistence.
 
 `doc/security/THREAT_MODEL.md:50` states: "**Current limitation**: The interceptor
 audit/profiling pipeline currently stores **raw query text** locally."

@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: BUSL-1.1
 
 import { invoke } from '@/lib/transport';
-import type { Namespace } from './tauri';
+import type { Namespace, Value } from './tauri';
 
 export interface SeedDataResult {
   /** Generated INSERT script (one or more statements separated by `;\n\n`). */
   sql: string;
   rowCount: number;
   warnings: string[];
+  rows?: Array<Record<string, Value>>;
 }
 
 /**

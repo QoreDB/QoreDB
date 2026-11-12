@@ -29,6 +29,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { useHypertables } from '@/hooks/useHypertables';
 import { useTourManager } from '@/hooks/useTourManager';
 import { buildCreateIndexSQL, buildQualifiedTableName } from '@/lib/ddl';
 import { onTableChange } from '@/lib/events/tableEvents';
@@ -85,6 +86,9 @@ import { CacheBadge } from './CacheBadge';
 import { ContentBreadcrumb } from './ContentBreadcrumb';
 
 const RowModal = lazy(() => import('./RowModal').then(module => ({ default: module.RowModal })));
+const HypertableInfoSection = lazy(() =>
+  import('./HypertableInfoSection').then(module => ({ default: module.HypertableInfoSection }))
+);
 
 function formatTableName(namespace: Namespace, tableName: string): string {
   return namespace.schema ? `${namespace.schema}.${tableName}` : tableName;
@@ -390,6 +394,8 @@ export function TableBrowser({
     reload,
     refresh,
     updateCell,
+    rowAnchors,
+    insertRowLocally,
   } = useInfiniteTableData({
     sessionId,
     namespace,
@@ -955,6 +961,7 @@ export function TableBrowser({
             initialFilter={searchFilter?.value}
             onRowsUpdated={reload}
             onUpdateCell={updateCell}
+            rowAnchors={rowAnchors}
             onOpenRelatedTable={onOpenRelatedTable}
             sandboxMode={sandboxActive}
             pendingChanges={sandboxChanges}
@@ -1030,6 +1037,7 @@ export function TableBrowser({
               new Set(data?.columns.filter(column => column.masked).map(column => column.name))
             }
             onSuccess={reload}
+            onInsertSuccess={insertRowLocally}
             sandboxMode={sandboxActive}
             onSandboxInsert={handleSandboxInsert}
             onSandboxUpdate={handleSandboxUpdate}
@@ -1244,6 +1252,7 @@ function TableInfoPanel({
   const [dropLoading, setDropLoading] = useState(false);
 
   const driverMeta = getDriverMetadata(driver);
+  const hypertable = useHypertables(sessionId, namespace, driver).find(h => h.name === tableName);
   const loadStats = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -1461,6 +1470,12 @@ function TableInfoPanel({
           </div>
         </div>
       ) : null}
+
+      {hypertable && (
+        <Suspense fallback={null}>
+          <HypertableInfoSection hypertable={hypertable} />
+        </Suspense>
+      )}
 
       {/* Maintenance Info (PostgreSQL) */}
       {(stats.lastVacuum || stats.lastAnalyze) && (

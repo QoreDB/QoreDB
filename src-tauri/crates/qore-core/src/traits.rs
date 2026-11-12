@@ -10,7 +10,7 @@ use crate::error::{EngineError, EngineResult};
 use crate::types::{
     CancelSupport, CollectionList, CollectionListOptions, ColumnInfo, ConnectionConfig,
     CreationOptions, DriverCapabilities, EventDefinition, EventList, EventListOptions,
-    EventOperationResult, ForeignKey, MaintenanceOperationInfo, MaintenanceRequest,
+    EventOperationResult, ForeignKey, Hypertable, MaintenanceOperationInfo, MaintenanceRequest,
     MaintenanceResult, Namespace, PaginatedQueryResult, PaginationCapability, QueryId, QueryResult,
     RoutineDefinition, RoutineList, RoutineListOptions, RoutineOperationResult, RoutineType, Row,
     RowData, SequenceDefinition, SequenceList, SequenceListOptions, SequenceOperationResult,
@@ -194,6 +194,17 @@ pub trait DataEngine: Send + Sync {
     /// Check if the driver supports triggers.
     fn supports_triggers(&self) -> bool {
         false
+    }
+
+    /// TimescaleDB hypertables of a namespace. Empty for every other engine
+    /// and when the extension is not installed.
+    async fn list_hypertables(
+        &self,
+        session: SessionId,
+        namespace: &Namespace,
+    ) -> EngineResult<Vec<Hypertable>> {
+        let _ = (session, namespace);
+        Ok(Vec::new())
     }
 
     /// Lists scheduled events in a namespace (MySQL only).

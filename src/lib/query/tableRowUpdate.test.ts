@@ -5,7 +5,9 @@ import type { PaginatedQueryResult, Value } from '@/lib/tauri';
 import { invoke } from '@/lib/transport';
 import { estimatePayloadBytes } from './payloadSize';
 import {
+  matchesColumnFilter,
   prepareTableRowUpdate,
+  reconcileTableRowInsert,
   reconcileTableRowUpdate,
   type TableCellUpdate,
   type TableRowUpdateScope,
@@ -122,10 +124,103 @@ describe('confirmed table row reconciliation', () => {
   it.each([
     'id',
     'tenant',
-    'rank',
-  ])('reloads when the edited column affects identity, order or filters: %s', column => {
+  ])('reloads when the edited column is part of the primary key: %s', column => {
     const { scope, update } = fixture();
     expect(prepareTableRowUpdate(scope, { ...update, column })).toBeNull();
+  });
+
+  it('keeps five pages loaded and anchors the row when a sorted column is edited on page 5', () => {
+    const { scope, update } = fixture();
+    const target = prepareTableRowUpdate(scope, { ...update, column: 'rank', value: 99 });
+    expect(target).not.toBeNull();
+    if (!target) return;
+
+    const result = reconcileTableRowUpdate(
+      scope.rows,
+      target,
+      readback(['a::b', 234, 99, 'name-234']),
+      estimatePayloadBytes(scope.rows)
+    );
+    expect(result).not.toBeNull();
+    expect(result?.rows).toHaveLength(500);
+    expect(result?.rowIndex).toBe(234);
+    expect(result?.rows[234].values[2]).toBe(99);
+    expect(result?.anchorReason).toBe('order_changed');
+  });
+
+  it('keeps five pages loaded and marks filter_mismatch when an edit moves a row outside active filters', () => {
+    const { scope, update } = fixture();
+    const filteredScope: TableRowUpdateScope = {
+      ...scope,
+      filters: [
+        { column: 'tenant', operator: 'eq', value: 'a::b' },
+        { column: 'name', operator: 'like', value: 'name-%' },
+      ],
+    };
+    const target = prepareTableRowUpdate(filteredScope, {
+      ...update,
+      column: 'name',
+      value: 'archived-row',
+    });
+    expect(target).not.toBeNull();
+    if (!target) return;
+
+    const result = reconcileTableRowUpdate(
+      filteredScope.rows,
+      target,
+      readback(['a::b', 234, 0, 'archived-row']),
+      estimatePayloadBytes(filteredScope.rows)
+    );
+    expect(result).not.toBeNull();
+    expect(result?.rows).toHaveLength(500);
+    expect(result?.rowIndex).toBe(234);
+    expect(result?.rows[234].values[3]).toBe('archived-row');
+    expect(result?.anchorReason).toBe('filter_mismatch');
+  });
+
+  it('anchors locally when a trigger modifies a non-PK sort column on canonical readback', () => {
+    const { scope, target } = fixture();
+    const result = reconcileTableRowUpdate(
+      scope.rows,
+      target,
+      readback(['a::b', 234, 2, 'saved']),
+      estimatePayloadBytes(scope.rows)
+    );
+    expect(result).not.toBeNull();
+    expect(result?.rows).toHaveLength(500);
+    expect(result?.rowIndex).toBe(234);
+    expect(result?.anchorReason).toBe('order_changed');
+  });
+
+  it('anchors an inserted row locally at the head of loaded pages until reload', () => {
+    const { scope } = fixture();
+    const bytes = estimatePayloadBytes(scope.rows);
+    const inserted = reconcileTableRowInsert(
+      scope.rows,
+      columns,
+      { tenant: 'a::b', id: 999, rank: 7, name: 'inserted-local' },
+      bytes
+    );
+    expect(inserted).not.toBeNull();
+    expect(inserted?.rows).toHaveLength(501);
+    expect(inserted?.rowIndex).toBe(0);
+    expect(inserted?.anchorReason).toBe('inserted');
+    expect(inserted?.rows[0].values).toEqual(['a::b', 999, 7, 'inserted-local']);
+    expect(inserted?.rows[235]).toBe(scope.rows[234]);
+  });
+
+  it('evaluates column filter predicates client-side across operators', () => {
+    expect(matchesColumnFilter('alpha', { column: 'name', operator: 'eq', value: 'alpha' })).toBe(
+      true
+    );
+    expect(matchesColumnFilter(10, { column: 'rank', operator: 'gt', value: 5 })).toBe(true);
+    expect(matchesColumnFilter(3, { column: 'rank', operator: 'gte', value: 5 })).toBe(false);
+    expect(matchesColumnFilter(null, { column: 'name', operator: 'is_null', value: null })).toBe(
+      true
+    );
+    expect(
+      matchesColumnFilter('name-234', { column: 'name', operator: 'like', value: '%234%' })
+    ).toBe(true);
   });
 
   it('rejects active search, unstable order, missing keys and masked identities', () => {
@@ -155,9 +250,8 @@ describe('confirmed table row reconciliation', () => {
 
   it.each([
     ['a::b', 999, 0, 'saved'],
-    ['a::b', 234, 2, 'saved'],
     ['moved tenant', 234, 0, 'saved'],
-  ])('reloads when a trigger changes a protected value: %j', (...values) => {
+  ])('reloads when a trigger changes a primary key value: %j', (...values) => {
     const { scope, target } = fixture();
     expect(
       reconcileTableRowUpdate(

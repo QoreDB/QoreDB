@@ -44,6 +44,90 @@ pub struct LocalRuntimeStatus {
     pub error: Option<String>,
     pub installation: Option<LocalInstallProgress>,
     pub required_download_bytes: Option<u64>,
+    pub total_system_ram_bytes: Option<u64>,
+    pub recommended_model_id: String,
+    pub recommended_ctx_size: u32,
+    pub memory_warning: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LocalMemoryProfile {
+    pub total_system_ram_bytes: Option<u64>,
+    pub recommended_model_id: &'static str,
+    pub recommended_ctx_size: u32,
+    pub memory_warning: Option<String>,
+}
+
+const GIB: u64 = 1024 * 1024 * 1024;
+
+pub fn select_memory_profile(ram_bytes: Option<u64>) -> LocalMemoryProfile {
+    match ram_bytes {
+        Some(bytes) if bytes < 8 * GIB => LocalMemoryProfile {
+            total_system_ram_bytes: Some(bytes),
+            recommended_model_id: MODEL_ID,
+            recommended_ctx_size: 4096,
+            memory_warning: Some(
+                "System RAM is below 8 GB: Qwen 3 8B Q4_K_M (~5 GB) may swap heavily. A cloud provider is recommended.".to_string(),
+            ),
+        },
+        Some(bytes) if bytes < 16 * GIB => LocalMemoryProfile {
+            total_system_ram_bytes: Some(bytes),
+            recommended_model_id: MODEL_ID,
+            recommended_ctx_size: 8192,
+            memory_warning: Some(
+                "System RAM is under 16 GB: context window automatically reduced to 8192 tokens to bound KV-cache memory.".to_string(),
+            ),
+        },
+        other => LocalMemoryProfile {
+            total_system_ram_bytes: other,
+            recommended_model_id: MODEL_ID,
+            recommended_ctx_size: 32768,
+            memory_warning: None,
+        },
+    }
+}
+
+pub fn detect_system_memory_bytes() -> Option<u64> {
+    #[cfg(target_os = "linux")]
+    {
+        if let Ok(contents) = std::fs::read_to_string("/proc/meminfo") {
+            for line in contents.lines() {
+                if let Some(rest) = line.strip_prefix("MemTotal:") {
+                    let kb_str = rest.trim().trim_end_matches("kB").trim();
+                    if let Ok(kb) = kb_str.parse::<u64>() {
+                        return Some(kb.saturating_mul(1024));
+                    }
+                }
+            }
+        }
+        None
+    }
+    #[cfg(target_os = "macos")]
+    {
+        let output = std::process::Command::new("sysctl")
+            .args(["-n", "hw.memsize"])
+            .output()
+            .ok()?;
+        let s = String::from_utf8_lossy(&output.stdout);
+        s.trim().parse::<u64>().ok()
+    }
+    #[cfg(windows)]
+    {
+        let output = std::process::Command::new("powershell")
+            .args([
+                "-NoProfile",
+                "-Command",
+                "(Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory",
+            ])
+            .output()
+            .ok()?;
+        let s = String::from_utf8_lossy(&output.stdout);
+        s.trim().parse::<u64>().ok()
+    }
+    #[cfg(not(any(target_os = "linux", target_os = "macos", windows)))]
+    {
+        None
+    }
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -123,6 +207,7 @@ impl LocalAiRuntime {
         let required_download_bytes = manifest
             .as_ref()
             .map(|manifest| manifest.runtime.size + manifest.model.size);
+        let mem_profile = select_memory_profile(detect_system_memory_bytes());
         if !Self::is_supported_target() {
             return LocalRuntimeStatus {
                 state: LocalRuntimeState::Unsupported,
@@ -134,6 +219,10 @@ impl LocalAiRuntime {
                 error: None,
                 installation: None,
                 required_download_bytes: None,
+                total_system_ram_bytes: mem_profile.total_system_ram_bytes,
+                recommended_model_id: mem_profile.recommended_model_id.to_string(),
+                recommended_ctx_size: mem_profile.recommended_ctx_size,
+                memory_warning: mem_profile.memory_warning,
             };
         }
 
@@ -153,6 +242,10 @@ impl LocalAiRuntime {
                     error: None,
                     installation: installation.clone(),
                     required_download_bytes,
+                    total_system_ram_bytes: mem_profile.total_system_ram_bytes,
+                    recommended_model_id: mem_profile.recommended_model_id.to_string(),
+                    recommended_ctx_size: mem_profile.recommended_ctx_size,
+                    memory_warning: mem_profile.memory_warning,
                 };
             }
             self.clear_finished_process();
@@ -176,6 +269,10 @@ impl LocalAiRuntime {
             error: self.last_install_error.lock().clone(),
             installation,
             required_download_bytes,
+            total_system_ram_bytes: mem_profile.total_system_ram_bytes,
+            recommended_model_id: mem_profile.recommended_model_id.to_string(),
+            recommended_ctx_size: mem_profile.recommended_ctx_size,
+            memory_warning: mem_profile.memory_warning,
         }
     }
 
@@ -340,18 +437,19 @@ impl LocalAiRuntime {
             .port();
         drop(listener);
 
+        let mem_profile = select_memory_profile(detect_system_memory_bytes());
         let mut command = Command::new(&runtime_path);
         command
             .arg("--model")
             .arg(&model_path)
             .arg("--alias")
-            .arg(MODEL_ID)
+            .arg(mem_profile.recommended_model_id)
             .arg("--host")
             .arg("127.0.0.1")
             .arg("--port")
             .arg(port.to_string())
             .arg("--ctx-size")
-            .arg("32768")
+            .arg(mem_profile.recommended_ctx_size.to_string())
             .arg("--jinja")
             .stdin(Stdio::null())
             .stdout(Stdio::null())
@@ -524,6 +622,21 @@ mod tests {
                 .contains(SelfTarget::ARCH)
         );
         assert!(runtime.model_path().ends_with(MODEL_FILE));
+    }
+
+    #[test]
+    fn memory_profile_scales_context_window_and_warns_below_thresholds() {
+        let low = select_memory_profile(Some(6 * GIB));
+        assert_eq!(low.recommended_ctx_size, 4096);
+        assert!(low.memory_warning.is_some());
+
+        let medium = select_memory_profile(Some(12 * GIB));
+        assert_eq!(medium.recommended_ctx_size, 8192);
+        assert!(medium.memory_warning.is_some());
+
+        let high = select_memory_profile(Some(32 * GIB));
+        assert_eq!(high.recommended_ctx_size, 32768);
+        assert!(high.memory_warning.is_none());
     }
 
     struct SelfTarget;

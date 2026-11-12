@@ -69,12 +69,36 @@ export interface CommandContribution {
   description?: string;
 }
 
+/** Cell-level extension point backed by the plugin's WASM module. Actions
+ *  appear in the cell context menu; renderers produce a structured preview.
+ *  An action without `match` applies to every column. */
+export interface CellContribution {
+  id: string;
+  label: string;
+  description?: string;
+  match?: ViewerMatch;
+}
+
+export type CellHookKind = 'action' | 'render';
+
+export type CellBadgeTone = 'neutral' | 'info' | 'success' | 'warning' | 'error';
+
+/** Mirror of `CellOutput` (Rust): the only shapes a plugin may return, drawn
+ *  with native components — never HTML. */
+export type CellOutput =
+  | { kind: 'text'; text: string }
+  | { kind: 'badge'; label: string; tone: CellBadgeTone }
+  | { kind: 'json'; value: unknown }
+  | { kind: 'table'; columns: string[]; rows: unknown[][] };
+
 export interface PluginContributions {
   snippets: SnippetContribution[];
   connectionTemplates: ConnectionTemplateContribution[];
   themes: ThemeContribution[];
   resultViewers: ResultViewerContribution[];
   commands: CommandContribution[];
+  cellActions: CellContribution[];
+  cellRenderers: CellContribution[];
 }
 
 /** Lifecycle hooks an executable plugin may subscribe to. */
@@ -206,4 +230,6 @@ export const EMPTY_CONTRIBUTIONS: PluginContributions = {
   themes: [],
   resultViewers: [],
   commands: [],
+  cellActions: [],
+  cellRenderers: [],
 };

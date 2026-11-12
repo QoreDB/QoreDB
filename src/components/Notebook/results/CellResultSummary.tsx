@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: BUSL-1.1
 
-import { Sparkles } from 'lucide-react';
+import { FileText, Sparkles } from 'lucide-react';
 import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AiResponseDisplay } from '@/components/AI/AiResponseDisplay';
@@ -16,9 +16,16 @@ interface CellResultSummaryProps {
   query: string;
   sessionId?: string | null;
   namespace?: Namespace | null;
+  onInsertMarkdownBelow?: (markdown: string) => void;
 }
 
-export function CellResultSummary({ result, query, sessionId, namespace }: CellResultSummaryProps) {
+export function CellResultSummary({
+  result,
+  query,
+  sessionId,
+  namespace,
+  onInsertMarkdownBelow,
+}: CellResultSummaryProps) {
   const { t } = useTranslation();
   const { isFeatureEnabled } = useLicense();
   const { getConfig, isReady } = useAiPreferences();
@@ -73,13 +80,26 @@ export function CellResultSummary({ result, query, sessionId, namespace }: CellR
         </Button>
       )}
       {(loading || summary || error) && (
-        <AiResponseDisplay
-          response={summary ?? ''}
-          loading={loading}
-          generatedQuery={null}
-          safetyAnalysis={null}
-          error={error}
-        />
+        <div className="space-y-1.5">
+          <AiResponseDisplay
+            response={summary ?? ''}
+            loading={loading}
+            generatedQuery={null}
+            safetyAnalysis={null}
+            error={error}
+          />
+          {summary && onInsertMarkdownBelow && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => onInsertMarkdownBelow(summary)}
+              className="h-6 gap-1.5 text-[11px]"
+            >
+              <FileText size={11} />
+              {t('notebook.insertSummaryMarkdown')}
+            </Button>
+          )}
+        </div>
       )}
     </div>
   );

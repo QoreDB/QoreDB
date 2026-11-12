@@ -408,3 +408,27 @@ export async function cancelQuery(
 }> {
   return invoke('cancel_query', { sessionId, queryId });
 }
+
+export interface HypertableDimension {
+  column_name: string;
+  dimension_type: string;
+  time_interval?: string | null;
+  integer_interval?: number | null;
+  num_partitions?: number | null;
+}
+
+export interface Hypertable {
+  name: string;
+  num_chunks?: number | null;
+  compression_enabled: boolean;
+  dimensions: HypertableDimension[];
+  compress_after?: string | null;
+  drop_after?: string | null;
+}
+
+export async function listHypertables(
+  sessionId: string,
+  namespace: Namespace
+): Promise<{ success: boolean; data?: Hypertable[]; error?: string }> {
+  return invoke('list_hypertables', { sessionId, namespace });
+}

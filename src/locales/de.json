@@ -95,7 +95,10 @@
       "secretsDescription": "Geben Sie Werte für die im Manifest deklarierten Geheimnisse an. Die Werte werden im Schlüsselbund des Betriebssystems gespeichert und verlassen dieses Gerät nicht.",
       "disabledErrorsBanner": "Dieses Plugin wurde nach {{count}} aufeinanderfolgenden Fehlern deaktiviert. Aktivieren Sie es über den Schalter erneut, sobald das Problem behoben ist.",
       "inertBanner": "Dieses Plugin ist aktiviert, aber Sie haben ihm keine Berechtigung erteilt, daher kann es noch nichts tun.",
-      "grantCta": "Berechtigungen erteilen"
+      "grantCta": "Berechtigungen erteilen",
+      "cellActions": "Zellaktionen",
+      "cellRenderers": "Zell-Renderer",
+      "allColumns": "alle Spalten"
     },
     "themes": {
       "title": "Plugin-Themen",
@@ -156,6 +159,13 @@
       "remove": "Geheimnis entfernen",
       "show": "Wert anzeigen",
       "hide": "Wert verbergen"
+    },
+    "cell": {
+      "previewWith": "Vorschau mit",
+      "actions": "Plugin-Aktionen",
+      "resultFor": "Ergebnis für Spalte {{column}}",
+      "running": "Plugin wird ausgeführt…",
+      "failed": "Plugin fehlgeschlagen: {{message}}"
     }
   },
   "pluginOutput": {
@@ -499,7 +509,11 @@
     "stats": "{{matches}} Treffer in {{tables}} Tabellen ({{time}}ms)",
     "truncated": "Ergebnisse gekürzt",
     "hint": "Geben Sie mindestens 2 Zeichen ein, um zu suchen",
-    "footerHint": "Klicken Sie auf ein Ergebnis, um die Tabelle zu öffnen"
+    "footerHint": "Klicken Sie auf ein Ergebnis, um die Tabelle zu öffnen",
+    "matchCount_one": "{{count}} Treffer",
+    "matchCount_other": "{{count}} Treffer",
+    "moreColumns_one": "+{{count}} weitere",
+    "moreColumns_other": "+{{count}} weitere"
   },
   "tabs": {
     "newTab": "Neuer Tab",
@@ -719,6 +733,8 @@
     "redo": "Wiederholen",
     "toggleVariables": "Variablen",
     "editTitle": "Zum Bearbeiten des Titels klicken",
+    "draftQuotaExceeded": "Lokales Speicherkontingent für Notebook-Entwurf überschritten",
+    "draftQuotaExceededHint": "Speichern Sie dieses Notebook in einer Datei (.qnb), damit Ihre Änderungen nicht verloren gehen.",
     "cellCountLabel": "{{count}} Zelle(n)",
     "variableDescriptionHint": "Optionale Beschreibung",
     "doubleClickToEdit": "Doppelklick zum Bearbeiten",
@@ -730,7 +746,9 @@
     "addCellAi": "KI-Zelle",
     "aiPlaceholder": "Beschreiben Sie die Abfrage in natürlicher Sprache…",
     "aiGenerate": "SQL generieren",
-    "aiCellInserted": "SQL-Zelle unten eingefügt"
+    "aiCellInserted": "SQL-Zelle unten eingefügt",
+    "insertSummaryMarkdown": "Als Markdown-Zelle einfügen",
+    "generateDocumentation": "Dokumentation mit KI erstellen"
   },
   "replay": {
     "cancelledReport": "Wiedergabe abgebrochen. Ausgeführte Abfragen bleiben erhalten; eine laufende Abfrage kann beendet worden sein.",
@@ -1118,6 +1136,41 @@
         "idle": "Sitzungen, die 10 Minuten inaktiv sind, werden geschlossen.",
         "audit": "Jeder Aufruf wird mit der Quelle „mcp“ im Audit-Log festgehalten."
       }
+    },
+    "localData": {
+      "title": "Lokale Daten & Speicherplatz",
+      "description": "Speicherbelegung in app_data_dir nach Kategorie prüfen und gezielt bereinigen.",
+      "securityNotice": "Zugangsdaten in vault.enc sind im Ruhezustand verschlüsselt (AES-256-GCM). Die folgenden Kategorien werden lokal mit Geheimnis-Schwärzung und Aufbewahrungslimits gespeichert.",
+      "totalUsage": "Lokaler Gesamtspeicher: {{size}}",
+      "fileCount": "{{count}} Dateien",
+      "purge": "Bereinigen",
+      "confirmTitle": "Lokale Datenkategorie bereinigen",
+      "confirmDescription": "Möchten Sie wirklich alle lokalen Dateien in „{{category}}“ dauerhaft löschen?",
+      "confirmAction": "Dauerhaft bereinigen",
+      "purgeSuccess": "{{category}} bereinigt.",
+      "purgeError": "Lokale Daten konnten nicht bereinigt werden.",
+      "categories": {
+        "time_travel": {
+          "title": "Time-Travel-Verlauf",
+          "description": "Lokales Änderungsprotokoll (time-travel/), begrenzt durch Aufbewahrungstage und Dateigröße."
+        },
+        "replay": {
+          "title": "Query-Replay-Aufnahmen",
+          "description": "Aufgezeichnete Replay-Läufe (replays/), isoliert pro Workspace."
+        },
+        "snapshots": {
+          "title": "Daten-Snapshots",
+          "description": "Gespeicherte Ergebnis-Snapshots (snapshots/*.json) für Vergleiche."
+        },
+        "audit_logs": {
+          "title": "Audit-Protokoll & Anwendungslogs",
+          "description": "Interceptor-Audit (interceptor/audit.jsonl) und Anwendungsprotokolle (logs/)."
+        },
+        "ai_models": {
+          "title": "Lokale KI-Laufzeit & Modelle",
+          "description": "Heruntergeladene Qore AI Local Binärdateien und GGUF-Modelle (ai-local/)."
+        }
+      }
     }
   },
   "table": {
@@ -1281,7 +1334,8 @@
       "execTooltip": "Backend-Verarbeitungszeit",
       "transferTooltip": "Netzwerk-/Übertragungszeit",
       "totalTooltip": "Gesamte Umlaufzeit"
-    }
+    },
+    "closeResult": "Ergebnis {{label}} schließen"
   },
   "results": {
     "affectedRows": "{{count}} Zeile(n) betroffen in {{time}}ms",
@@ -1434,6 +1488,14 @@
       "applied": "Maskierung angewendet",
       "appliedNextRun": "Maskierung gespeichert: Sie gilt ab der nächsten Ausführung.",
       "removed": "Maskierung entfernt"
+    },
+    "anchor": {
+      "filter_mismatch": "Außerhalb Filter",
+      "filter_mismatchTooltip": "Bearbeitete Zeile entspricht nicht mehr den aktiven Filtern; bleibt bis zum Neuladen verankert.",
+      "order_changed": "Reihenfolge geändert",
+      "order_changedTooltip": "Sortierwert geändert; Zeile bleibt bis zum Neuladen verankert.",
+      "inserted": "Eingefügt",
+      "insertedTooltip": "Lokal eingefügte Zeile bleibt bis zum Neuladen oben verankert."
     }
   },
   "export": {
@@ -1697,7 +1759,18 @@
     "tabBar": "Offene Tabs",
     "databaseTree": "Datenbankbaum",
     "statusBar": "Statusleiste",
-    "help": "Hilfe"
+    "help": "Hilfe",
+    "resizeSidebar": "Seitenleiste vergrößern/verkleinern",
+    "resizeEditor": "SQL-Editor vergrößern/verkleinern",
+    "resizeAiPanel": "KI-Assistentenbereich vergrößern/verkleinern",
+    "query": {
+      "running": "Abfrage läuft…",
+      "failed": "Abfrage fehlgeschlagen. Der Fehler wird im Ergebnisbereich angezeigt.",
+      "timedOut": "Zeitüberschreitung der Abfrage.",
+      "done": "Abfrage in {{ms}} ms abgeschlossen.",
+      "rows_one": "Abfrage abgeschlossen: {{count}} Zeile in {{ms}} ms.",
+      "rows_other": "Abfrage abgeschlossen: {{count}} Zeilen in {{ms}} ms."
+    }
   },
   "zenMode": {
     "enabled": "Zen-Modus — Esc drücken zum Beenden"
@@ -1820,7 +1893,15 @@
     "keyspacesHeader": "KEYSPACES",
     "dataset": "Dataset",
     "datasets": "Datasets",
-    "datasetsHeader": "DATASETS"
+    "datasetsHeader": "DATASETS",
+    "mapping": {
+      "expand": "Mapping von {{name}} anzeigen",
+      "collapse": "Mapping von {{name}} ausblenden",
+      "label": "Mapping von {{name}}",
+      "empty": "Keine gemappten Felder",
+      "failed": "Mapping konnte nicht geladen werden",
+      "subfield": "{{type}}-Unterfeld"
+    }
   },
   "createTable": {
     "title": "Tabelle erstellen",
@@ -2115,7 +2196,9 @@
       "new": "NEU",
       "modified": "Geändert",
       "deleted": "Gelöscht"
-    }
+    },
+    "quotaExceeded": "Lokales Speicherkontingent für Sandbox-Änderungen überschritten",
+    "quotaExceededHint": "Wenden Sie ausstehende Änderungen an oder verwerfen Sie sie, um Speicherplatz freizugeben."
   },
   "interceptor": {
     "title": "Abfrage-Interceptor",
@@ -2319,7 +2402,10 @@
         "environments": "Auf Umgebungen anwenden",
         "operations": "Operationen abgleichen",
         "action": "Aktion",
-        "pattern": "Abfragemuster (Regex)"
+        "pattern": "Abfragemuster (Regex)",
+        "operationsHint": "Leer lassen, um alle Operationen zu erfassen",
+        "namePlaceholder": "Gefährliche Abfragen blockieren",
+        "descriptionPlaceholder": "Verhindert versehentlichen Datenverlust"
       },
       "actions": {
         "block": "Abfrage blockieren",
@@ -2921,6 +3007,22 @@
       "summarizeSchema": "Dieses Schema zusammenfassen",
       "tableTitle": "Tabelle {{table}}",
       "schemaTitle": "Schema {{namespace}}"
+    },
+    "semanticContext": {
+      "menuItem": "Fachlicher Kontext (.qoredb)",
+      "title": "Fachlicher Kontext — {{table}}",
+      "description": "Dokumentieren Sie diese Tabelle und Projektregeln in .qoredb/context.json für präzisere KI-Abfragen.",
+      "tableDescription": "Tabellenbeschreibung",
+      "tableDescriptionPlaceholder": "z. B. Kundenrechnungen",
+      "domain": "Domäne",
+      "domainPlaceholder": "z. B. Abrechnung",
+      "columnsTitle": "Spaltenbedeutungen",
+      "columnPlaceholder": "Bedeutung ({{type}})",
+      "implicitRelations": "Implizite Beziehungen (eine pro Zeile)",
+      "implicitRelationsPlaceholder": "user_id -> users.id",
+      "businessRules": "Geschäftsregeln des Projekts (eine pro Zeile)",
+      "businessRulesPlaceholder": "z. B. Aktive Nutzer haben deleted_at IS NULL",
+      "saved": "Fachlicher Kontext in .qoredb/context.json gespeichert"
     }
   },
   "agentChat": {
@@ -3018,7 +3120,12 @@
     "insertLeftJoin": "LEFT JOIN",
     "insertComma": "Cross Join",
     "insertWhere": "WHERE",
-    "insertRaw": "Referenz"
+    "insertRaw": "Referenz",
+    "cacheHit": "Cache",
+    "liveFetch": "Live",
+    "rowsShort": "Zeilen",
+    "projectedColumns": "Projizierte Spalten",
+    "refreshCacheTooltip": "Cache umgehen und alle föderierten Quellen neu abrufen"
   },
   "maintenance": {
     "title": "Tabellenwartung",
@@ -3886,5 +3993,21 @@
     "exported": "SQL-Skript exportiert",
     "exportError": "Export fehlgeschlagen",
     "copied": "SQL kopiert"
+  },
+  "timescale": {
+    "hypertable": "Hypertable",
+    "timeDimension": "Zeit",
+    "spaceDimension": "Raum",
+    "chunkInterval": "Chunks à {{value}}",
+    "partitions": "{{value}} Partitionen",
+    "compression": "Komprimierung",
+    "retention": "Aufbewahrung",
+    "disabled": "deaktiviert",
+    "after": "nach {{value}}",
+    "enabledNoPolicy": "aktiviert, keine Richtlinie",
+    "dropAfter": "Löschen nach {{value}}",
+    "noPolicy": "keine Richtlinie",
+    "chunks_one": "{{count}} Chunk",
+    "chunks_other": "{{count}} Chunks"
   }
 }

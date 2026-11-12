@@ -27,7 +27,7 @@ use super::types::{
     RULE_ALERT_ERROR_RATE, RULE_ALERT_SLOW_QUERIES, RULE_N_PLUS_ONE, SafetyCheckResult, SafetyRule,
     SlowQueryEntry,
 };
-use qore_sql::safety::SqlSafetyAnalysis;
+use qore_sql::safety::{SqlOperationKind, SqlSafetyAnalysis};
 
 pub type AlertSink = Arc<dyn Fn(InterceptorAlert) + Send + Sync>;
 
@@ -202,7 +202,7 @@ impl InterceptorPipeline {
         source: QuerySource,
     ) -> QueryContext {
         let (operation_type, is_mutation, is_dangerous) = if let Some(analysis) = sql_analysis {
-            let op = self.classify_sql_operation(query);
+            let op = map_sql_operation(analysis.operation);
             (op, analysis.is_mutation, analysis.is_dangerous)
         } else {
             // MongoDB or unknown driver: SQL analysis is unavailable.
@@ -526,6 +526,23 @@ impl InterceptorPipeline {
         drop(config);
 
         self.save_config()
+    }
+}
+
+fn map_sql_operation(kind: SqlOperationKind) -> QueryOperationType {
+    match kind {
+        SqlOperationKind::Select => QueryOperationType::Select,
+        SqlOperationKind::Insert => QueryOperationType::Insert,
+        SqlOperationKind::Update => QueryOperationType::Update,
+        SqlOperationKind::Delete => QueryOperationType::Delete,
+        SqlOperationKind::Create => QueryOperationType::Create,
+        SqlOperationKind::Alter => QueryOperationType::Alter,
+        SqlOperationKind::Drop => QueryOperationType::Drop,
+        SqlOperationKind::Truncate => QueryOperationType::Truncate,
+        SqlOperationKind::Grant => QueryOperationType::Grant,
+        SqlOperationKind::Revoke => QueryOperationType::Revoke,
+        SqlOperationKind::Execute => QueryOperationType::Execute,
+        SqlOperationKind::Other => QueryOperationType::Other,
     }
 }
 

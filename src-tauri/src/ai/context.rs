@@ -8,6 +8,10 @@ use std::sync::Arc;
 
 use tracing::debug;
 
+use crate::ai::semantic_memory::{
+    SemanticContextFile, detect_schema_conventions, format_semantic_block,
+    format_table_semantic_notes,
+};
 use crate::ai::types::{AiMessage, EditorContext};
 use crate::engine::SessionManager;
 use crate::engine::types::{
@@ -104,6 +108,38 @@ pub async fn build_context(
     include_sample_rows: bool,
     redact_sensitive: bool,
 ) -> Result<SchemaContext, String> {
+    build_context_with_semantic(
+        session_manager,
+        session_id,
+        namespace,
+        driver_id,
+        virtual_relations,
+        connection_id,
+        user_prompt,
+        include_sample_rows,
+        redact_sensitive,
+        None,
+        &[],
+    )
+    .await
+}
+
+/// Build the full schema context for an AI request with optional `.qoredb/context.json`
+/// semantic memory and frequent query patterns from history.
+#[allow(clippy::too_many_arguments)]
+pub async fn build_context_with_semantic(
+    session_manager: &Arc<SessionManager>,
+    session_id: SessionId,
+    namespace: &Namespace,
+    driver_id: &str,
+    virtual_relations: &Arc<VirtualRelationStore>,
+    connection_id: Option<&str>,
+    user_prompt: &str,
+    include_sample_rows: bool,
+    redact_sensitive: bool,
+    semantic_context: Option<&SemanticContextFile>,
+    frequent_queries: &[String],
+) -> Result<SchemaContext, String> {
     let dialect = dialect_for_driver(driver_id);
     let driver = session_manager
         .get_driver(session_id)
@@ -126,17 +162,26 @@ pub async fn build_context(
         .map(|c| c.name.clone())
         .collect();
 
-    // Prioritize tables mentioned in the user prompt.
+    // Prioritize tables mentioned in the user prompt, then tables annotated in semantic memory.
     let prompt_lower = user_prompt.to_lowercase();
     table_names.sort_by(|a, b| {
         let a_mentioned = prompt_lower.contains(&a.to_lowercase());
         let b_mentioned = prompt_lower.contains(&b.to_lowercase());
-        b_mentioned.cmp(&a_mentioned)
+        let a_annotated = semantic_context
+            .and_then(|ctx| ctx.get_table(a))
+            .is_some_and(|ann| !ann.is_empty());
+        let b_annotated = semantic_context
+            .and_then(|ctx| ctx.get_table(b))
+            .is_some_and(|ann| !ann.is_empty());
+        b_mentioned
+            .cmp(&a_mentioned)
+            .then_with(|| b_annotated.cmp(&a_annotated))
     });
 
     table_names.truncate(MAX_TABLES);
 
     let mut schema_parts: Vec<String> = Vec::new();
+    let mut described_schemas: Vec<(String, TableSchema)> = Vec::new();
     let mut total_words = 0;
     let mut sampled_tables = 0;
 
@@ -151,6 +196,7 @@ pub async fn build_context(
         {
             Ok(schema) => {
                 let desc = format_table_schema(table_name, &schema, driver_id, redact_sensitive);
+                described_schemas.push((table_name.clone(), schema));
 
                 let virtual_fks = if let Some(cid) = connection_id {
                     virtual_relations.get_foreign_keys_for_table(
@@ -177,6 +223,13 @@ pub async fn build_context(
                         .unwrap();
                     }
                     full_desc.push('\n');
+                }
+
+                if let Some(sem) = semantic_context {
+                    let notes = format_table_semantic_notes(table_name, sem, redact_sensitive);
+                    if !notes.is_empty() {
+                        full_desc.push_str(&notes);
+                    }
                 }
 
                 if include_sample_rows
@@ -228,6 +281,15 @@ pub async fn build_context(
                 remaining.join(", ")
             ));
         }
+    }
+
+    let conventions = detect_schema_conventions(&described_schemas, redact_sensitive);
+    let empty_semantic = SemanticContextFile::default();
+    let sem_ref = semantic_context.unwrap_or(&empty_semantic);
+    if let Some(sem_block) =
+        format_semantic_block(sem_ref, &conventions, frequent_queries, redact_sensitive)
+    {
+        schema_parts.insert(0, format!("Semantic Memory & Conventions:\n{sem_block}\n"));
     }
 
     let schema_description = schema_parts.join("\n");

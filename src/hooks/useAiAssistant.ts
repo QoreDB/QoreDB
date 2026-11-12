@@ -188,11 +188,21 @@ export function useAiAssistant({
     [sendStreamingRequest]
   );
 
+  const explainResult = useCallback(
+    (prompt: string, config: AiConfig, resultContext: string) => {
+      return sendStreamingRequest('explain_result', prompt, config, {
+        result_context: resultContext,
+      });
+    },
+    [sendStreamingRequest]
+  );
+
   return {
     items,
     loading,
     generateQuery,
     fixError,
+    explainResult,
     reset,
   };
 }

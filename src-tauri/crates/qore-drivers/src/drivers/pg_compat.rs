@@ -39,6 +39,7 @@ use qore_core::types::{
 use qore_sql::safety;
 
 pub(super) mod capture_read;
+pub(super) mod hypertables;
 
 // Session
 

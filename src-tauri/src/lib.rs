@@ -260,6 +260,7 @@ pub fn run() {
             commands::query::list_collections,
             commands::query::list_routines,
             commands::query::list_triggers,
+            commands::query::list_hypertables,
             commands::query::list_events,
             commands::query::list_sequences,
             commands::query::describe_table,
@@ -301,6 +302,8 @@ pub fn run() {
             commands::logs::get_pending_crash_reports,
             commands::logs::acknowledge_crash_reports,
             commands::logs::log_frontend_message,
+            commands::logs::get_local_data_usage,
+            commands::logs::purge_local_data_category,
             // Export
             commands::export::start_export,
             commands::export::cancel_export,
@@ -413,6 +416,8 @@ pub fn run() {
             commands::ai::ai_cancel_local_runtime_installation,
             commands::ai::ai_check_provider,
             commands::ai::ai_generate_filters,
+            commands::ai::ai_get_semantic_context,
+            commands::ai::ai_save_semantic_context,
             // Database Agent commands
             commands::agent::agent_send_message,
             commands::agent::agent_respond_permission,
@@ -529,6 +534,7 @@ pub fn run() {
             commands::plugins::get_plugin_statuses,
             commands::plugins::set_plugin_consent,
             commands::plugins::run_plugin_command,
+            commands::plugins::run_plugin_cell_hook,
             commands::plugins::list_provisioned_secrets,
             commands::plugins::set_plugin_secret,
             commands::plugins::delete_plugin_secret,

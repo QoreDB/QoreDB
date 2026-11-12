@@ -2,6 +2,7 @@
 
 //! Database Agent — agentic chat orchestration (Pro feature).
 
+pub mod benchmark;
 pub mod orchestrator;
 pub mod permissions;
 pub mod store;

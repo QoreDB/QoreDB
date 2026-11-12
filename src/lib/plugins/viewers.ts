@@ -7,7 +7,7 @@
  * namespaces ids, so two plugins can't shadow each other accidentally.
  */
 
-import type { ResultViewerContribution, ViewerMatch } from './types';
+import type { CellContribution, ResultViewerContribution, ViewerMatch } from './types';
 
 /** Returns the first viewer whose `match` block matches the column. */
 export function findViewerFor(
@@ -15,6 +15,13 @@ export function findViewerFor(
   viewers: ResultViewerContribution[]
 ): ResultViewerContribution | undefined {
   return viewers.find(v => matches(v.match, column));
+}
+
+export function findCellContributions(
+  column: { name?: string | null; columnType?: string | null },
+  contributions: CellContribution[]
+): CellContribution[] {
+  return contributions.filter(c => !c.match || matches(c.match, column));
 }
 
 function matches(

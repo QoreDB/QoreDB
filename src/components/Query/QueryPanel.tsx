@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { AiAssistantPanel } from '@/components/AI/AiAssistantPanel';
@@ -12,8 +12,18 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { ResizeHandle } from '@/components/ui/resize-handle';
+import {
+  clampPanelSize,
+  computeKeyboardResizeDelta,
+  loadPanelCollapsed,
+  loadPanelSize,
+  savePanelCollapsed,
+  savePanelSize,
+} from '@/hooks/useResizableSidebar';
 import { UI_EVENT_AI_INLINE_EDIT, UI_EVENT_OPEN_HISTORY } from '@/lib/events/uiEvents';
 import { estimateBigQueryScan } from '@/lib/query/bigqueryEstimate';
+import { useWorkspaceStore } from '@/lib/stores/workspaceStore';
 import { createNotebookTab } from '@/lib/tabs';
 import { recordQueryAndMaybeNotify } from '@/lib/usageBanner';
 import { useLicense } from '@/providers/LicenseProvider';
@@ -74,6 +84,7 @@ import { DeferredQueryLibraryModal as QueryLibraryModal } from './DeferredQueryL
 import { QueryPanelEditor } from './QueryPanelEditor';
 import { QueryPanelResults, type QueryResultEntry } from './QueryPanelResults';
 import { QueryPanelToolbar } from './QueryPanelToolbar';
+import { QueryStatusAnnouncer } from './QueryStatusAnnouncer';
 import {
   extractUseDatabase,
   getCollectionFromQuery,
@@ -90,17 +101,28 @@ const EDITOR_HEIGHT_KEY = 'query-editor-height';
 const MIN_EDITOR_HEIGHT = 100;
 const DEFAULT_EDITOR_HEIGHT = 200;
 
-function loadEditorHeight(): number {
-  try {
-    const stored = localStorage.getItem(EDITOR_HEIGHT_KEY);
-    if (stored) {
-      const parsed = Number(stored);
-      if (Number.isFinite(parsed) && parsed >= MIN_EDITOR_HEIGHT) return parsed;
-    }
-  } catch {
-    // ignore
-  }
-  return DEFAULT_EDITOR_HEIGHT;
+const AI_PANEL_WIDTH_KEY = 'ai-panel-width';
+const MIN_AI_PANEL_WIDTH = 260;
+const DEFAULT_AI_PANEL_WIDTH = 320;
+
+function getMaxEditorHeight(containerHeight?: number): number {
+  const base =
+    containerHeight && containerHeight > 0
+      ? containerHeight
+      : typeof window !== 'undefined' && window.innerHeight
+        ? window.innerHeight
+        : 800;
+  return Math.max(MIN_EDITOR_HEIGHT, Math.floor(base * 0.8));
+}
+
+function getMaxAiPanelWidth(containerWidth?: number): number {
+  const base =
+    containerWidth && containerWidth > 0
+      ? containerWidth
+      : typeof window !== 'undefined' && window.innerWidth
+        ? window.innerWidth
+        : 1024;
+  return Math.max(MIN_AI_PANEL_WIDTH, Math.floor(base * 0.5));
 }
 
 function isTextInputTarget(target: EventTarget | null): boolean {
@@ -128,6 +150,7 @@ interface QueryPanelProps {
   onQueryDraftChange?: (query: string) => void;
   initialShowAiPanel?: boolean;
   aiTableContext?: string;
+  initialAiExplain?: { query: string; summary: string };
 }
 
 export function QueryPanel({
@@ -149,10 +172,12 @@ export function QueryPanel({
   onQueryDraftChange,
   initialShowAiPanel,
   aiTableContext,
+  initialAiExplain,
 }: QueryPanelProps) {
   const { t } = useTranslation();
   const { openTab } = useTabActions();
-  const { tier } = useLicense();
+  const { tier, isFeatureEnabled } = useLicense();
+  const aiEnabled = isFeatureEnabled('ai');
   const isDocument = isDocumentDatabase(dialect);
   const queryDialect = getQueryDialect(dialect);
   const isSearch = queryDialect === 'search';
@@ -196,20 +221,88 @@ export function QueryPanel({
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [queryToSave, setQueryToSave] = useState<string>('');
-  const [showAiPanel, setShowAiPanel] = useState(initialShowAiPanel ?? false);
+  const projectId = useWorkspaceStore(s => s.projectId) || 'default';
+  const [showAiPanel, setShowAiPanel] = useState(
+    () => initialShowAiPanel ?? !loadPanelCollapsed(AI_PANEL_WIDTH_KEY, true, projectId)
+  );
+  const [aiPanelWidth, setAiPanelWidth] = useState(() =>
+    loadPanelSize(
+      AI_PANEL_WIDTH_KEY,
+      DEFAULT_AI_PANEL_WIDTH,
+      MIN_AI_PANEL_WIDTH,
+      getMaxAiPanelWidth(),
+      projectId
+    )
+  );
+  const aiPaneRef = useRef<HTMLDivElement>(null);
+  const aiResizeDragRef = useRef({ active: false, startX: 0, startWidth: 0 });
+  const latestAiPanelWidth = useRef(aiPanelWidth);
   const [pendingAiFix, setPendingAiFix] = useState<{ query: string; error: string } | null>(null);
+  const [pendingAiExplain, setPendingAiExplain] = useState<{
+    query: string;
+    summary: string;
+  } | null>(initialAiExplain ?? null);
   const [inlineEdit, setInlineEdit] = useState<{ source: string; isSelection: boolean } | null>(
     null
   );
 
+  const handleFixWithAi = useCallback((errorQuery: string, error: string) => {
+    setShowAiPanel(true);
+    setPendingAiFix({ query: errorQuery, error });
+  }, []);
+
+  const handleExplainResultWithAi = useCallback((resultQuery: string, summary: string) => {
+    setShowAiPanel(true);
+    setPendingAiExplain({ query: resultQuery, summary });
+  }, []);
+
   // Editor resize state
-  const [editorHeight, setEditorHeight] = useState(loadEditorHeight);
-  const [editorExpanded, setEditorExpanded] = useState(false);
+  const [editorHeight, setEditorHeight] = useState(() =>
+    loadPanelSize(
+      EDITOR_HEIGHT_KEY,
+      DEFAULT_EDITOR_HEIGHT,
+      MIN_EDITOR_HEIGHT,
+      getMaxEditorHeight(),
+      projectId
+    )
+  );
+  const [editorExpanded, setEditorExpanded] = useState(() =>
+    loadPanelCollapsed(EDITOR_HEIGHT_KEY, false, projectId)
+  );
   const containerRef = useRef<HTMLDivElement>(null);
   const editorPaneRef = useRef<HTMLDivElement>(null);
+  const editorPaneId = useId();
+  const aiPaneId = useId();
   const resizeDragRef = useRef({ active: false, startY: 0, startHeight: 0, expanded: false });
   const latestEditorHeight = useRef(editorHeight);
   const prevEditorHeightRef = useRef(DEFAULT_EDITOR_HEIGHT);
+
+  // Hydrate panel sizes & collapsed states on workspace change
+  useEffect(() => {
+    const nextHeight = loadPanelSize(
+      EDITOR_HEIGHT_KEY,
+      DEFAULT_EDITOR_HEIGHT,
+      MIN_EDITOR_HEIGHT,
+      getMaxEditorHeight(containerRef.current?.clientHeight),
+      projectId
+    );
+    latestEditorHeight.current = nextHeight;
+    setEditorHeight(nextHeight);
+    setEditorExpanded(loadPanelCollapsed(EDITOR_HEIGHT_KEY, false, projectId));
+
+    const nextAiWidth = loadPanelSize(
+      AI_PANEL_WIDTH_KEY,
+      DEFAULT_AI_PANEL_WIDTH,
+      MIN_AI_PANEL_WIDTH,
+      getMaxAiPanelWidth(editorPaneRef.current?.clientWidth),
+      projectId
+    );
+    latestAiPanelWidth.current = nextAiWidth;
+    setAiPanelWidth(nextAiWidth);
+    if (initialShowAiPanel === undefined) {
+      setShowAiPanel(!loadPanelCollapsed(AI_PANEL_WIDTH_KEY, true, projectId));
+    }
+  }, [projectId, initialShowAiPanel]);
 
   // Feature tour trigger
   const tourManager = useTourManager();
@@ -618,6 +711,14 @@ export function QueryPanel({
             error: response.error || t('query.queryFailed'),
           });
           logError('QueryPanel', response.error || t('query.queryFailed'), queryToRun, sessionId);
+          toast.error(errorMsg, {
+            action: aiEnabled
+              ? {
+                  label: t('ai.fixWithAi'),
+                  onClick: () => handleFixWithAi(queryToRun, errorMsg),
+                }
+              : undefined,
+          });
         }
       } catch (err) {
         cancelAnimationFrame(streamRafId);
@@ -645,6 +746,14 @@ export function QueryPanel({
         });
         setActiveResultId(queryId);
         logError('QueryPanel', errorMessage, queryToRun, sessionId || undefined);
+        toast.error(errorMessage, {
+          action: aiEnabled
+            ? {
+                label: t('ai.fixWithAi'),
+                onClick: () => handleFixWithAi(queryToRun, errorMessage),
+              }
+            : undefined,
+        });
       } finally {
         setLoading(false);
         setActiveQueryId(null);
@@ -665,6 +774,8 @@ export function QueryPanel({
       federationSources,
       federationAliasSet,
       tier,
+      aiEnabled,
+      handleFixWithAi,
     ]
   );
 
@@ -872,8 +983,12 @@ export function QueryPanel({
   const runCurrentQuery = useCallback(() => handleExecute(), [handleExecute]);
 
   const handleAiToggle = useCallback(() => {
-    setShowAiPanel(prev => !prev);
-  }, []);
+    setShowAiPanel(prev => {
+      const next = !prev;
+      savePanelCollapsed(AI_PANEL_WIDTH_KEY, !next, projectId);
+      return next;
+    });
+  }, [projectId]);
 
   // Editor resize handlers
   const handleResizeMouseDown = useCallback(
@@ -892,36 +1007,164 @@ export function QueryPanel({
     [editorHeight, editorExpanded]
   );
 
+  const handleResetEditorHeight = useCallback(() => {
+    const maxHeight = getMaxEditorHeight(containerRef.current?.clientHeight);
+    const next = clampPanelSize(DEFAULT_EDITOR_HEIGHT, MIN_EDITOR_HEIGHT, maxHeight);
+    latestEditorHeight.current = next;
+    setEditorExpanded(false);
+    setEditorHeight(next);
+    savePanelSize(EDITOR_HEIGHT_KEY, next, projectId);
+    savePanelCollapsed(EDITOR_HEIGHT_KEY, false, projectId);
+    if (editorPaneRef.current) {
+      editorPaneRef.current.style.height = `${next}px`;
+    }
+  }, [projectId]);
+
+  const handleToggleExpand = useCallback(() => {
+    setEditorExpanded(prev => {
+      const next = !prev;
+      if (next) {
+        prevEditorHeightRef.current = editorHeight;
+      } else {
+        setEditorHeight(prevEditorHeightRef.current);
+      }
+      savePanelCollapsed(EDITOR_HEIGHT_KEY, next, projectId);
+      return next;
+    });
+  }, [editorHeight, projectId]);
+
+  const handleEditorResizeKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        handleToggleExpand();
+        return;
+      }
+      const action = computeKeyboardResizeDelta(e.key, 'vertical', e.shiftKey);
+      if (action === null) return;
+      e.preventDefault();
+      const maxHeight = getMaxEditorHeight(containerRef.current?.clientHeight);
+      const nextHeight =
+        action === 'min'
+          ? MIN_EDITOR_HEIGHT
+          : action === 'max'
+            ? maxHeight
+            : clampPanelSize(editorHeight + action, MIN_EDITOR_HEIGHT, maxHeight);
+      if (editorExpanded) {
+        setEditorExpanded(false);
+        savePanelCollapsed(EDITOR_HEIGHT_KEY, false, projectId);
+      }
+      latestEditorHeight.current = nextHeight;
+      setEditorHeight(nextHeight);
+      savePanelSize(EDITOR_HEIGHT_KEY, nextHeight, projectId);
+    },
+    [editorExpanded, editorHeight, handleToggleExpand, projectId]
+  );
+
+  // Right AI panel resize handlers
+  const handleAiResizeMouseDown = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault();
+      aiResizeDragRef.current = {
+        active: true,
+        startX: e.clientX,
+        startWidth: aiPanelWidth,
+      };
+      latestAiPanelWidth.current = aiPanelWidth;
+      document.body.style.userSelect = 'none';
+      document.body.style.cursor = 'col-resize';
+    },
+    [aiPanelWidth]
+  );
+
+  const handleResetAiPanelWidth = useCallback(() => {
+    const maxWidth = getMaxAiPanelWidth(editorPaneRef.current?.clientWidth);
+    const next = clampPanelSize(DEFAULT_AI_PANEL_WIDTH, MIN_AI_PANEL_WIDTH, maxWidth);
+    latestAiPanelWidth.current = next;
+    setAiPanelWidth(next);
+    savePanelSize(AI_PANEL_WIDTH_KEY, next, projectId);
+    if (aiPaneRef.current) {
+      aiPaneRef.current.style.width = `${next}px`;
+      aiPaneRef.current.style.minWidth = `${next}px`;
+    }
+  }, [projectId]);
+
+  const handleAiResizeKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        handleAiToggle();
+        return;
+      }
+      const action = computeKeyboardResizeDelta(e.key, 'horizontal', e.shiftKey, true);
+      if (action === null) return;
+      e.preventDefault();
+      const maxWidth = getMaxAiPanelWidth(editorPaneRef.current?.clientWidth);
+      const nextWidth =
+        action === 'min'
+          ? MIN_AI_PANEL_WIDTH
+          : action === 'max'
+            ? maxWidth
+            : clampPanelSize(aiPanelWidth + action, MIN_AI_PANEL_WIDTH, maxWidth);
+      latestAiPanelWidth.current = nextWidth;
+      setAiPanelWidth(nextWidth);
+      savePanelSize(AI_PANEL_WIDTH_KEY, nextWidth, projectId);
+    },
+    [aiPanelWidth, handleAiToggle, projectId]
+  );
+
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
-      if (!resizeDragRef.current.active) return;
-      const container = containerRef.current;
-      if (!container) return;
-      const maxHeight = Math.floor(container.clientHeight * 0.8);
-      const delta = e.clientY - resizeDragRef.current.startY;
-      const newHeight = Math.min(
-        Math.max(resizeDragRef.current.startHeight + delta, MIN_EDITOR_HEIGHT),
-        maxHeight
-      );
-      latestEditorHeight.current = newHeight;
-      // Resize via the DOM during the drag so we don't re-render QueryPanel on
-      // every mousemove; commit to state on mouseup. Skip while expanded, where
-      // the flex layout ignores the height anyway.
-      if (!resizeDragRef.current.expanded && editorPaneRef.current) {
-        editorPaneRef.current.style.height = `${newHeight}px`;
+      if (resizeDragRef.current.active) {
+        const container = containerRef.current;
+        if (!container) return;
+        const maxHeight = getMaxEditorHeight(container.clientHeight);
+        const delta = e.clientY - resizeDragRef.current.startY;
+        const newHeight = clampPanelSize(
+          resizeDragRef.current.startHeight + delta,
+          MIN_EDITOR_HEIGHT,
+          maxHeight
+        );
+        latestEditorHeight.current = newHeight;
+        // Resize via the DOM during the drag so we don't re-render QueryPanel on
+        // every mousemove; commit to state on mouseup. Skip while expanded, where
+        // the flex layout ignores the height anyway.
+        if (!resizeDragRef.current.expanded && editorPaneRef.current) {
+          editorPaneRef.current.style.height = `${newHeight}px`;
+        }
+      }
+
+      if (aiResizeDragRef.current.active) {
+        const maxWidth = getMaxAiPanelWidth(editorPaneRef.current?.clientWidth);
+        const delta = aiResizeDragRef.current.startX - e.clientX;
+        const newWidth = clampPanelSize(
+          aiResizeDragRef.current.startWidth + delta,
+          MIN_AI_PANEL_WIDTH,
+          maxWidth
+        );
+        latestAiPanelWidth.current = newWidth;
+        if (aiPaneRef.current) {
+          aiPaneRef.current.style.width = `${newWidth}px`;
+          aiPaneRef.current.style.minWidth = `${newWidth}px`;
+        }
       }
     };
 
     const handleMouseUp = () => {
-      if (!resizeDragRef.current.active) return;
-      resizeDragRef.current.active = false;
-      document.body.style.userSelect = '';
-      document.body.style.cursor = '';
-      setEditorHeight(latestEditorHeight.current);
-      try {
-        localStorage.setItem(EDITOR_HEIGHT_KEY, String(latestEditorHeight.current));
-      } catch {
-        // ignore
+      if (resizeDragRef.current.active) {
+        resizeDragRef.current.active = false;
+        document.body.style.userSelect = '';
+        document.body.style.cursor = '';
+        setEditorHeight(latestEditorHeight.current);
+        savePanelSize(EDITOR_HEIGHT_KEY, latestEditorHeight.current, projectId);
+      }
+
+      if (aiResizeDragRef.current.active) {
+        aiResizeDragRef.current.active = false;
+        document.body.style.userSelect = '';
+        document.body.style.cursor = '';
+        setAiPanelWidth(latestAiPanelWidth.current);
+        savePanelSize(AI_PANEL_WIDTH_KEY, latestAiPanelWidth.current, projectId);
       }
     };
 
@@ -931,18 +1174,7 @@ export function QueryPanel({
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
     };
-  }, []);
-
-  const handleToggleExpand = useCallback(() => {
-    setEditorExpanded(prev => {
-      if (!prev) {
-        prevEditorHeightRef.current = editorHeight;
-      } else {
-        setEditorHeight(prevEditorHeightRef.current);
-      }
-      return !prev;
-    });
-  }, [editorHeight]);
+  }, [projectId]);
 
   const handleBeginTransaction = useCallback(async () => {
     if (!sessionId) return;
@@ -979,11 +1211,6 @@ export function QueryPanel({
 
   const handleInsertQuery = useCallback((generatedQuery: string) => {
     setQuery(generatedQuery);
-  }, []);
-
-  const handleFixWithAi = useCallback((errorQuery: string, error: string) => {
-    setShowAiPanel(true);
-    setPendingAiFix({ query: errorQuery, error });
   }, []);
 
   const handleSaveToLibrary = useCallback(() => {
@@ -1090,6 +1317,7 @@ export function QueryPanel({
       />
 
       <div
+        id={editorPaneId}
         ref={editorPaneRef}
         data-tour="query-editor"
         className={
@@ -1120,33 +1348,61 @@ export function QueryPanel({
         </div>
 
         {showAiPanel && (
-          <div className="w-80 border-l border-border shrink-0">
-            <AiAssistantPanel
-              sessionId={sessionId}
-              namespace={
-                activeNamespace ??
-                (connectionDatabase ? { database: connectionDatabase } : undefined)
-              }
-              onInsertQuery={handleInsertQuery}
-              onClose={handleAiToggle}
-              pendingFix={pendingAiFix}
-              onPendingFixConsumed={() => setPendingAiFix(null)}
-              tableContext={aiTableContext}
+          <>
+            <ResizeHandle
+              orientation="vertical"
+              label={t('a11y.resizeAiPanel')}
+              value={aiPanelWidth}
+              min={MIN_AI_PANEL_WIDTH}
+              max={getMaxAiPanelWidth()}
+              controls={aiPaneId}
+              onMouseDown={handleAiResizeMouseDown}
+              onDoubleClick={handleResetAiPanelWidth}
+              onKeyDown={handleAiResizeKeyDown}
+              className="w-1 shrink-0 cursor-col-resize bg-transparent hover:bg-accent/50 focus-visible:bg-accent/60 active:bg-accent transition-colors"
             />
-          </div>
+            <div
+              id={aiPaneId}
+              ref={aiPaneRef}
+              style={{ width: aiPanelWidth, minWidth: aiPanelWidth }}
+              className="border-l border-border shrink-0"
+            >
+              <AiAssistantPanel
+                sessionId={sessionId}
+                namespace={
+                  activeNamespace ??
+                  (connectionDatabase ? { database: connectionDatabase } : undefined)
+                }
+                onInsertQuery={handleInsertQuery}
+                onClose={handleAiToggle}
+                pendingFix={pendingAiFix}
+                onPendingFixConsumed={() => setPendingAiFix(null)}
+                pendingExplain={pendingAiExplain}
+                onPendingExplainConsumed={() => setPendingAiExplain(null)}
+                tableContext={aiTableContext}
+              />
+            </div>
+          </>
         )}
       </div>
 
       {/* Resize handle */}
-      <button
-        type="button"
-        aria-label="Resize editor"
+      <ResizeHandle
+        orientation="horizontal"
+        label={t('a11y.resizeEditor')}
+        value={editorHeight}
+        min={MIN_EDITOR_HEIGHT}
+        max={getMaxEditorHeight()}
+        controls={editorPaneId}
         onMouseDown={handleResizeMouseDown}
-        className="h-1.5 shrink-0 cursor-row-resize group flex items-center justify-center hover:bg-accent/10 transition-colors border-0 p-0 outline-none w-full"
+        onDoubleClick={handleResetEditorHeight}
+        onKeyDown={handleEditorResizeKeyDown}
+        className="h-1.5 shrink-0 cursor-row-resize group flex items-center justify-center hover:bg-accent/10 focus-visible:bg-accent/20 transition-colors w-full"
       >
-        <span className="w-8 h-0.5 rounded-full bg-muted-foreground/20 group-hover:bg-accent/60 transition-colors" />
-      </button>
+        <span className="w-8 h-0.5 rounded-full bg-muted-foreground/20 group-hover:bg-accent/60 group-focus-visible:bg-accent transition-colors" />
+      </ResizeHandle>
 
+      <QueryStatusAnnouncer loading={loading} results={results} panelError={panelError} />
       <div data-tour="query-results" className="flex min-h-0 min-w-0 flex-1 overflow-hidden">
         <QueryPanelResults
           panelError={panelError}
@@ -1176,6 +1432,7 @@ export function QueryPanel({
           onRowsDeleted={runCurrentQuery}
           onEditDocument={handleEditDocument}
           onFixWithAi={handleFixWithAi}
+          onExplainResultWithAi={handleExplainResultWithAi}
           onOverrideLimits={handleOverrideLimits}
         />
       </div>

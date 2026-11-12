@@ -16,7 +16,7 @@ import {
   Table,
   Zap,
 } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -26,6 +26,7 @@ import { openBackupDialog, openImportSqlDialog, openRestoreDialog } from '@/lib/
 import { DATABASE_NODE_BACKUP_DRIVERS } from '@/lib/tauri/backup';
 import { TRUNCATE_ALL_DRIVERS, truncateAll } from '@/lib/tauri/maintenance';
 import { cn } from '@/lib/utils';
+import { useHypertables } from '../../hooks/useHypertables';
 import { useSchemaCache } from '../../hooks/useSchemaCache';
 import {
   getSchemaObjectCapabilities,
@@ -57,10 +58,15 @@ import { CreateDatabaseModal } from './CreateDatabaseModal';
 import { DatabaseContextMenu } from './DatabaseContextMenu';
 import { DeleteDatabaseModal } from './DeleteDatabaseModal';
 import { EventContextMenu } from './EventContextMenu';
+import { HypertableBadge } from './HypertableBadge';
 import { RoutineContextMenu } from './RoutineContextMenu';
 import { SequenceContextMenu } from './SequenceContextMenu';
 import { TableContextMenu } from './TableContextMenu';
 import { TriggerContextMenu } from './TriggerContextMenu';
+
+const SearchIndexTreeItem = lazy(() =>
+  import('./SearchIndexTreeItem').then(module => ({ default: module.SearchIndexTreeItem }))
+);
 
 function getNsKey(ns: Namespace): string {
   return `${ns.database}:${ns.schema || ''}`;
@@ -155,6 +161,9 @@ export function DBTree({
 
   const sessionId = connectionId;
   const { getNamespaces, invalidateNamespaces } = schemaCache;
+  const hypertables = useHypertables(sessionId, expandedNamespace, driver, collections);
+  const hypertableNames = new Set(hypertables.map(h => h.name));
+  const isSearchModel = driverMeta.dataModel === 'search';
 
   // Debounce search
   useEffect(() => {
@@ -621,35 +630,52 @@ export function DBTree({
                         <span className="text-muted-foreground/60 ml-auto">{tables.length}</span>
                       </button>
                       {expandedSections.has('tables') &&
-                        tables.map(col => (
-                          <TableContextMenu
-                            key={col.name}
-                            collection={col}
-                            sessionId={sessionId}
-                            connectionId={connection?.id}
-                            driver={driver as Driver}
-                            environment={connection?.environment || 'development'}
-                            readOnly={connection?.read_only || false}
-                            onRefresh={() => refreshCollections(col.namespace)}
-                            onOpen={() => handleTableClick(col)}
-                            onCompareWith={onCompareTable}
-                            onSchemaDiff={onSchemaDiff}
-                            onAiGenerate={onAiGenerateForTable}
-                            onAiExplain={onAiExplainTable}
-                            onNewQuery={onNewQueryForTable}
-                          >
-                            <button
-                              type="button"
-                              className="flex items-center gap-2 w-full px-2 py-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground text-left group ml-5"
-                              onClick={() => handleTableClick(col)}
+                        tables.map(col => {
+                          const item = (
+                            <TableContextMenu
+                              key={col.name}
+                              collection={col}
+                              sessionId={sessionId}
+                              connectionId={connection?.id}
+                              driver={driver as Driver}
+                              environment={connection?.environment || 'development'}
+                              readOnly={connection?.read_only || false}
+                              onRefresh={() => refreshCollections(col.namespace)}
+                              onOpen={() => handleTableClick(col)}
+                              onCompareWith={onCompareTable}
+                              onSchemaDiff={onSchemaDiff}
+                              onAiGenerate={onAiGenerateForTable}
+                              onAiExplain={onAiExplainTable}
+                              onNewQuery={onNewQueryForTable}
                             >
-                              <span className="shrink-0 group-hover:text-foreground/80 transition-colors">
-                                <Table size={13} />
-                              </span>
-                              <span className="truncate font-mono text-xs">{col.name}</span>
-                            </button>
-                          </TableContextMenu>
-                        ))}
+                              <button
+                                type="button"
+                                className="flex items-center gap-2 w-full px-2 py-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground text-left group ml-5"
+                                onClick={() => handleTableClick(col)}
+                              >
+                                <span className="shrink-0 group-hover:text-foreground/80 transition-colors">
+                                  <Table size={13} />
+                                </span>
+                                <span className="truncate font-mono text-xs">{col.name}</span>
+                                {hypertableNames.has(col.name) && <HypertableBadge />}
+                              </button>
+                            </TableContextMenu>
+                          );
+                          return isSearchModel ? (
+                            <Suspense key={col.name} fallback={item}>
+                              <SearchIndexTreeItem
+                                indexName={col.name}
+                                loadSchema={() =>
+                                  schemaCache.getTableSchema(col.namespace, col.name)
+                                }
+                              >
+                                {item}
+                              </SearchIndexTreeItem>
+                            </Suspense>
+                          ) : (
+                            item
+                          );
+                        })}
                     </div>
                   );
                 })()}

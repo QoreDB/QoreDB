@@ -59,6 +59,9 @@ pub struct SourceFetchInfo {
     pub row_count: u64,
     pub fetch_time_ms: f64,
     pub row_limit_hit: bool,
+    pub projected_columns: Option<Vec<String>>,
+    pub pushed_predicates: Vec<String>,
+    pub cache_hit: bool,
 }
 
 #[cfg(feature = "pro")]
@@ -99,12 +102,7 @@ pub async fn execute_federation_query(
     options: Option<FederationQueryOptions>,
     on_stream: Channel<InvokeResponseBody>,
 ) -> Result<FederationQueryResponse, String> {
-    let options = options.unwrap_or(FederationQueryOptions {
-        timeout_ms: None,
-        stream: None,
-        query_id: None,
-        row_limit_per_source: None,
-    });
+    let options = options.unwrap_or_default();
 
     let query_id = options
         .query_id
@@ -269,6 +267,9 @@ fn convert_metadata(meta: &qore_service::federation::types::FederationMetadata) 
                 row_count: s.row_count,
                 fetch_time_ms: s.fetch_time_ms,
                 row_limit_hit: s.row_limit_hit,
+                projected_columns: s.projected_columns.clone(),
+                pushed_predicates: s.pushed_predicates.clone(),
+                cache_hit: s.cache_hit,
             })
             .collect(),
         duckdb_time_ms: meta.duckdb_time_ms,

@@ -13,4 +13,5 @@ pub mod local_runtime;
 pub mod manager;
 pub mod provider;
 pub mod safety;
+pub mod semantic_memory;
 pub mod types;

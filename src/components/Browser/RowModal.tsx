@@ -53,6 +53,7 @@ interface RowModalProps {
   initialData?: Record<string, Value>;
   maskedColumns?: ReadonlySet<string>;
   onSuccess: () => void;
+  onInsertSuccess?: (insertedValues: Record<string, Value>) => void;
 
   sandboxMode?: boolean;
   onSandboxInsert?: (newValues: Record<string, Value>) => void;
@@ -79,6 +80,7 @@ export function RowModal({
   initialData,
   maskedColumns,
   onSuccess,
+  onInsertSuccess,
   sandboxMode = false,
   onSandboxInsert,
   onSandboxUpdate,
@@ -270,7 +272,11 @@ export function RowModal({
             ? ` (${res.result.execution_time_ms.toFixed(2)}ms)`
             : '';
           notify.success(t('rowModal.insertSuccess') + timeMsg);
-          onSuccess();
+          if (onInsertSuccess) {
+            onInsertSuccess(columnsData);
+          } else {
+            onSuccess();
+          }
           onClose();
         } else {
           notify.error(t('rowModal.insertError'), res.error);

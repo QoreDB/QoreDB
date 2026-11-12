@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
-//! Plugin System Foundation — declarative plugins (Core).
+//! Plugin system (Core).
 //!
-//! v0.1.29 ships *declarative* plugins only: a plugin is a folder with a
-//! `plugin.json` manifest that contributes static data — SQL snippet packs,
-//! connection templates and color themes. No code is executed, so no sandbox
-//! is required. The manifest / registry / lifecycle defined here are the
-//! foundation a future executable-plugin runtime (WASM) will plug into.
+//! A plugin is a folder with a `plugin.json` manifest. Declarative
+//! contributions (snippets, connection templates, themes, result viewers) are
+//! static data. A manifest with a `runtime` block also ships a WASM module that
+//! [`runtime`] executes in a fuel- and memory-bounded sandbox, gated by the
+//! capabilities the user consented to.
 
 mod manifest;
 mod marketplace;
@@ -87,6 +87,10 @@ pub struct PluginContributions {
     pub result_viewers: Vec<ResultViewerContribution>,
     #[serde(default)]
     pub commands: Vec<CommandContribution>,
+    #[serde(default)]
+    pub cell_actions: Vec<CellContribution>,
+    #[serde(default)]
+    pub cell_renderers: Vec<CellContribution>,
 }
 
 /// A reusable SQL snippet contributed by a plugin.
@@ -177,6 +181,17 @@ pub struct CommandContribution {
     pub label: String,
     #[serde(default)]
     pub description: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CellContribution {
+    pub id: String,
+    pub label: String,
+    #[serde(default)]
+    pub description: Option<String>,
+    #[serde(default, rename = "match")]
+    pub match_on: Option<ViewerMatch>,
 }
 
 /// Executable-runtime descriptor. A plugin carrying this block ships a

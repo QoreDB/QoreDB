@@ -29,9 +29,10 @@ use std::time::Duration;
 use tokio::sync::Semaphore;
 
 use super::{
-    Budget, CapabilityKind, Decision, HookContext, InvocationServices, LogEvent, LogSender,
-    NotifyEvent, NotifyLevel, NotifySender, PluginInstance, PluginRuntime, PluginStorage,
-    PostExecuteResult, QueryReadPayload, WasmiRuntime, capabilities, storage,
+    Budget, CapabilityKind, CellHookKind, CellInput, CellOutput, Decision, HookContext,
+    InvocationServices, LogEvent, LogSender, NotifyEvent, NotifyLevel, NotifySender,
+    PluginInstance, PluginRuntime, PluginStorage, PostExecuteResult, QueryReadPayload,
+    WasmiRuntime, capabilities, storage,
 };
 use crate::plugins::{PluginContributions, plugins_dir, registry};
 
@@ -56,6 +57,7 @@ const POST_EXECUTE_TIMEOUT: Duration = Duration::from_secs(5);
 /// query-path hooks — but still bounded so a wedged module can't pin a
 /// blocking thread forever.
 const COMMAND_TIMEOUT: Duration = Duration::from_secs(10);
+const CELL_HOOK_TIMEOUT: Duration = Duration::from_secs(5);
 const POST_EXECUTE_QUEUE_DEPTH: usize = 64;
 
 type SharedInstance = Arc<Mutex<Box<dyn PluginInstance>>>;
@@ -380,6 +382,48 @@ impl PluginHost {
         }
     }
 
+    pub async fn run_cell_hook(
+        &self,
+        plugin_id: &str,
+        kind: CellHookKind,
+        input: CellInput,
+    ) -> Result<CellOutput, String> {
+        let namespaced = format!("{plugin_id}::{}", input.id);
+        let contributions = self.contributions();
+        let declared = match kind {
+            CellHookKind::Action => &contributions.cell_actions,
+            CellHookKind::Render => &contributions.cell_renderers,
+        };
+        if !declared.iter().any(|c| c.id == namespaced) {
+            return Err(format!(
+                "Plugin contribution '{namespaced}' is not available"
+            ));
+        }
+        let instance = {
+            let instances = lock_recover(&self.instances, "instances");
+            instances.get(plugin_id).cloned()
+        };
+        let instance = instance.ok_or_else(|| format!("Plugin '{plugin_id}' is not loaded"))?;
+        let outcome = run_with_timeout(instance, CELL_HOOK_TIMEOUT, move |guard| {
+            guard.cell_hook(kind, &input)
+        })
+        .await;
+
+        match outcome {
+            HookOutcome::Ok(output) => {
+                self.record_success(plugin_id);
+                Ok(output)
+            }
+            HookOutcome::Failed(reason) => {
+                tracing::warn!(plugin = %plugin_id, reason = %reason, "plugin cell hook failed");
+                if self.record_failure(plugin_id) {
+                    self.unload_tripped(vec![(plugin_id.to_string(), reason.clone())]);
+                }
+                Err(reason)
+            }
+        }
+    }
+
     /// No-op when the bridge is not wired (early startup, headless tests).
     fn emit_notify(&self, event: NotifyEvent) {
         let sender = lock_recover(&self.notify, "notify").clone();
@@ -616,6 +660,16 @@ mod tests {
         ) -> Result<serde_json::Value, PluginError> {
             Ok(serde_json::Value::Null)
         }
+
+        fn cell_hook(
+            &mut self,
+            _kind: CellHookKind,
+            input: &CellInput,
+        ) -> Result<CellOutput, PluginError> {
+            Ok(CellOutput::Text {
+                text: format!("{}:{}", input.column.name, input.value),
+            })
+        }
     }
 
     fn ctx() -> HookContext {
@@ -765,6 +819,66 @@ mod tests {
         let expected = "sha256-2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824";
         let err = verify_integrity(b"hello world", expected).unwrap_err();
         assert!(err.contains("mismatch"), "unexpected error: {err}");
+    }
+
+    fn stub_plugin() -> StubPlugin {
+        StubPlugin {
+            pre: Vec::new(),
+            post: Vec::new(),
+            pre_calls: StdArc::new(AtomicU32::new(0)),
+            post_calls: StdArc::new(AtomicU32::new(0)),
+            sleep_pre: None,
+        }
+    }
+
+    fn cell_input(id: &str) -> CellInput {
+        CellInput {
+            id: id.into(),
+            value: serde_json::json!(42),
+            column: super::super::cell::CellColumn {
+                name: "amount".into(),
+                data_type: Some("int4".into()),
+            },
+        }
+    }
+
+    #[tokio::test]
+    async fn cell_hook_runs_only_declared_contributions_of_the_right_kind() {
+        let host = PluginHost::new();
+        insert(&host, "acme.x", stub_plugin());
+        let mut contributions = PluginContributions::default();
+        contributions
+            .cell_actions
+            .push(crate::plugins::CellContribution {
+                id: "acme.x::inspect".into(),
+                label: "Inspect".into(),
+                description: None,
+                match_on: None,
+            });
+        *lock_recover(&host.contributions_cache, "contributions_cache") =
+            Some(Arc::new(contributions));
+
+        let output = host
+            .run_cell_hook("acme.x", CellHookKind::Action, cell_input("inspect"))
+            .await
+            .unwrap();
+        assert_eq!(
+            output,
+            CellOutput::Text {
+                text: "amount:42".into()
+            }
+        );
+
+        let err = host
+            .run_cell_hook("acme.x", CellHookKind::Render, cell_input("inspect"))
+            .await
+            .unwrap_err();
+        assert!(err.contains("not available"));
+        let err = host
+            .run_cell_hook("acme.x", CellHookKind::Action, cell_input("other"))
+            .await
+            .unwrap_err();
+        assert!(err.contains("not available"));
     }
 
     #[test]

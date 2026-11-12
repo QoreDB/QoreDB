@@ -56,6 +56,8 @@ pub struct SeedDataResult {
     pub row_count: usize,
     /// Non-fatal notices (e.g. a foreign-key target with no rows to draw from).
     pub warnings: Vec<String>,
+    /// Structured row values keyed by column name, used to stage generated rows in Sandbox mode.
+    pub rows: Vec<HashMap<String, Value>>,
 }
 
 #[cfg(feature = "pro")]
@@ -224,11 +226,13 @@ pub async fn generate_seed_data(
     }
 
     // Synchronous generation block (rng is not Send across await points).
-    let sql = {
+    let (sql, row_maps) = {
         let mut rng = rand::thread_rng();
         let mut rows: Vec<Vec<Value>> = Vec::with_capacity(count as usize);
+        let mut row_maps: Vec<HashMap<String, Value>> = Vec::with_capacity(count as usize);
         for i in 0..count as usize {
             let mut row: Vec<Value> = Vec::with_capacity(target_columns.len());
+            let mut row_map: HashMap<String, Value> = HashMap::with_capacity(target_columns.len());
             for col in &target_columns {
                 let value = if let Some(candidates) = fk_values.get(&col.name) {
                     candidates.choose(&mut rng).cloned().unwrap_or(Value::Null)
@@ -239,17 +243,23 @@ pub async fn generate_seed_data(
                 } else {
                     generate_value(col, i, &mut rng)
                 };
+                row_map.insert(col.name.clone(), value.clone());
                 row.push(value);
             }
             rows.push(row);
+            row_maps.push(row_map);
         }
-        build_insert_sql(&dialect, &namespace, &table, &target_columns, &rows)
+        (
+            build_insert_sql(&dialect, &namespace, &table, &target_columns, &rows),
+            row_maps,
+        )
     };
 
     Ok(SeedDataResult {
         sql,
         row_count: count as usize,
         warnings,
+        rows: row_maps,
     })
 }
 

@@ -79,6 +79,8 @@ interface NotebookToolbarProps {
   onImport: () => void;
   onExport: (format: 'markdown' | 'html') => void;
   onToggleVariables: () => void;
+  onGenerateDocumentation?: () => void;
+  generatingDocumentation?: boolean;
 }
 
 export function NotebookToolbar({
@@ -105,6 +107,8 @@ export function NotebookToolbar({
   onImport,
   onExport,
   onToggleVariables,
+  onGenerateDocumentation,
+  generatingDocumentation = false,
 }: NotebookToolbarProps) {
   const { t } = useTranslation();
   const { isFeatureEnabled } = useLicense();
@@ -281,6 +285,22 @@ export function NotebookToolbar({
               <Sparkles size={14} className="mr-2" />
               {t('notebook.addCellAi')}
             </DropdownMenuItem>
+          )}
+          {aiEnabled && onGenerateDocumentation && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={onGenerateDocumentation}
+                disabled={generatingDocumentation}
+              >
+                {generatingDocumentation ? (
+                  <Loader2 size={14} className="mr-2 animate-spin" />
+                ) : (
+                  <Sparkles size={14} className="mr-2 text-accent" />
+                )}
+                {t('notebook.generateDocumentation')}
+              </DropdownMenuItem>
+            </>
           )}
         </DropdownMenuContent>
       </DropdownMenu>

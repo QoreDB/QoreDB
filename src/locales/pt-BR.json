@@ -95,7 +95,10 @@
       "secretsDescription": "Forneça os valores dos segredos declarados pelo plugin no manifesto. Os valores são armazenados no chaveiro do SO e nunca saem deste dispositivo.",
       "disabledErrorsBanner": "Este plugin foi desativado após {{count}} erros consecutivos. Reative-o pelo botão quando o problema for resolvido.",
       "inertBanner": "Este plugin está ativado, mas você não concedeu nenhuma permissão a ele, então ainda não pode fazer nada.",
-      "grantCta": "Conceder permissões"
+      "grantCta": "Conceder permissões",
+      "cellActions": "Ações de célula",
+      "cellRenderers": "Renderizadores de célula",
+      "allColumns": "todas as colunas"
     },
     "themes": {
       "title": "Temas de plugins",
@@ -156,6 +159,13 @@
       "remove": "Remover segredo",
       "show": "Exibir valor",
       "hide": "Ocultar valor"
+    },
+    "cell": {
+      "previewWith": "Pré-visualizar com",
+      "actions": "Ações de plugins",
+      "resultFor": "Resultado da coluna {{column}}",
+      "running": "Executando o plugin…",
+      "failed": "O plugin falhou: {{message}}"
     }
   },
   "pluginOutput": {
@@ -499,7 +509,11 @@
     "stats": "{{matches}} correspondências em {{tables}} tabelas ({{time}}ms)",
     "truncated": "Resultados truncados",
     "hint": "Digite pelo menos 2 caracteres para pesquisar",
-    "footerHint": "Clique em um resultado para abrir a tabela"
+    "footerHint": "Clique em um resultado para abrir a tabela",
+    "matchCount_one": "{{count}} correspondência",
+    "matchCount_other": "{{count}} correspondências",
+    "moreColumns_one": "+{{count}} outra",
+    "moreColumns_other": "+{{count}} outras"
   },
   "tabs": {
     "newTab": "Nova aba",
@@ -719,6 +733,8 @@
     "redo": "Refazer",
     "toggleVariables": "Variáveis",
     "editTitle": "Clique para editar o título",
+    "draftQuotaExceeded": "Cota de armazenamento local excedida para o rascunho do notebook",
+    "draftQuotaExceededHint": "Salve este notebook em um arquivo (.qnb) para não perder suas alterações.",
     "cellCountLabel": "{{count}} célula(s)",
     "variableDescriptionHint": "Descrição opcional",
     "doubleClickToEdit": "Clique duas vezes para editar",
@@ -730,7 +746,9 @@
     "addCellAi": "Célula de IA",
     "aiPlaceholder": "Descreva a consulta em linguagem natural…",
     "aiGenerate": "Gerar SQL",
-    "aiCellInserted": "Célula SQL inserida abaixo"
+    "aiCellInserted": "Célula SQL inserida abaixo",
+    "insertSummaryMarkdown": "Inserir como célula Markdown",
+    "generateDocumentation": "Gerar documentação com IA"
   },
   "replay": {
     "cancelledReport": "Reprodução cancelada. As consultas executadas são preservadas; a consulta em andamento pode ter terminado.",
@@ -1118,6 +1136,41 @@
         "idle": "Sessões ociosas por 10 minutos são encerradas.",
         "audit": "Cada chamada é registrada no log de auditoria com a origem “mcp”."
       }
+    },
+    "localData": {
+      "title": "Dados Locais e Armazenamento",
+      "description": "Inspecione o uso de disco em app_data_dir por categoria e limpe dados locais.",
+      "securityNotice": "As credenciais em vault.enc são criptografadas em repouso (AES-256-GCM). As categorias abaixo são armazenadas localmente com redação de segredos e limites de retenção.",
+      "totalUsage": "Armazenamento local total: {{size}}",
+      "fileCount": "{{count}} arquivos",
+      "purge": "Limpar",
+      "confirmTitle": "Limpar categoria de dados locais",
+      "confirmDescription": "Tem certeza de que deseja excluir permanentemente todos os arquivos locais em \"{{category}}\"?",
+      "confirmAction": "Limpar permanentemente",
+      "purgeSuccess": "{{category}} limpa.",
+      "purgeError": "Falha ao limpar dados locais.",
+      "categories": {
+        "time_travel": {
+          "title": "Histórico Time Travel",
+          "description": "Histórico local de mutações antes/depois (time-travel/), limitado por retenção e tamanho."
+        },
+        "replay": {
+          "title": "Capturas do Query Replay",
+          "description": "Execuções capturadas do Replay (replays/), isoladas por workspace."
+        },
+        "snapshots": {
+          "title": "Snapshots de Dados",
+          "description": "Snapshots de resultados salvos (snapshots/*.json) para comparação."
+        },
+        "audit_logs": {
+          "title": "Trilha de Auditoria e Logs",
+          "description": "Auditoria do interceptador (interceptor/audit.jsonl) e logs do aplicativo (logs/)."
+        },
+        "ai_models": {
+          "title": "Runtime e Modelos de IA Local",
+          "description": "Binários e modelos GGUF baixados do Qore AI Local (ai-local/)."
+        }
+      }
     }
   },
   "table": {
@@ -1281,7 +1334,8 @@
       "execTooltip": "Tempo de Processamento no Backend",
       "transferTooltip": "Tempo de Rede/Transferência",
       "totalTooltip": "Tempo Total de Ida e Volta"
-    }
+    },
+    "closeResult": "Fechar o resultado {{label}}"
   },
   "results": {
     "affectedRows": "{{count}} linha(s) afetada(s) em {{time}}ms",
@@ -1434,6 +1488,14 @@
       "applied": "Mascaramento aplicado",
       "appliedNextRun": "Mascaramento salvo: vale a partir da próxima execução.",
       "removed": "Mascaramento removido"
+    },
+    "anchor": {
+      "filter_mismatch": "Fora do filtro",
+      "filter_mismatchTooltip": "A linha editada não corresponde mais aos filtros ativos; mantida ancorada até recarregar.",
+      "order_changed": "Ordem alterada",
+      "order_changedTooltip": "O valor de ordenação mudou; a linha permanece ancorada até recarregar.",
+      "inserted": "Inserida",
+      "insertedTooltip": "Linha inserida ancorada localmente até o próximo recarregamento."
     }
   },
   "export": {
@@ -1697,7 +1759,18 @@
     "tabBar": "Abas abertas",
     "databaseTree": "Árvore do banco de dados",
     "statusBar": "Barra de status",
-    "help": "Ajuda"
+    "help": "Ajuda",
+    "resizeSidebar": "Redimensionar barra lateral",
+    "resizeEditor": "Redimensionar editor SQL",
+    "resizeAiPanel": "Redimensionar painel do assistente de IA",
+    "query": {
+      "running": "Consulta em execução…",
+      "failed": "A consulta falhou. O erro aparece no painel de resultados.",
+      "timedOut": "A consulta excedeu o tempo limite.",
+      "done": "Consulta concluída em {{ms}} ms.",
+      "rows_one": "Consulta concluída: {{count}} linha em {{ms}} ms.",
+      "rows_other": "Consulta concluída: {{count}} linhas em {{ms}} ms."
+    }
   },
   "zenMode": {
     "enabled": "Modo Zen — Pressione Esc para sair"
@@ -1820,7 +1893,15 @@
     "keyspacesHeader": "KEYSPACES",
     "dataset": "Dataset",
     "datasets": "Datasets",
-    "datasetsHeader": "DATASETS"
+    "datasetsHeader": "DATASETS",
+    "mapping": {
+      "expand": "Mostrar o mapping de {{name}}",
+      "collapse": "Ocultar o mapping de {{name}}",
+      "label": "Mapping de {{name}}",
+      "empty": "Nenhum campo mapeado",
+      "failed": "Não foi possível carregar o mapping",
+      "subfield": "subcampo {{type}}"
+    }
   },
   "createTable": {
     "title": "Criar Tabela",
@@ -2115,7 +2196,9 @@
       "new": "NOVO",
       "modified": "Modificado",
       "deleted": "Excluído"
-    }
+    },
+    "quotaExceeded": "Cota de armazenamento local excedida para alterações do Sandbox",
+    "quotaExceededHint": "Aplique ou descarte as alterações pendentes para liberar espaço."
   },
   "interceptor": {
     "title": "Interceptador de Consultas",
@@ -2319,7 +2402,10 @@
         "environments": "Aplicar aos ambientes",
         "operations": "Operações correspondentes",
         "action": "Ação",
-        "pattern": "Padrão da consulta (regex)"
+        "pattern": "Padrão da consulta (regex)",
+        "operationsHint": "Deixe vazio para abranger todas as operações",
+        "namePlaceholder": "Bloquear consultas perigosas",
+        "descriptionPlaceholder": "Evita perda acidental de dados"
       },
       "actions": {
         "block": "Bloquear consulta",
@@ -2921,6 +3007,22 @@
       "summarizeSchema": "Resumir este esquema",
       "tableTitle": "Tabela {{table}}",
       "schemaTitle": "Esquema {{namespace}}"
+    },
+    "semanticContext": {
+      "menuItem": "Contexto de negócio (.qoredb)",
+      "title": "Contexto de negócio — {{table}}",
+      "description": "Anote esta tabela e as regras do projeto em .qoredb/context.json para enriquecer as consultas de IA.",
+      "tableDescription": "Descrição da tabela",
+      "tableDescriptionPlaceholder": "ex.: Faturas de clientes",
+      "domain": "Domínio",
+      "domainPlaceholder": "ex.: faturamento",
+      "columnsTitle": "Significado das colunas",
+      "columnPlaceholder": "Significado ({{type}})",
+      "implicitRelations": "Relações implícitas (uma por linha)",
+      "implicitRelationsPlaceholder": "user_id -> users.id",
+      "businessRules": "Regras de negócio do projeto (uma por linha)",
+      "businessRulesPlaceholder": "ex.: Usuários ativos têm deleted_at IS NULL",
+      "saved": "Contexto de negócio salvo em .qoredb/context.json"
     }
   },
   "agentChat": {
@@ -3018,7 +3120,12 @@
     "insertLeftJoin": "LEFT JOIN",
     "insertComma": "Cross join",
     "insertWhere": "WHERE",
-    "insertRaw": "Referência"
+    "insertRaw": "Referência",
+    "cacheHit": "Cache",
+    "liveFetch": "Ao vivo",
+    "rowsShort": "linhas",
+    "projectedColumns": "Colunas projetadas",
+    "refreshCacheTooltip": "Ignorar o cache e recarregar todas as fontes federadas"
   },
   "maintenance": {
     "title": "Manutenção de Tabela",
@@ -3886,5 +3993,21 @@
     "exported": "Script SQL exportado",
     "exportError": "Falha na exportação",
     "copied": "SQL copiado"
+  },
+  "timescale": {
+    "hypertable": "hypertable",
+    "timeDimension": "tempo",
+    "spaceDimension": "espaço",
+    "chunkInterval": "chunks de {{value}}",
+    "partitions": "{{value}} partições",
+    "compression": "Compressão",
+    "retention": "Retenção",
+    "disabled": "desativada",
+    "after": "após {{value}}",
+    "enabledNoPolicy": "ativada, sem política",
+    "dropAfter": "excluir após {{value}}",
+    "noPolicy": "sem política",
+    "chunks_one": "{{count}} chunk",
+    "chunks_other": "{{count}} chunks"
   }
 }

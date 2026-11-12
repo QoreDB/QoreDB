@@ -8,7 +8,9 @@ use std::sync::Arc;
 use tauri::State;
 
 use crate::SharedState;
-use crate::plugins::runtime::{CapabilityKind, PluginHost, capabilities, secrets};
+use crate::plugins::runtime::{
+    CapabilityKind, CellHookKind, CellInput, CellOutput, PluginHost, capabilities, secrets,
+};
 use crate::plugins::{self, InstalledPlugin, PluginContributions};
 
 /// Wraps blocking plugin I/O so it never stalls the Tauri event loop.
@@ -266,6 +268,17 @@ pub async fn run_plugin_command(
     let host = plugin_host(&state).await;
     let args = args.unwrap_or(serde_json::Value::Null);
     host.run_command(&plugin_id, &command_id, args).await
+}
+
+#[tauri::command]
+pub async fn run_plugin_cell_hook(
+    plugin_id: String,
+    kind: CellHookKind,
+    input: CellInput,
+    state: State<'_, SharedState>,
+) -> Result<CellOutput, String> {
+    let host = plugin_host(&state).await;
+    host.run_cell_hook(&plugin_id, kind, input).await
 }
 
 /// Overwrites the granted capabilities; the next query sees the change.

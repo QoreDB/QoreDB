@@ -89,6 +89,7 @@ interface SidebarProps {
   schemaRefreshTrigger?: number;
   activeNamespace?: Namespace | null;
   style?: React.CSSProperties;
+  id?: string;
 }
 
 export const Sidebar = forwardRef<HTMLElement, SidebarProps>(function Sidebar(
@@ -119,6 +120,7 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(function Sidebar(
     schemaRefreshTrigger,
     activeNamespace,
     style,
+    id,
   }: SidebarProps,
   ref
 ) {
@@ -329,6 +331,7 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(function Sidebar(
   return (
     <aside
       ref={ref}
+      id={id}
       className="h-full flex flex-col border-r border-border bg-muted/30"
       style={style}
       data-allow-webview-shortcuts

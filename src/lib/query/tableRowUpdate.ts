@@ -9,8 +9,10 @@ import {
   queryTable,
 } from '@/lib/tauri/query';
 import type { ColumnInfo, Namespace, Row, Value } from '@/lib/tauri/types';
-import { isExactInt } from './exactInt';
+import { exactIntText, isExactInt } from './exactInt';
 import { estimatePayloadBytes, TAB_PAYLOAD_BUDGET_BYTES } from './payloadSize';
+
+export type RowAnchorReason = 'filter_mismatch' | 'order_changed' | 'inserted';
 
 export interface TableCellUpdate {
   primaryKey: Record<string, Value>;
@@ -33,11 +35,19 @@ export interface TableRowUpdateScope {
   orderingGuarantee: OrderingGuarantee;
 }
 
-interface RowUpdateTarget {
+export interface RowUpdateTarget {
   row: Row;
   columns: ColumnInfo[];
   keyIndices: number[];
-  protectedIndices: number[];
+  sortIndex: number | null;
+  filterSpecs: Array<{ index: number; filter: ColumnFilter }>;
+}
+
+export interface ReconciledRowUpdate {
+  rows: Row[];
+  payloadBytes: number;
+  rowIndex: number;
+  anchorReason?: Exclude<RowAnchorReason, 'inserted'>;
 }
 
 function usableKey(value: Value | undefined): boolean {
@@ -52,6 +62,111 @@ function sameValue(a: Value, b: Value): boolean {
   return a === b || (isExactInt(a) && isExactInt(b) && a.$qoreInt === b.$qoreInt);
 }
 
+function valueToText(value: Value): string {
+  if (value === null) return '';
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+  if (isExactInt(value)) return exactIntText(value);
+  return JSON.stringify(value);
+}
+
+function toBigIntIfIntegral(value: Value): bigint | null {
+  if (isExactInt(value) && /^-?\d+$/.test(value.$qoreInt)) {
+    return BigInt(value.$qoreInt);
+  }
+  if (typeof value === 'number' && Number.isInteger(value) && Number.isSafeInteger(value)) {
+    return BigInt(value);
+  }
+  if (typeof value === 'string' && /^-?\d+$/.test(value.trim())) {
+    return BigInt(value.trim());
+  }
+  return null;
+}
+
+function compareValues(a: Value, b: Value): number | null {
+  if (sameValue(a, b)) return 0;
+  const bigA = toBigIntIfIntegral(a);
+  const bigB = toBigIntIfIntegral(b);
+  if (bigA !== null && bigB !== null) {
+    return bigA < bigB ? -1 : bigA > bigB ? 1 : 0;
+  }
+  const numA =
+    typeof a === 'number' ? a : typeof a === 'string' && a.trim() !== '' ? Number(a) : Number.NaN;
+  const numB =
+    typeof b === 'number' ? b : typeof b === 'string' && b.trim() !== '' ? Number(b) : Number.NaN;
+  if (Number.isFinite(numA) && Number.isFinite(numB)) {
+    return numA < numB ? -1 : numA > numB ? 1 : 0;
+  }
+  if (typeof a === 'boolean' && typeof b === 'string') {
+    const normB = b.trim().toLowerCase();
+    if (normB === 'true' || normB === 'false') {
+      return a === (normB === 'true') ? 0 : a ? 1 : -1;
+    }
+  }
+  const strA = valueToText(a);
+  const strB = valueToText(b);
+  return strA < strB ? -1 : strA > strB ? 1 : 0;
+}
+
+function likePatternToRegExp(pattern: string): RegExp {
+  let regexSource = '^';
+  for (let i = 0; i < pattern.length; i++) {
+    const ch = pattern[i];
+    if (ch === '%') {
+      regexSource += '[\\s\\S]*';
+    } else if (ch === '_') {
+      regexSource += '[\\s\\S]';
+    } else {
+      regexSource += ch.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+  }
+  regexSource += '$';
+  return new RegExp(regexSource, 'i');
+}
+
+export function matchesColumnFilter(value: Value, filter: ColumnFilter): boolean {
+  if (filter.operator === 'is_null') return value === null;
+  if (filter.operator === 'is_not_null') return value !== null;
+  if (value === null || filter.value === null) return false;
+
+  switch (filter.operator) {
+    case 'eq':
+      return compareValues(value, filter.value) === 0;
+    case 'neq':
+      return compareValues(value, filter.value) !== 0;
+    case 'gt': {
+      const cmp = compareValues(value, filter.value);
+      return cmp !== null && cmp > 0;
+    }
+    case 'gte': {
+      const cmp = compareValues(value, filter.value);
+      return cmp !== null && cmp >= 0;
+    }
+    case 'lt': {
+      const cmp = compareValues(value, filter.value);
+      return cmp !== null && cmp < 0;
+    }
+    case 'lte': {
+      const cmp = compareValues(value, filter.value);
+      return cmp !== null && cmp <= 0;
+    }
+    case 'like':
+      return likePatternToRegExp(valueToText(filter.value)).test(valueToText(value));
+    case 'regex':
+      try {
+        return new RegExp(valueToText(filter.value), filter.options?.regex_flags ?? '').test(
+          valueToText(value)
+        );
+      } catch {
+        return false;
+      }
+    case 'text':
+      return valueToText(value).toLowerCase().includes(valueToText(filter.value).toLowerCase());
+    default:
+      return false;
+  }
+}
+
 export function prepareTableRowUpdate(
   scope: TableRowUpdateScope,
   update: TableCellUpdate
@@ -63,30 +178,42 @@ export function prepareTableRowUpdate(
   const edited = columns.find(column => column.name === update.column);
   if (!edited || edited.masked) return null;
 
-  const protectedColumns = new Set([
-    ...primaryKey,
-    ...(sortColumn ? [sortColumn] : []),
-    ...(filters?.map(filter => filter.column) ?? []),
-  ]);
-  if (protectedColumns.has(update.column)) return null;
-  const protectedIndices = [...protectedColumns].map(name =>
-    columns.findIndex(c => c.name === name)
-  );
-  if (protectedIndices.some(index => index < 0 || columns[index].masked)) return null;
+  // Primary key edits change row identity and still require a full reload.
+  // Edits to sort or filter columns are allowed and anchored locally (§9.6).
+  if (primaryKey.includes(update.column)) return null;
+
   const keyIndices = primaryKey.map(name => columns.findIndex(c => c.name === name));
   if (
     keyIndices.some(
       (index, i) =>
-        isBinaryType(columns[index].data_type) || !usableKey(update.primaryKey[primaryKey[i]])
+        index < 0 ||
+        columns[index].masked ||
+        isBinaryType(columns[index].data_type) ||
+        !usableKey(update.primaryKey[primaryKey[i]])
     )
   ) {
     return null;
   }
+
+  let sortIndex: number | null = null;
+  if (sortColumn) {
+    const idx = columns.findIndex(c => c.name === sortColumn);
+    if (idx < 0 || columns[idx].masked) return null;
+    sortIndex = idx;
+  }
+
+  const filterSpecs: Array<{ index: number; filter: ColumnFilter }> = [];
+  for (const filter of filters ?? []) {
+    const idx = columns.findIndex(c => c.name === filter.column);
+    if (idx < 0 || columns[idx].masked) return null;
+    filterSpecs.push({ index: idx, filter });
+  }
+
   const matches = rows.filter(row =>
     keyIndices.every((index, i) => sameValue(row.values[index], update.primaryKey[primaryKey[i]]))
   );
   if (matches.length !== 1 || matches[0].values.length !== columns.length) return null;
-  return { row: matches[0], columns, keyIndices, protectedIndices };
+  return { row: matches[0], columns, keyIndices, sortIndex, filterSpecs };
 }
 
 export function reconcileTableRowUpdate(
@@ -95,7 +222,7 @@ export function reconcileTableRowUpdate(
   result: PaginatedQueryResult,
   payloadBytes: number,
   budget = TAB_PAYLOAD_BUDGET_BYTES
-): { rows: Row[]; payloadBytes: number } | null {
+): ReconciledRowUpdate | null {
   const fresh = result.result;
   if (
     result.has_more ||
@@ -119,7 +246,8 @@ export function reconcileTableRowUpdate(
   }
   const replacement = fresh.rows[0];
   if (replacement.values.length !== target.columns.length) return null;
-  if (target.protectedIndices.some(i => !sameValue(target.row.values[i], replacement.values[i]))) {
+  // Only primary key changes invalidate identity and trigger a full reload.
+  if (target.keyIndices.some(i => !sameValue(target.row.values[i], replacement.values[i]))) {
     return null;
   }
 
@@ -139,9 +267,44 @@ export function reconcileTableRowUpdate(
   const nextBytes =
     payloadBytes - estimatePayloadBytes([target.row]) + estimatePayloadBytes([replacement]);
   if (nextBytes > budget) return null;
+
+  let anchorReason: Exclude<RowAnchorReason, 'inserted'> | undefined;
+  const filterMismatch = target.filterSpecs.some(
+    spec => !matchesColumnFilter(replacement.values[spec.index], spec.filter)
+  );
+  if (filterMismatch) {
+    anchorReason = 'filter_mismatch';
+  } else if (
+    target.sortIndex !== null &&
+    !sameValue(target.row.values[target.sortIndex], replacement.values[target.sortIndex])
+  ) {
+    anchorReason = 'order_changed';
+  }
+
   const updated = rows.slice();
   updated[rowIndex] = replacement;
-  return { rows: updated, payloadBytes: nextBytes };
+  return { rows: updated, payloadBytes: nextBytes, rowIndex, anchorReason };
+}
+
+export function reconcileTableRowInsert(
+  rows: Row[],
+  columns: ColumnInfo[],
+  insertedValues: Record<string, Value>,
+  payloadBytes: number,
+  budget = TAB_PAYLOAD_BUDGET_BYTES
+): { rows: Row[]; payloadBytes: number; rowIndex: number; anchorReason: 'inserted' } | null {
+  if (columns.length === 0) return null;
+  const newRow: Row = {
+    values: columns.map(col => (col.name in insertedValues ? insertedValues[col.name] : null)),
+  };
+  const nextBytes = payloadBytes + estimatePayloadBytes([newRow]);
+  if (nextBytes > budget) return null;
+  return {
+    rows: [newRow, ...rows],
+    payloadBytes: nextBytes,
+    rowIndex: 0,
+    anchorReason: 'inserted',
+  };
 }
 
 interface InlineUpdateView {

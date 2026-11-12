@@ -137,7 +137,7 @@ DBeaver, pgAdmin, phpMyAdmin do the job — but they feel slow, dated, and full 
 - **Migrations Manager** — Versioned `.sql` schema migrations in `.qoredb/migrations/`, shared through Git, applied with per-statement safety checks and transactional rollback when the driver supports it (MySQL/MariaDB DDL is non-transactional), with an applied-state history table (+ schema-diff generation, drift detection and Prod↔Staging schema diff in Pro)
 - **Backup &amp; restore** — Visual wrappers around `pg_dump`, `mysqldump`, `mongodump` and `sqlite3 .dump`, with streaming logs, cancel mid-run and tool-path overrides
 - **Query result cache** — Recent table navigation served instantly from a local cache, auto-invalidated when you change data through QoreDB
-- **Plugin system** — Install declarative plugins contributing SQL snippet packs, connection templates and color themes — no code execution
+- **Plugin system** — Declarative plugins contribute SQL snippet packs, connection templates, color themes and result viewers; executable plugins run sandboxed WebAssembly (fuel and memory budgets, per-capability consent, optional sha256 integrity) for query hooks, commands, cell context-menu actions and structured cell previews
 </details>
 
 <details>

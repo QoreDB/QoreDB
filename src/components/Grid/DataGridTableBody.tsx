@@ -3,6 +3,7 @@
 import { type Cell, flexRender, type Row } from '@tanstack/react-table';
 import type { Virtualizer } from '@tanstack/react-virtual';
 import { useTranslation } from 'react-i18next';
+import type { RowAnchorReason } from '@/lib/query/tableRowUpdate';
 import { cn } from '@/lib/utils';
 import type { RowData } from './utils/dataGridUtils';
 
@@ -28,6 +29,7 @@ export interface DataGridTableBodyProps {
   rows: Row<RowData>[];
   rowVirtualizer: Virtualizer<HTMLDivElement, Element>;
   rowMetadataMap: Map<number, RowMetadata>;
+  rowAnchors?: ReadonlyMap<number, RowAnchorReason>;
   sandboxMode: boolean;
   columnsCount: number;
 }
@@ -36,6 +38,7 @@ export function DataGridTableBody({
   rows,
   rowVirtualizer,
   rowMetadataMap,
+  rowAnchors,
   sandboxMode,
   columnsCount,
 }: DataGridTableBodyProps) {
@@ -63,6 +66,7 @@ export function DataGridTableBody({
       {virtualItems.map(virtualRow => {
         const row = rows[virtualRow.index];
         const rowMeta = sandboxMode ? rowMetadataMap.get(virtualRow.index) : undefined;
+        const anchorReason = !sandboxMode ? rowAnchors?.get(virtualRow.index) : undefined;
         const isInserted = rowMeta?.isInserted ?? false;
         const isDeleted = rowMeta?.isDeleted ?? false;
         const isModified = rowMeta?.isModified ?? false;
@@ -82,7 +86,13 @@ export function DataGridTableBody({
               isModified &&
                 !isInserted &&
                 !isDeleted &&
-                'bg-warning/5 hover:bg-warning/10 border-l-2 border-l-warning'
+                'bg-warning/5 hover:bg-warning/10 border-l-2 border-l-warning',
+              anchorReason === 'filter_mismatch' &&
+                'bg-warning/5 hover:bg-warning/10 border-l-2 border-l-warning',
+              anchorReason === 'order_changed' &&
+                'bg-accent/5 hover:bg-accent/10 border-l-2 border-l-accent/60',
+              anchorReason === 'inserted' &&
+                'bg-success/5 hover:bg-success/10 border-l-2 border-l-success/70'
             )}
           >
             {row.getVisibleCells().map(cell => {
@@ -110,6 +120,22 @@ export function DataGridTableBody({
                   {isInserted && cell.column.id === '__select' && (
                     <span className="inline-flex items-center px-1.5 py-0.5 text-[9px] font-bold rounded bg-success text-success-foreground mr-1.5">
                       {t('sandbox.row.new')}
+                    </span>
+                  )}
+                  {anchorReason && cell.column.id === '__select' && (
+                    <span
+                      title={t(`grid.anchor.${anchorReason}Tooltip`)}
+                      className={cn(
+                        'inline-flex items-center px-1.5 py-0.5 text-[9px] font-medium rounded mr-1.5',
+                        anchorReason === 'filter_mismatch' &&
+                          'bg-warning/20 text-warning border border-warning/30',
+                        anchorReason === 'order_changed' &&
+                          'bg-accent/15 text-accent-foreground border border-accent/30',
+                        anchorReason === 'inserted' &&
+                          'bg-success/20 text-success border border-success/30'
+                      )}
+                    >
+                      {t(`grid.anchor.${anchorReason}`)}
                     </span>
                   )}
                   {flexRender(cell.column.columnDef.cell, cell.getContext())}

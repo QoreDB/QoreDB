@@ -22,6 +22,8 @@ interface AiAssistantPanelProps {
   onOpenSettings?: () => void;
   pendingFix?: { query: string; error: string } | null;
   onPendingFixConsumed?: () => void;
+  pendingExplain?: { query: string; summary: string } | null;
+  onPendingExplainConsumed?: () => void;
   tableContext?: string;
   getEditorContext?: () => EditorContext | undefined;
 }
@@ -35,6 +37,8 @@ export function AiAssistantPanel({
   onOpenSettings,
   pendingFix,
   onPendingFixConsumed,
+  pendingExplain,
+  onPendingExplainConsumed,
   tableContext,
   getEditorContext,
 }: AiAssistantPanelProps) {
@@ -59,6 +63,20 @@ export function AiAssistantPanel({
     assistant.fixError('Fix this query error', getConfig(), pendingFix.query, pendingFix.error);
     onPendingFixConsumed?.();
   }, [pendingFix, isReady, sessionId, assistant, getConfig, onPendingFixConsumed]);
+
+  // Auto-trigger explain_result when pendingExplain arrives
+  const lastExplainRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!pendingExplain || !isReady || !sessionId) return;
+    const explainKey = `${pendingExplain.query}::${pendingExplain.summary}`;
+    if (lastExplainRef.current === explainKey) return;
+    lastExplainRef.current = explainKey;
+    const prompt = pendingExplain.query
+      ? `Explain the results of this query:\n\`\`\`sql\n${pendingExplain.query}\n\`\`\``
+      : 'Explain these query results';
+    assistant.explainResult(prompt, getConfig(), pendingExplain.summary);
+    onPendingExplainConsumed?.();
+  }, [pendingExplain, isReady, sessionId, assistant, getConfig, onPendingExplainConsumed]);
 
   const handleSubmit = useCallback(
     (prompt: string) => {

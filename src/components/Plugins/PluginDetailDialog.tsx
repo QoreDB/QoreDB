@@ -22,6 +22,7 @@ import {
 } from '@/lib/plugins';
 import { usePlugins } from '@/providers/PluginProvider';
 import { ConsentDialog } from './ConsentDialog';
+import { PluginCellContributionList } from './PluginCellContributionList';
 import { SecretsForm } from './SecretsForm';
 
 const LOG_LEVEL_CLASS: Record<string, string> = {
@@ -109,7 +110,9 @@ export function PluginDetailDialog({
       c.connectionTemplates.length +
       c.themes.length +
       c.commands.length +
-      c.resultViewers.length >
+      c.resultViewers.length +
+      c.cellActions.length +
+      c.cellRenderers.length >
     0;
 
   const requested = CAP_ORDER.filter(k => isCapRequested(manifest.runtime?.capabilities, k));
@@ -340,6 +343,17 @@ export function PluginDetailDialog({
               </ul>
             </section>
           )}
+
+          <PluginCellContributionList
+            title={t('plugins.detail.cellActions')}
+            allColumnsLabel={t('plugins.detail.allColumns')}
+            items={c.cellActions}
+          />
+          <PluginCellContributionList
+            title={t('plugins.detail.cellRenderers')}
+            allColumnsLabel={t('plugins.detail.allColumns')}
+            items={c.cellRenderers}
+          />
 
           {c.commands.length > 0 && (
             <section>

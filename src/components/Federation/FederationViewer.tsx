@@ -1,6 +1,17 @@
 // SPDX-License-Identifier: BUSL-1.1
 
-import { BookmarkPlus, History, Layers, Loader2, Network, Play, Square, X } from 'lucide-react';
+import {
+  AlertTriangle,
+  BookmarkPlus,
+  History,
+  Layers,
+  Loader2,
+  Network,
+  Play,
+  RefreshCw,
+  Square,
+  X,
+} from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
@@ -11,6 +22,7 @@ import {
   buildAliasMap,
   buildAliasSet,
   executeFederationQuery,
+  type FederationMeta,
   type FederationSource,
   isFederationQuery,
   listFederationSources,
@@ -116,8 +128,10 @@ export function FederationViewer({ initialQuery = '' }: FederationViewerProps) {
   // --- Query state ---
   const [query, setQuery] = useState(initialQuery);
   const [results, setResults] = useState<QueryResultEntry[]>([]);
+  const [federationMetaById, setFederationMetaById] = useState<Record<string, FederationMeta>>({});
   const [activeResultId, setActiveResultId] = useState<string | null>(null);
   const [keepResults, setKeepResults] = useState(false);
+  const [forceRefreshNextRun, setForceRefreshNextRun] = useState(false);
 
   // --- Execution state ---
   const [loading, setLoading] = useState(false);
@@ -161,12 +175,17 @@ export function FederationViewer({ initialQuery = '' }: FederationViewerProps) {
 
   // --- Execute ---
   const handleExecute = useCallback(
-    async (queryToRun: string = query) => {
+    async (queryToRun: string = query, forceRefresh: boolean = false) => {
       if (!queryToRun.trim()) return;
 
       if (!hasEnoughSources) {
         toast.error(t('federation.needTwoSources'));
         return;
+      }
+
+      const refreshSources = forceRefresh || forceRefreshNextRun;
+      if (forceRefreshNextRun) {
+        setForceRefreshNextRun(false);
       }
 
       setLoading(true);
@@ -179,7 +198,10 @@ export function FederationViewer({ initialQuery = '' }: FederationViewerProps) {
 
       try {
         const aliasMap = buildAliasMap(sources);
-        const result = await executeFederationQuery(queryToRun, aliasMap, { queryId });
+        const result = await executeFederationQuery(queryToRun, aliasMap, {
+          queryId,
+          refreshSources,
+        });
         const duration = performance.now() - startTime;
 
         const newEntry: QueryResultEntry = {
@@ -193,6 +215,12 @@ export function FederationViewer({ initialQuery = '' }: FederationViewerProps) {
         };
 
         setResults(prev => (keepResults ? [newEntry, ...prev] : [newEntry]));
+        if (result.federation) {
+          const meta = result.federation;
+          setFederationMetaById(prev =>
+            keepResults ? { ...prev, [queryId]: meta } : { [queryId]: meta }
+          );
+        }
         setActiveResultId(queryId);
 
         if (result.success) {
@@ -222,7 +250,7 @@ export function FederationViewer({ initialQuery = '' }: FederationViewerProps) {
         setCancelling(false);
       }
     },
-    [query, sources, hasEnoughSources, keepResults, t]
+    [query, sources, hasEnoughSources, keepResults, forceRefreshNextRun, t]
   );
 
   // --- Cancel ---
@@ -330,13 +358,18 @@ export function FederationViewer({ initialQuery = '' }: FederationViewerProps) {
     [pendingInsert, query]
   );
 
+  const activeFederationMeta = activeResultId ? federationMetaById[activeResultId] : undefined;
+
   return (
     <div className="flex flex-col w-full h-full bg-background overflow-hidden">
       {/* Source bar */}
       <FederationSourceBar
         sources={sources}
         loading={sourcesLoading}
-        onRefresh={loadSources}
+        onRefresh={() => {
+          setForceRefreshNextRun(true);
+          loadSources();
+        }}
         onAddSource={() => setConnectionModalOpen(true)}
         onInsertTable={handleInsertTable}
       />
@@ -498,6 +531,91 @@ export function FederationViewer({ initialQuery = '' }: FederationViewerProps) {
 
       {/* Results or Empty State */}
       <div className="flex-1 min-h-0 flex flex-col">
+        {hasResults && activeFederationMeta && (
+          <div className="flex flex-wrap items-center gap-2 px-3 py-1.5 border-b border-border bg-muted/15 text-[11px] shrink-0">
+            {activeFederationMeta.source_results.map(src => {
+              const colsLabel =
+                src.projected_columns && src.projected_columns.length > 0
+                  ? src.projected_columns.join(', ')
+                  : '*';
+              const predicatesLabel =
+                src.pushed_predicates && src.pushed_predicates.length > 0
+                  ? src.pushed_predicates.join(' AND ')
+                  : null;
+              return (
+                <div
+                  key={`${src.alias}.${src.table}:${colsLabel}:${predicatesLabel ?? ''}`}
+                  className="flex items-center gap-1.5 px-2 py-0.5 rounded-md border border-border bg-background/80"
+                >
+                  <span className="font-mono font-medium text-foreground">
+                    {src.alias}.{src.table}
+                  </span>
+                  <span
+                    className={cn(
+                      'px-1.5 py-px rounded text-[10px] font-medium',
+                      src.cache_hit
+                        ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                        : 'bg-accent/10 text-accent'
+                    )}
+                  >
+                    {src.cache_hit
+                      ? t('federation.cacheHit', 'Cache')
+                      : t('federation.liveFetch', 'Live')}
+                  </span>
+                  <span className="text-muted-foreground">
+                    {src.row_count} {t('federation.rowsShort', 'rows')} (
+                    {Math.round(src.fetch_time_ms)} ms)
+                  </span>
+                  <span
+                    className="font-mono text-[10px] text-muted-foreground truncate max-w-44"
+                    title={`${t('federation.projectedColumns', 'Columns')}: ${colsLabel}`}
+                  >
+                    [{colsLabel}]
+                  </span>
+                  {predicatesLabel && (
+                    <span
+                      className="font-mono text-[10px] text-accent truncate max-w-52"
+                      title={`WHERE ${predicatesLabel}`}
+                    >
+                      WHERE {predicatesLabel}
+                    </span>
+                  )}
+                </div>
+              );
+            })}
+
+            <span className="text-muted-foreground ml-1">
+              DuckDB: {Math.round(activeFederationMeta.duckdb_time_ms)} ms
+            </span>
+
+            {activeFederationMeta.warnings.length > 0 && (
+              <span
+                className="flex items-center gap-1 text-amber-600 dark:text-amber-400"
+                title={activeFederationMeta.warnings.join('\n')}
+              >
+                <AlertTriangle size={12} />
+                {activeFederationMeta.warnings[0]}
+              </span>
+            )}
+
+            <div className="flex-1" />
+
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-6 text-[11px] px-2 gap-1.5"
+              disabled={loading || !query.trim()}
+              onClick={() => handleExecute(query, true)}
+              title={t(
+                'federation.refreshCacheTooltip',
+                'Bypass cache and re-fetch all federated sources'
+              )}
+            >
+              <RefreshCw size={11} className={cn(loading && 'animate-spin')} />
+              {t('federation.refreshSources')}
+            </Button>
+          </div>
+        )}
         {hasResults ? (
           <QueryPanelResults
             panelError={error}
@@ -511,6 +629,11 @@ export function FederationViewer({ initialQuery = '' }: FederationViewerProps) {
             onSelectResult={setActiveResultId}
             onCloseResult={id => {
               setResults(prev => prev.filter(r => r.id !== id));
+              setFederationMetaById(prev => {
+                const next = { ...prev };
+                delete next[id];
+                return next;
+              });
               if (activeResultId === id) {
                 const remaining = results.filter(r => r.id !== id);
                 setActiveResultId(remaining[0]?.id || null);

@@ -1,10 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { RefreshCw, TrendingUp } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { ClipboardCopy, Lightbulb, RefreshCw, TrendingUp } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Line, LineChart } from 'recharts';
+import { toast } from 'sonner';
 import { Tooltip } from '@/components/ui/tooltip';
+import { Driver } from '@/lib/connection/drivers';
+import { suggestIndexesFromSqlQuery, supportsIndexSuggestions } from '@/lib/query/indexSuggestions';
 import { useLicense } from '@/providers/LicenseProvider';
 import {
   type FingerprintTrend,
@@ -22,6 +25,7 @@ export function QueryTrendsPanel() {
   const { t } = useTranslation();
   const { isFeatureEnabled } = useLicense();
   const showRegressions = isFeatureEnabled('profiling');
+  const showIndexSuggestions = isFeatureEnabled('index_suggestions');
   const [days, setDays] = useState<number>(14);
   const [trends, setTrends] = useState<FingerprintTrend[]>([]);
   const [loading, setLoading] = useState(true);
@@ -96,7 +100,12 @@ export function QueryTrendsPanel() {
             </thead>
             <tbody>
               {trends.map(trend => (
-                <TrendRow key={trend.fingerprint} trend={trend} showRegression={showRegressions} />
+                <TrendRow
+                  key={trend.fingerprint}
+                  trend={trend}
+                  showRegression={showRegressions}
+                  showIndexSuggestions={showIndexSuggestions}
+                />
               ))}
             </tbody>
           </table>
@@ -106,11 +115,26 @@ export function QueryTrendsPanel() {
   );
 }
 
-function TrendRow({ trend, showRegression }: { trend: FingerprintTrend; showRegression: boolean }) {
+function TrendRow({
+  trend,
+  showRegression,
+  showIndexSuggestions,
+}: {
+  trend: FingerprintTrend;
+  showRegression: boolean;
+  showIndexSuggestions: boolean;
+}) {
   const { t } = useTranslation();
   const p95Color = getPerformanceColor(getPerformanceClass(trend.p95_ms));
   const errorTone = trend.error_rate > 0 ? 'var(--q-error)' : undefined;
   const regression = showRegression ? trend.regression : undefined;
+
+  const indexSuggestion = useMemo(() => {
+    if (!showIndexSuggestions || (trend.p95_ms < 50 && !trend.regression)) return null;
+    const driver = (trend.driver_id as Driver) || Driver.Postgres;
+    if (!supportsIndexSuggestions(driver)) return null;
+    return suggestIndexesFromSqlQuery(trend.query_preview, driver)[0] ?? null;
+  }, [showIndexSuggestions, trend.p95_ms, trend.regression, trend.driver_id, trend.query_preview]);
 
   return (
     <tr className="border-t border-border align-top hover:bg-muted/30">
@@ -134,9 +158,26 @@ function TrendRow({ trend, showRegression }: { trend: FingerprintTrend; showRegr
             {trend.query_preview}
           </code>
         </div>
-        <div className="text-[10px] text-muted-foreground">
-          {trend.driver_id}
-          {trend.database ? ` · ${trend.database}` : ''}
+        <div className="flex items-center gap-2 text-[10px] text-muted-foreground mt-0.5">
+          <span>
+            {trend.driver_id}
+            {trend.database ? ` · ${trend.database}` : ''}
+          </span>
+          {indexSuggestion && (
+            <button
+              type="button"
+              onClick={() => {
+                navigator.clipboard.writeText(indexSuggestion.sql);
+                toast.success(t('common.copied'));
+              }}
+              title={indexSuggestion.sql}
+              className="inline-flex items-center gap-1 rounded bg-amber-500/10 border border-amber-500/30 px-1.5 py-px text-[10px] font-mono text-amber-600 dark:text-amber-400 hover:bg-amber-500/20"
+            >
+              <Lightbulb size={10} />
+              <span>{indexSuggestion.indexName}</span>
+              <ClipboardCopy size={9} />
+            </button>
+          )}
         </div>
       </td>
       <td className="px-2 py-2 text-right tabular-nums">{trend.count.toLocaleString()}</td>

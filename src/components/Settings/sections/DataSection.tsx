@@ -29,6 +29,7 @@ import { ProjectTransferCard } from '../ProjectTransferCard';
 import { SettingsCard } from '../SettingsCard';
 import { ShareProviderCard } from '../ShareProviderCard';
 import { BackupToolsCard } from './BackupToolsCard';
+import { LocalDataCenterCard } from './LocalDataCenterCard';
 
 interface DataSectionProps {
   policy: SafetyPolicy | null;
@@ -126,6 +127,8 @@ export function DataSection({ policy, onApplyPolicy, searchQuery }: DataSectionP
       <QueryCacheCard searchQuery={searchQuery} />
 
       <TimeTravelSettingsCard searchQuery={searchQuery} />
+
+      <LocalDataCenterCard searchQuery={searchQuery} />
     </>
   );
 }

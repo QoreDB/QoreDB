@@ -199,7 +199,9 @@
                   }
                 }
               },
-              "renderer": { "enum": ["json-tree", "image", "chart", "map"] },
+              "renderer": {
+                "enum": ["json-tree", "image", "chart", "map", "color", "boolean", "bytes"]
+              },
               "options": { "type": "object", "additionalProperties": true }
             }
           }
@@ -215,6 +217,43 @@
               "id": { "type": "string", "minLength": 1 },
               "label": { "type": "string", "minLength": 1 },
               "description": { "type": "string" }
+            }
+          }
+        },
+        "cellActions": {
+          "type": "array",
+          "description": "Cell context-menu actions. Each one fires the plugin's 'cell_action' export with the cell value and column, and must return a structured output (text, badge, json or table). Requires a runtime block; runs with only the 'log' and 'storage' capabilities.",
+          "items": { "$ref": "#/$defs/cellContribution" }
+        },
+        "cellRenderers": {
+          "type": "array",
+          "description": "Cell previews. Each one fires the plugin's 'render_cell' export and must return a structured output (text, badge, json or table). Requires a runtime block and a match; runs with only the 'log' and 'storage' capabilities.",
+          "items": {
+            "allOf": [{ "$ref": "#/$defs/cellContribution" }, { "required": ["match"] }]
+          }
+        }
+      }
+    },
+    "cellContribution": {
+      "type": "object",
+      "required": ["id", "label"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "not": { "pattern": "::" } },
+        "label": { "type": "string", "minLength": 1 },
+        "description": { "type": "string" },
+        "match": {
+          "type": "object",
+          "description": "Omit to offer an action on every column.",
+          "additionalProperties": false,
+          "properties": {
+            "columnType": {
+              "type": "string",
+              "description": "Case-insensitive column-type match, e.g. 'jsonb'."
+            },
+            "namePattern": {
+              "type": "string",
+              "description": "Column-name pattern; '*' is the only wildcard."
             }
           }
         }

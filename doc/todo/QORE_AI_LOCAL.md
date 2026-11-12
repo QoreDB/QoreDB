@@ -20,8 +20,8 @@ Le runtime est `llama-server`. Les poids ne sont pas inclus dans l'installeur Qo
 - [x] Extraction protégée et remplacement atomique des artefacts vérifiés.
 - [x] Manifest distant signé pour publier des mises à jour sans nouvelle version de QoreDB.
 - [x] Builds reproductibles de `llama-server` pour toutes les cibles.
-- [ ] Sélection automatique du modèle selon la mémoire disponible.
-- [ ] Benchmark agentique multi-driver et seuils de publication.
+- [x] Sélection automatique du modèle selon la mémoire disponible.
+- [x] Benchmark agentique multi-driver et seuils de publication.
 
 ## Matrice de distribution
 

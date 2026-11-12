@@ -101,6 +101,7 @@ function CellRenderer({ cell, allCells, index, total, props }: CellRendererProps
         }
         onRunFromHere={props.onExecuteFromHere && (() => props.onExecuteFromHere?.(cell.id))}
         onInsertSqlBelow={source => props.onAddCell('sql', cell.id, source)}
+        onInsertMarkdownBelow={source => props.onAddCell('markdown', cell.id, source)}
       />
       <AddCellDivider afterCellId={cell.id} onAddCell={props.onAddCell} />
     </>

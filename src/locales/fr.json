@@ -97,7 +97,10 @@
       "secretsDescription": "Fournis les valeurs des secrets déclarés par le plugin dans son manifeste. Les valeurs sont stockées dans le trousseau de l'OS et ne quittent jamais cette machine.",
       "disabledErrorsBanner": "Ce plugin a été désactivé après {{count}} erreurs consécutives. Réactivez-le via l'interrupteur une fois le problème résolu.",
       "inertBanner": "Ce plugin est activé mais vous ne lui avez accordé aucune permission : il ne peut donc rien faire pour l'instant.",
-      "grantCta": "Accorder les permissions"
+      "grantCta": "Accorder les permissions",
+      "cellActions": "Actions de cellule",
+      "cellRenderers": "Rendus de cellule",
+      "allColumns": "toutes les colonnes"
     },
     "themes": {
       "title": "Thèmes d'extension",
@@ -159,6 +162,13 @@
       "remove": "Supprimer le secret",
       "show": "Afficher la valeur",
       "hide": "Masquer la valeur"
+    },
+    "cell": {
+      "previewWith": "Aperçu avec",
+      "actions": "Actions des plugins",
+      "resultFor": "Résultat pour la colonne {{column}}",
+      "running": "Exécution du plugin…",
+      "failed": "Échec du plugin : {{message}}"
     }
   },
   "pluginOutput": {
@@ -528,7 +538,11 @@
     "stats": "{{matches}} résultats dans {{tables}} tables ({{time}}ms)",
     "truncated": "Résultats tronqués",
     "hint": "Entrez au moins 2 caractères pour rechercher",
-    "footerHint": "Cliquez sur un résultat pour ouvrir la table"
+    "footerHint": "Cliquez sur un résultat pour ouvrir la table",
+    "matchCount_one": "{{count}} correspondance",
+    "matchCount_other": "{{count}} correspondances",
+    "moreColumns_one": "+{{count}} autre",
+    "moreColumns_other": "+{{count}} autres"
   },
   "tabs": {
     "newTab": "Nouvel onglet",
@@ -748,6 +762,8 @@
     "redo": "Rétablir",
     "toggleVariables": "Variables",
     "editTitle": "Cliquer pour modifier le titre",
+    "draftQuotaExceeded": "Quota de stockage local dépassé pour le brouillon",
+    "draftQuotaExceededHint": "Enregistrez ce notebook dans un fichier (.qnb) pour ne pas perdre vos modifications.",
     "cellCountLabel": "{{count}} cellule(s)",
     "variableDescriptionHint": "Description optionnelle",
     "doubleClickToEdit": "Double-cliquer pour modifier",
@@ -759,7 +775,9 @@
     "addCellAi": "Cellule IA",
     "aiPlaceholder": "Décrivez la requête en langage naturel…",
     "aiGenerate": "Générer le SQL",
-    "aiCellInserted": "Cellule SQL insérée en dessous"
+    "aiCellInserted": "Cellule SQL insérée en dessous",
+    "insertSummaryMarkdown": "Insérer en cellule Markdown",
+    "generateDocumentation": "Générer la documentation avec l’IA"
   },
   "replay": {
     "cancelledReport": "Rejeu annulé. Les requêtes exécutées sont conservées ; la requête en cours a pu se terminer.",
@@ -1147,6 +1165,41 @@
         "idle": "Les sessions inactives depuis 10 minutes sont fermées.",
         "audit": "Chaque appel est inscrit dans le journal d’audit avec la source « mcp »."
       }
+    },
+    "localData": {
+      "title": "Données locales & stockage disque",
+      "description": "Consultez l’occupation disque dans app_data_dir par catégorie et purgez granulairement les données locales.",
+      "securityNotice": "Les identifiants (vault.enc) et exports partagés sont chiffrés au repos (AES-256-GCM). Les catégories ci-dessous sont stockées en fichiers locaux avec masquage des secrets et plafonds de rétention.",
+      "totalUsage": "Stockage local total : {{size}}",
+      "fileCount": "{{count}} fichiers",
+      "purge": "Purger",
+      "confirmTitle": "Purger la catégorie de données locales",
+      "confirmDescription": "Voulez-vous supprimer définitivement tous les fichiers locaux de « {{category}} » ? Cette action est irréversible.",
+      "confirmAction": "Purger définitivement",
+      "purgeSuccess": "{{category}} purgée.",
+      "purgeError": "Échec de la purge des données locales.",
+      "categories": {
+        "time_travel": {
+          "title": "Historique Time Travel",
+          "description": "Journal local des mutations avant/après (time-travel/), borné par la durée de rétention et la taille maximale."
+        },
+        "replay": {
+          "title": "Captures Query Replay",
+          "description": "Exécutions et captures de résultats Replay (replays/), isolées par espace de travail avec rédaction des secrets."
+        },
+        "snapshots": {
+          "title": "Snapshots de données",
+          "description": "Instantanés de résultats enregistrés (snapshots/*.json) pour la comparaison et la consultation hors ligne."
+        },
+        "audit_logs": {
+          "title": "Journal d’audit & logs applicatifs",
+          "description": "Journal d’audit de l’intercepteur (interceptor/audit.jsonl) et logs applicatifs (logs/) avec masquage automatique des secrets."
+        },
+        "ai_models": {
+          "title": "Exécutable & modèles IA locaux",
+          "description": "Binaire Qore AI Local et poids GGUF téléchargés (ai-local/), vérifiés par empreinte SHA-256."
+        }
+      }
     }
   },
   "table": {
@@ -1316,7 +1369,8 @@
       "execTooltip": "Temps de traitement Backend",
       "transferTooltip": "Temps réseau/transfert",
       "totalTooltip": "Temps total aller-retour"
-    }
+    },
+    "closeResult": "Fermer le résultat {{label}}"
   },
   "results": {
     "affectedRows": "{{count}} ligne(s) affectée(s) en {{time}}ms",
@@ -1469,6 +1523,14 @@
       "applied": "Masque appliqué",
       "appliedNextRun": "Masque enregistré : il s’applique dès la prochaine exécution.",
       "removed": "Masque retiré"
+    },
+    "anchor": {
+      "filter_mismatch": "Hors filtre",
+      "filter_mismatchTooltip": "La ligne modifiée ne correspond plus aux filtres actifs ; elle reste ancrée jusqu’au prochain rechargement.",
+      "order_changed": "Ordre modifié",
+      "order_changedTooltip": "La colonne de tri a changé ; la ligne reste ancrée à sa position jusqu’au prochain rechargement.",
+      "inserted": "Insérée",
+      "insertedTooltip": "Ligne insérée ancrée localement en tête des pages chargées jusqu’au prochain rechargement."
     }
   },
   "export": {
@@ -1733,7 +1795,18 @@
     "tabBar": "Onglets ouverts",
     "databaseTree": "Arborescence des bases de données",
     "statusBar": "Barre de statut",
-    "help": "Aide"
+    "help": "Aide",
+    "resizeSidebar": "Redimensionner la barre latérale",
+    "resizeEditor": "Redimensionner l’éditeur SQL",
+    "resizeAiPanel": "Redimensionner le panneau assistant IA",
+    "query": {
+      "running": "Requête en cours…",
+      "failed": "Échec de la requête. L’erreur est affichée dans le panneau des résultats.",
+      "timedOut": "Délai de la requête dépassé.",
+      "done": "Requête terminée en {{ms}} ms.",
+      "rows_one": "Requête terminée : {{count}} ligne en {{ms}} ms.",
+      "rows_other": "Requête terminée : {{count}} lignes en {{ms}} ms."
+    }
   },
   "zenMode": {
     "enabled": "Mode Zen — Appuyez sur Échap pour quitter"
@@ -1859,7 +1932,15 @@
     "keyspacesHeader": "KEYSPACES",
     "dataset": "Dataset",
     "datasets": "Datasets",
-    "datasetsHeader": "DATASETS"
+    "datasetsHeader": "DATASETS",
+    "mapping": {
+      "expand": "Afficher le mapping de {{name}}",
+      "collapse": "Masquer le mapping de {{name}}",
+      "label": "Mapping de {{name}}",
+      "empty": "Aucun champ mappé",
+      "failed": "Impossible de charger le mapping",
+      "subfield": "sous-champ {{type}}"
+    }
   },
   "createTable": {
     "title": "Créer une table",
@@ -2154,7 +2235,9 @@
       "new": "NOUVEAU",
       "modified": "Modifié",
       "deleted": "Supprimé"
-    }
+    },
+    "quotaExceeded": "Quota de stockage local dépassé pour le Sandbox",
+    "quotaExceededHint": "Appliquez ou annulez les modifications en attente pour libérer de l'espace."
   },
   "interceptor": {
     "title": "Intercepteur de requêtes",
@@ -2358,7 +2441,10 @@
         "environments": "Appliquer aux environnements",
         "operations": "Opérations correspondantes",
         "action": "Action",
-        "pattern": "Pattern de requête (regex)"
+        "pattern": "Pattern de requête (regex)",
+        "operationsHint": "Laisser vide pour cibler toutes les opérations",
+        "namePlaceholder": "Bloquer les requêtes dangereuses",
+        "descriptionPlaceholder": "Évite les pertes de données accidentelles"
       },
       "actions": {
         "block": "Bloquer la requête",
@@ -2960,6 +3046,22 @@
       "summarizeSchema": "Résumer ce schéma",
       "tableTitle": "Table {{table}}",
       "schemaTitle": "Schéma {{namespace}}"
+    },
+    "semanticContext": {
+      "menuItem": "Contexte métier (.qoredb)",
+      "title": "Contexte métier — {{table}}",
+      "description": "Annotez cette table et les règles du projet dans .qoredb/context.json pour enrichir les requêtes IA.",
+      "tableDescription": "Description de la table",
+      "tableDescriptionPlaceholder": "ex. Factures clients",
+      "domain": "Domaine",
+      "domainPlaceholder": "ex. facturation",
+      "columnsTitle": "Sens des colonnes",
+      "columnPlaceholder": "Sens ({{type}})",
+      "implicitRelations": "Relations implicites (une par ligne)",
+      "implicitRelationsPlaceholder": "user_id -> users.id",
+      "businessRules": "Règles métier du projet (une par ligne)",
+      "businessRulesPlaceholder": "ex. Les utilisateurs actifs ont deleted_at IS NULL",
+      "saved": "Contexte métier enregistré dans .qoredb/context.json"
     }
   },
   "agentChat": {
@@ -3057,7 +3159,12 @@
     "insertLeftJoin": "LEFT JOIN",
     "insertComma": "Cross join",
     "insertWhere": "WHERE",
-    "insertRaw": "Référence"
+    "insertRaw": "Référence",
+    "cacheHit": "Cache",
+    "liveFetch": "Direct",
+    "rowsShort": "lignes",
+    "projectedColumns": "Colonnes projetées",
+    "refreshCacheTooltip": "Ignorer le cache et recharger toutes les sources fédérées"
   },
   "maintenance": {
     "title": "Maintenance",
@@ -3925,5 +4032,21 @@
     "exported": "Script SQL exporté",
     "exportError": "Échec de l’export",
     "copied": "SQL copié"
+  },
+  "timescale": {
+    "hypertable": "hypertable",
+    "timeDimension": "temps",
+    "spaceDimension": "espace",
+    "chunkInterval": "chunks de {{value}}",
+    "partitions": "{{value}} partitions",
+    "compression": "Compression",
+    "retention": "Rétention",
+    "disabled": "désactivée",
+    "after": "après {{value}}",
+    "enabledNoPolicy": "activée, sans politique",
+    "dropAfter": "suppression après {{value}}",
+    "noPolicy": "aucune politique",
+    "chunks_one": "{{count}} chunk",
+    "chunks_other": "{{count}} chunks"
   }
 }

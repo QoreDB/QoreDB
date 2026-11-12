@@ -3,6 +3,7 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Toaster } from 'sonner';
+import { ResizeHandle } from '@/components/ui/resize-handle';
 import {
   emitUiEvent,
   UI_EVENT_EXPORT_DATA,
@@ -165,8 +166,11 @@ export function AppLayout() {
   useWebviewGuards();
   const {
     width: sidebarWidth,
+    minWidth: sidebarMinWidth,
+    maxWidth: sidebarMaxWidth,
     sidebarRef,
     handleMouseDown: handleSidebarResizeStart,
+    handleKeyDown: handleSidebarResizeKeyDown,
     resetWidth: resetSidebarWidth,
   } = useResizableSidebar();
   const tourManager = useTourManager();
@@ -1001,6 +1005,7 @@ export function AppLayout() {
             <aside aria-label={t('a11y.sidebar')} className="flex h-full shrink-0">
               <Sidebar
                 ref={sidebarRef}
+                id="app-sidebar"
                 onNewConnection={() => setConnectionModalOpen(true)}
                 onConnected={handleConnected}
                 connectedSessionId={sessionId}
@@ -1028,12 +1033,17 @@ export function AppLayout() {
                 activeNamespace={activeTab?.namespace}
                 style={{ width: sidebarWidth, minWidth: sidebarWidth }}
               />
-              <button
-                type="button"
-                aria-label="Resize sidebar"
+              <ResizeHandle
+                orientation="vertical"
+                label={t('a11y.resizeSidebar')}
+                value={sidebarWidth}
+                min={sidebarMinWidth}
+                max={sidebarMaxWidth}
+                controls="app-sidebar"
                 onMouseDown={handleSidebarResizeStart}
                 onDoubleClick={resetSidebarWidth}
-                className="w-1 shrink-0 cursor-col-resize bg-transparent hover:bg-accent/50 active:bg-accent transition-colors border-0 p-0 outline-none"
+                onKeyDown={handleSidebarResizeKeyDown}
+                className="w-1 shrink-0 cursor-col-resize bg-transparent hover:bg-accent/50 focus-visible:bg-accent/60 active:bg-accent transition-colors"
               />
             </aside>
           )}
@@ -1498,6 +1508,7 @@ function AppContent({
             onQueryDraftChange={value => onUpdateQueryDraft(activeTab.id, value)}
             initialShowAiPanel={activeTab.showAiPanel}
             aiTableContext={activeTab.aiTableContext}
+            initialAiExplain={activeTab.aiPendingExplain}
           />
         </div>
       </ErrorBoundary>

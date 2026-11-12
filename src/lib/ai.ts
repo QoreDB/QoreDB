@@ -180,6 +180,24 @@ export interface LocalRuntimeStatus {
   error?: string;
   installation?: LocalInstallProgress;
   required_download_bytes?: number;
+  total_system_ram_bytes?: number;
+  recommended_model_id?: string;
+  recommended_ctx_size?: number;
+  memory_warning?: string;
+}
+
+export interface TableSemanticAnnotation {
+  description?: string;
+  domain?: string;
+  columns: Record<string, string>;
+  implicit_relations: string[];
+}
+
+export interface SemanticContextFile {
+  version: number;
+  business_rules: string[];
+  conventions: string[];
+  tables: Record<string, TableSemanticAnnotation>;
 }
 
 export interface LocalRuntimeUpdateStatus {
@@ -363,6 +381,14 @@ export async function aiGenerateFilters(
     config,
     namespace,
   });
+}
+
+export async function aiGetSemanticContext(): Promise<SemanticContextFile> {
+  return invoke('ai_get_semantic_context');
+}
+
+export async function aiSaveSemanticContext(context: SemanticContextFile): Promise<void> {
+  return invoke('ai_save_semantic_context', { context });
 }
 
 export function aiStreamEvent(requestId: string): string {

@@ -164,11 +164,28 @@ pub async fn ai_generate_filters(
     Err(PRO_REQUIRED.to_string())
 }
 
+#[cfg(not(feature = "pro"))]
+#[tauri::command]
+pub async fn ai_get_semantic_context(
+    _ws_manager: State<'_, crate::commands::workspace::SharedWorkspaceManager>,
+) -> Result<serde_json::Value, String> {
+    Err(PRO_REQUIRED.to_string())
+}
+
+#[cfg(not(feature = "pro"))]
+#[tauri::command]
+pub async fn ai_save_semantic_context(
+    _ws_manager: State<'_, crate::commands::workspace::SharedWorkspaceManager>,
+    _context: serde_json::Value,
+) -> Result<(), String> {
+    Err(PRO_REQUIRED.to_string())
+}
+
 #[cfg(feature = "pro")]
 use std::sync::Arc;
 
 #[cfg(feature = "pro")]
-use tauri::Emitter;
+use tauri::{Emitter, Manager};
 
 #[cfg(feature = "pro")]
 use uuid::Uuid;
@@ -182,11 +199,73 @@ use crate::ai::provider::extract_query_from_response;
 #[cfg(feature = "pro")]
 use crate::ai::safety::validate_generated_query;
 #[cfg(feature = "pro")]
+use crate::ai::semantic_memory::{
+    load_semantic_context, save_semantic_context, SemanticContextFile,
+};
+#[cfg(feature = "pro")]
 use crate::ai::types::{
     AiAction, AiConfig, AiError, AiMessage, AiProvider, AiRequest, AiResponse, AiStreamChunk,
 };
 #[cfg(feature = "pro")]
+use crate::commands::workspace::SharedWorkspaceManager;
+#[cfg(feature = "pro")]
 use crate::engine::types::{ColumnFilter, Namespace};
+#[cfg(feature = "pro")]
+use crate::interceptor::{InterceptorPipeline, TrendFilter};
+
+#[cfg(feature = "pro")]
+async fn load_semantic_and_frequent_queries(
+    ws_manager: Option<&SharedWorkspaceManager>,
+    interceptor: &InterceptorPipeline,
+    driver_id: &str,
+    database: &str,
+) -> (SemanticContextFile, Vec<String>) {
+    let semantic = match ws_manager {
+        Some(mgr) => {
+            let ws_path = mgr.lock().await.active().path.clone();
+            load_semantic_context(&ws_path)
+        }
+        None => SemanticContextFile::default(),
+    };
+
+    let filter = TrendFilter {
+        days: 14,
+        driver_id: Some(driver_id.to_string()),
+        database: if database.is_empty() || database == "default" {
+            None
+        } else {
+            Some(database.to_string())
+        },
+    };
+    let frequent_queries = interceptor
+        .get_query_trends(&filter, false)
+        .unwrap_or_default()
+        .into_iter()
+        .take(5)
+        .map(|t| t.query_preview)
+        .collect();
+
+    (semantic, frequent_queries)
+}
+
+#[cfg(feature = "pro")]
+#[tauri::command]
+pub async fn ai_get_semantic_context(
+    ws_manager: State<'_, SharedWorkspaceManager>,
+) -> Result<SemanticContextFile, String> {
+    let ws_path = ws_manager.lock().await.active().path.clone();
+    Ok(load_semantic_context(&ws_path))
+}
+
+#[cfg(feature = "pro")]
+#[tauri::command]
+pub async fn ai_save_semantic_context(
+    ws_manager: State<'_, SharedWorkspaceManager>,
+    context: SemanticContextFile,
+) -> Result<(), String> {
+    let ws_path = ws_manager.lock().await.active().path.clone();
+    save_semantic_context(&ws_path, &context).map(|_| ())
+}
 
 #[cfg(feature = "pro")]
 #[tauri::command]
@@ -212,18 +291,20 @@ pub async fn ai_fix_error(
 #[tauri::command]
 pub async fn ai_explain_result(
     state: State<'_, SharedState>,
+    ws_manager: State<'_, SharedWorkspaceManager>,
     session_id: String,
     query: String,
     result_summary: String,
     config: AiConfig,
     namespace: Option<Namespace>,
 ) -> Result<AiResponse, String> {
-    let (session_manager, ai_manager, virtual_relations) = {
+    let (session_manager, ai_manager, virtual_relations, interceptor) = {
         let s = state.lock().await;
         (
             Arc::clone(&s.session_manager),
             Arc::clone(&s.ai_manager),
             Arc::clone(&s.virtual_relations),
+            Arc::clone(&s.interceptor),
         )
     };
 
@@ -235,8 +316,15 @@ pub async fn ai_explain_result(
     let driver_id = driver.driver_id().to_string();
 
     let ns = namespace.unwrap_or_else(|| Namespace::new("default"));
+    let (semantic, frequent_queries) = load_semantic_and_frequent_queries(
+        Some(ws_manager.inner()),
+        &interceptor,
+        &driver_id,
+        &ns.database,
+    )
+    .await;
 
-    let schema_ctx = context::build_context(
+    let schema_ctx = context::build_context_with_semantic(
         &session_manager,
         sid,
         &ns,
@@ -246,6 +334,8 @@ pub async fn ai_explain_result(
         &query,
         false,
         !config.allow_sensitive_data,
+        Some(&semantic),
+        &frequent_queries,
     )
     .await?;
 
@@ -276,18 +366,20 @@ pub async fn ai_explain_result(
 #[tauri::command]
 pub async fn ai_summarize_schema(
     state: State<'_, SharedState>,
+    ws_manager: State<'_, SharedWorkspaceManager>,
     session_id: String,
     config: AiConfig,
     namespace: Option<Namespace>,
     // When set, the summary narrows to that table instead of the namespace.
     table: Option<String>,
 ) -> Result<AiResponse, String> {
-    let (session_manager, ai_manager, virtual_relations) = {
+    let (session_manager, ai_manager, virtual_relations, interceptor) = {
         let s = state.lock().await;
         (
             Arc::clone(&s.session_manager),
             Arc::clone(&s.ai_manager),
             Arc::clone(&s.virtual_relations),
+            Arc::clone(&s.interceptor),
         )
     };
 
@@ -305,8 +397,15 @@ pub async fn ai_summarize_schema(
     // The hint drives table prioritisation inside the context builder, so a
     // named table survives the MAX_TABLES cut on a wide schema.
     let hint = table.clone().unwrap_or_default();
+    let (semantic, frequent_queries) = load_semantic_and_frequent_queries(
+        Some(ws_manager.inner()),
+        &interceptor,
+        &driver_id,
+        &ns.database,
+    )
+    .await;
 
-    let schema_ctx = context::build_context(
+    let schema_ctx = context::build_context_with_semantic(
         &session_manager,
         sid,
         &ns,
@@ -316,6 +415,8 @@ pub async fn ai_summarize_schema(
         &hint,
         false,
         !config.allow_sensitive_data,
+        Some(&semantic),
+        &frequent_queries,
     )
     .await?;
 
@@ -349,6 +450,7 @@ pub async fn ai_summarize_schema(
 #[tauri::command]
 pub async fn ai_generate_filters(
     state: State<'_, SharedState>,
+    ws_manager: State<'_, SharedWorkspaceManager>,
     session_id: String,
     table_name: String,
     prompt: String,
@@ -356,12 +458,13 @@ pub async fn ai_generate_filters(
     config: AiConfig,
     namespace: Option<Namespace>,
 ) -> Result<Vec<ColumnFilter>, String> {
-    let (session_manager, ai_manager, virtual_relations) = {
+    let (session_manager, ai_manager, virtual_relations, interceptor) = {
         let s = state.lock().await;
         (
             Arc::clone(&s.session_manager),
             Arc::clone(&s.ai_manager),
             Arc::clone(&s.virtual_relations),
+            Arc::clone(&s.interceptor),
         )
     };
 
@@ -373,8 +476,15 @@ pub async fn ai_generate_filters(
     let driver_id = driver.driver_id().to_string();
 
     let ns = namespace.unwrap_or_else(|| Namespace::new("default"));
+    let (semantic, frequent_queries) = load_semantic_and_frequent_queries(
+        Some(ws_manager.inner()),
+        &interceptor,
+        &driver_id,
+        &ns.database,
+    )
+    .await;
 
-    let schema_ctx = context::build_context(
+    let schema_ctx = context::build_context_with_semantic(
         &session_manager,
         sid,
         &ns,
@@ -384,6 +494,8 @@ pub async fn ai_generate_filters(
         &prompt,
         false,
         !config.allow_sensitive_data,
+        Some(&semantic),
+        &frequent_queries,
     )
     .await?;
 
@@ -743,12 +855,13 @@ async fn stream_ai_request(
     // instructions" injection (cf. audit B7-A4).
     context::validate_user_prompt(&request.prompt)?;
 
-    let (session_manager, ai_manager, virtual_relations) = {
+    let (session_manager, ai_manager, virtual_relations, interceptor) = {
         let s = state.lock().await;
         (
             Arc::clone(&s.session_manager),
             Arc::clone(&s.ai_manager),
             Arc::clone(&s.virtual_relations),
+            Arc::clone(&s.interceptor),
         )
     };
 
@@ -764,7 +877,16 @@ async fn stream_ai_request(
         .clone()
         .unwrap_or_else(|| Namespace::new("default"));
 
-    let schema_ctx = context::build_context(
+    let ws_manager = window.try_state::<SharedWorkspaceManager>();
+    let (semantic, frequent_queries) = load_semantic_and_frequent_queries(
+        ws_manager.as_deref(),
+        &interceptor,
+        &driver_id,
+        &ns.database,
+    )
+    .await;
+
+    let schema_ctx = context::build_context_with_semantic(
         &session_manager,
         sid,
         &ns,
@@ -774,6 +896,8 @@ async fn stream_ai_request(
         &request.prompt,
         request.include_sample_rows,
         !request.config.allow_sensitive_data,
+        Some(&semantic),
+        &frequent_queries,
     )
     .await?;
 

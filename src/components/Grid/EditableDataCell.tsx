@@ -20,10 +20,12 @@ import { cn } from '@/lib/utils';
 import { usePlugins } from '@/providers/PluginProvider';
 import { ForeignKeyPeekTooltip } from './ForeignKeyPeekTooltip';
 import type { PeekState } from './hooks/useForeignKeyPeek';
-import { PluginCellMenu } from './PluginCellMenu';
 import { PluginCellRenderer } from './PluginCellRenderer';
 import { formatCellPreview, type RowData } from './utils/dataGridUtils';
 
+const PluginCellMenu = lazy(() =>
+  import('./PluginCellMenu').then(module => ({ default: module.PluginCellMenu }))
+);
 const BlobViewer = lazy(() =>
   import('./BlobViewer').then(module => ({ default: module.BlobViewer }))
 );
@@ -116,15 +118,17 @@ export const EditableDataCell = memo(function EditableDataCell({
     isEditing || (cellActions.length === 0 && cellRenderers.length === 0) ? (
       node
     ) : (
-      <PluginCellMenu
-        actions={cellActions}
-        renderers={cellRenderers}
-        value={value}
-        columnName={columnId}
-        dataType={dataType}
-      >
-        {node}
-      </PluginCellMenu>
+      <Suspense fallback={node}>
+        <PluginCellMenu
+          actions={cellActions}
+          renderers={cellRenderers}
+          value={value}
+          columnName={columnId}
+          dataType={dataType}
+        >
+          {node}
+        </PluginCellMenu>
+      </Suspense>
     );
 
   const handleBlobClick = useCallback(() => {

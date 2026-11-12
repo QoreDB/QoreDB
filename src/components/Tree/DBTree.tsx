@@ -16,7 +16,7 @@ import {
   Table,
   Zap,
 } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -60,10 +60,13 @@ import { DeleteDatabaseModal } from './DeleteDatabaseModal';
 import { EventContextMenu } from './EventContextMenu';
 import { HypertableBadge } from './HypertableBadge';
 import { RoutineContextMenu } from './RoutineContextMenu';
-import { SearchIndexTreeItem } from './SearchIndexTreeItem';
 import { SequenceContextMenu } from './SequenceContextMenu';
 import { TableContextMenu } from './TableContextMenu';
 import { TriggerContextMenu } from './TriggerContextMenu';
+
+const SearchIndexTreeItem = lazy(() =>
+  import('./SearchIndexTreeItem').then(module => ({ default: module.SearchIndexTreeItem }))
+);
 
 function getNsKey(ns: Namespace): string {
   return `${ns.database}:${ns.schema || ''}`;
@@ -659,13 +662,16 @@ export function DBTree({
                             </TableContextMenu>
                           );
                           return isSearchModel ? (
-                            <SearchIndexTreeItem
-                              key={col.name}
-                              indexName={col.name}
-                              loadSchema={() => schemaCache.getTableSchema(col.namespace, col.name)}
-                            >
-                              {item}
-                            </SearchIndexTreeItem>
+                            <Suspense key={col.name} fallback={item}>
+                              <SearchIndexTreeItem
+                                indexName={col.name}
+                                loadSchema={() =>
+                                  schemaCache.getTableSchema(col.namespace, col.name)
+                                }
+                              >
+                                {item}
+                              </SearchIndexTreeItem>
+                            </Suspense>
                           ) : (
                             item
                           );

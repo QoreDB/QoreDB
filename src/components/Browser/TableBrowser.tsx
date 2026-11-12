@@ -20,7 +20,6 @@ import {
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
-import { HypertableInfoSection } from '@/components/Browser/HypertableInfoSection';
 import { ChangesPanel, MigrationPreview, SandboxToggle } from '@/components/Sandbox';
 import { Button } from '@/components/ui/button';
 import {
@@ -87,6 +86,9 @@ import { CacheBadge } from './CacheBadge';
 import { ContentBreadcrumb } from './ContentBreadcrumb';
 
 const RowModal = lazy(() => import('./RowModal').then(module => ({ default: module.RowModal })));
+const HypertableInfoSection = lazy(() =>
+  import('./HypertableInfoSection').then(module => ({ default: module.HypertableInfoSection }))
+);
 
 function formatTableName(namespace: Namespace, tableName: string): string {
   return namespace.schema ? `${namespace.schema}.${tableName}` : tableName;
@@ -1469,7 +1471,11 @@ function TableInfoPanel({
         </div>
       ) : null}
 
-      {hypertable && <HypertableInfoSection hypertable={hypertable} />}
+      {hypertable && (
+        <Suspense fallback={null}>
+          <HypertableInfoSection hypertable={hypertable} />
+        </Suspense>
+      )}
 
       {/* Maintenance Info (PostgreSQL) */}
       {(stats.lastVacuum || stats.lastAnalyze) && (

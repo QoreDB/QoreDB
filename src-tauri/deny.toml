@@ -10,9 +10,6 @@ ignore = [
   # rsa Marvin Attack: sqlx-mysql uses rsa for MySQL caching_sha2_password auth.
   # No fix available in rsa 0.9.x. Timing side-channel not exploitable in DB auth context.
   { id = "RUSTSEC-2023-0071", reason = "sqlx-mysql transitive dep, no fix available" },
-  # rand unsoundness: only reachable if a custom logger calls rand::rng() and triggers reseed.
-  # Transitive via sqlx-mysql (rsa) and tauri (phf); QoreDB defines no such logger.
-  { id = "RUSTSEC-2026-0097", reason = "rand 0.8.x transitive dep, not exploitable in our context" },
   # quick-xml quadratic parsing: fix in 0.41.0, but plist 1.9.0 (latest) pins quick-xml ^0.39.
   # Transitive via tauri (tauri-build -> tauri-utils -> plist); parses only build/bundle .plist, never untrusted XML.
   { id = "RUSTSEC-2026-0194", reason = "quick-xml via tauri/plist, no upstream fix, not exploitable in our context" },
@@ -26,6 +23,11 @@ ignore = [
   { id = "RUSTSEC-2026-0367", reason = "zip < 9 via updater/duckdb build/xlsxwriter, no upstream fix, extract() never sees untrusted archives" },
   { id = "RUSTSEC-2026-0368", reason = "zip < 9 via updater/duckdb build/xlsxwriter, no upstream fix, extract() never sees untrusted archives" },
   { id = "RUSTSEC-2026-0369", reason = "zip < 9 via updater/duckdb build/xlsxwriter, no upstream fix, extract() never sees untrusted archives" },
+  { id = "RUSTSEC-2026-0429", reason = "zip < 9 via updater/duckdb build/xlsxwriter, no upstream fix, extract() never sees untrusted archives" },
+  # libsqlite3-sys < 0.39 (bundled SQLite < 3.54): a crafted -wal file with a different page size can expose
+  # uninitialized page-cache memory. Pinned by sqlx-sqlite (0.8: ^0.30.1, 0.9.0: < 0.38); no sqlx release accepts 0.39.
+  # Needs a database/-wal pair crafted by a third party and opened by the user. See .cargo/audit.toml.
+  { id = "RUSTSEC-2026-0459", reason = "libsqlite3-sys pinned by sqlx-sqlite, no upstream fix; requires a crafted database/-wal pair" },
 ]
 
 [licenses]

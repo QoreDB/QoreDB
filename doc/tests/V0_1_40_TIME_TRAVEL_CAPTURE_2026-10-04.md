@@ -2,7 +2,7 @@
 
 Référence : `b151d2063c5bf116afff04f59f50b5a3f9b2ffaf`, avec le lot local
 [édition en place](V0_1_40_INLINE_EDIT_2026-10-04.md) déjà présent et conservé.
-Ce lot poursuit la phase 1 du [plan](../todo/V0_1_40.md), sans clôturer la recette
+Ce lot poursuit la phase 1 du [plan](../archive/V0_1_40_PLAN.md), sans clôturer la recette
 native ni la qualification de release.
 
 Le [complément suivant](V0_1_40_GENERATED_KEYS_2026-10-04.md) traite les clés

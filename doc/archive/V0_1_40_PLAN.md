@@ -1,5 +1,11 @@
 # Plan v0.1.40 — Édition des données et stabilisation Pro
 
+Archivé le 12 novembre 2026. Publié en v0.1.40 (commit `4d2e1921`, tag
+`v0.1.40`). Le texte ci-dessous est l'état du plan à la publication et n'est
+plus mis à jour. Les limites de qualification restées ouvertes, notamment les
+recettes natives par moteur, sont consignées dans les rapports datés liés ;
+la publication ne vaut pas validation de chaque critère de sortie.
+
 Statut : réalisation amorcée le 28 septembre 2026 ; aucune phase complète
 d'implémentation ou de qualification validée. Référence de début d'exécution :
 `4e1859c9c7d7ad775d9b5a172979469726a6f841`, arbre de travail initial propre.

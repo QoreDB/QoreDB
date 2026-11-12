@@ -73,11 +73,9 @@ that every check passes on the current checkout.
   workspace masking, expired sessions and concurrent connection opening.
 - [v0.1.40 schema captures, 2026-10-08](tests/V0_1_40_SCHEMA_DIFF_2026-10-08.md):
   fail-closed enumeration, complete baselines and comparison-session cleanup.
-
 - [v0.1.40 Replay Lab, 2026-10-08](tests/V0_1_40_REPLAY_2026-10-08.md):
   PostgreSQL cancellation, report retention, late responses, workspace targets
   and complementary live PostgreSQL/Time Travel checks.
-
 - [v0.1.40 références Replay, 2026-10-09](tests/V0_1_40_REPLAY_2026-10-09.md):
   acceptation atomique des attentes, captures historiques et rétention.
 - [v0.1.40 workspaces Replay, 2026-10-09](tests/V0_1_40_REPLAY_WORKSPACES_2026-10-09.md):
@@ -90,23 +88,17 @@ that every check passes on the current checkout.
   sauvegardes liées au projet, reprise après échec et compatibilité du format v0.1.39.
 - [v0.1.40 intégrité de la bibliothèque, 2026-10-09](tests/V0_1_40_LIBRARY_INTEGRITY_2026-10-09.md):
   capacité sans suppression silencieuse, fichiers complets, actions périmées et nombres MCP exacts.
-
 - [v0.1.40 données locales invalides, 2026-10-09](tests/V0_1_40_LOCAL_DATA_VALIDATION_2026-10-09.md):
   bibliothèques préservées, imports refusés sans perte et configurations de notebooks validées.
-
 - [v0.1.40 transferts et ouverture de fichiers, 2026-10-09](tests/V0_1_40_FILE_OPERATIONS_2026-10-09.md):
   transferts liés au workspace, validation préalable et ouvertures de notebooks périmées abandonnées.
-
 - [v0.1.40 coffre et workspaces, 2026-10-09](tests/V0_1_40_VAULT_WORKSPACES_2026-10-09.md):
   commandes liées au projet demandé, confirmations et listes isolées, sessions tardives écartées.
-
 - [v0.1.40 publication atomique des fichiers, 2026-10-09](tests/V0_1_40_ATOMIC_FILES_2026-10-09.md):
   connexions, notebooks QNB et exports JSON ; erreurs, temporaires, reprise et limites de durabilité.
-
 - [v0.1.40 qualification native Linux, 2026-10-10](tests/V0_1_40_NATIVE_QUALIFICATION_2026-10-10.md):
   reprise synthétique v0.1.39, vrais IPC/keyring/SQLite/PostgreSQL, corrections de transfert
   et packaging ; AppImage en échec, installation et licences payantes non qualifiées.
-
 - [v0.1.40 packaging, matrice et clavier, 2026-10-11](tests/V0_1_40_PACKAGING_MATRIX_UX_2026-10-11.md):
   AppImage et AUR, fidélité de la fédération, moteurs réels supplémentaires,
   conflit Échap et mesures natives ; limites de qualification explicites.
@@ -119,19 +111,19 @@ completed spec to `archive/` when delivery is established and update its links.
 
 | Plan | Topic |
 | --- | --- |
-| [v0.1.40](todo/V0_1_40.md) | Weight/performance baseline, data editing and stabilization of existing Pro features |
 | [Databases](todo/DATABASES.md) | Driver roadmap and investigation notes |
 | [v2](todo/v2.md) | Product roadmap |
 | [v3](todo/v3.md) | Subsequent product roadmap |
 | [AI rework](todo/AI_REWORK.md) | AI experience changes |
 | [Local Qore AI](todo/QORE_AI_LOCAL.md) | Local runtime work |
-| [Query Replay Lab](todo/QUERY_REPLAY_LAB.md) | Replay specification and remaining work |
 | [Pagination and rendering](todo/PAGINATION_DATA_RENDERING.md) | Data browsing performance |
 | [Enterprise readiness](todo/ENTERPRISE_READINESS.md) | Enterprise requirements |
 
 ## Historical and local material
 
-[archive/](archive/) contains shipped specifications and past release plans.
+[archive/](archive/) contains shipped specifications and past release plans, such
+as the [v0.1.40 plan](archive/V0_1_40_PLAN.md) and the
+[Query Replay Lab specification](archive/QUERY_REPLAY_LAB.md).
 Use them for rationale and history, not as current operating instructions.
 
 `doc/private/` is ignored local material and absent from a normal clone. Public

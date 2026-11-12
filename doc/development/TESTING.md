@@ -153,7 +153,7 @@ JSON stores only hashes of local environment values/files, never their contents.
 This is a static frontend weight check. Dynamic imports can execute immediately
 at startup, and the static manifest does not establish WebView traffic, native
 binary/install size, startup latency, RAM or CPU. Complete those scenarios using
-the [v0.1.40 performance protocol](../todo/V0_1_40.md) before claiming release-wide
+the [performance protocol of the v0.1.40 plan](../archive/V0_1_40_PLAN.md) before claiming release-wide
 performance coverage. The frontend measurement is shared across license states
 only when the frontend build is identical.
 

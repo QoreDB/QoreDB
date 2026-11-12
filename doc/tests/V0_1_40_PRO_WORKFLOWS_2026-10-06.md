@@ -2,7 +2,7 @@
 
 Référence Git : `79a3664`, arbre initial propre, branche `feat/v0-1-40`.
 Les fixtures sont synthétiques. Ce rapport couvre des correctifs ciblés du
-[plan v0.1.40](../todo/V0_1_40.md), sans qualifier la release ni les parcours natifs.
+[plan v0.1.40](../archive/V0_1_40_PLAN.md), sans qualifier la release ni les parcours natifs.
 
 ## Variables et références des notebooks
 

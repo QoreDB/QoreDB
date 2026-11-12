@@ -124,4 +124,4 @@ concurrentes et échecs de lecture dans une transaction restent à qualifier.
 Les anciennes captures ne sont pas réparées et les anciens fichiers en clair
 ne sont pas purgés. Isolation par workspace, historique au-delà des 5 000 entrées
 du cache, matrice des autres moteurs, recette Tauri et performances natives
-restent ouverts dans le [plan v0.1.40](../todo/V0_1_40.md).
+restent ouverts dans le [plan v0.1.40](../archive/V0_1_40_PLAN.md).

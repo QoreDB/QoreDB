@@ -1,6 +1,7 @@
 # Query Replay Lab
 
-Statut : livré en v0.1.38 (verticales 1 à 3).
+Statut : livré en v0.1.38 (verticales 1 à 3). Archivé le 12 novembre 2026 ;
+la suite est suivie dans [v3](../todo/v3.md).
 Tier : Pro (`BUSL-1.1`), clé de licence `query_replay`.
 
 La fonctionnalité répond à une question qu'aucun client desktop ne traite : « ma migration

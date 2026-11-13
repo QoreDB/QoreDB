@@ -3,6 +3,7 @@
 //! Commands for executing queries and exploring database schema.
 
 use serde::{Deserialize, Serialize};
+use std::io::{self, Write};
 use std::sync::Arc;
 use tauri::State;
 use tracing::{field, instrument};
@@ -35,12 +36,58 @@ const SAFETY_RULE_BLOCKED: &str = "Query blocked by safety rule";
 /// Past this, the `queryRead` payload is dropped and the plugin sees `None`.
 const QUERY_READ_MAX_PAYLOAD_BYTES: usize = 1024 * 1024;
 
+/// Aborts serialization at the limit so an oversized result costs at most
+/// `limit` bytes of work instead of a full encode that is then discarded.
+struct CappedWriter {
+    buf: Vec<u8>,
+    limit: usize,
+}
+
+// Out of line so the per-token `write_all` stays inlined; without it small
+// payloads serialize ~1.7x slower than `serde_json::to_string`.
+#[cold]
+fn payload_over_limit() -> io::Error {
+    io::Error::other("queryRead payload over limit")
+}
+
+impl Write for CappedWriter {
+    fn write(&mut self, data: &[u8]) -> io::Result<usize> {
+        self.write_all(data)?;
+        Ok(data.len())
+    }
+
+    #[inline]
+    fn write_all(&mut self, data: &[u8]) -> io::Result<()> {
+        if self.buf.len() + data.len() > self.limit {
+            return Err(payload_over_limit());
+        }
+        self.buf.extend_from_slice(data);
+        Ok(())
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        Ok(())
+    }
+}
+
 fn build_query_read_payload(result: &QueryResult) -> Option<Arc<QueryReadPayload>> {
-    let json = serde_json::to_string(result).ok()?;
-    if json.len() > QUERY_READ_MAX_PAYLOAD_BYTES {
+    let mut writer = CappedWriter {
+        buf: Vec::with_capacity(128),
+        limit: QUERY_READ_MAX_PAYLOAD_BYTES,
+    };
+    serde_json::to_writer(&mut writer, result).ok()?;
+    let json = String::from_utf8(writer.buf).ok()?;
+    Some(Arc::new(QueryReadPayload { json }))
+}
+
+fn query_read_payload(
+    plugin_host: &PluginHost,
+    result: Option<&QueryResult>,
+) -> Option<Arc<QueryReadPayload>> {
+    if plugin_host.loaded_count() == 0 {
         return None;
     }
-    Some(Arc::new(QueryReadPayload { json }))
+    result.and_then(build_query_read_payload)
 }
 
 /// Schedules `postExecute` off the query critical path. Never propagates
@@ -365,7 +412,7 @@ pub async fn execute_query(
     #[cfg(feature = "pro")]
     let replay_namespace = namespace.clone();
     let on_complete = move |exec: &QueryExecutionResult, result: Option<&QueryResult>| {
-        let payload = result.and_then(build_query_read_payload);
+        let payload = query_read_payload(&plugin_host_for_complete, result);
         dispatch_plugin_post_execute(&plugin_host_for_complete, &plugin_ctx, exec, payload);
         #[cfg(feature = "pro")]
         if let Some(captures) = recordable
@@ -1696,4 +1743,60 @@ pub async fn update_governance_limits(
         max_result_rows: state.policy.max_result_rows,
         max_concurrent_queries: state.policy.max_concurrent_queries,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::engine::types::{ColumnInfo, Row};
+
+    fn result_with_rows(rows: usize) -> QueryResult {
+        QueryResult {
+            columns: vec![ColumnInfo {
+                name: "name".into(),
+                data_type: "text".into(),
+                nullable: true,
+                masked: false,
+            }],
+            rows: (0..rows)
+                .map(|i| Row {
+                    values: vec![Value::Text(format!("row {i} lorem ipsum dolor"))],
+                })
+                .collect(),
+            affected_rows: None,
+            execution_time_ms: 1.5,
+        }
+    }
+
+    #[test]
+    fn query_read_payload_matches_plain_json_under_limit() {
+        let result = result_with_rows(10);
+        let payload = build_query_read_payload(&result).expect("payload under limit");
+        assert_eq!(payload.json, serde_json::to_string(&result).unwrap());
+    }
+
+    #[test]
+    fn query_read_payload_drops_oversized_result() {
+        let result = result_with_rows(100_000);
+        assert!(serde_json::to_string(&result).unwrap().len() > QUERY_READ_MAX_PAYLOAD_BYTES);
+        assert!(build_query_read_payload(&result).is_none());
+    }
+
+    #[test]
+    fn capped_writer_accepts_exactly_the_limit() {
+        let mut writer = CappedWriter {
+            buf: Vec::new(),
+            limit: 4,
+        };
+        writer.write_all(b"abcd").unwrap();
+        assert!(writer.write_all(b"e").is_err());
+        assert_eq!(writer.buf, b"abcd");
+    }
+
+    #[test]
+    fn query_read_payload_skipped_without_loaded_plugins() {
+        let host = PluginHost::new();
+        let result = result_with_rows(10);
+        assert!(query_read_payload(&host, Some(&result)).is_none());
+    }
 }

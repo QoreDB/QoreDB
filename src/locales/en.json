@@ -2711,7 +2711,16 @@
     },
     "retry": "Retry",
     "exportSQL": "Download SQL patch",
-    "copySQL": "Copy as SQL patch"
+    "copySQL": "Copy as SQL patch",
+    "sqlPatchTarget": "Applies to the left table {{table}} to make it match the right side.",
+    "sqlPatchBlocked": {
+      "targetNotTable": "Available only when the left side is a table: the patch is applied to it.",
+      "maskedColumns": "Unavailable: masked columns would write placeholder values.",
+      "missingKeys": "Select key columns to match rows before generating a patch.",
+      "ambiguousKeys": "Unavailable: the selected keys match several rows.",
+      "truncated": "Unavailable: the comparison is truncated, unread rows would be deleted or duplicated.",
+      "noColumns": "Unavailable: the two sides share no columns."
+    }
   },
   "virtualRelations": {
     "title": "Virtual Relations",
@@ -3403,6 +3412,9 @@
     "partiallyAppliedWarning": "This driver commits DDL implicitly, so the statements that already ran could not be undone. Check the schema before forcing.",
     "blastRadius": {
       "title": "Blast Radius & Preflight",
+      "analyzing": "Analyzing impact…",
+      "analysisFailed": "Impact analysis failed: {{error}}",
+      "partialAnalysis": "Partial analysis: these statements could not be parsed and were not checked.",
       "none": "No destructive DDL hazards or workspace references detected.",
       "runPreflight": "Run data preflight",
       "hazardsSection": "DDL hazards",

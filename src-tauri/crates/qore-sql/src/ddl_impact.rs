@@ -18,6 +18,7 @@ use sqlparser::{
 use qore_core::Namespace;
 
 use crate::generator::SqlDialect;
+use crate::migration_split::split_migration_statements;
 use crate::safety::dialect_for_driver;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -213,131 +214,34 @@ pub fn analyze_ddl_impact(driver_id: &str, sql: &str) -> DdlImpactSummary {
     }
 
     let dialect = dialect_for_driver(driver_id);
-    let statements = match Parser::parse_sql(&*dialect, trimmed) {
-        Ok(stmts) => stmts,
-        Err(err) => {
-            return DdlImpactSummary {
-                hazards: Vec::new(),
-                affected_tables: Vec::new(),
-                parse_error: Some(err.to_string()),
-            };
-        }
-    };
-
     let mut hazards = Vec::new();
-    for stmt in statements {
-        match stmt {
-            Statement::Drop {
-                object_type: ObjectType::Table,
-                names,
-                ..
-            } => {
-                for name in names {
-                    let table = object_name_str(&name);
-                    if !table.is_empty() {
-                        hazards.push(DdlHazard::DropTable { table });
-                    }
-                }
+    let mut parse_error = None;
+
+    match Parser::parse_sql(&*dialect, trimmed) {
+        Ok(statements) => {
+            for stmt in statements {
+                collect_hazards(stmt, &mut hazards);
             }
-            Statement::AlterTable(alter) => {
-                let table = object_name_str(&alter.name);
-                if table.is_empty() {
-                    continue;
-                }
-                for op in alter.operations {
-                    match op {
-                        AlterTableOperation::DropColumn { column_names, .. } => {
-                            for ident in column_names {
-                                hazards.push(DdlHazard::DropColumn {
-                                    table: table.clone(),
-                                    column: ident.value,
-                                });
-                            }
-                        }
-                        AlterTableOperation::AlterColumn { column_name, op } => match op {
-                            AlterColumnOperation::SetNotNull => {
-                                hazards.push(DdlHazard::AddNotNull {
-                                    table: table.clone(),
-                                    column: column_name.value,
-                                });
-                            }
-                            AlterColumnOperation::SetDataType { data_type, .. } => {
-                                inspect_type_change(
-                                    &table,
-                                    &column_name.value,
-                                    &data_type,
-                                    &mut hazards,
-                                );
-                            }
-                            _ => {}
-                        },
-                        AlterTableOperation::ModifyColumn {
-                            col_name,
-                            data_type,
-                            options,
-                            ..
-                        } => {
-                            inspect_type_change(&table, &col_name.value, &data_type, &mut hazards);
-                            if options.iter().any(|o| matches!(o, ColumnOption::NotNull)) {
-                                hazards.push(DdlHazard::AddNotNull {
-                                    table: table.clone(),
-                                    column: col_name.value,
-                                });
-                            }
-                        }
-                        AlterTableOperation::ChangeColumn {
-                            old_name,
-                            data_type,
-                            options,
-                            ..
-                        } => {
-                            inspect_type_change(&table, &old_name.value, &data_type, &mut hazards);
-                            if options.iter().any(|o| matches!(o, ColumnOption::NotNull)) {
-                                hazards.push(DdlHazard::AddNotNull {
-                                    table: table.clone(),
-                                    column: old_name.value,
-                                });
-                            }
-                        }
-                        AlterTableOperation::AddConstraint {
-                            constraint: TableConstraint::Unique(uc),
-                            ..
-                        } => {
-                            let columns: Vec<String> = uc
-                                .columns
-                                .iter()
-                                .filter_map(|ic| match &ic.column.expr {
-                                    Expr::Identifier(id) => Some(id.value.clone()),
-                                    _ => None,
-                                })
-                                .collect();
-                            if !columns.is_empty() {
-                                hazards.push(DdlHazard::AddUnique {
-                                    table: table.clone(),
-                                    columns,
-                                });
-                            }
-                        }
-                        _ => {}
-                    }
-                }
-            }
-            Statement::CreateIndex(idx) if idx.unique => {
-                let table = object_name_str(&idx.table_name);
-                let columns: Vec<String> = idx
-                    .columns
-                    .iter()
-                    .filter_map(|ic| match &ic.column.expr {
-                        Expr::Identifier(id) => Some(id.value.clone()),
-                        _ => None,
-                    })
-                    .collect();
-                if !table.is_empty() && !columns.is_empty() {
-                    hazards.push(DdlHazard::AddUnique { table, columns });
-                }
-            }
-            _ => {}
         }
+        Err(whole_err) => match split_migration_statements(driver_id, trimmed) {
+            Ok(pieces) => {
+                let mut failures = Vec::new();
+                for piece in pieces {
+                    match Parser::parse_sql(&*dialect, piece.text) {
+                        Ok(statements) => {
+                            for stmt in statements {
+                                collect_hazards(stmt, &mut hazards);
+                            }
+                        }
+                        Err(err) => failures.push(format!("statement {}: {err}", piece.index)),
+                    }
+                }
+                if !failures.is_empty() {
+                    parse_error = Some(failures.join("; "));
+                }
+            }
+            Err(_) => parse_error = Some(whole_err.to_string()),
+        },
     }
 
     let mut affected_tables: Vec<String> = Vec::new();
@@ -351,7 +255,122 @@ pub fn analyze_ddl_impact(driver_id: &str, sql: &str) -> DdlImpactSummary {
     DdlImpactSummary {
         hazards,
         affected_tables,
-        parse_error: None,
+        parse_error,
+    }
+}
+
+fn collect_hazards(stmt: Statement, hazards: &mut Vec<DdlHazard>) {
+    match stmt {
+        Statement::Drop {
+            object_type: ObjectType::Table,
+            names,
+            ..
+        } => {
+            for name in names {
+                let table = object_name_str(&name);
+                if !table.is_empty() {
+                    hazards.push(DdlHazard::DropTable { table });
+                }
+            }
+        }
+        Statement::AlterTable(alter) => {
+            let table = object_name_str(&alter.name);
+            if table.is_empty() {
+                return;
+            }
+            for op in alter.operations {
+                match op {
+                    AlterTableOperation::DropColumn { column_names, .. } => {
+                        for ident in column_names {
+                            hazards.push(DdlHazard::DropColumn {
+                                table: table.clone(),
+                                column: ident.value,
+                            });
+                        }
+                    }
+                    AlterTableOperation::AlterColumn { column_name, op } => match op {
+                        AlterColumnOperation::SetNotNull => {
+                            hazards.push(DdlHazard::AddNotNull {
+                                table: table.clone(),
+                                column: column_name.value,
+                            });
+                        }
+                        AlterColumnOperation::SetDataType { data_type, .. } => {
+                            inspect_type_change(
+                                &table,
+                                &column_name.value,
+                                &data_type,
+                                hazards,
+                            );
+                        }
+                        _ => {}
+                    },
+                    AlterTableOperation::ModifyColumn {
+                        col_name,
+                        data_type,
+                        options,
+                        ..
+                    } => {
+                        inspect_type_change(&table, &col_name.value, &data_type, hazards);
+                        if options.iter().any(|o| matches!(o, ColumnOption::NotNull)) {
+                            hazards.push(DdlHazard::AddNotNull {
+                                table: table.clone(),
+                                column: col_name.value,
+                            });
+                        }
+                    }
+                    AlterTableOperation::ChangeColumn {
+                        old_name,
+                        data_type,
+                        options,
+                        ..
+                    } => {
+                        inspect_type_change(&table, &old_name.value, &data_type, hazards);
+                        if options.iter().any(|o| matches!(o, ColumnOption::NotNull)) {
+                            hazards.push(DdlHazard::AddNotNull {
+                                table: table.clone(),
+                                column: old_name.value,
+                            });
+                        }
+                    }
+                    AlterTableOperation::AddConstraint {
+                        constraint: TableConstraint::Unique(uc),
+                        ..
+                    } => {
+                        let columns: Vec<String> = uc
+                            .columns
+                            .iter()
+                            .filter_map(|ic| match &ic.column.expr {
+                                Expr::Identifier(id) => Some(id.value.clone()),
+                                _ => None,
+                            })
+                            .collect();
+                        if !columns.is_empty() {
+                            hazards.push(DdlHazard::AddUnique {
+                                table: table.clone(),
+                                columns,
+                            });
+                        }
+                    }
+                    _ => {}
+                }
+            }
+        }
+        Statement::CreateIndex(idx) if idx.unique => {
+            let table = object_name_str(&idx.table_name);
+            let columns: Vec<String> = idx
+                .columns
+                .iter()
+                .filter_map(|ic| match &ic.column.expr {
+                    Expr::Identifier(id) => Some(id.value.clone()),
+                    _ => None,
+                })
+                .collect();
+            if !table.is_empty() && !columns.is_empty() {
+                hazards.push(DdlHazard::AddUnique { table, columns });
+            }
+        }
+        _ => {}
     }
 }
 
@@ -444,6 +463,26 @@ mod tests {
                 .preflight_probe_sql(&SqlDialect::Sqlite, &ns)
                 .unwrap(),
             "SELECT COUNT(*) AS violations FROM (SELECT 1 AS _v FROM \"users\" WHERE \"email\" IS NOT NULL GROUP BY \"email\" HAVING COUNT(*) > 1) AS _qore_dups"
+        );
+    }
+
+    #[test]
+    fn keeps_hazards_from_parseable_statements_when_one_statement_fails() {
+        let sql = "ALTER TABLE users DROP COLUMN legacy;\nTHIS IS NOT SQL;\nDROP TABLE old_sessions;";
+        let summary = analyze_ddl_impact("postgres", sql);
+        let error = summary.parse_error.expect("unparseable statement must be reported");
+        assert!(error.starts_with("statement 2:"), "{error}");
+        assert_eq!(
+            summary.hazards,
+            vec![
+                DdlHazard::DropColumn {
+                    table: "users".to_string(),
+                    column: "legacy".to_string(),
+                },
+                DdlHazard::DropTable {
+                    table: "old_sessions".to_string(),
+                },
+            ]
         );
     }
 }

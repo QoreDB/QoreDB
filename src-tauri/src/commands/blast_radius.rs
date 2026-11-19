@@ -26,7 +26,6 @@ const PREFLIGHT_TIMEOUT: Duration = Duration::from_secs(5);
 const AUDIT_SCAN_LIMIT: usize = 1_000;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct BlastRadiusHazardItem {
     pub kind: String,
     pub severity: String,
@@ -36,7 +35,6 @@ pub struct BlastRadiusHazardItem {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct AuditTrafficMatch {
     pub table: String,
     pub execution_count: usize,
@@ -45,7 +43,6 @@ pub struct AuditTrafficMatch {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct WorkspaceAssetImpact {
     pub kind: String,
     pub name: String,
@@ -54,7 +51,6 @@ pub struct WorkspaceAssetImpact {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct PreflightCheckResult {
     pub table: String,
     pub columns: Vec<String>,
@@ -64,7 +60,6 @@ pub struct PreflightCheckResult {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct MigrationBlastRadiusReport {
     pub hazards: Vec<BlastRadiusHazardItem>,
     pub affected_tables: Vec<String>,
@@ -549,5 +544,41 @@ mod tests {
         assert_eq!(traffic[0].table, "users");
         assert_eq!(traffic[0].execution_count, 1);
         assert_eq!(traffic[0].unique_fingerprints, 1);
+    }
+
+    #[test]
+    fn report_serializes_with_the_snake_case_keys_the_frontend_reads() {
+        let report = MigrationBlastRadiusReport {
+            hazards: vec![],
+            affected_tables: vec!["users".into()],
+            audit_matches: vec![AuditTrafficMatch {
+                table: "users".into(),
+                execution_count: 2,
+                unique_fingerprints: 1,
+                sample_queries: vec![],
+            }],
+            workspace_assets: vec![WorkspaceAssetImpact {
+                kind: "notebook".into(),
+                name: "n".into(),
+                path: "notebooks/n.qnb".into(),
+                matched_tables: vec!["users".into()],
+            }],
+            preflight_checks: vec![],
+            parse_error: Some("statement 2: oops".into()),
+        };
+        let json = serde_json::to_value(&report).unwrap();
+        for key in [
+            "affected_tables",
+            "audit_matches",
+            "workspace_assets",
+            "preflight_checks",
+            "parse_error",
+        ] {
+            assert!(json.get(key).is_some(), "missing key {key}");
+        }
+        assert_eq!(json["audit_matches"][0]["execution_count"], 2);
+        assert_eq!(json["audit_matches"][0]["unique_fingerprints"], 1);
+        assert!(json["audit_matches"][0].get("sample_queries").is_some());
+        assert!(json["workspace_assets"][0].get("matched_tables").is_some());
     }
 }

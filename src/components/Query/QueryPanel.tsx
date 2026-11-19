@@ -198,12 +198,13 @@ export function QueryPanel({
     sql: string;
   } | null>(null);
   const detectedParams = useMemo(
-    () => (isDocument || isSearch ? [] : extractQueryParameters(query)),
-    [isDocument, isSearch, query]
+    () => (isDocument || isSearch ? [] : extractQueryParameters(query, dialect)),
+    [isDocument, isSearch, query, dialect]
   );
   const dialogParams = useMemo(
-    () => (pendingParamAction ? extractQueryParameters(pendingParamAction.sql) : detectedParams),
-    [pendingParamAction, detectedParams]
+    () =>
+      pendingParamAction ? extractQueryParameters(pendingParamAction.sql, dialect) : detectedParams,
+    [pendingParamAction, detectedParams, dialect]
   );
   const [results, setResults] = useState<QueryResultEntry[]>([]);
   const [activeResultId, setActiveResultId] = useState<string | null>(null);
@@ -873,17 +874,23 @@ export function QueryPanel({
       const rawQuery = queryText || query;
       if (!rawQuery.trim()) return;
 
-      if (!isDocument && !isSearch && !areAllQueryParametersFilled(rawQuery, paramValues)) {
+      if (
+        !isDocument &&
+        !isSearch &&
+        !areAllQueryParametersFilled(rawQuery, paramValues, dialect)
+      ) {
         setPendingParamAction({ mode: 'query', sql: rawQuery });
         setParamsDialogOpen(true);
         return;
       }
 
       const queryToRun =
-        isDocument || isSearch ? rawQuery : substituteQueryParameters(rawQuery, paramValues);
+        isDocument || isSearch
+          ? rawQuery
+          : substituteQueryParameters(rawQuery, paramValues, dialect);
       await executeResolvedQuery(queryToRun);
     },
-    [sessionId, query, isDocument, isSearch, paramValues, t, executeResolvedQuery]
+    [sessionId, query, isDocument, isSearch, paramValues, dialect, t, executeResolvedQuery]
   );
 
   const handleConfirm = useCallback(async () => {
@@ -1006,7 +1013,7 @@ export function QueryPanel({
     const rawToExplain = selection && selection.trim().length > 0 ? selection : query;
     if (!rawToExplain.trim()) return;
 
-    if (!isSearch && !areAllQueryParametersFilled(rawToExplain, paramValues)) {
+    if (!isSearch && !areAllQueryParametersFilled(rawToExplain, paramValues, dialect)) {
       setPendingParamAction({ mode: 'explain', sql: rawToExplain });
       setParamsDialogOpen(true);
       return;
@@ -1014,7 +1021,7 @@ export function QueryPanel({
 
     const queryToExplain = isSearch
       ? rawToExplain
-      : substituteQueryParameters(rawToExplain, paramValues);
+      : substituteQueryParameters(rawToExplain, paramValues, dialect);
     await executeResolvedExplain(queryToExplain);
   }, [
     sessionId,
@@ -1023,6 +1030,7 @@ export function QueryPanel({
     query,
     isSearch,
     paramValues,
+    dialect,
     executeResolvedExplain,
   ]);
 
@@ -1030,16 +1038,23 @@ export function QueryPanel({
     const action = pendingParamAction ?? { mode: 'query' as const, sql: query };
     setPendingParamAction(null);
     setParamsDialogOpen(false);
-    if (!action.sql.trim() || !areAllQueryParametersFilled(action.sql, paramValues)) {
+    if (!action.sql.trim() || !areAllQueryParametersFilled(action.sql, paramValues, dialect)) {
       return;
     }
-    const resolvedSql = substituteQueryParameters(action.sql, paramValues);
+    const resolvedSql = substituteQueryParameters(action.sql, paramValues, dialect);
     if (action.mode === 'explain') {
       await executeResolvedExplain(resolvedSql);
     } else {
       await executeResolvedQuery(resolvedSql);
     }
-  }, [pendingParamAction, query, paramValues, executeResolvedExplain, executeResolvedQuery]);
+  }, [
+    pendingParamAction,
+    query,
+    paramValues,
+    dialect,
+    executeResolvedExplain,
+    executeResolvedQuery,
+  ]);
 
   const handleToggleKeepResults = useCallback(() => {
     setKeepResults(prev => {
@@ -1395,6 +1410,7 @@ export function QueryPanel({
         onInsertSnippet={template => sqlEditorRef.current?.insertSnippet(template)}
         detectedParams={detectedParams}
         paramValues={paramValues}
+        paramDriver={dialect}
         onOpenParams={() => {
           setPendingParamAction(null);
           setParamsDialogOpen(true);
@@ -1682,6 +1698,7 @@ export function QueryPanel({
             }}
             parameters={dialogParams}
             values={paramValues}
+            driver={dialect}
             onChange={(name, next) => setParamValues(prev => ({ ...prev, [name]: next }))}
             onReset={() => setParamValues({})}
             onConfirmExecute={() => {

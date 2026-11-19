@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { invoke } from '@/lib/transport';
+import { dangerousConfirmationToken } from './confirmation';
 import type { QueryResult, Value } from './types';
 
 export interface RowData {
@@ -21,7 +22,15 @@ export async function insertRow(
   data: RowData,
   acknowledgedDangerous?: boolean
 ): Promise<MutationResponse> {
-  return invoke('insert_row', { sessionId, database, schema, table, data, acknowledgedDangerous });
+  return invoke('insert_row', {
+    sessionId,
+    database,
+    schema,
+    table,
+    data,
+    acknowledgedDangerous,
+    confirmationToken: await dangerousConfirmationToken(sessionId, acknowledgedDangerous),
+  });
 }
 
 export async function updateRow(
@@ -41,6 +50,7 @@ export async function updateRow(
     primaryKey,
     data,
     acknowledgedDangerous,
+    confirmationToken: await dangerousConfirmationToken(sessionId, acknowledgedDangerous),
   });
 }
 
@@ -59,6 +69,7 @@ export async function deleteRow(
     table,
     primaryKey,
     acknowledgedDangerous,
+    confirmationToken: await dangerousConfirmationToken(sessionId, acknowledgedDangerous),
   });
 }
 

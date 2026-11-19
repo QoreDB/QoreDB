@@ -4,6 +4,7 @@ import { Driver } from '@/lib/connection/drivers';
 import { buildQualifiedTableName, quoteIdentifier } from '@/lib/ddl/identifiers';
 import type { DiffResult, DiffRow } from '@/lib/diffUtils';
 import { exactIntText, isExactInt } from '@/lib/query/exactInt';
+import { quoteSqlString } from '@/lib/query/sqlStringLiteral';
 import type { Namespace, Value } from '@/lib/tauri';
 
 export interface DiffSqlPatchOptions {
@@ -20,6 +21,56 @@ export interface DiffSqlPatchResult {
   statementCount: number;
 }
 
+export type DiffSqlPatchBlocker =
+  | 'targetNotTable'
+  | 'maskedColumns'
+  | 'missingKeys'
+  | 'ambiguousKeys'
+  | 'truncated'
+  | 'noColumns';
+
+export class DiffSqlPatchError extends Error {
+  constructor(readonly code: DiffSqlPatchBlocker) {
+    super(`Cannot generate an SQL patch: ${code}`);
+    this.name = 'DiffSqlPatchError';
+  }
+}
+
+/**
+ * Why a patch cannot be generated, or `null`. A patch reconciles A toward B,
+ * so it needs A to be a real table and every row of both sides to be keyed
+ * by explicit, unambiguous, unmasked columns; a truncated comparison would
+ * turn unread rows into spurious DELETE/INSERT statements.
+ */
+export function getDiffSqlPatchBlocker(
+  diffResult: DiffResult,
+  options: Pick<DiffSqlPatchOptions, 'tableName' | 'keyColumns' | 'maskedColumns' | 'keyWarning'>
+): DiffSqlPatchBlocker | null {
+  if (!options.tableName.trim()) return 'targetNotTable';
+  if (diffResult.columns.length === 0 || diffResult.warnings.includes('noCommonColumns')) {
+    return 'noColumns';
+  }
+  if (
+    diffResult.warnings.includes('maskedColumns') ||
+    diffResult.columns.some(col => col.masked) ||
+    Boolean(options.maskedColumns && options.maskedColumns.length > 0)
+  ) {
+    return 'maskedColumns';
+  }
+  if (diffResult.warnings.includes('truncated')) return 'truncated';
+  const columnNames = diffResult.columns.map(col => col.name);
+  if (
+    !options.keyColumns ||
+    options.keyColumns.length === 0 ||
+    options.keyColumns.some(name => !columnNames.includes(name)) ||
+    diffResult.warnings.includes('missingKeyColumns')
+  ) {
+    return 'missingKeys';
+  }
+  if (options.keyWarning || diffResult.warnings.includes('ambiguousKeys')) return 'ambiguousKeys';
+  return null;
+}
+
 function formatSqlLiteral(value: Value, driver: Driver): string {
   if (value === null || value === undefined) return 'NULL';
   if (typeof value === 'boolean') {
@@ -33,14 +84,12 @@ function formatSqlLiteral(value: Value, driver: Driver): string {
   }
   if (isExactInt(value)) {
     const text = exactIntText(value).trim();
-    return /^[+-]?\d+$/.test(text) ? text : `'${text.replace(/'/g, "''")}'`;
+    return /^[+-]?\d+$/.test(text) ? text : quoteSqlString(text, driver);
   }
   if (typeof value === 'object') {
-    const json = JSON.stringify(value);
-    return `'${json.replace(/'/g, "''")}'`;
+    return quoteSqlString(JSON.stringify(value), driver);
   }
-  const clean = String(value).replace(/\0/g, '');
-  return `'${clean.replace(/'/g, "''")}'`;
+  return quoteSqlString(String(value), driver);
 }
 
 function buildWhereClause(
@@ -63,50 +112,20 @@ function buildWhereClause(
 }
 
 /**
- * Generates an idempotent-oriented SQL patch (`INSERT`, `UPDATE`, `DELETE`)
- * that reconciles the left source (A) toward the right source (B).
- *
- * Refuses explicitly when columns are masked or when key matching is missing
- * or ambiguous so masked values (`***`) or duplicate keys cannot corrupt data.
+ * Generates the `INSERT`/`UPDATE`/`DELETE` script that turns the left source
+ * (A) into the right source (B). Apply it to A's table only.
  */
 export function generateDiffSqlPatch(
   diffResult: DiffResult,
   options: DiffSqlPatchOptions
 ): DiffSqlPatchResult {
+  const blocker = getDiffSqlPatchBlocker(diffResult, options);
+  if (blocker) throw new DiffSqlPatchError(blocker);
+
   const tableName = options.tableName.trim();
-  if (!tableName) {
-    throw new Error('Target table name is required to generate an SQL patch');
-  }
-
-  const hasMasked =
-    diffResult.warnings.includes('maskedColumns') ||
-    diffResult.columns.some(col => col.masked) ||
-    Boolean(options.maskedColumns && options.maskedColumns.length > 0);
-  if (hasMasked) {
-    throw new Error('Cannot generate an SQL patch when the diff contains masked columns');
-  }
-
-  if (
-    options.keyWarning ||
-    diffResult.warnings.includes('ambiguousKeys') ||
-    diffResult.warnings.includes('missingKeyColumns') ||
-    diffResult.warnings.includes('noCommonColumns')
-  ) {
-    throw new Error('Cannot generate an SQL patch when key columns are missing or ambiguous');
-  }
-
   const driver = options.dialect ?? Driver.Postgres;
   const columnNames = diffResult.columns.map(col => col.name);
-  if (columnNames.length === 0) {
-    throw new Error('Cannot generate an SQL patch without columns');
-  }
-
-  const requestedKeys =
-    options.keyColumns && options.keyColumns.length > 0 ? options.keyColumns : columnNames;
-  const keyIndexes = requestedKeys.map(name => columnNames.indexOf(name));
-  if (keyIndexes.some(idx => idx < 0)) {
-    throw new Error('One or more key columns are missing from the diff result');
-  }
+  const keyIndexes = (options.keyColumns ?? []).map(name => columnNames.indexOf(name));
 
   const qualifiedTable = options.namespace
     ? buildQualifiedTableName(options.namespace, tableName, driver)
@@ -147,9 +166,6 @@ export function generateDiffSqlPatch(
   }
 
   const headerLines = [`-- QoreDB Visual Data Diff SQL Patch (${statements.length} statement(s))`];
-  if (diffResult.warnings.includes('truncated')) {
-    headerLines.push('-- WARNING: Comparison was truncated; review statements before applying.');
-  }
 
   return {
     sql: `${headerLines.join('\n')}${statements.length > 0 ? `\n${statements.join('\n')}\n` : '\n-- No changes.\n'}`,

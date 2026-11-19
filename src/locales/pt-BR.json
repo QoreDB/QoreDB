@@ -2672,7 +2672,16 @@
     },
     "retry": "Tentar novamente",
     "exportSQL": "Baixar patch SQL",
-    "copySQL": "Copiar como patch SQL"
+    "copySQL": "Copiar como patch SQL",
+    "sqlPatchTarget": "Aplica-se à tabela da esquerda {{table}} para igualá-la ao lado direito.",
+    "sqlPatchBlocked": {
+      "targetNotTable": "Disponível apenas quando o lado esquerdo é uma tabela: o patch é aplicado a ela.",
+      "maskedColumns": "Indisponível: colunas mascaradas gravariam valores fictícios.",
+      "missingKeys": "Selecione colunas-chave para parear as linhas antes de gerar um patch.",
+      "ambiguousKeys": "Indisponível: as chaves escolhidas correspondem a várias linhas.",
+      "truncated": "Indisponível: a comparação está truncada; linhas não lidas seriam excluídas ou duplicadas.",
+      "noColumns": "Indisponível: os dois lados não têm colunas em comum."
+    }
   },
   "virtualRelations": {
     "title": "Relações Virtuais",
@@ -3364,6 +3373,9 @@
     "partiallyAppliedWarning": "Este driver confirma o DDL implicitamente, então as instruções já executadas não puderam ser desfeitas. Verifique o esquema antes de forçar.",
     "blastRadius": {
       "title": "Raio de impacto e pré-validação",
+      "analyzing": "Analisando o impacto…",
+      "analysisFailed": "Falha na análise de impacto: {{error}}",
+      "partialAnalysis": "Análise parcial: estas instruções não puderam ser analisadas e não foram verificadas.",
       "none": "Nenhum risco DDL destrutivo ou referência no workspace detectado.",
       "runPreflight": "Pré-validar dados",
       "hazardsSection": "Riscos DDL",

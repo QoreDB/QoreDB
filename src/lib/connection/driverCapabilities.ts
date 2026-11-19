@@ -302,6 +302,15 @@ export function isMySqlFamily(driver: Driver | string): boolean {
   );
 }
 
+export function isSqlServerFamily(driver: Driver | string): boolean {
+  return ['sqlserver', 'azuresql', 'synapse'].includes(driver);
+}
+
+/** Dialects whose single-quoted literals treat `\` as an escape character. */
+export function usesBackslashStringEscapes(driver: Driver | string): boolean {
+  return isMySqlFamily(driver) || ['clickhouse', 'bigquery', 'snowflake'].includes(driver);
+}
+
 /**
  * Drivers that connect through the shared PostgreSQL wire client and honour
  * its TLS files. MotherDuck is left out: its endpoint uses a public CA and

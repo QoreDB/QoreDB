@@ -115,7 +115,16 @@ pub async fn drop_trigger(
     trigger_name: String,
     table_name: String,
     acknowledged_dangerous: Option<bool>,
+    confirmation_token: Option<String>,
 ) -> Result<TriggerDropResponse, String> {
+    let acknowledged = crate::commands::confirmation::acknowledge_dangerous(
+        &state,
+        &session_id,
+        acknowledged_dangerous,
+        confirmation_token.as_deref(),
+    )
+    .await?;
+
     let (session_manager, interceptor) = {
         let state = state.lock().await;
         (
@@ -158,7 +167,6 @@ pub async fn drop_trigger(
 
     let query_preview = format!("DROP TRIGGER {}.{}", database, trigger_name);
 
-    let acknowledged = acknowledged_dangerous.unwrap_or(false);
     let interceptor_context = interceptor.build_context(
         &session_id,
         &query_preview,
@@ -382,7 +390,16 @@ pub async fn drop_event(
     schema: Option<String>,
     event_name: String,
     acknowledged_dangerous: Option<bool>,
+    confirmation_token: Option<String>,
 ) -> Result<EventDropResponse, String> {
+    let acknowledged = crate::commands::confirmation::acknowledge_dangerous(
+        &state,
+        &session_id,
+        acknowledged_dangerous,
+        confirmation_token.as_deref(),
+    )
+    .await?;
+
     let (session_manager, interceptor) = {
         let state = state.lock().await;
         (
@@ -425,7 +442,6 @@ pub async fn drop_event(
 
     let query_preview = format!("DROP EVENT {}.{}", database, event_name);
 
-    let acknowledged = acknowledged_dangerous.unwrap_or(false);
     let interceptor_context = interceptor.build_context(
         &session_id,
         &query_preview,

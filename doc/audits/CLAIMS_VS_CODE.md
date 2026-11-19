@@ -18,12 +18,12 @@
 
 | | Findings |
 | --- | --- |
-| **Resolved** (28) | A1, A2, B1, B2, B3, B4, B5, B6, B7, B8, B9, B10, B11, C1, C2, C5, C6, C7, C8, C9, C10, D1, D2, D6, D7, D8, D9, D10 |
-| **Partially resolved** (0) | — |
+| **Resolved** (27) | A1, A2, B1, B2, B3, B4, B5, B6, B7, B8, B9, B10, B11, C1, C2, C5, C6, C7, C8, C9, D1, D2, D6, D7, D8, D9, D10 |
+| **Partially resolved** (1) | C10 |
 | **Open** (2) | C3, C4 |
 
-B7, B8, B10, B11, C10, D1, D7, D9 and D10 were resolved in v0.1.42 (2026-11-19); their
-dated notes below record what shipped.
+B7, B8, B10, B11, D1, D7, D9 and D10 were resolved in v0.1.42 (2026-11-19), and C10
+was partially resolved; their dated notes below record what shipped.
 
 Both Critical findings are closed, and every finding that pointed at the Instant
 Data API is closed with tests behind it. What remains is now entirely the category
@@ -672,7 +672,21 @@ weakness and both pattern bugs at once.
 
 ### C10. Production confirmation trusts a client-supplied flag
 
-> **Resolved 2026-11-19 (v0.1.42).** `execute_query`, `create_database` and `drop_database` now validate single-use backend `ConfirmationTokenStore` tokens (`acknowledge_dangerous_query`), minted via `requestQueryConfirmationToken()` only after the user confirms the dialog.
+> **Partially resolved 2026-11-19 (v0.1.42).** Every desktop command that accepts
+> `acknowledgedDangerous` — `execute_query`, `create_database`, `drop_database`,
+> `insert_row`, `update_row`, `delete_row`, `apply_sandbox_changes`, `import_csv`,
+> `import_sql`, `run_maintenance`, `truncate_all`, `drop_sequence`, `drop_routine`,
+> `drop_trigger` and `drop_event` — now refuses the bare flag. It needs a single-use
+> `ConfirmationTokenStore` token (`acknowledge_dangerous_query`) issued for the same
+> session less than 60 seconds earlier (`commands/confirmation.rs`,
+> `resolve_dangerous_acknowledgement`). The renderer requests it in
+> `src/lib/tauri/confirmation.ts` whenever it sends the flag.
+>
+> What remains: the token proves that the request is fresh and bound to that session,
+> not that a human confirmed it. Code running in the renderer can still request a token
+> and send it. The web server (`qore-server`, `routes/bridge.rs` and `routes/stream.rs`)
+> still accepts `acknowledgedDangerous` from the client. Confirmation therefore stays a
+> guard against haste, as described in C1.
 
 **Reality:** `acknowledgedDangerous` travels from the renderer
 (`src/lib/tauri/query.ts:65,93`) to `preflight(..., acknowledged)`

@@ -2,7 +2,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { Driver } from '@/lib/connection/drivers';
-import { generateDiffSqlPatch } from './diffSqlGenerator';
+import { generateDiffSqlPatch, getDiffSqlPatchBlocker } from './diffSqlGenerator';
 import { compareResults } from './diffUtils';
 import type { QueryResult } from './tauri';
 
@@ -75,7 +75,7 @@ describe('generateDiffSqlPatch', () => {
     const diff = compareResults(left, right, ['id']);
 
     expect(() => generateDiffSqlPatch(diff, { tableName: 'users', keyColumns: ['id'] })).toThrow(
-      /masked columns/i
+      /maskedColumns/
     );
   });
 
@@ -106,5 +106,62 @@ describe('generateDiffSqlPatch', () => {
         keyWarning: 'Missing primary key',
       })
     ).toThrow(/ambiguous/i);
+  });
+
+  it('doubles backslashes for MySQL-family literals so data cannot close the string', () => {
+    const payload = "x\\'; DROP TABLE orders; -- ";
+    const diff = compareResults(
+      makeResult(['id', 'label'], []),
+      makeResult(['id', 'label'], [[1, payload]]),
+      ['id']
+    );
+
+    const mysql = generateDiffSqlPatch(diff, {
+      tableName: 'orders',
+      dialect: Driver.Mysql,
+      keyColumns: ['id'],
+    });
+    expect(mysql.sql).toContain("VALUES (1, 'x\\\\''; DROP TABLE orders; -- ');");
+
+    const postgres = generateDiffSqlPatch(diff, {
+      tableName: 'orders',
+      dialect: Driver.Postgres,
+      keyColumns: ['id'],
+    });
+    expect(postgres.sql).toContain("VALUES (1, 'x\\''; DROP TABLE orders; -- ');");
+  });
+
+  it('refuses without explicit key columns instead of matching on every column', () => {
+    const diff = compareResults(
+      makeResult(['id', 'name'], [[1, 'A']]),
+      makeResult(['id', 'name'], [[1, 'B']])
+    );
+    expect(getDiffSqlPatchBlocker(diff, { tableName: 'users' })).toBe('missingKeys');
+    expect(() => generateDiffSqlPatch(diff, { tableName: 'users', keyColumns: [] })).toThrow(
+      /missingKeys/
+    );
+  });
+
+  it('refuses a truncated comparison', () => {
+    const diff = compareResults(
+      makeResult(['id', 'name'], [[1, 'A']]),
+      makeResult(['id', 'name'], [[2, 'B']]),
+      ['id'],
+      { truncated: true }
+    );
+    expect(getDiffSqlPatchBlocker(diff, { tableName: 'users', keyColumns: ['id'] })).toBe(
+      'truncated'
+    );
+  });
+
+  it('refuses when the left side is not a table', () => {
+    const diff = compareResults(
+      makeResult(['id', 'name'], [[1, 'A']]),
+      makeResult(['id', 'name'], [[1, 'B']]),
+      ['id']
+    );
+    expect(getDiffSqlPatchBlocker(diff, { tableName: '  ', keyColumns: ['id'] })).toBe(
+      'targetNotTable'
+    );
   });
 });

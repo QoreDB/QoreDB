@@ -3,6 +3,7 @@
 import { decode as msgpackDecode } from '@msgpack/msgpack';
 import { Channel } from '@tauri-apps/api/core';
 import { invoke, isWeb, webExecuteQuery } from '@/lib/transport';
+import { dangerousConfirmationToken } from './confirmation';
 import type { ForeignKey } from './schema-browse';
 import type { CollectionList, ColumnInfo, Namespace, QueryResult, Row, Value } from './types';
 
@@ -58,14 +59,6 @@ export function createStreamChannel(handlers: QueryStreamHandlers): Channel<Arra
   return channel;
 }
 
-export async function requestQueryConfirmationToken(): Promise<string> {
-  const { token } = await invoke<{ token: string; expires_in_secs: number }>(
-    'request_confirmation_token',
-    { action: 'acknowledge_dangerous_query' }
-  );
-  return token;
-}
-
 export async function executeQuery(
   sessionId: string,
   query: string,
@@ -100,7 +93,7 @@ export async function executeQuery(
   }
   const confirmationToken =
     options?.confirmationToken ??
-    (options?.acknowledgedDangerous ? await requestQueryConfirmationToken() : undefined);
+    (await dangerousConfirmationToken(sessionId, options?.acknowledgedDangerous));
   // The Rust command always expects an `on_stream` Channel — even for
   // non-streaming calls the arg is required. Create one with the caller's
   // handlers (empty object if none).

@@ -104,7 +104,16 @@ pub async fn drop_routine(
     routine_type: String,
     arguments: Option<String>,
     acknowledged_dangerous: Option<bool>,
+    confirmation_token: Option<String>,
 ) -> Result<RoutineDropResponse, String> {
+    let acknowledged = crate::commands::confirmation::acknowledge_dangerous(
+        &state,
+        &session_id,
+        acknowledged_dangerous,
+        confirmation_token.as_deref(),
+    )
+    .await?;
+
     let (session_manager, interceptor) = {
         let state = state.lock().await;
         (
@@ -153,7 +162,6 @@ pub async fn drop_routine(
     };
     let query_preview = format!("DROP {} {}.{}", type_keyword, database, routine_name);
 
-    let acknowledged = acknowledged_dangerous.unwrap_or(false);
     let interceptor_context = interceptor.build_context(
         &session_id,
         &query_preview,

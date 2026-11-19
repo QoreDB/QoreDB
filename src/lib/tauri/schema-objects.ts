@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { invoke } from '@/lib/transport';
+import { dangerousConfirmationToken } from './confirmation';
 import type { Namespace } from './types';
 
 export type RoutineType = 'Function' | 'Procedure';
@@ -101,6 +102,7 @@ export async function dropRoutine(
     routineType,
     arguments: routineArguments,
     acknowledgedDangerous,
+    confirmationToken: await dangerousConfirmationToken(sessionId, acknowledgedDangerous),
   });
 }
 
@@ -197,6 +199,7 @@ export async function dropTrigger(
     triggerName,
     tableName,
     acknowledgedDangerous,
+    confirmationToken: await dangerousConfirmationToken(sessionId, acknowledgedDangerous),
   });
 }
 
@@ -307,6 +310,7 @@ export async function dropEvent(
     schema,
     eventName,
     acknowledgedDangerous,
+    confirmationToken: await dangerousConfirmationToken(sessionId, acknowledgedDangerous),
   });
 }
 
@@ -395,6 +399,7 @@ export async function dropSequence(
     schema,
     sequenceName,
     acknowledgedDangerous,
+    confirmationToken: await dangerousConfirmationToken(sessionId, acknowledgedDangerous),
   });
 }
 

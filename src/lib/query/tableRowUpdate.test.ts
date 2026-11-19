@@ -14,7 +14,7 @@ import {
   updateTableRow,
 } from './tableRowUpdate';
 
-vi.mock('@/lib/transport', () => ({ invoke: vi.fn() }));
+vi.mock('@/lib/transport', () => ({ invoke: vi.fn(), isWeb: false }));
 const mockedInvoke = vi.mocked(invoke);
 beforeEach(() => mockedInvoke.mockReset());
 
@@ -325,12 +325,17 @@ describe('one write followed by canonical read', () => {
     const { update, target } = fixture();
     const current = view();
     mockedInvoke
+      .mockResolvedValueOnce({ token: 'ctok-row', expires_in_secs: 60 })
       .mockResolvedValueOnce(success)
       .mockResolvedValueOnce({ success: true, result: readback(['a::b', 234, 0, 'saved']) });
     expect(
       await updateTableRow('session-a', namespace, 'items', update, target, current, true)
     ).toBe(success);
-    expect(mockedInvoke).toHaveBeenNthCalledWith(1, 'update_row', {
+    expect(mockedInvoke).toHaveBeenNthCalledWith(1, 'request_confirmation_token', {
+      action: 'acknowledge_dangerous_query',
+      sessionId: 'session-a',
+    });
+    expect(mockedInvoke).toHaveBeenNthCalledWith(2, 'update_row', {
       sessionId: 'session-a',
       database: 'fixture',
       schema: 'public',
@@ -338,8 +343,9 @@ describe('one write followed by canonical read', () => {
       primaryKey: { columns: update.primaryKey },
       data: { columns: { name: 'typed' } },
       acknowledgedDangerous: true,
+      confirmationToken: 'ctok-row',
     });
-    expect(mockedInvoke).toHaveBeenNthCalledWith(2, 'query_table', {
+    expect(mockedInvoke).toHaveBeenNthCalledWith(3, 'query_table', {
       sessionId: 'session-a',
       namespace,
       table: 'items',

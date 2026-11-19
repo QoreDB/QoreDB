@@ -45,6 +45,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Tooltip } from '@/components/ui/tooltip';
+import type { Driver } from '@/lib/connection/drivers';
 import { splitContributionId } from '@/lib/plugins';
 import { createChatTab, createFederationTab } from '@/lib/tabs';
 import { cn } from '@/lib/utils';
@@ -95,6 +96,7 @@ interface QueryPanelToolbarProps {
   onInsertSnippet?: (template: string) => void;
   detectedParams?: string[];
   paramValues?: Record<string, QueryParameterValue>;
+  paramDriver?: Driver;
   onOpenParams?: () => void;
 }
 
@@ -135,6 +137,7 @@ export function QueryPanelToolbar({
   onInsertSnippet,
   detectedParams,
   paramValues,
+  paramDriver,
   onOpenParams,
 }: QueryPanelToolbarProps) {
   const { t } = useTranslation();
@@ -263,7 +266,10 @@ export function QueryPanelToolbar({
         (() => {
           const entries = detectedParams.map(name => ({
             name,
-            formatted: formatQueryParameter(paramValues?.[name] ?? { value: '', type: 'auto' }),
+            formatted: formatQueryParameter(
+              paramValues?.[name] ?? { value: '', type: 'auto' },
+              paramDriver
+            ),
           }));
           const missingCount = entries.filter(e => e.formatted === null).length;
           const summary =

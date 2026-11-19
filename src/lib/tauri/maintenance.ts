@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { invoke } from '@/lib/transport';
+import { dangerousConfirmationToken } from './confirmation';
 
 export type MaintenanceOperationType =
   | 'vacuum'
@@ -82,6 +83,7 @@ export async function runMaintenance(
     table,
     request,
     acknowledgedDangerous,
+    confirmationToken: await dangerousConfirmationToken(sessionId, acknowledgedDangerous),
   });
 }
 
@@ -124,5 +126,11 @@ export async function truncateAll(
   result?: TruncateAllResult;
   error?: string;
 }> {
-  return invoke('truncate_all', { sessionId, database, schema, acknowledgedDangerous });
+  return invoke('truncate_all', {
+    sessionId,
+    database,
+    schema,
+    acknowledgedDangerous,
+    confirmationToken: await dangerousConfirmationToken(sessionId, acknowledgedDangerous),
+  });
 }

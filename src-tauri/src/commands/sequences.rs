@@ -90,7 +90,16 @@ pub async fn drop_sequence(
     schema: Option<String>,
     sequence_name: String,
     acknowledged_dangerous: Option<bool>,
+    confirmation_token: Option<String>,
 ) -> Result<SequenceDropResponse, String> {
+    let acknowledged = crate::commands::confirmation::acknowledge_dangerous(
+        &state,
+        &session_id,
+        acknowledged_dangerous,
+        confirmation_token.as_deref(),
+    )
+    .await?;
+
     let (session_manager, interceptor) = {
         let state = state.lock().await;
         (
@@ -133,7 +142,6 @@ pub async fn drop_sequence(
 
     let query_preview = format!("DROP SEQUENCE {}.{}", database, sequence_name);
 
-    let acknowledged = acknowledged_dangerous.unwrap_or(false);
     let interceptor_context = interceptor.build_context(
         &session_id,
         &query_preview,

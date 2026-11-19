@@ -2660,7 +2660,16 @@
     },
     "retry": "再試行",
     "exportSQL": "SQL パッチをダウンロード",
-    "copySQL": "SQL パッチとしてコピー"
+    "copySQL": "SQL パッチとしてコピー",
+    "sqlPatchTarget": "左側のテーブル {{table}} に適用し、右側と一致させます。",
+    "sqlPatchBlocked": {
+      "targetNotTable": "左側がテーブルの場合のみ利用できます（パッチはそこに適用されます）。",
+      "maskedColumns": "利用不可: マスクされた列はダミー値を書き込みます。",
+      "missingKeys": "パッチを生成する前に、行を照合するキー列を選択してください。",
+      "ambiguousKeys": "利用不可: 選択したキーが複数の行に一致します。",
+      "truncated": "利用不可: 比較が切り詰められているため、未読の行が削除または重複します。",
+      "noColumns": "利用不可: 両側に共通の列がありません。"
+    }
   },
   "virtualRelations": {
     "title": "仮想リレーション",
@@ -3351,6 +3360,9 @@
     "partiallyAppliedWarning": "このドライバーは DDL を暗黙的にコミットするため、実行済みのステートメントは取り消せませんでした。強制する前にスキーマを確認してください。",
     "blastRadius": {
       "title": "影響範囲と事前チェック",
+      "analyzing": "影響を分析中…",
+      "analysisFailed": "影響分析に失敗しました: {{error}}",
+      "partialAnalysis": "部分的な分析: 次のステートメントは解析できず、チェックされていません。",
       "none": "破壊的な DDL リスクやワークスペース内の参照は検出されませんでした。",
       "runPreflight": "データ事前チェック",
       "hazardsSection": "DDL リスク",

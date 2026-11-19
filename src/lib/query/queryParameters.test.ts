@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { describe, expect, it } from 'vitest';
+import { Driver } from '@/lib/connection/drivers';
 import {
   areAllQueryParametersFilled,
   extractQueryParameters,
+  formatQueryParameter,
   substituteQueryParameters,
 } from './queryParameters';
 
@@ -95,5 +97,43 @@ describe('substituteQueryParameters', () => {
         $1: { value: '7', type: 'number' },
       })
     ).toBe("SELECT ':id'::text, 7 FROM t -- :id");
+  });
+});
+
+describe('dialect-aware parameters', () => {
+  it('treats @name as a native variable on SQL Server and MySQL-family drivers', () => {
+    const tsql =
+      'DECLARE @limit INT = 10; SELECT TOP (@limit) * FROM orders WHERE region = :region';
+    expect(extractQueryParameters(tsql, Driver.SqlServer)).toEqual([':region']);
+    expect(
+      extractQueryParameters('SET @rank := 0; SELECT @rank := @rank + 1', Driver.Mysql)
+    ).toEqual([]);
+    expect(extractQueryParameters('SELECT * FROM t WHERE a = @a', Driver.Postgres)).toEqual(['@a']);
+  });
+
+  it('leaves T-SQL variables untouched when substituting', () => {
+    const tsql = 'DECLARE @x INT = 1; SELECT @x, :name';
+    expect(
+      substituteQueryParameters(tsql, { ':name': { value: 'Bob', type: 'text' } }, Driver.SqlServer)
+    ).toBe("DECLARE @x INT = 1; SELECT @x, 'Bob'");
+    expect(areAllQueryParametersFilled('DECLARE @x INT = 1; SELECT @x', {}, Driver.AzureSql)).toBe(
+      true
+    );
+  });
+
+  it('skips backslash-escaped quotes inside MySQL strings', () => {
+    const sql = "SELECT 'it\\'s :not_a_param' AS s FROM t WHERE id = :id";
+    expect(extractQueryParameters(sql, Driver.Mysql)).toEqual([':id']);
+  });
+
+  it('escapes backslashes for MySQL-family drivers', () => {
+    const value = { value: "x\\' OR 1=1 -- ", type: 'text' as const };
+    expect(formatQueryParameter(value, Driver.Mariadb)).toBe("'x\\\\'' OR 1=1 -- '");
+    expect(formatQueryParameter(value, Driver.Postgres)).toBe("'x\\'' OR 1=1 -- '");
+  });
+
+  it('formats auto booleans as bits on SQL Server', () => {
+    expect(formatQueryParameter({ value: 'true', type: 'auto' }, Driver.SqlServer)).toBe('1');
+    expect(formatQueryParameter({ value: 'false', type: 'auto' }, Driver.Postgres)).toBe('FALSE');
   });
 });

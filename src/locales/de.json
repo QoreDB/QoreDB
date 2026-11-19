@@ -2672,7 +2672,16 @@
     },
     "retry": "Erneut versuchen",
     "exportSQL": "SQL-Patch herunterladen",
-    "copySQL": "Als SQL-Patch kopieren"
+    "copySQL": "Als SQL-Patch kopieren",
+    "sqlPatchTarget": "Wird auf die linke Tabelle {{table}} angewendet, um sie an die rechte Seite anzugleichen.",
+    "sqlPatchBlocked": {
+      "targetNotTable": "Nur verfügbar, wenn die linke Seite eine Tabelle ist: Der Patch wird auf sie angewendet.",
+      "maskedColumns": "Nicht verfügbar: Maskierte Spalten würden Platzhalterwerte schreiben.",
+      "missingKeys": "Wählen Sie Schlüsselspalten zum Abgleichen der Zeilen, bevor Sie einen Patch erzeugen.",
+      "ambiguousKeys": "Nicht verfügbar: Die gewählten Schlüssel treffen mehrere Zeilen.",
+      "truncated": "Nicht verfügbar: Der Vergleich ist gekürzt, nicht gelesene Zeilen würden gelöscht oder dupliziert.",
+      "noColumns": "Nicht verfügbar: Beide Seiten haben keine gemeinsamen Spalten."
+    }
   },
   "virtualRelations": {
     "title": "Virtuelle Relationen",
@@ -3364,6 +3373,9 @@
     "partiallyAppliedWarning": "Dieser Treiber committet DDL implizit, daher konnten die bereits ausgeführten Anweisungen nicht rückgängig gemacht werden. Prüfen Sie das Schema, bevor Sie erzwingen.",
     "blastRadius": {
       "title": "Auswirkungsradius & Preflight",
+      "analyzing": "Auswirkungen werden analysiert…",
+      "analysisFailed": "Auswirkungsanalyse fehlgeschlagen: {{error}}",
+      "partialAnalysis": "Teilanalyse: Diese Anweisungen konnten nicht geparst werden und wurden nicht geprüft.",
       "none": "Keine destruktiven DDL-Risiken oder Workspace-Referenzen erkannt.",
       "runPreflight": "Daten-Preflight ausführen",
       "hazardsSection": "DDL-Risiken",

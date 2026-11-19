@@ -233,11 +233,9 @@ export function DataDiffViewer({
         diffResult={diffResult}
         canSwap={hasResults}
         canRefresh={hasResults}
-        targetTableName={leftSource.tableName ?? rightSource.tableName}
-        targetNamespace={leftSource.namespace ?? rightSource.namespace}
-        targetDialect={
-          (leftSource.connection?.driver ?? rightSource.connection?.driver) as Driver | undefined
-        }
+        targetTableName={leftSource.mode === 'table' ? leftSource.tableName : undefined}
+        targetNamespace={leftSource.namespace}
+        targetDialect={leftSource.connection?.driver as Driver | undefined}
         keyColumns={keyColumns}
       />
 

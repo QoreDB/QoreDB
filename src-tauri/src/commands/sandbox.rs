@@ -99,7 +99,16 @@ mod sandbox_impl {
         changes: Vec<SandboxChangeDto>,
         use_transaction: bool,
         acknowledged_dangerous: Option<bool>,
+        confirmation_token: Option<String>,
     ) -> Result<ApplySandboxResponse, String> {
+        let acknowledged = crate::commands::confirmation::acknowledge_dangerous(
+            &state,
+            &session_id,
+            acknowledged_dangerous,
+            confirmation_token.as_deref(),
+        )
+        .await?;
+
         if changes.len() > CORE_SANDBOX_LIMIT
             && !super::license_allows_unlimited_sandbox(&state).await
         {
@@ -140,7 +149,7 @@ mod sandbox_impl {
             session,
             &changes,
             use_transaction,
-            acknowledged_dangerous.unwrap_or(false),
+            acknowledged,
             &capture_indices,
         )
         .await;

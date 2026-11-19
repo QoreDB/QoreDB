@@ -26,15 +26,20 @@ interface BlastRadiusPanelProps {
 
 export function BlastRadiusPanel({ sql, sessionId, database, driver }: BlastRadiusPanelProps) {
   const { t } = useTranslation();
-  const [report, setReport] = useState<MigrationBlastRadiusReport | null>(null);
+  const [analysis, setAnalysis] = useState<{
+    sql: string;
+    report: MigrationBlastRadiusReport;
+  } | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
   const [runningPreflight, setRunningPreflight] = useState(false);
 
   const trimmedSql = sql.trim();
 
   useEffect(() => {
+    setError(null);
     if (!trimmedSql) {
-      setReport(null);
+      setAnalysis(null);
       return;
     }
 
@@ -49,10 +54,10 @@ export function BlastRadiusPanel({ sql, sessionId, database, driver }: BlastRadi
         runPreflight: false,
       })
         .then(res => {
-          if (!cancelled) setReport(res);
+          if (!cancelled) setAnalysis({ sql: trimmedSql, report: res });
         })
-        .catch(() => {
-          if (!cancelled) setReport(null);
+        .catch(err => {
+          if (!cancelled) setError(err instanceof Error ? err.message : String(err));
         })
         .finally(() => {
           if (!cancelled) setAnalyzing(false);
@@ -76,7 +81,10 @@ export function BlastRadiusPanel({ sql, sessionId, database, driver }: BlastRadi
         sql: trimmedSql,
         runPreflight: true,
       });
-      setReport(res);
+      setAnalysis({ sql: trimmedSql, report: res });
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
     } finally {
       setRunningPreflight(false);
     }
@@ -86,14 +94,38 @@ export function BlastRadiusPanel({ sql, sessionId, database, driver }: BlastRadi
     return null;
   }
 
+  const report = analysis?.report ?? null;
+  const isCurrent = analysis?.sql === trimmedSql;
   const hazards = report?.hazards ?? [];
   const auditMatches = report?.audit_matches ?? [];
   const workspaceAssets = report?.workspace_assets ?? [];
   const preflightChecks = report?.preflight_checks ?? [];
   const hasFindings = hazards.length > 0 || auditMatches.length > 0 || workspaceAssets.length > 0;
   const hasPreflightCandidate = hazards.some(h => PREFLIGHT_CAPABLE_KINDS.has(h.kind));
+  const parseError = report?.parse_error ?? null;
 
-  if (!analyzing && !hasFindings) {
+  if (error && !report) {
+    return (
+      <div
+        role="alert"
+        className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive"
+      >
+        <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+        <span>{t('migrations.blastRadius.analysisFailed', { error })}</span>
+      </div>
+    );
+  }
+
+  if (!report) {
+    return (
+      <div className="flex items-center gap-2 rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+        <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" />
+        <span>{t('migrations.blastRadius.analyzing')}</span>
+      </div>
+    );
+  }
+
+  if (isCurrent && !analyzing && !hasFindings && !parseError && !error) {
     return (
       <div className="flex items-center gap-2 rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
         <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-600 dark:text-emerald-400" />
@@ -108,7 +140,9 @@ export function BlastRadiusPanel({ sql, sessionId, database, driver }: BlastRadi
         <div className="flex items-center gap-2 font-medium text-foreground">
           <ShieldAlert className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
           <span>{t('migrations.blastRadius.title')}</span>
-          {analyzing && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
+          {(analyzing || (!isCurrent && !error)) && (
+            <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+          )}
         </div>
         {hasPreflightCandidate && (
           <Button
@@ -125,6 +159,25 @@ export function BlastRadiusPanel({ sql, sessionId, database, driver }: BlastRadi
           </Button>
         )}
       </div>
+
+      {parseError && (
+        <div
+          role="alert"
+          className="flex items-start gap-2 rounded border border-warning/30 bg-warning/10 px-2 py-1.5 text-warning"
+        >
+          <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
+          <div className="min-w-0">
+            <div className="font-medium">{t('migrations.blastRadius.partialAnalysis')}</div>
+            <div className="break-words font-mono text-[11px] opacity-80">{parseError}</div>
+          </div>
+        </div>
+      )}
+
+      {error && (
+        <div role="alert" className="text-destructive">
+          {t('migrations.blastRadius.analysisFailed', { error })}
+        </div>
+      )}
 
       {hazards.length > 0 && (
         <div className="space-y-1">

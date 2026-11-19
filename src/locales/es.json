@@ -2672,7 +2672,16 @@
     },
     "retry": "Reintentar",
     "exportSQL": "Descargar parche SQL",
-    "copySQL": "Copiar como parche SQL"
+    "copySQL": "Copiar como parche SQL",
+    "sqlPatchTarget": "Se aplica a la tabla izquierda {{table}} para igualarla al lado derecho.",
+    "sqlPatchBlocked": {
+      "targetNotTable": "Solo disponible si el lado izquierdo es una tabla: el parche se aplica a ella.",
+      "maskedColumns": "No disponible: las columnas enmascaradas escribirían valores de relleno.",
+      "missingKeys": "Seleccione columnas clave para emparejar filas antes de generar un parche.",
+      "ambiguousKeys": "No disponible: las claves elegidas coinciden con varias filas.",
+      "truncated": "No disponible: la comparación está truncada; se eliminarían o duplicarían filas no leídas.",
+      "noColumns": "No disponible: los dos lados no comparten columnas."
+    }
   },
   "virtualRelations": {
     "title": "Relaciones virtuales",
@@ -3364,6 +3373,9 @@
     "partiallyAppliedWarning": "Este driver confirma el DDL implícitamente, así que las sentencias ya ejecutadas no se pudieron deshacer. Revisa el esquema antes de forzar.",
     "blastRadius": {
       "title": "Radio de impacto y prevalidación",
+      "analyzing": "Analizando el impacto…",
+      "analysisFailed": "Error en el análisis de impacto: {{error}}",
+      "partialAnalysis": "Análisis parcial: estas sentencias no se pudieron analizar y no se verificaron.",
       "none": "No se detectaron riesgos DDL destructivos ni referencias en el espacio de trabajo.",
       "runPreflight": "Prevalidar datos",
       "hazardsSection": "Riesgos DDL",

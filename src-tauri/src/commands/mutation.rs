@@ -44,7 +44,16 @@ pub async fn insert_row(
     table: String,
     data: RowData,
     acknowledged_dangerous: Option<bool>,
+    confirmation_token: Option<String>,
 ) -> Result<MutationResponse, String> {
+    let acknowledged = crate::commands::confirmation::acknowledge_dangerous(
+        &state,
+        &session_id,
+        acknowledged_dangerous,
+        confirmation_token.as_deref(),
+    )
+    .await?;
+
     let state_guard = state.lock().await;
     let session_manager = Arc::clone(&state_guard.session_manager);
     let interceptor = Arc::clone(&state_guard.interceptor);
@@ -68,7 +77,7 @@ pub async fn insert_row(
         &session_id,
         &query_preview,
         &database,
-        acknowledged_dangerous.unwrap_or(false),
+        acknowledged,
     )
     .await
     {
@@ -232,7 +241,16 @@ pub async fn update_row(
     primary_key: RowData,
     data: RowData,
     acknowledged_dangerous: Option<bool>,
+    confirmation_token: Option<String>,
 ) -> Result<MutationResponse, String> {
+    let acknowledged = crate::commands::confirmation::acknowledge_dangerous(
+        &state,
+        &session_id,
+        acknowledged_dangerous,
+        confirmation_token.as_deref(),
+    )
+    .await?;
+
     let state_guard = state.lock().await;
     let session_manager = Arc::clone(&state_guard.session_manager);
     let interceptor = Arc::clone(&state_guard.interceptor);
@@ -271,7 +289,7 @@ pub async fn update_row(
         &session_id,
         &query_preview,
         &database,
-        acknowledged_dangerous.unwrap_or(false),
+        acknowledged,
     )
     .await
     {
@@ -422,7 +440,16 @@ pub async fn delete_row(
     table: String,
     primary_key: RowData,
     acknowledged_dangerous: Option<bool>,
+    confirmation_token: Option<String>,
 ) -> Result<MutationResponse, String> {
+    let acknowledged = crate::commands::confirmation::acknowledge_dangerous(
+        &state,
+        &session_id,
+        acknowledged_dangerous,
+        confirmation_token.as_deref(),
+    )
+    .await?;
+
     let state_guard = state.lock().await;
     let session_manager = Arc::clone(&state_guard.session_manager);
     let interceptor = Arc::clone(&state_guard.interceptor);
@@ -445,7 +472,7 @@ pub async fn delete_row(
         &session_id,
         &query_preview,
         &database,
-        acknowledged_dangerous.unwrap_or(false),
+        acknowledged,
     )
     .await
     {

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { invoke } from '@/lib/transport';
+import { dangerousConfirmationToken } from './confirmation';
 import type { RowData } from './mutations';
 import type { Namespace, Value } from './types';
 
@@ -52,12 +53,14 @@ export async function applySandboxChanges(
   useTransaction: boolean = true,
   acknowledgedDangerous: boolean = false
 ): Promise<ApplySandboxResult> {
+  const confirmationToken = await dangerousConfirmationToken(sessionId, acknowledgedDangerous);
   try {
     return await invoke('apply_sandbox_changes', {
       sessionId,
       changes,
       useTransaction,
       acknowledgedDangerous,
+      confirmationToken,
     });
   } catch (error) {
     // A lost IPC response does not establish whether the server committed the batch.

@@ -8,7 +8,7 @@ Statut : livré sur `feat/v0-1-42` (prêt pour release `v0.1.42`).
   - **Lot 1** : Paramètres SQL à la volée (`$1`, `:param`, `@param`, `{{param}}`) dans l'éditeur SQL principal (`QueryPanel`) + déblocage UI et re-licence `Apache-2.0` des cellules Chart et des labels de références inter-cellules dans les Notebooks (audit B7).
   - **Lot 2** : Migration Blast Radius — analyse d'impact avant migration/DDL croisant l'AST SQL (`sqlparser`), le journal d'audit local (`audit.jsonl`), les actifs `.qoredb/` et un preflight de données en lecture seule sur la session active.
   - **Lot 4 (CLI)** : `qore contract list|run` et `qore replay list|run` dans `qore-cli` (formats JSON et JUnit XML, codes retour CI/CD) exécutables sans licence Pro bloquante sur le runner, tout en conservant les garde-fous `AgentVault`.
-  - **Lot 5** : Sûreté backend et alignement documentaire — consentement plugins WASM en opt-in strict (audit D10), jetons serveur de confirmation production sur les commandes de requêtes et mutations (audit C10), corrections de commentaires (audit D1) et alignement de la documentation (audits B7, B8, B10, B11, D7, D9).
+  - **Lot 5** : Sûreté backend et alignement documentaire — consentement plugins WASM en opt-in strict (audit D10), jetons de confirmation liés à la session sur les commandes de requêtes et mutations (audit C10, partiel), corrections de commentaires (audit D1) et alignement de la documentation (audits B7, B8, B10, B11, D7, D9).
 - **Pro (`BUSL-1.1`)** :
   - **Lot 3** : Finition des modules Pro existants — export de patch SQL (`INSERT`/`UPDATE`/`DELETE`) dans Visual Data Diff (audit B8), respect des longueurs/largeurs/unicité/`NOT NULL` dans Data Generator v2 (audit B10), édition d'endpoint sans régénération de jeton, validation backend `page_size` et timeout d'exécution dans Instant Data API v2 (audit D3).
   - **Lot 4 (Service)** : Extraction du cœur d'exécution `contracts` et `replay` vers `qore-service` en conservant `BUSL-1.1`.
@@ -35,5 +35,5 @@ Statut : livré sur `feat/v0-1-42` (prêt pour release `v0.1.42`).
 
 5. **Lot 5 — Sûreté et vérité produit**
    - `ConsentDialog` ne pré-coche que `log` et `storage` à l'installation initiale.
-   - Les commandes de requêtes et mutations en production exigent un jeton serveur délivré par `issue_production_confirmation_token` lorsque `prod_require_confirmation` est actif.
+   - Les commandes desktop qui reçoivent `acknowledgedDangerous` (requêtes, mutations, sandbox, imports, maintenance, suppression d'objets) exigent un jeton à usage unique délivré par `request_confirmation_token` pour la même session. Ce jeton ne prouve pas un consentement humain, et le serveur web accepte toujours le drapeau : C10 reste partiellement résolu.
    - Les constats D1, B7, B8, B10, B11, D7, D9 et D10 sont résolus dans le code et documentés dans [l'audit Claims vs Code](../audits/CLAIMS_VS_CODE.md).

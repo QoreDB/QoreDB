@@ -10,6 +10,7 @@ use tracing::{field, instrument};
 use uuid::Uuid;
 
 use super::{SharedStateExt, parse_session_id};
+use crate::commands::confirmation::resolve_dangerous_acknowledgement;
 use crate::commands::stream_msg::StreamDispatcher;
 use crate::engine::{
     TableSchema, sql_safety,
@@ -32,22 +33,6 @@ const READ_ONLY_BLOCKED: &str = "Operation blocked: read-only mode";
 const DANGEROUS_BLOCKED: &str = "Dangerous query blocked: confirmation required";
 const TRANSACTIONS_NOT_SUPPORTED: &str = "Transactions are not supported by this driver";
 const SAFETY_RULE_BLOCKED: &str = "Query blocked by safety rule";
-const QUERY_CONFIRMATION_ACTION: &str = "acknowledge_dangerous_query";
-
-fn resolve_query_acknowledgement(
-    store: &crate::commands::confirmation::ConfirmationTokenStore,
-    acknowledged_dangerous: Option<bool>,
-    confirmation_token: Option<&str>,
-) -> Result<bool, String> {
-    if let Some(token) = confirmation_token {
-        store.consume(QUERY_CONFIRMATION_ACTION, token)?;
-        return Ok(true);
-    }
-    if acknowledged_dangerous.unwrap_or(false) {
-        return Err("Dangerous query execution requires a confirmation token".to_string());
-    }
-    Ok(false)
-}
 
 /// Past this, the `queryRead` payload is dropped and the plugin sees `None`.
 const QUERY_READ_MAX_PAYLOAD_BYTES: usize = 1024 * 1024;
@@ -242,8 +227,9 @@ pub async fn execute_query(
 
     let session = parse_session_id(&session_id)?;
 
-    let acknowledged = match resolve_query_acknowledgement(
+    let acknowledged = match resolve_dangerous_acknowledgement(
         confirmation_tokens.as_ref(),
+        &session_id,
         acknowledged_dangerous,
         confirmation_token.as_deref(),
     ) {
@@ -1246,8 +1232,9 @@ pub async fn create_database(
     let interceptor_env = map_environment(&environment);
 
     let query_preview = format!("CREATE DATABASE {}", name);
-    let acknowledged = match resolve_query_acknowledgement(
+    let acknowledged = match resolve_dangerous_acknowledgement(
         confirmation_tokens.as_ref(),
+        &session_id,
         acknowledged_dangerous,
         confirmation_token.as_deref(),
     ) {
@@ -1431,8 +1418,9 @@ pub async fn drop_database(
     let interceptor_env = map_environment(&environment);
 
     let query_preview = format!("DROP DATABASE {}", name);
-    let acknowledged = match resolve_query_acknowledgement(
+    let acknowledged = match resolve_dangerous_acknowledgement(
         confirmation_tokens.as_ref(),
+        &session_id,
         acknowledged_dangerous,
         confirmation_token.as_deref(),
     ) {
@@ -1874,29 +1862,5 @@ mod tests {
         let host = PluginHost::new();
         let result = result_with_rows(10);
         assert!(query_read_payload(&host, Some(&result)).is_none());
-    }
-
-    #[test]
-    fn query_acknowledgement_requires_single_use_backend_token() {
-        let store = crate::commands::confirmation::ConfirmationTokenStore::new();
-        assert_eq!(
-            resolve_query_acknowledgement(&store, None, None).unwrap(),
-            false
-        );
-        assert_eq!(
-            resolve_query_acknowledgement(&store, Some(false), None).unwrap(),
-            false
-        );
-        assert!(resolve_query_acknowledgement(&store, Some(true), None).is_err());
-
-        let (token, _) = store.issue(QUERY_CONFIRMATION_ACTION);
-        assert!(resolve_query_acknowledgement(&store, Some(true), Some(&token)).unwrap());
-        // Single-use: replaying the same token must fail.
-        assert!(resolve_query_acknowledgement(&store, Some(true), Some(&token)).is_err());
-
-        let (wrong_action_token, _) = store.issue("apply_migration");
-        assert!(
-            resolve_query_acknowledgement(&store, Some(true), Some(&wrong_action_token)).is_err()
-        );
     }
 }

@@ -193,7 +193,16 @@ pub async fn import_csv(
     file_path: String,
     config: CsvImportConfig,
     acknowledged_dangerous: Option<bool>,
+    confirmation_token: Option<String>,
 ) -> Result<ImportResponse, String> {
+    let acknowledged = crate::commands::confirmation::acknowledge_dangerous(
+        &state,
+        &session_id,
+        acknowledged_dangerous,
+        confirmation_token.as_deref(),
+    )
+    .await?;
+
     let (session_manager, interceptor) = {
         let state = state.lock().await;
         (
@@ -245,7 +254,6 @@ pub async fn import_csv(
     };
     let query_preview = format!("INSERT INTO {} (CSV import)", table_ref);
 
-    let acknowledged = acknowledged_dangerous.unwrap_or(false);
     let interceptor_context = interceptor.build_context(
         &session_id,
         &query_preview,
@@ -532,7 +540,16 @@ pub async fn import_sql(
     file_path: String,
     stop_on_error: Option<bool>,
     acknowledged_dangerous: Option<bool>,
+    confirmation_token: Option<String>,
 ) -> Result<ImportSqlResponse, String> {
+    let acknowledged = crate::commands::confirmation::acknowledge_dangerous(
+        &state,
+        &session_id,
+        acknowledged_dangerous,
+        confirmation_token.as_deref(),
+    )
+    .await?;
+
     let empty = |error: Option<String>| ImportSqlResponse {
         success: false,
         total_statements: 0,
@@ -588,7 +605,6 @@ pub async fn import_sql(
         .unwrap_or_else(|_| "development".to_string());
     let interceptor_env = map_environment(&environment);
     let query_preview = format!("IMPORT SQL ({} statements)", statements.len());
-    let acknowledged = acknowledged_dangerous.unwrap_or(false);
     let interceptor_context = interceptor.build_context(
         &session_id,
         &query_preview,

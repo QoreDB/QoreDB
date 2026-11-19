@@ -19,6 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import type { Driver } from '@/lib/connection/drivers';
 import {
   formatQueryParameter,
   type QueryParameterType,
@@ -31,6 +32,7 @@ interface QueryParametersDialogProps {
   onOpenChange: (open: boolean) => void;
   parameters: string[];
   values: Record<string, QueryParameterValue>;
+  driver?: Driver;
   onChange: (name: string, next: QueryParameterValue) => void;
   onReset: () => void;
   onConfirmExecute: () => void;
@@ -43,6 +45,7 @@ export function QueryParametersDialog({
   onOpenChange,
   parameters,
   values,
+  driver,
   onChange,
   onReset,
   onConfirmExecute,
@@ -52,7 +55,7 @@ export function QueryParametersDialog({
   const formattedByName = Object.fromEntries(
     parameters.map(name => {
       const current: QueryParameterValue = values[name] ?? { value: '', type: 'auto' };
-      return [name, formatQueryParameter(current)];
+      return [name, formatQueryParameter(current, driver)];
     })
   );
 

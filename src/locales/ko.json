@@ -2660,7 +2660,16 @@
     },
     "retry": "다시 시도",
     "exportSQL": "SQL 패치 다운로드",
-    "copySQL": "SQL 패치로 복사"
+    "copySQL": "SQL 패치로 복사",
+    "sqlPatchTarget": "왼쪽 테이블 {{table}}에 적용하여 오른쪽과 일치시킵니다.",
+    "sqlPatchBlocked": {
+      "targetNotTable": "왼쪽이 테이블일 때만 사용할 수 있습니다. 패치는 해당 테이블에 적용됩니다.",
+      "maskedColumns": "사용 불가: 마스킹된 열은 자리표시 값을 기록합니다.",
+      "missingKeys": "패치를 생성하기 전에 행을 매칭할 키 열을 선택하세요.",
+      "ambiguousKeys": "사용 불가: 선택한 키가 여러 행과 일치합니다.",
+      "truncated": "사용 불가: 비교가 잘려 읽지 않은 행이 삭제되거나 중복됩니다.",
+      "noColumns": "사용 불가: 양쪽에 공통 열이 없습니다."
+    }
   },
   "virtualRelations": {
     "title": "가상 관계",
@@ -3351,6 +3360,9 @@
     "partiallyAppliedWarning": "이 드라이버는 DDL을 암시적으로 커밋하므로 이미 실행된 문을 되돌릴 수 없습니다. 강제하기 전에 스키마를 확인하세요.",
     "blastRadius": {
       "title": "영향 반경 및 사전 검사",
+      "analyzing": "영향 분석 중…",
+      "analysisFailed": "영향 분석 실패: {{error}}",
+      "partialAnalysis": "부분 분석: 다음 문은 구문 분석할 수 없어 검사되지 않았습니다.",
       "none": "파괴적인 DDL 위험이나 워크스페이스 참조가 감지되지 않았습니다.",
       "runPreflight": "데이터 사전 검사 실행",
       "hazardsSection": "DDL 위험",

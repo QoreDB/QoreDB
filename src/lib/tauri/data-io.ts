@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { invoke } from '@/lib/transport';
+import { dangerousConfirmationToken } from './confirmation';
 
 export interface CsvPreviewResponse {
   detected_delimiter: string;
@@ -56,6 +57,7 @@ export async function importCsv(
     filePath,
     config,
     acknowledgedDangerous,
+    confirmationToken: await dangerousConfirmationToken(sessionId, acknowledgedDangerous),
   });
 }
 
@@ -89,6 +91,7 @@ export async function importSql(
     filePath,
     stopOnError,
     acknowledgedDangerous,
+    confirmationToken: await dangerousConfirmationToken(sessionId, acknowledgedDangerous),
   });
 }
 

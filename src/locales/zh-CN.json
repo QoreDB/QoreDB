@@ -2660,7 +2660,16 @@
     },
     "retry": "重试",
     "exportSQL": "下载 SQL 补丁",
-    "copySQL": "复制为 SQL 补丁"
+    "copySQL": "复制为 SQL 补丁",
+    "sqlPatchTarget": "应用于左侧表 {{table}}，使其与右侧一致。",
+    "sqlPatchBlocked": {
+      "targetNotTable": "仅当左侧为表时可用：补丁将应用于该表。",
+      "maskedColumns": "不可用：脱敏列会写入占位值。",
+      "missingKeys": "生成补丁前，请选择用于匹配行的键列。",
+      "ambiguousKeys": "不可用：所选键匹配多行。",
+      "truncated": "不可用：比较结果已截断，未读取的行会被删除或重复。",
+      "noColumns": "不可用：两侧没有共同的列。"
+    }
   },
   "virtualRelations": {
     "title": "虚拟关系",
@@ -3351,6 +3360,9 @@
     "partiallyAppliedWarning": "此驱动会隐式提交 DDL，因此已执行的语句无法撤销。强制执行前请检查架构。",
     "blastRadius": {
       "title": "影响范围与预检",
+      "analyzing": "正在分析影响…",
+      "analysisFailed": "影响分析失败：{{error}}",
+      "partialAnalysis": "部分分析：以下语句无法解析，未进行检查。",
       "none": "未检测到破坏性 DDL 风险或工作区引用。",
       "runPreflight": "运行数据预检",
       "hazardsSection": "DDL 风险",

@@ -21,7 +21,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import type { Driver } from '@/lib/connection/drivers';
-import { generateDiffSqlPatch } from '@/lib/diffSqlGenerator';
+import { generateDiffSqlPatch, getDiffSqlPatchBlocker } from '@/lib/diffSqlGenerator';
 import { type DiffResult, exportDiffAsCSV, exportDiffAsJSON } from '@/lib/diffUtils';
 import { notify } from '@/lib/notify';
 import type { Namespace } from '@/lib/tauri';
@@ -102,15 +102,17 @@ export function DiffToolbar({
     }
   };
 
+  const patchOptions = {
+    tableName: targetTableName?.trim() ?? '',
+    namespace: targetNamespace,
+    dialect: targetDialect,
+    keyColumns,
+  };
+  const sqlPatchBlocker = diffResult ? getDiffSqlPatchBlocker(diffResult, patchOptions) : null;
+
   const buildSqlPatch = (): string | null => {
-    if (!diffResult) return null;
-    const { sql } = generateDiffSqlPatch(diffResult, {
-      tableName: targetTableName?.trim() || 'target_table',
-      namespace: targetTableName?.trim() ? targetNamespace : undefined,
-      dialect: targetDialect,
-      keyColumns,
-    });
-    return sql;
+    if (!diffResult || sqlPatchBlocker) return null;
+    return generateDiffSqlPatch(diffResult, patchOptions).sql;
   };
 
   const handleExportSQL = async () => {
@@ -184,14 +186,21 @@ export function DiffToolbar({
               {t('diff.copyJSON')}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={handleExportSQL}>
+            <DropdownMenuItem onClick={handleExportSQL} disabled={sqlPatchBlocker !== null}>
               <FileCode2 size={14} className="mr-2" />
               {t('diff.exportSQL')}
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={handleCopySQL}>
+            <DropdownMenuItem onClick={handleCopySQL} disabled={sqlPatchBlocker !== null}>
               <FileCode2 size={14} className="mr-2" />
               {t('diff.copySQL')}
             </DropdownMenuItem>
+            {diffResult && (
+              <p className="max-w-64 px-2 py-1.5 text-xs text-muted-foreground">
+                {sqlPatchBlocker
+                  ? t(`diff.sqlPatchBlocked.${sqlPatchBlocker}`)
+                  : t('diff.sqlPatchTarget', { table: patchOptions.tableName })}
+              </p>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
       </div>

@@ -1,5 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import {
+  isMySqlFamily,
+  isSqlServerFamily,
+  usesBackslashStringEscapes,
+} from '@/lib/connection/driverCapabilities';
+import type { Driver } from '@/lib/connection/drivers';
+import { quoteSqlString } from './sqlStringLiteral';
+
 export type QueryParameterType = 'auto' | 'text' | 'number' | 'date' | 'null';
 
 export interface QueryParameterValue {
@@ -29,12 +37,19 @@ function isIdentChar(ch: string | undefined): boolean {
   return ch !== undefined && /[a-zA-Z0-9_]/.test(ch);
 }
 
-function sqlQuote(value: string): string {
-  const sanitised = value.replace(SQL_QUOTE_STRIP_RE, '');
-  return `'${sanitised.replace(/'/g, "''")}'`;
+function sqlQuote(value: string, driver?: Driver | string): string {
+  return quoteSqlString(value.replace(SQL_QUOTE_STRIP_RE, ''), driver);
 }
 
-export function formatQueryParameter(param: QueryParameterValue): string | null {
+/** T-SQL and MySQL use `@name` for their own variables, never as a placeholder. */
+function hasNativeAtVariables(driver?: Driver | string): boolean {
+  return Boolean(driver && (isSqlServerFamily(driver) || isMySqlFamily(driver)));
+}
+
+export function formatQueryParameter(
+  param: QueryParameterValue,
+  driver?: Driver | string
+): string | null {
   switch (param.type) {
     case 'null':
       return 'NULL';
@@ -44,9 +59,11 @@ export function formatQueryParameter(param: QueryParameterValue): string | null 
       if (NUMBER_LITERAL_RE.test(trimmed)) return trimmed;
       const lower = trimmed.toLowerCase();
       if (lower === 'null') return 'NULL';
-      if (lower === 'true') return 'TRUE';
-      if (lower === 'false') return 'FALSE';
-      return sqlQuote(param.value);
+      if (lower === 'true' || lower === 'false') {
+        if (driver && isSqlServerFamily(driver)) return lower === 'true' ? '1' : '0';
+        return lower.toUpperCase();
+      }
+      return sqlQuote(param.value, driver);
     }
     case 'number': {
       const trimmed = param.value.trim();
@@ -54,18 +71,20 @@ export function formatQueryParameter(param: QueryParameterValue): string | null 
     }
     case 'date': {
       const trimmed = param.value.trim();
-      return DATE_LITERAL_RE.test(trimmed) ? sqlQuote(trimmed) : null;
+      return DATE_LITERAL_RE.test(trimmed) ? sqlQuote(trimmed, driver) : null;
     }
     case 'text':
-      return param.value.length > 0 ? sqlQuote(param.value) : null;
+      return param.value.length > 0 ? sqlQuote(param.value, driver) : null;
     default:
       return null;
   }
 }
 
-function scanQueryParameters(sql: string): ParameterMatch[] {
+function scanQueryParameters(sql: string, driver?: Driver | string): ParameterMatch[] {
   const matches: ParameterMatch[] = [];
   const len = sql.length;
+  const backslashEscapes = Boolean(driver && usesBackslashStringEscapes(driver));
+  const atParameters = !hasNativeAtVariables(driver);
   let i = 0;
 
   while (i < len) {
@@ -75,6 +94,10 @@ function scanQueryParameters(sql: string): ParameterMatch[] {
     if (ch === "'") {
       i++;
       while (i < len) {
+        if (backslashEscapes && sql[i] === '\\') {
+          i += 2;
+          continue;
+        }
         if (sql[i] === "'") {
           if (sql[i + 1] === "'") {
             i += 2;
@@ -211,7 +234,7 @@ function scanQueryParameters(sql: string): ParameterMatch[] {
         while (i < len && sql[i] === '@') i++;
         continue;
       }
-      if (!isIdentChar(prev)) {
+      if (atParameters && !isIdentChar(prev)) {
         const atMatch = AT_PARAM_RE.exec(rest);
         if (atMatch) {
           matches.push({ key: atMatch[0], start: i, end: i + atMatch[0].length });
@@ -232,11 +255,12 @@ function scanQueryParameters(sql: string): ParameterMatch[] {
  * of first appearance, ignoring string literals, quoted identifiers, comments,
  * PostgreSQL casts (`::type`), dollar-quoted blocks (`$$...$$`), MySQL system
  * variables (`@@var`), and notebook inter-cell references (`$label.col`).
+ * With a SQL Server or MySQL-family `driver`, `@name` is a native variable.
  */
-export function extractQueryParameters(sql: string): string[] {
+export function extractQueryParameters(sql: string, driver?: Driver | string): string[] {
   const seen = new Set<string>();
   const ordered: string[] = [];
-  for (const match of scanQueryParameters(sql)) {
+  for (const match of scanQueryParameters(sql, driver)) {
     if (!seen.has(match.key)) {
       seen.add(match.key);
       ordered.push(match.key);
@@ -247,14 +271,15 @@ export function extractQueryParameters(sql: string): string[] {
 
 export function areAllQueryParametersFilled(
   sql: string,
-  params: Record<string, QueryParameterValue>
+  params: Record<string, QueryParameterValue>,
+  driver?: Driver | string
 ): boolean {
-  const keys = extractQueryParameters(sql);
+  const keys = extractQueryParameters(sql, driver);
   if (keys.length === 0) return true;
   return keys.every(key => {
     // biome-ignore lint/suspicious/noPrototypeBuiltins: the TypeScript target predates ES2022
     if (!Object.prototype.hasOwnProperty.call(params, key)) return false;
-    return formatQueryParameter(params[key]) !== null;
+    return formatQueryParameter(params[key], driver) !== null;
   });
 }
 
@@ -264,9 +289,10 @@ export function areAllQueryParametersFilled(
  */
 export function substituteQueryParameters(
   sql: string,
-  params: Record<string, QueryParameterValue>
+  params: Record<string, QueryParameterValue>,
+  driver?: Driver | string
 ): string {
-  const matches = scanQueryParameters(sql);
+  const matches = scanQueryParameters(sql, driver);
   if (matches.length === 0) return sql;
 
   let out = '';
@@ -275,7 +301,7 @@ export function substituteQueryParameters(
     out += sql.slice(cursor, match.start);
     // biome-ignore lint/suspicious/noPrototypeBuiltins: the TypeScript target predates ES2022
     const hasParam = Object.prototype.hasOwnProperty.call(params, match.key);
-    const formatted = hasParam ? formatQueryParameter(params[match.key]) : null;
+    const formatted = hasParam ? formatQueryParameter(params[match.key], driver) : null;
     out += formatted ?? sql.slice(match.start, match.end);
     cursor = match.end;
   }

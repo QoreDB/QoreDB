@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { invoke } from '@/lib/transport';
 import { applySandboxChanges, type SandboxChangeDto } from './sandbox';
 
-vi.mock('@/lib/transport', () => ({ invoke: vi.fn() }));
+vi.mock('@/lib/transport', () => ({ invoke: vi.fn(), isWeb: false }));
 const mockedInvoke = vi.mocked(invoke);
 const changes: SandboxChangeDto[] = [
   {
@@ -35,12 +35,18 @@ describe('sandbox batch IPC', () => {
       useTransaction: true,
       acknowledgedDangerous: false,
     });
+    mockedInvoke.mockResolvedValueOnce({ token: 'ctok-1', expires_in_secs: 60 });
     await applySandboxChanges('session', changes, true, true);
+    expect(mockedInvoke).toHaveBeenCalledWith('request_confirmation_token', {
+      action: 'acknowledge_dangerous_query',
+      sessionId: 'session',
+    });
     expect(mockedInvoke).toHaveBeenLastCalledWith('apply_sandbox_changes', {
       sessionId: 'session',
       changes,
       useTransaction: true,
       acknowledgedDangerous: true,
+      confirmationToken: 'ctok-1',
     });
   });
 

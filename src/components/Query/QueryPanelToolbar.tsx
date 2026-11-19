@@ -52,6 +52,7 @@ import { usePlugins } from '@/providers/PluginProvider';
 import { useTabActions } from '@/providers/TabProvider';
 import { getModifierKey } from '@/utils/platform';
 import type { ENVIRONMENT_CONFIG } from '../../lib/environment';
+import { formatQueryParameter, type QueryParameterValue } from '../../lib/query/queryParameters';
 import type { Environment, Namespace } from '../../lib/tauri';
 import type { MONGO_TEMPLATES } from '../Editor/mongo-constants';
 
@@ -92,6 +93,9 @@ interface QueryPanelToolbarProps {
   onCommitTransaction?: () => void;
   onRollbackTransaction?: () => void;
   onInsertSnippet?: (template: string) => void;
+  detectedParams?: string[];
+  paramValues?: Record<string, QueryParameterValue>;
+  onOpenParams?: () => void;
 }
 
 export function QueryPanelToolbar({
@@ -129,6 +133,9 @@ export function QueryPanelToolbar({
   onCommitTransaction,
   onRollbackTransaction,
   onInsertSnippet,
+  detectedParams,
+  paramValues,
+  onOpenParams,
 }: QueryPanelToolbarProps) {
   const { t } = useTranslation();
   const { openTab } = useTabActions();
@@ -248,6 +255,40 @@ export function QueryPanelToolbar({
           {envConfig.labelShort}
         </span>
       )}
+
+      {!isDocumentBased &&
+        detectedParams &&
+        detectedParams.length > 0 &&
+        onOpenParams &&
+        (() => {
+          const entries = detectedParams.map(name => ({
+            name,
+            formatted: formatQueryParameter(paramValues?.[name] ?? { value: '', type: 'auto' }),
+          }));
+          const missingCount = entries.filter(e => e.formatted === null).length;
+          const summary =
+            missingCount > 0
+              ? t('query.parameters.missingCount', { count: detectedParams.length })
+              : entries.map(e => `${e.name}=${e.formatted}`).join(', ');
+          return (
+            <Tooltip content={t('query.parameters.dialogTitle')}>
+              <button
+                type="button"
+                onClick={onOpenParams}
+                data-testid="query-params-trigger"
+                className={cn(
+                  'flex items-center gap-1.5 h-7 max-w-64 rounded-md border px-2 text-xs transition-colors',
+                  missingCount > 0
+                    ? 'border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-400 hover:bg-amber-500/20'
+                    : 'border-accent/30 bg-accent/10 text-accent hover:bg-accent/20'
+                )}
+              >
+                <Braces size={12} className="shrink-0" />
+                <span className="truncate font-mono text-[11px]">{summary}</span>
+              </button>
+            </Tooltip>
+          );
+        })()}
 
       {sessionId && readOnly && (
         <span className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold rounded-full border border-warning/30 bg-warning/10 text-warning">

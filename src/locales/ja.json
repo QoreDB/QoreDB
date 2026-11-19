@@ -1343,9 +1343,15 @@
     "closeResult": "結果 {{label}} を閉じる",
     "parameters": {
       "title": "パラメーター",
+      "dialogTitle": "クエリパラメーター",
+      "dialogDescription": "クエリを実行する前に値を入力してください。自動モードは数値・真偽値・NULL・文字列を判別します。",
+      "missingCount": "{{count}} 個の変数",
+      "required": "必須",
+      "runWithParams": "実行",
       "valuePlaceholder": "値...",
       "clear": "パラメーターをクリア",
       "types": {
+        "auto": "自動",
         "text": "テキスト",
         "number": "数値",
         "date": "日付",

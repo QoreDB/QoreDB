@@ -332,7 +332,7 @@ export function ConnectionModal({
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 rounded p-1 bg-background border border-border flex items-center justify-center">
                         <img
-                          src={`/databases/${DRIVER_ICONS[formData.driver]}`}
+                          src={`/databases/sm/${DRIVER_ICONS[formData.driver]}`}
                           alt={DRIVER_LABELS[formData.driver]}
                           className="w-full h-full object-contain"
                         />

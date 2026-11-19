@@ -1,7 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { describe, expect, it } from 'vitest';
-import { extractQueryParameters, substituteQueryParameters } from './queryParameters';
+import {
+  areAllQueryParametersFilled,
+  extractQueryParameters,
+  substituteQueryParameters,
+} from './queryParameters';
 
 describe('extractQueryParameters', () => {
   it('extracts positional, named, braced, colon, and at parameters in order', () => {
@@ -60,6 +64,27 @@ describe('substituteQueryParameters', () => {
       ':dt': { value: "2026-01-01'; DROP TABLE t;--", type: 'date' },
     });
     expect(result).toBe(sql);
+  });
+
+  it('infers numbers, booleans, NULL, and quoted strings in auto mode', () => {
+    const sql =
+      'SELECT * FROM orders WHERE status = :status AND total_cents >= {{min_cents}} AND active = $1 AND deleted_at IS :del';
+    const values = {
+      ':status': { value: 'paid', type: 'auto' as const },
+      min_cents: { value: '1000', type: 'auto' as const },
+      $1: { value: 'true', type: 'auto' as const },
+      ':del': { value: 'null', type: 'auto' as const },
+    };
+    expect(areAllQueryParametersFilled(sql, values)).toBe(true);
+    expect(substituteQueryParameters(sql, values)).toBe(
+      "SELECT * FROM orders WHERE status = 'paid' AND total_cents >= 1000 AND active = TRUE AND deleted_at IS NULL"
+    );
+    expect(
+      areAllQueryParametersFilled(sql, {
+        ...values,
+        min_cents: { value: '  ', type: 'auto' },
+      })
+    ).toBe(false);
   });
 
   it('does not alter parameters inside strings, comments, or casts', () => {

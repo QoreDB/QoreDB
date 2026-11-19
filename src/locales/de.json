@@ -1354,9 +1354,15 @@
     "closeResult": "Ergebnis {{label}} schließen",
     "parameters": {
       "title": "Parameter",
+      "dialogTitle": "Abfrageparameter",
+      "dialogDescription": "Geben Sie vor der Ausführung Werte ein. Der Auto-Modus erkennt Zahlen, Boolesche Werte, NULL und Text.",
+      "missingCount": "{{count}} Param.",
+      "required": "Erforderlich",
+      "runWithParams": "Ausführen",
       "valuePlaceholder": "Wert...",
       "clear": "Parameter zurücksetzen",
       "types": {
+        "auto": "Auto",
         "text": "Text",
         "number": "Zahl",
         "date": "Datum",

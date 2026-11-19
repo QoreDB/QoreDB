@@ -82,7 +82,7 @@ export function FederationSourceBar({
                 >
                   <div className="w-3.5 h-3.5 rounded-sm overflow-hidden shrink-0">
                     <img
-                      src={`/databases/${DRIVER_ICONS[driver]}`}
+                      src={`/databases/sm/${DRIVER_ICONS[driver]}`}
                       alt={DRIVER_LABELS[driver] || driver}
                       className="w-full h-full object-contain"
                     />
@@ -104,7 +104,7 @@ export function FederationSourceBar({
                 <div className="flex items-center gap-2 px-3 py-2 border-b border-border bg-muted/30">
                   <div className="w-4 h-4 rounded-sm overflow-hidden shrink-0">
                     <img
-                      src={`/databases/${DRIVER_ICONS[driver]}`}
+                      src={`/databases/sm/${DRIVER_ICONS[driver]}`}
                       alt={DRIVER_LABELS[driver]}
                       className="w-full h-full object-contain"
                     />

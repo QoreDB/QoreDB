@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-export type QueryParameterType = 'text' | 'number' | 'date' | 'null';
+export type QueryParameterType = 'auto' | 'text' | 'number' | 'date' | 'null';
 
 export interface QueryParameterValue {
   value: string;
@@ -38,6 +38,16 @@ export function formatQueryParameter(param: QueryParameterValue): string | null 
   switch (param.type) {
     case 'null':
       return 'NULL';
+    case 'auto': {
+      const trimmed = param.value.trim();
+      if (trimmed.length === 0) return null;
+      if (NUMBER_LITERAL_RE.test(trimmed)) return trimmed;
+      const lower = trimmed.toLowerCase();
+      if (lower === 'null') return 'NULL';
+      if (lower === 'true') return 'TRUE';
+      if (lower === 'false') return 'FALSE';
+      return sqlQuote(param.value);
+    }
     case 'number': {
       const trimmed = param.value.trim();
       return NUMBER_LITERAL_RE.test(trimmed) ? trimmed : null;
@@ -47,7 +57,7 @@ export function formatQueryParameter(param: QueryParameterValue): string | null 
       return DATE_LITERAL_RE.test(trimmed) ? sqlQuote(trimmed) : null;
     }
     case 'text':
-      return sqlQuote(param.value);
+      return param.value.length > 0 ? sqlQuote(param.value) : null;
     default:
       return null;
   }
@@ -233,6 +243,19 @@ export function extractQueryParameters(sql: string): string[] {
     }
   }
   return ordered;
+}
+
+export function areAllQueryParametersFilled(
+  sql: string,
+  params: Record<string, QueryParameterValue>
+): boolean {
+  const keys = extractQueryParameters(sql);
+  if (keys.length === 0) return true;
+  return keys.every(key => {
+    // biome-ignore lint/suspicious/noPrototypeBuiltins: the TypeScript target predates ES2022
+    if (!Object.prototype.hasOwnProperty.call(params, key)) return false;
+    return formatQueryParameter(params[key]) !== null;
+  });
 }
 
 /**

@@ -1389,9 +1389,15 @@
     "closeResult": "Close result {{label}}",
     "parameters": {
       "title": "Parameters",
+      "dialogTitle": "Query parameters",
+      "dialogDescription": "Enter values before running the query. Auto mode infers numbers, booleans, NULL, and quoted text.",
+      "missingCount": "{{count}} param(s)",
+      "required": "Required",
+      "runWithParams": "Run query",
       "valuePlaceholder": "Value...",
       "clear": "Clear parameters",
       "types": {
+        "auto": "Auto",
         "text": "Text",
         "number": "Number",
         "date": "Date",

@@ -1389,9 +1389,15 @@
     "closeResult": "Fermer le résultat {{label}}",
     "parameters": {
       "title": "Paramètres",
+      "dialogTitle": "Paramètres de la requête",
+      "dialogDescription": "Renseignez les valeurs avant l'exécution. Le mode Auto détecte nombres, booléens, NULL et chaînes.",
+      "missingCount": "{{count}} param.",
+      "required": "Requis",
+      "runWithParams": "Exécuter",
       "valuePlaceholder": "Valeur...",
       "clear": "Effacer les paramètres",
       "types": {
+        "auto": "Auto",
         "text": "Texte",
         "number": "Nombre",
         "date": "Date",

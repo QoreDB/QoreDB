@@ -52,6 +52,7 @@ import {
 } from '../../lib/environment';
 import { addToHistory } from '../../lib/query/history';
 import {
+  areAllQueryParametersFilled,
   extractQueryParameters,
   type QueryParameterValue,
   substituteQueryParameters,
@@ -101,7 +102,7 @@ import { SaveQueryDialog } from './SaveQueryDialog';
 const InlineEditDialog = lazy(() =>
   import('@/components/AI/InlineEditDialog').then(module => ({ default: module.InlineEditDialog }))
 );
-const QueryParametersBar = lazy(() => import('./QueryParametersBar'));
+const QueryParametersDialog = lazy(() => import('./QueryParametersBar'));
 
 const EDITOR_HEIGHT_KEY = 'query-editor-height';
 const MIN_EDITOR_HEIGHT = 100;
@@ -191,24 +192,18 @@ export function QueryPanel({
 
   const [query, setQuery] = useState(initialQuery || defaultQuery);
   const [paramValues, setParamValues] = useState<Record<string, QueryParameterValue>>({});
+  const [paramsDialogOpen, setParamsDialogOpen] = useState(false);
+  const [pendingParamAction, setPendingParamAction] = useState<{
+    mode: 'query' | 'explain';
+    sql: string;
+  } | null>(null);
   const detectedParams = useMemo(
     () => (isDocument || isSearch ? [] : extractQueryParameters(query)),
     [isDocument, isSearch, query]
   );
-
-  const resolveQueryWithParams = useCallback(
-    (rawSql: string): string => {
-      if (isDocument || isSearch) return rawSql;
-      const filled: Record<string, QueryParameterValue> = {};
-      for (const [name, entry] of Object.entries(paramValues)) {
-        if (entry.type === 'null' || entry.value.length > 0) {
-          filled[name] = entry;
-        }
-      }
-      if (Object.keys(filled).length === 0) return rawSql;
-      return substituteQueryParameters(rawSql, filled);
-    },
-    [isDocument, isSearch, paramValues]
+  const dialogParams = useMemo(
+    () => (pendingParamAction ? extractQueryParameters(pendingParamAction.sql) : detectedParams),
+    [pendingParamAction, detectedParams]
   );
   const [results, setResults] = useState<QueryResultEntry[]>([]);
   const [activeResultId, setActiveResultId] = useState<string | null>(null);
@@ -805,16 +800,12 @@ export function QueryPanel({
     ]
   );
 
-  const handleExecute = useCallback(
-    async (queryText?: string) => {
+  const executeResolvedQuery = useCallback(
+    async (queryToRun: string) => {
       if (!sessionId) {
         setPanelError(t('query.noConnectionError'));
         return;
       }
-
-      const rawQuery = queryText || query;
-      if (!rawQuery.trim()) return;
-      const queryToRun = resolveQueryWithParams(rawQuery);
 
       const isMutation = isMutationQuery(
         queryToRun,
@@ -860,8 +851,6 @@ export function QueryPanel({
     },
     [
       sessionId,
-      query,
-      resolveQueryWithParams,
       isDocument,
       readOnly,
       environment,
@@ -872,6 +861,29 @@ export function QueryPanel({
       queryDialect,
       activeNamespace,
     ]
+  );
+
+  const handleExecute = useCallback(
+    async (queryText?: string) => {
+      if (!sessionId) {
+        setPanelError(t('query.noConnectionError'));
+        return;
+      }
+
+      const rawQuery = queryText || query;
+      if (!rawQuery.trim()) return;
+
+      if (!isDocument && !isSearch && !areAllQueryParametersFilled(rawQuery, paramValues)) {
+        setPendingParamAction({ mode: 'query', sql: rawQuery });
+        setParamsDialogOpen(true);
+        return;
+      }
+
+      const queryToRun =
+        isDocument || isSearch ? rawQuery : substituteQueryParameters(rawQuery, paramValues);
+      await executeResolvedQuery(queryToRun);
+    },
+    [sessionId, query, isDocument, isSearch, paramValues, t, executeResolvedQuery]
   );
 
   const handleConfirm = useCallback(async () => {
@@ -975,6 +987,17 @@ export function QueryPanel({
     openTab(tab);
   }, [query, activeNamespace, openTab]);
 
+  const executeResolvedExplain = useCallback(
+    async (queryToExplain: string) => {
+      const trimmed = queryToExplain.replace(/;+\s*$/, '');
+      // The driver declares its own EXPLAIN syntax; the PostgreSQL form is the
+      // fallback while capabilities are still loading.
+      const prefix = driverCapabilities?.explain_prefix ?? 'EXPLAIN (FORMAT JSON)';
+      await runQuery(`${prefix} ${trimmed}`, false, 'explain');
+    },
+    [driverCapabilities, runQuery]
+  );
+
   const handleExplain = useCallback(async () => {
     if (!sessionId || isDocument || !isExplainSupported) {
       return;
@@ -982,22 +1005,41 @@ export function QueryPanel({
     const selection = sqlEditorRef.current?.getSelection();
     const rawToExplain = selection && selection.trim().length > 0 ? selection : query;
     if (!rawToExplain.trim()) return;
-    const queryToExplain = resolveQueryWithParams(rawToExplain);
-    const trimmed = queryToExplain.replace(/;+\s*$/, '');
-    // The driver declares its own EXPLAIN syntax; the PostgreSQL form is the
-    // fallback while capabilities are still loading.
-    const prefix = driverCapabilities?.explain_prefix ?? 'EXPLAIN (FORMAT JSON)';
 
-    await runQuery(`${prefix} ${trimmed}`, false, 'explain');
+    if (!isSearch && !areAllQueryParametersFilled(rawToExplain, paramValues)) {
+      setPendingParamAction({ mode: 'explain', sql: rawToExplain });
+      setParamsDialogOpen(true);
+      return;
+    }
+
+    const queryToExplain = isSearch
+      ? rawToExplain
+      : substituteQueryParameters(rawToExplain, paramValues);
+    await executeResolvedExplain(queryToExplain);
   }, [
     sessionId,
     isDocument,
     isExplainSupported,
     query,
-    resolveQueryWithParams,
-    runQuery,
-    driverCapabilities,
+    isSearch,
+    paramValues,
+    executeResolvedExplain,
   ]);
+
+  const handleConfirmParameters = useCallback(async () => {
+    const action = pendingParamAction ?? { mode: 'query' as const, sql: query };
+    setPendingParamAction(null);
+    setParamsDialogOpen(false);
+    if (!action.sql.trim() || !areAllQueryParametersFilled(action.sql, paramValues)) {
+      return;
+    }
+    const resolvedSql = substituteQueryParameters(action.sql, paramValues);
+    if (action.mode === 'explain') {
+      await executeResolvedExplain(resolvedSql);
+    } else {
+      await executeResolvedQuery(resolvedSql);
+    }
+  }, [pendingParamAction, query, paramValues, executeResolvedExplain, executeResolvedQuery]);
 
   const handleToggleKeepResults = useCallback(() => {
     setKeepResults(prev => {
@@ -1351,21 +1393,13 @@ export function QueryPanel({
         onCommitTransaction={handleCommitTransaction}
         onRollbackTransaction={handleRollbackTransaction}
         onInsertSnippet={template => sqlEditorRef.current?.insertSnippet(template)}
+        detectedParams={detectedParams}
+        paramValues={paramValues}
+        onOpenParams={() => {
+          setPendingParamAction(null);
+          setParamsDialogOpen(true);
+        }}
       />
-
-      {detectedParams.length > 0 && (
-        <Suspense fallback={null}>
-          <QueryParametersBar
-            parameters={detectedParams}
-            values={paramValues}
-            onChange={(name, next) => setParamValues(prev => ({ ...prev, [name]: next }))}
-            onReset={() => setParamValues({})}
-            onExecute={() => {
-              void handleExecute();
-            }}
-          />
-        </Suspense>
-      )}
 
       <div
         id={editorPaneId}
@@ -1637,6 +1671,25 @@ export function QueryPanel({
         onClose={() => setLibraryOpen(false)}
         onSelectQuery={q => setQuery(q)}
       />
+
+      {paramsDialogOpen && (
+        <Suspense fallback={null}>
+          <QueryParametersDialog
+            open={paramsDialogOpen}
+            onOpenChange={open => {
+              setParamsDialogOpen(open);
+              if (!open) setPendingParamAction(null);
+            }}
+            parameters={dialogParams}
+            values={paramValues}
+            onChange={(name, next) => setParamValues(prev => ({ ...prev, [name]: next }))}
+            onReset={() => setParamValues({})}
+            onConfirmExecute={() => {
+              void handleConfirmParameters();
+            }}
+          />
+        </Suspense>
+      )}
     </div>
   );
 }

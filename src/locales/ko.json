@@ -1343,9 +1343,15 @@
     "closeResult": "결과 {{label}} 닫기",
     "parameters": {
       "title": "매개변수",
+      "dialogTitle": "쿼리 매개변수",
+      "dialogDescription": "쿼리를 실행하기 전에 값을 입력하세요. 자동 모드는 숫자, 불리언, NULL, 문자열을 판별합니다.",
+      "missingCount": "{{count}}개 매개변수",
+      "required": "필수",
+      "runWithParams": "실행",
       "valuePlaceholder": "값...",
       "clear": "매개변수 지우기",
       "types": {
+        "auto": "자동",
         "text": "텍스트",
         "number": "숫자",
         "date": "날짜",

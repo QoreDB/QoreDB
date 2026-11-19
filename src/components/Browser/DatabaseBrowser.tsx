@@ -74,7 +74,7 @@ import { cn } from '@/lib/utils';
 import {
   DRIVER_ICONS,
   DRIVER_LABELS,
-  Driver,
+  type Driver,
   type DriverMetadata,
   getDriverMetadata,
   isKeyValueDriver,
@@ -1092,7 +1092,7 @@ function DatabaseBrowserHeader({
   const displayName = namespace.schema
     ? `${namespace.database}.${namespace.schema}`
     : namespace.database;
-  const iconSrc = `/databases/${DRIVER_ICONS[driver]}`;
+  const iconSrc = `/databases/sm/${DRIVER_ICONS[driver]}`;
 
   return (
     <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/20">

@@ -1354,9 +1354,15 @@
     "closeResult": "Fechar o resultado {{label}}",
     "parameters": {
       "title": "Parâmetros",
+      "dialogTitle": "Parâmetros da consulta",
+      "dialogDescription": "Informe os valores antes de executar a consulta. O modo Auto detecta números, booleanos, NULL e texto.",
+      "missingCount": "{{count}} parâm.",
+      "required": "Obrigatório",
+      "runWithParams": "Executar",
       "valuePlaceholder": "Valor...",
       "clear": "Limpar parâmetros",
       "types": {
+        "auto": "Auto",
         "text": "Texto",
         "number": "Número",
         "date": "Data",

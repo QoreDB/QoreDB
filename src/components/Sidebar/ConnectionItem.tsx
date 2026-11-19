@@ -42,7 +42,7 @@ export function ConnectionItem({
   onDisconnect,
 }: ConnectionItemProps) {
   const driver = connection.driver as Driver;
-  const iconSrc = `/databases/${DRIVER_ICONS[driver]}`;
+  const iconSrc = `/databases/sm/${DRIVER_ICONS[driver]}`;
   const env = connection.environment || 'development';
   const envConfig = ENVIRONMENT_CONFIG[env];
 

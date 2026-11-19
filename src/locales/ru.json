@@ -1376,9 +1376,15 @@
     "closeResult": "Закрыть результат {{label}}",
     "parameters": {
       "title": "Параметры",
+      "dialogTitle": "Параметры запроса",
+      "dialogDescription": "Укажите значения перед выполнением запроса. Авторежим определяет числа, логические значения, NULL и строки.",
+      "missingCount": "{{count}} парам.",
+      "required": "Обязательно",
+      "runWithParams": "Выполнить",
       "valuePlaceholder": "Значение...",
       "clear": "Очистить параметры",
       "types": {
+        "auto": "Авто",
         "text": "Текст",
         "number": "Число",
         "date": "Дата",

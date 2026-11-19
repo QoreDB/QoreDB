@@ -65,7 +65,7 @@ export function FederationEmptyState({
             <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted/30 border border-border text-xs">
               <div className="w-4 h-4 rounded-sm overflow-hidden shrink-0">
                 <img
-                  src={`/databases/${DRIVER_ICONS[sources[0].driver as Driver]}`}
+                  src={`/databases/sm/${DRIVER_ICONS[sources[0].driver as Driver]}`}
                   alt={DRIVER_LABELS[sources[0].driver as Driver]}
                   className="w-full h-full object-contain"
                 />
@@ -110,7 +110,7 @@ export function FederationEmptyState({
               <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-muted/30 border border-border text-xs">
                 <div className="w-3.5 h-3.5 rounded-sm overflow-hidden shrink-0">
                   <img
-                    src={`/databases/${DRIVER_ICONS[source.driver as Driver]}`}
+                    src={`/databases/sm/${DRIVER_ICONS[source.driver as Driver]}`}
                     alt={DRIVER_LABELS[source.driver as Driver]}
                     className="w-full h-full object-contain"
                   />

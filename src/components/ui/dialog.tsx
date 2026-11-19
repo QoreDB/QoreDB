@@ -26,7 +26,7 @@ const DialogOverlay = React.forwardRef<
     ref={ref}
     data-slot="dialog-overlay"
     className={cn(
-      'fixed inset-0 z-50 bg-background/85 data-[state=open]:animate-in data-[state=open]:fade-in-0',
+      'fixed inset-0 z-50 bg-background/85 duration-150 fill-mode-forwards data-[state=open]:animate-in data-[state=open]:fade-in-0',
       !disableExitAnimation && 'data-[state=closed]:animate-out data-[state=closed]:fade-out-0',
       className
     )}
@@ -52,7 +52,7 @@ const DialogContent = React.forwardRef<
           aria-describedby={undefined}
           onEscapeKeyDown={e => e.stopPropagation()}
           className={cn(
-            'pointer-events-auto relative grid w-full max-w-lg gap-4 border bg-background p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=open]:fade-in-0 sm:rounded-lg',
+            'pointer-events-auto relative grid w-full max-w-lg gap-4 border bg-background p-6 shadow-lg duration-150 fill-mode-forwards data-[state=open]:animate-in data-[state=open]:fade-in-0 sm:rounded-lg',
             !disableExitAnimation &&
               'data-[state=closed]:animate-out data-[state=closed]:fade-out-0',
             className

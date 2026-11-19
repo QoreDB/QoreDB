@@ -169,7 +169,7 @@ export const CustomTitlebar = ({
           <div className="w-20" />
         ) : (
           <div className="flex items-center ml-1">
-            <img src="/logo.png" alt="" className="w-5 h-5" />
+            <img src="/logo-48.png" alt="" className="w-5 h-5" />
           </div>
         )}
 

@@ -343,7 +343,7 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(function Sidebar(
           className="flex items-center gap-2.5 font-medium text-foreground/90 hover:text-foreground transition-colors"
         >
           <img
-            src={resolvedTheme === 'dark' ? '/logo-white.png' : '/logo.png'}
+            src={resolvedTheme === 'dark' ? '/logo-white-48.png' : '/logo-48.png'}
             alt="QoreDB"
             width={22}
             height={22}

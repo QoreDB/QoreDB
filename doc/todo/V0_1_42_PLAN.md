@@ -1,6 +1,6 @@
 # Plan v0.1.42 — Paramètres SQL, préflight de migrations, CI/CD et finition workflows
 
-Statut : planifié (v0.1.42).
+Statut : livré sur `feat/v0-1-42` (prêt pour release `v0.1.42`).
 
 ## Périmètre et répartition Core / Pro
 
@@ -16,7 +16,7 @@ Statut : planifié (v0.1.42).
 ## Critères d'acceptation par lot
 
 1. **Lot 1 — Paramètres SQL à la volée et Notebooks**
-   - Toute requête SQL contenant `$1`/`$name`, `:name`, `@name` ou `{{name}}` (hors chaînes, commentaires, casts `::type` et variables système `@@var`) affiche la barre `QueryParametersBar` avec sélection de type (`text`, `number`, `date`, `null`).
+   - Toute requête SQL contenant `$1`/`$name`, `:name`, `@name` ou `{{name}}` (hors chaînes, commentaires, casts `::type` et variables système `@@var`) affiche un badge compact dans `QueryPanelToolbar` et ouvre la modale `QueryParametersDialog` à l'exécution si un paramètre manque, avec mode `auto` par défaut (`auto`, `text`, `number`, `date`, `null`) et aperçu SQL en direct.
    - L'exécution substitue les paramètres en une passe sans modifier le texte source dans l'éditeur.
    - Les Notebooks proposent l'ajout de cellules `chart`, l'édition de `cell.config.label` dans les cellules SQL/Mongo et un éditeur de configuration dans `ChartCell`.
 

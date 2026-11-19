@@ -28,8 +28,8 @@ qore replay run <connection_id> <set_id> [--format json|junit]
 ```
 
 Contract and replay runs honor `expose_to_agents`, `read_only`, and column masking
-from the connection vault and exit with a non-zero status code when a contract
-rule fails or a replay regression is detected.
+from the connection vault and exit with status code `2` when a contract
+rule fails or a replay regression is detected (`1` on CLI or connection errors).
 
 `QOREDB_CONFIG_DIR` overrides the config directory (defaults to the desktop app's).
 

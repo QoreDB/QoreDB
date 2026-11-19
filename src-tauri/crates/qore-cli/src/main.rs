@@ -243,7 +243,7 @@ async fn main() -> ExitCode {
         }
         Ok((output, false)) => {
             println!("{output}");
-            ExitCode::FAILURE
+            ExitCode::from(2)
         }
         Err(err) => {
             eprintln!("error: {err}");

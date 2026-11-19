@@ -6,8 +6,10 @@
 pub mod agent_access;
 pub mod agent_tools;
 pub mod cache;
+pub mod ci_runner;
 pub mod connection;
 pub mod context;
+pub mod contracts;
 pub mod error;
 #[cfg(feature = "federation")]
 pub mod federation;
@@ -21,6 +23,7 @@ pub mod paths;
 pub mod policy;
 pub mod query;
 pub mod ratelimit;
+pub mod replay;
 pub mod schema_search;
 pub mod sensitive;
 pub mod vault;

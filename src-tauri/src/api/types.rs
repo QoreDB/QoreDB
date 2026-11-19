@@ -74,12 +74,15 @@ fn default_page_size() -> u32 {
     100
 }
 
-/// Lightweight projection for listing — never carries the token hash.
+/// Lightweight projection for listing and editing — never carries the token hash.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EndpointMeta {
     pub id: String,
     pub name: String,
     pub connection_id: String,
+    pub query_source: String,
+    #[serde(default)]
+    pub params: Vec<EndpointParam>,
     pub shape: QueryShape,
     pub params_count: u32,
     pub page_size: u32,
@@ -93,6 +96,8 @@ impl From<&Endpoint> for EndpointMeta {
             id: e.id.clone(),
             name: e.name.clone(),
             connection_id: e.connection_id.clone(),
+            query_source: e.query_source.clone(),
+            params: e.params.clone(),
             shape: e.shape,
             params_count: e.params.len() as u32,
             page_size: e.page_size,

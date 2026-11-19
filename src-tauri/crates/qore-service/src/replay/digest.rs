@@ -10,7 +10,7 @@
 use sha2::{Digest, Sha256};
 use std::collections::BinaryHeap;
 
-use crate::engine::types::{QueryResult, Value};
+use qore_core::types::{QueryResult, Value};
 
 pub struct DigestOutcome {
     pub digest: String,
@@ -89,7 +89,7 @@ pub fn compute_digest(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::engine::types::{ColumnInfo, Row};
+    use qore_core::types::{ColumnInfo, Row};
 
     fn column(name: &str) -> ColumnInfo {
         ColumnInfo {

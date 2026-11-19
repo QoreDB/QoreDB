@@ -20,6 +20,8 @@ use super::types::{Endpoint, EndpointMeta, EndpointParam, QueryShape};
 
 const STORE_FILE: &str = "endpoints.json";
 const NAME_MAX_LEN: usize = 64;
+pub const MAX_ENDPOINTS: usize = 64;
+pub const MAX_PAGE_SIZE: u32 = 10_000;
 
 #[derive(Debug, Error)]
 pub enum StoreError {
@@ -33,6 +35,8 @@ pub enum StoreError {
     InvalidName(String),
     #[error("endpoint name {0:?} already exists")]
     DuplicateName(String),
+    #[error("maximum number of endpoints ({0}) reached")]
+    LimitReached(usize),
     #[error("endpoint not found: {0}")]
     NotFound(String),
     #[error("serialization error: {0}")]
@@ -109,6 +113,9 @@ impl EndpointStore {
     ) -> Result<Endpoint, StoreError> {
         validate_name(&name)?;
         let mut state = self.state.write().unwrap();
+        if state.len() >= MAX_ENDPOINTS {
+            return Err(StoreError::LimitReached(MAX_ENDPOINTS));
+        }
         if state.values().any(|e| e.name == name) {
             return Err(StoreError::DuplicateName(name));
         }
@@ -121,13 +128,49 @@ impl EndpointStore {
             params,
             shape,
             token_hash,
-            page_size,
+            page_size: page_size.clamp(1, MAX_PAGE_SIZE),
             created_at: now.clone(),
             updated_at: now,
         };
         state.insert(endpoint.id.clone(), endpoint.clone());
         self.flush(&state)?;
         Ok(endpoint)
+    }
+
+    /// Updates an existing endpoint definition without rotating its token hash.
+    /// Returns `(updated_endpoint, previous_connection_id)` so callers can
+    /// invalidate cached sessions when the target connection changes.
+    #[allow(clippy::too_many_arguments)]
+    pub fn update(
+        &self,
+        id: &str,
+        name: String,
+        connection_id: String,
+        query_source: String,
+        params: Vec<EndpointParam>,
+        shape: QueryShape,
+        page_size: u32,
+    ) -> Result<(Endpoint, String), StoreError> {
+        validate_name(&name)?;
+        let mut state = self.state.write().unwrap();
+        if !state.contains_key(id) {
+            return Err(StoreError::NotFound(id.to_string()));
+        }
+        if state.values().any(|e| e.id != id && e.name == name) {
+            return Err(StoreError::DuplicateName(name));
+        }
+        let endpoint = state.get_mut(id).expect("checked contains_key above");
+        let previous_connection_id = endpoint.connection_id.clone();
+        endpoint.name = name;
+        endpoint.connection_id = connection_id;
+        endpoint.query_source = query_source;
+        endpoint.params = params;
+        endpoint.shape = shape;
+        endpoint.page_size = page_size.clamp(1, MAX_PAGE_SIZE);
+        endpoint.updated_at = Utc::now().to_rfc3339();
+        let snapshot = endpoint.clone();
+        self.flush(&state)?;
+        Ok((snapshot, previous_connection_id))
     }
 
     pub fn delete(&self, id: &str) -> Result<(), StoreError> {
@@ -335,5 +378,69 @@ mod tests {
         let list = store.list();
         assert_eq!(list.len(), 1);
         assert_eq!(list[0].name, "a");
+    }
+
+    #[test]
+    fn update_preserves_token_hash_and_enforces_bounds() {
+        let tmp = TempDir::new().unwrap();
+        let store = make_store(&tmp);
+        let ep = store
+            .create(
+                "orders".into(),
+                "conn-1".into(),
+                "SELECT 1".into(),
+                vec![],
+                QueryShape::Rows,
+                50_000,
+                "secret-hash".into(),
+            )
+            .unwrap();
+        assert_eq!(ep.page_size, MAX_PAGE_SIZE);
+
+        let (updated, prev_conn) = store
+            .update(
+                &ep.id,
+                "orders_v2".into(),
+                "conn-2".into(),
+                "SELECT 2".into(),
+                vec![],
+                QueryShape::Object,
+                0,
+            )
+            .unwrap();
+        assert_eq!(prev_conn, "conn-1");
+        assert_eq!(updated.id, ep.id);
+        assert_eq!(updated.created_at, ep.created_at);
+        assert_eq!(updated.token_hash, "secret-hash");
+        assert_eq!(updated.name, "orders_v2");
+        assert_eq!(updated.shape, QueryShape::Object);
+        assert_eq!(updated.page_size, 1);
+
+        // Enforce MAX_ENDPOINTS ceiling.
+        for i in 1..MAX_ENDPOINTS {
+            store
+                .create(
+                    format!("ep_{i}"),
+                    "c".into(),
+                    "SELECT 1".into(),
+                    vec![],
+                    QueryShape::Rows,
+                    10,
+                    "h".into(),
+                )
+                .unwrap();
+        }
+        let err = store
+            .create(
+                "ep_overflow".into(),
+                "c".into(),
+                "SELECT 1".into(),
+                vec![],
+                QueryShape::Rows,
+                10,
+                "h".into(),
+            )
+            .unwrap_err();
+        assert!(matches!(err, StoreError::LimitReached(MAX_ENDPOINTS)));
     }
 }

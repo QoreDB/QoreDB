@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import {
+  BarChart3,
   Code,
   Database,
   Download,
@@ -273,6 +274,10 @@ export function NotebookToolbar({
           <DropdownMenuItem onClick={() => onAddCell('markdown')}>
             <FileText size={14} className="mr-2" />
             {t('notebook.addCellMarkdown')}
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => onAddCell('chart')}>
+            <BarChart3 size={14} className="mr-2" />
+            {t('notebook.addCellChart')}
           </DropdownMenuItem>
           {contractsEnabled && (
             <DropdownMenuItem onClick={() => onAddCell('contract')}>

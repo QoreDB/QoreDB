@@ -727,7 +727,7 @@
     "collapseCell": "Zelle einklappen",
     "expandCell": "Zelle ausklappen",
     "copyError": "Fehler kopieren",
-    "chartNoConfig": "Konfigurieren Sie dieses Diagramm über das Kontextmenü.",
+    "chartNoConfig": "Wähle oben eine Quellzelle, X-Spalte und Y-Spalte(n) aus.",
     "chartNoData": "Keine Daten — führen Sie zuerst die Quellzelle aus.",
     "undo": "Rückgängig",
     "redo": "Wiederholen",
@@ -748,7 +748,23 @@
     "aiGenerate": "SQL generieren",
     "aiCellInserted": "SQL-Zelle unten eingefügt",
     "insertSummaryMarkdown": "Als Markdown-Zelle einfügen",
-    "generateDocumentation": "Dokumentation mit KI erstellen"
+    "generateDocumentation": "Dokumentation mit KI erstellen",
+    "addCellChart": "Diagrammzelle",
+    "cellLabelAria": "Referenz-Label der Zelle",
+    "cellLabelPlaceholder": "label",
+    "cellLabelHint": "Diese Zelle als $label.spalte oder in einem Diagramm referenzieren",
+    "duplicateLabelWarning": "Doppeltes Label: Zellreferenzen und Diagramme erfordern eindeutige Labels",
+    "chartSourcePlaceholder": "Quellzelle...",
+    "chartXColumn": "X-Spalte...",
+    "chartYColumns": "Y",
+    "chartTitlePlaceholder": "Diagrammtitel (optional)",
+    "chartNeedLabelledCell": "Weise einer ausgeführten SQL- oder Mongo-Zelle ein #label zu und wähle es hier aus.",
+    "chartTypes": {
+      "bar": "Balken",
+      "line": "Linie",
+      "pie": "Kreis",
+      "scatter": "Punkte"
+    }
   },
   "replay": {
     "cancelledReport": "Wiedergabe abgebrochen. Ausgeführte Abfragen bleiben erhalten; eine laufende Abfrage kann beendet worden sein.",
@@ -1335,7 +1351,18 @@
       "transferTooltip": "Netzwerk-/Übertragungszeit",
       "totalTooltip": "Gesamte Umlaufzeit"
     },
-    "closeResult": "Ergebnis {{label}} schließen"
+    "closeResult": "Ergebnis {{label}} schließen",
+    "parameters": {
+      "title": "Parameter",
+      "valuePlaceholder": "Wert...",
+      "clear": "Parameter zurücksetzen",
+      "types": {
+        "text": "Text",
+        "number": "Zahl",
+        "date": "Datum",
+        "null": "NULL"
+      }
+    }
   },
   "results": {
     "affectedRows": "{{count}} Zeile(n) betroffen in {{time}}ms",
@@ -2637,7 +2664,9 @@
       "maskedColumns": "Maskierte Werte können nicht vollständig verglichen werden.",
       "truncated": "Nur geladene Zeilen werden verglichen."
     },
-    "retry": "Erneut versuchen"
+    "retry": "Erneut versuchen",
+    "exportSQL": "SQL-Patch herunterladen",
+    "copySQL": "Als SQL-Patch kopieren"
   },
   "virtualRelations": {
     "title": "Virtuelle Relationen",
@@ -2729,9 +2758,9 @@
         "visual_diff": {
           "title": "Visueller Datenvergleich",
           "description": "Zwei beliebige Ergebnismengen Zeile für Zeile mit Hervorhebungen auf Spaltenebene vergleichen.",
-          "bullet1": "Seite-an-Seite- und Unified-Ansicht",
-          "bullet2": "Erkennt Umbenennungen und Neuanordnungen",
-          "bullet3": "Diff als SQL oder Bericht exportieren"
+          "bullet1": "Einheitliche Zeilenansicht mit Spaltenhervorhebung",
+          "bullet2": "Erkennt Ergänzungen, Löschungen und geänderte Zellen",
+          "bullet3": "Diff als CSV, JSON oder SQL-Patch exportieren"
         },
         "er_diagram": {
           "title": "ER-Diagramm",
@@ -3326,7 +3355,37 @@
     "pkLabel": "PK",
     "statusFailed": "Fehlgeschlagen",
     "partiallyApplied": "Migration teilweise angewendet",
-    "partiallyAppliedWarning": "Dieser Treiber committet DDL implizit, daher konnten die bereits ausgeführten Anweisungen nicht rückgängig gemacht werden. Prüfen Sie das Schema, bevor Sie erzwingen."
+    "partiallyAppliedWarning": "Dieser Treiber committet DDL implizit, daher konnten die bereits ausgeführten Anweisungen nicht rückgängig gemacht werden. Prüfen Sie das Schema, bevor Sie erzwingen.",
+    "blastRadius": {
+      "title": "Auswirkungsradius & Preflight",
+      "none": "Keine destruktiven DDL-Risiken oder Workspace-Referenzen erkannt.",
+      "runPreflight": "Daten-Preflight ausführen",
+      "hazardsSection": "DDL-Risiken",
+      "auditSection": "Aktueller Abfrage-Traffic",
+      "auditStats": "{{count}} Ausf. · {{fingerprints}} Muster",
+      "assetsSection": "Workspace-Referenzen",
+      "preflightSection": "Live-Daten-Preflight",
+      "violationsCount": "{{count}} Verstoß/Verstöße",
+      "severity": {
+        "high": "Hoch",
+        "medium": "Mittel"
+      },
+      "kinds": {
+        "drop_table": "Tabelle löschen",
+        "truncate_table": "Tabelle leeren",
+        "drop_column": "Spalte löschen",
+        "alter_column_type": "Spaltentyp ändern",
+        "add_not_null": "NOT NULL hinzufügen",
+        "add_unique": "UNIQUE hinzufügen",
+        "shrink_varchar": "Länge verkürzen"
+      },
+      "assetKinds": {
+        "saved_query": "Abfrage",
+        "notebook": "Notebook",
+        "contract": "Contract",
+        "replay_set": "Replay"
+      }
+    }
   },
   "snapshots": {
     "title": "Snapshots",
@@ -3937,7 +3996,12 @@
       "invalidPageSize": "Die maximale Zeilenanzahl muss zwischen 1 und 10000 liegen.",
       "invalidParamName": "Ungültiger Parametername: {{name}}",
       "paramNotInQuery": "Parameter {{name}} wird in der Abfrage nicht referenziert.",
-      "loadConnectionsFailed": "Verbindungen konnten nicht geladen werden"
+      "loadConnectionsFailed": "Verbindungen konnten nicht geladen werden",
+      "editTitle": "Endpunkt bearbeiten",
+      "editDescription": "Aktualisiere Abfrage, Parameter oder Zeilenlimit ohne Token-Rotation.",
+      "save": "Änderungen speichern",
+      "saving": "Speichern…",
+      "updateFailed": "Endpunkt-Aktualisierung fehlgeschlagen"
     },
     "token": {
       "title": "Endpunkt-Token (einmalig)",
@@ -3962,7 +4026,8 @@
       "useHttps": "HTTPS verwenden",
       "badge": "HTTPS",
       "selfSigned": "Selbst signiertes Zertifikat, beim Start erzeugt. Browser verlangen eine einmalige Vertrauensbestätigung."
-    }
+    },
+    "edit": "Endpunkt bearbeiten"
   },
   "restore": {
     "dialogTitle": "Wiederherstellung in {{name}}",

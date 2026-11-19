@@ -10,7 +10,7 @@
 //!
 //! Lifecycle (see [`server::ApiServer`]):
 //!   - explicit start via Tauri command;
-//!   - shutdown on explicit stop, app lock, or workspace switch.
+//!   - shutdown on explicit stop via the Tauri command.
 
 #![cfg(feature = "pro")]
 

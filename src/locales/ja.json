@@ -725,7 +725,7 @@
     "collapseCell": "セルを折りたたむ",
     "expandCell": "セルを展開",
     "copyError": "エラーをコピー",
-    "chartNoConfig": "コンテキストメニューからこのチャートセルを設定してください。",
+    "chartNoConfig": "上でソースセル、X 列、Y 列を選択してください。",
     "chartNoData": "データがありません — まずソースセルを実行してください。",
     "undo": "元に戻す",
     "redo": "やり直し",
@@ -746,7 +746,23 @@
     "aiGenerate": "SQLを生成",
     "aiCellInserted": "下にSQLセルを挿入しました",
     "insertSummaryMarkdown": "Markdown セルとして挿入",
-    "generateDocumentation": "AI でドキュメントを生成"
+    "generateDocumentation": "AI でドキュメントを生成",
+    "addCellChart": "チャートセル",
+    "cellLabelAria": "セル参照ラベル",
+    "cellLabelPlaceholder": "label",
+    "cellLabelHint": "$label.column またはチャートセルからこのセルを参照します",
+    "duplicateLabelWarning": "ラベルが重複しています：セル間参照とチャートには一意のラベルが必要です",
+    "chartSourcePlaceholder": "ソースセル...",
+    "chartXColumn": "X 列...",
+    "chartYColumns": "Y",
+    "chartTitlePlaceholder": "チャートタイトル（任意）",
+    "chartNeedLabelledCell": "実行済みの SQL または Mongo セルに #label を設定してからここで選択してください。",
+    "chartTypes": {
+      "bar": "棒",
+      "line": "折れ線",
+      "pie": "円",
+      "scatter": "散布図"
+    }
   },
   "replay": {
     "cancelledReport": "再実行をキャンセルしました。実行済みのクエリは保持されます。実行中のクエリは完了した可能性があります。",
@@ -1324,7 +1340,18 @@
       "transferTooltip": "ネットワーク/転送時間",
       "totalTooltip": "合計ラウンドトリップ"
     },
-    "closeResult": "結果 {{label}} を閉じる"
+    "closeResult": "結果 {{label}} を閉じる",
+    "parameters": {
+      "title": "パラメーター",
+      "valuePlaceholder": "値...",
+      "clear": "パラメーターをクリア",
+      "types": {
+        "text": "テキスト",
+        "number": "数値",
+        "date": "日付",
+        "null": "NULL"
+      }
+    }
   },
   "results": {
     "affectedRows": "{{count}} 行が {{time}}ms で影響を受けました",
@@ -2625,7 +2652,9 @@
       "maskedColumns": "マスクされた値は完全には比較できません。",
       "truncated": "読み込まれた行のみを比較しています。"
     },
-    "retry": "再試行"
+    "retry": "再試行",
+    "exportSQL": "SQL パッチをダウンロード",
+    "copySQL": "SQL パッチとしてコピー"
   },
   "virtualRelations": {
     "title": "仮想リレーション",
@@ -2717,9 +2746,9 @@
         "visual_diff": {
           "title": "ビジュアルデータ差分",
           "description": "任意の 2 つの結果セットを行単位で、カラムレベルのハイライト付きで比較できます。",
-          "bullet1": "並列表示と統合表示",
-          "bullet2": "名前変更と並べ替えを検出",
-          "bullet3": "差分を SQL またはレポートとしてエクスポート"
+          "bullet1": "列ハイライト付きの統合行比較ビュー",
+          "bullet2": "追加・削除・変更されたセルを検出",
+          "bullet3": "差分を CSV、JSON、または SQL パッチとしてエクスポート"
         },
         "er_diagram": {
           "title": "ER 図",
@@ -3313,7 +3342,37 @@
     "pkLabel": "主キー",
     "statusFailed": "失敗",
     "partiallyApplied": "マイグレーションが部分的に適用されました",
-    "partiallyAppliedWarning": "このドライバーは DDL を暗黙的にコミットするため、実行済みのステートメントは取り消せませんでした。強制する前にスキーマを確認してください。"
+    "partiallyAppliedWarning": "このドライバーは DDL を暗黙的にコミットするため、実行済みのステートメントは取り消せませんでした。強制する前にスキーマを確認してください。",
+    "blastRadius": {
+      "title": "影響範囲と事前チェック",
+      "none": "破壊的な DDL リスクやワークスペース内の参照は検出されませんでした。",
+      "runPreflight": "データ事前チェック",
+      "hazardsSection": "DDL リスク",
+      "auditSection": "最近のクエリ実行",
+      "auditStats": "{{count}} 回 · {{fingerprints}} パターン",
+      "assetsSection": "ワークスペース参照",
+      "preflightSection": "ライブデータの事前チェック",
+      "violationsCount": "{{count}} 件の違反",
+      "severity": {
+        "high": "高",
+        "medium": "中"
+      },
+      "kinds": {
+        "drop_table": "テーブル削除",
+        "truncate_table": "テーブル切り捨て",
+        "drop_column": "列削除",
+        "alter_column_type": "列型変更",
+        "add_not_null": "NOT NULL 追加",
+        "add_unique": "UNIQUE 追加",
+        "shrink_varchar": "長さ縮小"
+      },
+      "assetKinds": {
+        "saved_query": "クエリ",
+        "notebook": "ノートブック",
+        "contract": "コントラクト",
+        "replay_set": "リプレイ"
+      }
+    }
   },
   "snapshots": {
     "title": "スナップショット",
@@ -3923,7 +3982,12 @@
       "invalidPageSize": "最大行数は 1〜10000 の範囲で指定してください。",
       "invalidParamName": "無効なパラメータ名: {{name}}",
       "paramNotInQuery": "パラメータ {{name}} はクエリで参照されていません。",
-      "loadConnectionsFailed": "接続の読み込みに失敗しました"
+      "loadConnectionsFailed": "接続の読み込みに失敗しました",
+      "editTitle": "エンドポイントを編集",
+      "editDescription": "トークンを再発行せずにクエリ、パラメーター、または最大行数を更新します。",
+      "save": "変更を保存",
+      "saving": "保存中…",
+      "updateFailed": "エンドポイントの更新に失敗しました"
     },
     "token": {
       "title": "エンドポイントのトークン（一度だけ表示）",
@@ -3948,7 +4012,8 @@
       "useHttps": "HTTPS を使用",
       "badge": "HTTPS",
       "selfSigned": "起動時に自己署名証明書を生成します。ブラウザは初回アクセス時に例外承認を求めます。"
-    }
+    },
+    "edit": "エンドポイントを編集"
   },
   "restore": {
     "dialogTitle": "{{name}} へのリストア",

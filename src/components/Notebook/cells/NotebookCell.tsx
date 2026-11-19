@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import {
+  BarChart3,
   ChevronsRight,
   Code,
   Copy,
@@ -37,6 +38,7 @@ import {
 import { Tooltip } from '@/components/ui/tooltip';
 import type { Driver } from '@/lib/connection/drivers';
 import type {
+  CellConfig,
   CellExecutionState,
   NotebookCell as NotebookCellType,
 } from '@/lib/notebook/notebookTypes';
@@ -61,6 +63,7 @@ interface NotebookCellProps {
   isLast: boolean;
   onFocus: () => void;
   onSourceChange: (source: string) => void;
+  onConfigChange?: (patch: Partial<CellConfig>) => void;
   onExecute: () => void;
   onDelete: () => void;
   onMoveUp: () => void;
@@ -89,6 +92,8 @@ const CellTypeIcon = ({ type }: { type: string }) => {
       return <Code size={13} className="text-muted-foreground" />;
     case 'markdown':
       return <FileText size={13} className="text-muted-foreground" />;
+    case 'chart':
+      return <BarChart3 size={13} className="text-muted-foreground" />;
     case 'contract':
       return <ShieldCheck size={13} className="text-muted-foreground" />;
     case 'ai':
@@ -110,6 +115,7 @@ export function NotebookCell({
   isLast: _isLast,
   onFocus,
   onSourceChange,
+  onConfigChange,
   onExecute,
   onDelete,
   onMoveUp: _onMoveUp,
@@ -315,6 +321,37 @@ export function NotebookCell({
               <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
                 {cell.type}
               </span>
+              {(cell.type === 'sql' || cell.type === 'mongo') && onConfigChange && (
+                <div className="flex items-center gap-1 ml-2">
+                  <span className="text-[11px] font-mono text-muted-foreground/70">#</span>
+                  <input
+                    type="text"
+                    aria-label={t('notebook.cellLabelAria')}
+                    value={cell.config?.label ?? ''}
+                    placeholder={t('notebook.cellLabelPlaceholder')}
+                    onClick={e => e.stopPropagation()}
+                    onChange={e => {
+                      const sanitized = e.target.value.replace(/[^a-zA-Z0-9_]/g, '');
+                      onConfigChange({ label: sanitized });
+                    }}
+                    className={cn(
+                      'h-5 w-28 rounded border bg-transparent px-1.5 text-[11px] font-mono text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-ring',
+                      cell.config?.label &&
+                        allCells &&
+                        allCells.filter(c => c.config?.label === cell.config?.label).length > 1
+                        ? 'border-destructive text-destructive'
+                        : 'border-border/60'
+                    )}
+                    title={
+                      cell.config?.label &&
+                      allCells &&
+                      allCells.filter(c => c.config?.label === cell.config?.label).length > 1
+                        ? t('notebook.duplicateLabelWarning')
+                        : t('notebook.cellLabelHint')
+                    }
+                  />
+                </div>
+              )}
               {cell.executionState === 'stale' && (
                 <span className="text-[10px] text-amber-500 font-medium ml-1">
                   {t('notebook.stale')}
@@ -346,7 +383,15 @@ export function NotebookCell({
                 {cell.type === 'contract' && (
                   <ContractCell cell={cell} onSourceChange={onSourceChange} />
                 )}
-                {cell.type === 'chart' && allCells && <ChartCell cell={cell} allCells={allCells} />}
+                {cell.type === 'chart' && allCells && (
+                  <ChartCell
+                    cell={cell}
+                    allCells={allCells}
+                    onChartConfigChange={
+                      onConfigChange ? chartConfig => onConfigChange({ chartConfig }) : undefined
+                    }
+                  />
+                )}
                 {cell.type === 'ai' && (
                   <AiCell
                     cell={cell}

@@ -32,6 +32,22 @@ const READ_ONLY_BLOCKED: &str = "Operation blocked: read-only mode";
 const DANGEROUS_BLOCKED: &str = "Dangerous query blocked: confirmation required";
 const TRANSACTIONS_NOT_SUPPORTED: &str = "Transactions are not supported by this driver";
 const SAFETY_RULE_BLOCKED: &str = "Query blocked by safety rule";
+const QUERY_CONFIRMATION_ACTION: &str = "acknowledge_dangerous_query";
+
+fn resolve_query_acknowledgement(
+    store: &crate::commands::confirmation::ConfirmationTokenStore,
+    acknowledged_dangerous: Option<bool>,
+    confirmation_token: Option<&str>,
+) -> Result<bool, String> {
+    if let Some(token) = confirmation_token {
+        store.consume(QUERY_CONFIRMATION_ACTION, token)?;
+        return Ok(true);
+    }
+    if acknowledged_dangerous.unwrap_or(false) {
+        return Err("Dangerous query execution requires a confirmation token".to_string());
+    }
+    Ok(false)
+}
 
 /// Past this, the `queryRead` payload is dropped and the plugin sees `None`.
 const QUERY_READ_MAX_PAYLOAD_BYTES: usize = 1024 * 1024;
@@ -161,6 +177,7 @@ pub async fn execute_query(
     query: String,
     namespace: Option<Namespace>,
     acknowledged_dangerous: Option<bool>,
+    confirmation_token: Option<String>,
     query_id: Option<String>,
     timeout_ms: Option<u64>,
     stream: Option<bool>,
@@ -177,6 +194,7 @@ pub async fn execute_query(
         policy,
         interceptor,
         plugin_host,
+        confirmation_tokens,
         license_tier,
     ) = {
         let state = state.lock().await;
@@ -188,6 +206,7 @@ pub async fn execute_query(
             state.policy.clone(),
             Arc::clone(&state.interceptor),
             Arc::clone(&state.plugin_host),
+            Arc::clone(&state.confirmation_tokens),
             state.license_manager.effective_status().tier,
         )
     };
@@ -223,6 +242,25 @@ pub async fn execute_query(
 
     let session = parse_session_id(&session_id)?;
 
+    let acknowledged = match resolve_query_acknowledgement(
+        confirmation_tokens.as_ref(),
+        acknowledged_dangerous,
+        confirmation_token.as_deref(),
+    ) {
+        Ok(acknowledged) => acknowledged,
+        Err(msg) => {
+            return Ok(QueryResponse {
+                extra_results: Vec::new(),
+                success: false,
+                result: None,
+                error: Some(msg),
+                query_id: None,
+                truncated: None,
+                truncated_total: None,
+            });
+        }
+    };
+
     let preflight = match qore_service::query::preflight(
         &session_manager,
         &query_rate_limiter,
@@ -232,7 +270,7 @@ pub async fn execute_query(
         &session_id,
         &query,
         namespace.as_ref(),
-        acknowledged_dangerous.unwrap_or(false),
+        acknowledged,
     )
     .await
     {
@@ -1161,12 +1199,14 @@ pub async fn create_database(
     name: String,
     options: Option<serde_json::Value>,
     acknowledged_dangerous: Option<bool>,
+    confirmation_token: Option<String>,
 ) -> Result<QueryResponse, String> {
-    let (session_manager, interceptor) = {
+    let (session_manager, interceptor, confirmation_tokens) = {
         let state = state.lock().await;
         (
             Arc::clone(&state.session_manager),
             Arc::clone(&state.interceptor),
+            Arc::clone(&state.confirmation_tokens),
         )
     };
     let session = parse_session_id(&session_id)?;
@@ -1206,7 +1246,24 @@ pub async fn create_database(
     let interceptor_env = map_environment(&environment);
 
     let query_preview = format!("CREATE DATABASE {}", name);
-    let acknowledged = acknowledged_dangerous.unwrap_or(false);
+    let acknowledged = match resolve_query_acknowledgement(
+        confirmation_tokens.as_ref(),
+        acknowledged_dangerous,
+        confirmation_token.as_deref(),
+    ) {
+        Ok(acknowledged) => acknowledged,
+        Err(msg) => {
+            return Ok(QueryResponse {
+                extra_results: Vec::new(),
+                success: false,
+                result: None,
+                error: Some(msg),
+                query_id: None,
+                truncated: None,
+                truncated_total: None,
+            });
+        }
+    };
     let interceptor_context = interceptor.build_context(
         &session_id,
         &query_preview,
@@ -1327,12 +1384,14 @@ pub async fn drop_database(
     session_id: String,
     name: String,
     acknowledged_dangerous: Option<bool>,
+    confirmation_token: Option<String>,
 ) -> Result<QueryResponse, String> {
-    let (session_manager, interceptor) = {
+    let (session_manager, interceptor, confirmation_tokens) = {
         let state = state.lock().await;
         (
             Arc::clone(&state.session_manager),
             Arc::clone(&state.interceptor),
+            Arc::clone(&state.confirmation_tokens),
         )
     };
     let session = parse_session_id(&session_id)?;
@@ -1372,7 +1431,24 @@ pub async fn drop_database(
     let interceptor_env = map_environment(&environment);
 
     let query_preview = format!("DROP DATABASE {}", name);
-    let acknowledged = acknowledged_dangerous.unwrap_or(false);
+    let acknowledged = match resolve_query_acknowledgement(
+        confirmation_tokens.as_ref(),
+        acknowledged_dangerous,
+        confirmation_token.as_deref(),
+    ) {
+        Ok(acknowledged) => acknowledged,
+        Err(msg) => {
+            return Ok(QueryResponse {
+                extra_results: Vec::new(),
+                success: false,
+                result: None,
+                error: Some(msg),
+                query_id: None,
+                truncated: None,
+                truncated_total: None,
+            });
+        }
+    };
     let interceptor_context = interceptor.build_context(
         &session_id,
         &query_preview,
@@ -1798,5 +1874,29 @@ mod tests {
         let host = PluginHost::new();
         let result = result_with_rows(10);
         assert!(query_read_payload(&host, Some(&result)).is_none());
+    }
+
+    #[test]
+    fn query_acknowledgement_requires_single_use_backend_token() {
+        let store = crate::commands::confirmation::ConfirmationTokenStore::new();
+        assert_eq!(
+            resolve_query_acknowledgement(&store, None, None).unwrap(),
+            false
+        );
+        assert_eq!(
+            resolve_query_acknowledgement(&store, Some(false), None).unwrap(),
+            false
+        );
+        assert!(resolve_query_acknowledgement(&store, Some(true), None).is_err());
+
+        let (token, _) = store.issue(QUERY_CONFIRMATION_ACTION);
+        assert!(resolve_query_acknowledgement(&store, Some(true), Some(&token)).unwrap());
+        // Single-use: replaying the same token must fail.
+        assert!(resolve_query_acknowledgement(&store, Some(true), Some(&token)).is_err());
+
+        let (wrong_action_token, _) = store.issue("apply_migration");
+        assert!(
+            resolve_query_acknowledgement(&store, Some(true), Some(&wrong_action_token)).is_err()
+        );
     }
 }

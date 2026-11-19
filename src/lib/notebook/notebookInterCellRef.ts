@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 
 import type { CellType, NotebookCell, NotebookVariable, QoreNotebook } from './notebookTypes';
 import { extractVariableReferences, substituteVariables } from './notebookVariables';

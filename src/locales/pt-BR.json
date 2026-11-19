@@ -727,7 +727,7 @@
     "collapseCell": "Recolher célula",
     "expandCell": "Expandir célula",
     "copyError": "Copiar erro",
-    "chartNoConfig": "Configure esta célula de gráfico pelo menu de contexto.",
+    "chartNoConfig": "Selecione acima uma célula de origem, a coluna X e a(s) coluna(s) Y.",
     "chartNoData": "Sem dados — execute a célula de origem primeiro.",
     "undo": "Desfazer",
     "redo": "Refazer",
@@ -748,7 +748,23 @@
     "aiGenerate": "Gerar SQL",
     "aiCellInserted": "Célula SQL inserida abaixo",
     "insertSummaryMarkdown": "Inserir como célula Markdown",
-    "generateDocumentation": "Gerar documentação com IA"
+    "generateDocumentation": "Gerar documentação com IA",
+    "addCellChart": "Célula de gráfico",
+    "cellLabelAria": "Rótulo de referência da célula",
+    "cellLabelPlaceholder": "rotulo",
+    "cellLabelHint": "Referencie esta célula como $rotulo.coluna ou em um gráfico",
+    "duplicateLabelWarning": "Rótulo duplicado: referências entre células e gráficos exigem rótulos únicos",
+    "chartSourcePlaceholder": "Célula de origem...",
+    "chartXColumn": "Coluna X...",
+    "chartYColumns": "Y",
+    "chartTitlePlaceholder": "Título do gráfico (opcional)",
+    "chartNeedLabelledCell": "Atribua um #rotulo a uma célula SQL ou Mongo executada e selecione-a aqui.",
+    "chartTypes": {
+      "bar": "Barras",
+      "line": "Linha",
+      "pie": "Pizza",
+      "scatter": "Dispersão"
+    }
   },
   "replay": {
     "cancelledReport": "Reprodução cancelada. As consultas executadas são preservadas; a consulta em andamento pode ter terminado.",
@@ -1335,7 +1351,18 @@
       "transferTooltip": "Tempo de Rede/Transferência",
       "totalTooltip": "Tempo Total de Ida e Volta"
     },
-    "closeResult": "Fechar o resultado {{label}}"
+    "closeResult": "Fechar o resultado {{label}}",
+    "parameters": {
+      "title": "Parâmetros",
+      "valuePlaceholder": "Valor...",
+      "clear": "Limpar parâmetros",
+      "types": {
+        "text": "Texto",
+        "number": "Número",
+        "date": "Data",
+        "null": "NULL"
+      }
+    }
   },
   "results": {
     "affectedRows": "{{count}} linha(s) afetada(s) em {{time}}ms",
@@ -2637,7 +2664,9 @@
       "maskedColumns": "Valores mascarados não podem ser comparados integralmente.",
       "truncated": "Somente as linhas carregadas são comparadas."
     },
-    "retry": "Tentar novamente"
+    "retry": "Tentar novamente",
+    "exportSQL": "Baixar patch SQL",
+    "copySQL": "Copiar como patch SQL"
   },
   "virtualRelations": {
     "title": "Relações Virtuais",
@@ -2729,9 +2758,9 @@
         "visual_diff": {
           "title": "Diff visual de dados",
           "description": "Compare quaisquer dois conjuntos de resultados linha a linha, com destaques por coluna.",
-          "bullet1": "Visualizações lado a lado e unificada",
-          "bullet2": "Detecta renomeações e reordenações",
-          "bullet3": "Exporte o diff como SQL ou relatório"
+          "bullet1": "Visualização unificada linha por linha com destaque por coluna",
+          "bullet2": "Detecta adições, remoções e células modificadas",
+          "bullet3": "Exporte o diff em CSV, JSON ou patch SQL"
         },
         "er_diagram": {
           "title": "Diagrama ER",
@@ -3326,7 +3355,37 @@
     "pkLabel": "PK",
     "statusFailed": "Falhou",
     "partiallyApplied": "Migração parcialmente aplicada",
-    "partiallyAppliedWarning": "Este driver confirma o DDL implicitamente, então as instruções já executadas não puderam ser desfeitas. Verifique o esquema antes de forçar."
+    "partiallyAppliedWarning": "Este driver confirma o DDL implicitamente, então as instruções já executadas não puderam ser desfeitas. Verifique o esquema antes de forçar.",
+    "blastRadius": {
+      "title": "Raio de impacto e pré-validação",
+      "none": "Nenhum risco DDL destrutivo ou referência no workspace detectado.",
+      "runPreflight": "Pré-validar dados",
+      "hazardsSection": "Riscos DDL",
+      "auditSection": "Tráfego recente",
+      "auditStats": "{{count}} exec. · {{fingerprints}} padrões",
+      "assetsSection": "Referências do workspace",
+      "preflightSection": "Pré-validação em dados ao vivo",
+      "violationsCount": "{{count}} violação(ões)",
+      "severity": {
+        "high": "Alto",
+        "medium": "Médio"
+      },
+      "kinds": {
+        "drop_table": "Remover tabela",
+        "truncate_table": "Truncar tabela",
+        "drop_column": "Remover coluna",
+        "alter_column_type": "Alterar tipo",
+        "add_not_null": "Adicionar NOT NULL",
+        "add_unique": "Adicionar UNIQUE",
+        "shrink_varchar": "Reduzir tamanho"
+      },
+      "assetKinds": {
+        "saved_query": "Consulta",
+        "notebook": "Notebook",
+        "contract": "Contrato",
+        "replay_set": "Replay"
+      }
+    }
   },
   "snapshots": {
     "title": "Snapshots",
@@ -3937,7 +3996,12 @@
       "invalidPageSize": "O máximo de linhas deve estar entre 1 e 10000.",
       "invalidParamName": "Nome de parâmetro inválido: {{name}}",
       "paramNotInQuery": "O parâmetro {{name}} não é usado na consulta.",
-      "loadConnectionsFailed": "Falha ao carregar as conexões"
+      "loadConnectionsFailed": "Falha ao carregar as conexões",
+      "editTitle": "Editar endpoint",
+      "editDescription": "Atualize a consulta, os parâmetros ou o limite de linhas sem girar o token.",
+      "save": "Salvar alterações",
+      "saving": "Salvando…",
+      "updateFailed": "Falha ao atualizar o endpoint"
     },
     "token": {
       "title": "Token do endpoint (exibido uma única vez)",
@@ -3962,7 +4026,8 @@
       "useHttps": "Usar HTTPS",
       "badge": "HTTPS",
       "selfSigned": "Certificado autoassinado gerado ao iniciar. Os navegadores pedirão uma exceção manual na primeira visita."
-    }
+    },
+    "edit": "Editar endpoint"
   },
   "restore": {
     "dialogTitle": "Restaurar em {{name}}",

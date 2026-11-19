@@ -32,7 +32,7 @@ DBeaver, pgAdmin, phpMyAdmin do the job — but they feel slow, dated, and full 
 | | |
 |---|---|
 | ⚡ **Native performance** | Rust + Tauri. No Electron tax — small binary, instant startup, low memory. ~25% faster on real workloads than the previous baseline (Apple Silicon). |
-| 🔒 **Local-first & secure** | Credentials in your OS keychain (Argon2). Dev/Staging/Prod guards, dangerous query detection, read-only mode. |
+| 🔒 **Local-first & secure** | Credentials in your OS keychain (optional Argon2id app lock and encrypted fallback vault). Dev/Staging/Prod guards, dangerous query detection, read-only mode. |
 | 🕵️ **Zero telemetry** | No analytics SDK ships in the binary — nothing to opt out of. Your data, queries and credentials never leave your machine. Crash reports stay on disk until *you* choose to share one, and log exports are scrubbed of credentials. The only outbound call is the GitHub update check: it never fires before you've been through onboarding, and you can switch it off. |
 | 🧩 **SQL + NoSQL, unified** | One UI for PostgreSQL, MySQL, MariaDB, TiDB, SingleStore, YugabyteDB, SQL Server, Azure SQL, SQLite, DuckDB, StarRocks, Doris, Synapse, Snowflake, BigQuery, CockroachDB, ClickHouse, MongoDB, Redis, Valkey, Dragonfly, KeyDB, Garnet, Cassandra, ScyllaDB, Elasticsearch and OpenSearch — plus first-class support for Supabase, Neon, PlanetScale, Amazon DocumentDB, Amazon Keyspaces, MotherDuck and TimescaleDB. |
 | 📓 **Notebooks built-in** | Executable SQL/Mongo + Markdown documents with parameters, charts and Git-diffable `.qnb` files. |
@@ -106,14 +106,14 @@ DBeaver, pgAdmin, phpMyAdmin do the job — but they feel slow, dated, and full 
 <details open>
 <summary><b>Query &amp; schema</b></summary>
 
-- **SQL editor** — Syntax highlighting, formatting, snippets, multi-statement execution
+- **SQL editor** — Syntax highlighting, formatting, snippets, multi-statement execution, ad-hoc query parameters (`$1`, `:param`, `@param`, `{{param}}`)
 - **MongoDB editor** — Autocomplete (collections, methods, operators), real-time JSON linter, aggregation pipeline validation with stage classification and examples
 - **QoreQuery** — Type-safe multi-dialect query builder (JOINs, subqueries, aggregates, CAST, COALESCE, LIKE/ILIKE) targeting PostgreSQL, MySQL, SQLite, DuckDB and SQL Server
 - **Query library** — Folders, tags, JSON import/export, reusable queries
 - **ER diagram** — Interactive schema graph with isolate/focus workflows _[Pro]_
 - **Visual DDL editor** — Full CREATE and ALTER TABLE from the UI: columns, foreign keys, indexes, check constraints with live driver-specific SQL preview
 - **Explain Plan visualization** — Interactive execution plan tree with cost highlighting (PostgreSQL, MySQL, SQL Server)
-- **Visual data diff** — Side-by-side comparison of table/query results _[Pro]_
+- **Visual data diff** — Unified comparison of table/query results with CSV, JSON, and SQL patch export (`INSERT`/`UPDATE`/`DELETE`) _[Pro]_
 - **Global full-text search** — Search values across all tables and columns
 - **Foreign key peek + virtual relations** — Navigation even without native FK constraints
 - **Routines, procedures, triggers & events** — List, create and edit stored objects with SQL templates
@@ -133,19 +133,19 @@ DBeaver, pgAdmin, phpMyAdmin do the job — but they feel slow, dated, and full 
 - **Export pipeline** — CSV, JSON, SQL, HTML, self-contained HTML (+ XLSX/Parquet in Pro)
 - **Cross-database federation** — Query and join across active connections via DuckDB
 - **Sandbox mode** — Stage grid edits locally, review the generated DML, then apply or export it; SQL editor queries are not sandboxed
-- **Query Replay Lab** — Record a set of queries while you work, replay it after a migration or against another connection, and get a report of what broke, what returns a different row count, what changed in content and what got slower; open the baseline ↔ run diff from any report row. Sets are shared through Git and carry expectations, never result rows _[Pro]_
-- **Migrations Manager** — Versioned `.sql` schema migrations in `.qoredb/migrations/`, shared through Git, applied with per-statement safety checks and transactional rollback when the driver supports it (MySQL/MariaDB DDL is non-transactional), with an applied-state history table (+ schema-diff generation, drift detection and Prod↔Staging schema diff in Pro)
+- **Query Replay Lab** — Record a set of queries while you work, replay it after a migration or against another connection, and get a report of what broke, what returns a different row count, what changed in content and what got slower; open the baseline ↔ run diff from any report row. Sets are shared through Git and carry expectations, never result rows _[Pro UI; headless CI execution via `qore replay`]_.
+- **Migrations Manager** — Versioned `.sql` schema migrations in `.qoredb/migrations/`, shared through Git, applied with per-statement safety checks, transactional rollback when the driver supports it (MySQL/MariaDB DDL is non-transactional), **Migration Blast Radius** (DDL hazard detection, audit traffic & workspace impact analysis, and live data preflight checks), and an applied-state history table (+ schema-diff generation, drift detection and Prod↔Staging schema diff in Pro)
 - **Backup &amp; restore** — Visual wrappers around `pg_dump`, `mysqldump`, `mongodump` and `sqlite3 .dump`, with streaming logs, cancel mid-run and tool-path overrides
 - **Query result cache** — Recent table navigation served instantly from a local cache, auto-invalidated when you change data through QoreDB
-- **Plugin system** — Declarative plugins contribute SQL snippet packs, connection templates, color themes and result viewers; executable plugins run sandboxed WebAssembly (fuel and memory budgets, per-capability consent, optional sha256 integrity) for query hooks, commands, cell context-menu actions and structured cell previews
+- **Plugin system** — Declarative plugins contribute SQL snippet packs, connection templates, color themes and result viewers; executable plugins run sandboxed WebAssembly (fuel and memory budgets, strict opt-in capability consent, plugin-folder FS scope and HTTP host allow-list, optional sha256 integrity) for query hooks, commands, cell context-menu actions and structured cell previews
 </details>
 
 <details>
 <summary><b>Data quality &amp; integration</b></summary>
 
-- **Data Contracts** — Declarative YAML assertions (12 rule types: NOT NULL %, regex, range, unique, FK integrity, custom SQL) executed as generated SQL, with a health dashboard, notebook cell and post-mutation alert hook _[Pro]_
-- **Instant Data API** — Expose parameterized SQL queries as read-only REST endpoints on `127.0.0.1`, with Bearer auth, rate limiting, OpenAPI 3.1 generation and one-shot token regeneration _[Pro]_
-- **Data Generator** — Schema-aware test/seed data (types, constraints and foreign keys honored), realistic values, configurable volume, SQL preview then direct execution or `.sql` export _[Pro]_
+- **Data Contracts** — Declarative YAML assertions (12 rule types: NOT NULL %, regex, range, unique, FK integrity, custom SQL) executed as generated SQL, with a health dashboard, notebook cell and post-mutation alert hook _[Pro UI; headless CI execution via `qore contract`]_.
+- **Instant Data API** — Expose parameterized SQL queries as read-only REST endpoints on `127.0.0.1` (up to 64 endpoints, configurable `page_size` clamping, 30s query execution timeout), with Bearer auth, rate limiting, OpenAPI 3.1 generation, non-destructive endpoint updates and one-shot token regeneration _[Pro]_
+- **Data Generator** — Schema-aware test/seed data (column types, string lengths, single-column uniqueness and foreign keys honored), realistic values, configurable volume, SQL preview then direct execution or `.sql` export _[Pro]_
 </details>
 
 <details>
@@ -154,7 +154,7 @@ DBeaver, pgAdmin, phpMyAdmin do the job — but they feel slow, dated, and full 
 - Executable documents mixing SQL/Mongo and Markdown cells, connected to a live database
 - Parameterized variables (`$customer_id`, `{{date_from}}`) with typed inputs
 - Run All / Run From Here with stop-on-error
-- Inter-cell references and Chart cells (bar, line, pie, scatter) _[Pro]_
+- Inter-cell references (`#label`) and Chart cells (bar, line, pie, scatter)
 - AI cells — natural-language prompts that generate an adjacent SQL cell _[Pro]_
 - Import from `.sql` / `.md`, export to Markdown or standalone HTML
 - `.qnb` file format, Git-diffable
@@ -181,14 +181,14 @@ DBeaver, pgAdmin, phpMyAdmin do the job — but they feel slow, dated, and full 
 <details>
 <summary><b>Security &amp; reliability</b></summary>
 
-- **Secure vault** — Native OS keychain storage (Argon2) + optional app lock
+- **Secure vault** — Native OS keychain storage + optional Argon2id app lock and encrypted fallback vault
 - **SSH tunneling** — Native OpenSSH client with proxy jump support, key file or SSH agent authentication
 - **PostgreSQL client certificates** — CA certificate, client certificate and private key for `verify-ca` / `verify-full` and mutual TLS
 - **SQL Server Windows authentication** — NTLM (username/password) and SSPI/Kerberos (integrated, no credentials)
-- **Environment safety** — Dev/Staging/Prod guards, dangerous query detection, read-only mode
-- **Query rate limiting** — Per-connection guardrail against accidental runaway query loops, plus a filesystem capability allow-list
+- **Environment safety** — Dev/Staging/Prod guards, dangerous query detection with single-use backend confirmation tokens, read-only mode
+- **Query rate limiting** — Per-connection guardrail against accidental runaway query loops
 - **Universal Query Interceptor** — Central hooks for safety, audit and profiling
-- **Audit logging** — Sensitive content redaction in logs, stable SHA-256 query fingerprint per entry, JSONL/CSV export from the full retained trail
+- **Audit logging** — Sensitive content redaction in logs, stable SHA-256 query fingerprint per entry, JSONL/CSV export of the retained audit trail (10,000 rolling entries by default, configurable)
 - **Connection resilience** — Automatic reconnection, health monitoring, smart keep-alive
 - **Background job manager** — Async execution for long-running tasks with error recovery
 </details>
@@ -236,7 +236,7 @@ DBeaver, pgAdmin, phpMyAdmin do the job — but they feel slow, dated, and full 
 | Multi-database (SQL + NoSQL) | ✅ 31 databases | ✅ Yes | ⚪ Limited | ❌ PG only |
 | Native performance | ✅ Rust/Tauri | ❌ Java/Swing | ✅ Native | ❌ Web-based |
 | Local-first / no cloud | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes |
-| Encrypted credential vault | ✅ Argon2 | ⚪ Basic | ✅ Keychain | ❌ No |
+| Encrypted credential vault | ✅ Keychain + Argon2id | ⚪ Basic | ✅ Keychain | ❌ No |
 | Production safety guards | ✅ Yes | ❌ No | ⚪ Partial | ❌ No |
 | Sandbox mode + migrations | ✅ Pro | ❌ No | ❌ No | ❌ No |
 | Versioned schema migrations | ✅ Yes | ❌ No | ❌ No | ❌ No |
@@ -335,7 +335,7 @@ Nothing is exposed by default: switch a connection on under **Settings > AI agen
 
 For Claude Code: `claude mcp add qoredb -- /path/to/qore-mcp`. Launched from a project folder that holds a `.qoredb` workspace, the server reads that workspace's connections, like the app does; `--workspace <dir>` selects one explicitly. **Settings > AI agents** shows the detected binary path and ready-to-copy snippets.
 
-Tools: `list_connections`, `list_namespaces`, `list_tables`, `describe_table`, `preview_table`, `search_schema`, `run_query`, `explain_query`, `list_saved_queries` and `run_saved_query` (the query library of the `.qoredb` workspace, variables substituted as literals), and `run_federated_query` (Pro license: joins across exposed connections in an ephemeral DuckDB with no file or network access). Resources `qore://{connection_id}` list a connection's tables and `qore://{connection_id}/{database}/{table}` return a table schema; prompts `audit_table`, `explain_slow_query` and `document_schema` package common workflows. The `qore` CLI applies the same exposure rule.
+Tools: `list_connections`, `list_namespaces`, `list_tables`, `describe_table`, `preview_table`, `search_schema`, `run_query`, `explain_query`, `list_saved_queries` and `run_saved_query` (the query library of the `.qoredb` workspace, variables substituted as literals), and `run_federated_query` (Pro license: joins across exposed connections in an ephemeral DuckDB with no file or network access). Resources `qore://{connection_id}` list a connection's tables and `qore://{connection_id}/{database}/{table}` return a table schema; prompts `audit_table`, `explain_slow_query` and `document_schema` package common workflows. The `qore` CLI applies the same exposure and masking rules and adds headless `qore contract list|run` and `qore replay list|run` (`--format json|junit`) subcommands for CI/CD.
 
 ---
 

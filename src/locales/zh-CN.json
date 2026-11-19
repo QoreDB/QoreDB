@@ -725,7 +725,7 @@
     "collapseCell": "折叠单元格",
     "expandCell": "展开单元格",
     "copyError": "复制错误",
-    "chartNoConfig": "通过右键菜单配置此图表单元格。",
+    "chartNoConfig": "请在上方选择源单元格、X 列和 Y 列。",
     "chartNoData": "无数据 — 请先执行源单元格。",
     "undo": "撤销",
     "redo": "重做",
@@ -746,7 +746,23 @@
     "aiGenerate": "生成 SQL",
     "aiCellInserted": "已在下方插入 SQL 单元格",
     "insertSummaryMarkdown": "作为 Markdown 单元格插入",
-    "generateDocumentation": "使用 AI 生成文档"
+    "generateDocumentation": "使用 AI 生成文档",
+    "addCellChart": "图表单元格",
+    "cellLabelAria": "单元格引用标签",
+    "cellLabelPlaceholder": "label",
+    "cellLabelHint": "通过 $label.column 或在图表单元格中引用此单元格",
+    "duplicateLabelWarning": "标签重复：跨单元格引用和图表需要唯一标签",
+    "chartSourcePlaceholder": "源单元格...",
+    "chartXColumn": "X 列...",
+    "chartYColumns": "Y",
+    "chartTitlePlaceholder": "图表标题（可选）",
+    "chartNeedLabelledCell": "请先为已执行的 SQL 或 Mongo 单元格分配 #label，然后在此选择。",
+    "chartTypes": {
+      "bar": "柱状图",
+      "line": "折线图",
+      "pie": "饼图",
+      "scatter": "散点图"
+    }
   },
   "replay": {
     "cancelledReport": "重放已取消。已执行的查询会保留；正在执行的查询可能已完成。",
@@ -1324,7 +1340,18 @@
       "transferTooltip": "网络/传输时间",
       "totalTooltip": "总往返时间"
     },
-    "closeResult": "关闭结果 {{label}}"
+    "closeResult": "关闭结果 {{label}}",
+    "parameters": {
+      "title": "参数",
+      "valuePlaceholder": "值...",
+      "clear": "清空参数",
+      "types": {
+        "text": "文本",
+        "number": "数字",
+        "date": "日期",
+        "null": "NULL"
+      }
+    }
   },
   "results": {
     "affectedRows": "{{count}} 行受影响，耗时 {{time}}毫秒",
@@ -2625,7 +2652,9 @@
       "maskedColumns": "无法完整比较已遮蔽的值。",
       "truncated": "仅比较已加载的行。"
     },
-    "retry": "重试"
+    "retry": "重试",
+    "exportSQL": "下载 SQL 补丁",
+    "copySQL": "复制为 SQL 补丁"
   },
   "virtualRelations": {
     "title": "虚拟关系",
@@ -2717,9 +2746,9 @@
         "visual_diff": {
           "title": "可视化数据差异对比",
           "description": "逐行比较任意两个结果集，并高亮显示列级差异。",
-          "bullet1": "并排视图与统一视图",
-          "bullet2": "检测重命名和重新排序",
-          "bullet3": "将差异导出为 SQL 或报告"
+          "bullet1": "逐行统一对比视图与列级高亮",
+          "bullet2": "检测新增、删除和修改的单元格",
+          "bullet3": "将差异导出为 CSV、JSON 或 SQL 补丁"
         },
         "er_diagram": {
           "title": "ER 图",
@@ -3313,7 +3342,37 @@
     "pkLabel": "主键",
     "statusFailed": "失败",
     "partiallyApplied": "迁移部分应用",
-    "partiallyAppliedWarning": "此驱动会隐式提交 DDL，因此已执行的语句无法撤销。强制执行前请检查架构。"
+    "partiallyAppliedWarning": "此驱动会隐式提交 DDL，因此已执行的语句无法撤销。强制执行前请检查架构。",
+    "blastRadius": {
+      "title": "影响范围与预检",
+      "none": "未检测到破坏性 DDL 风险或工作区引用。",
+      "runPreflight": "运行数据预检",
+      "hazardsSection": "DDL 风险",
+      "auditSection": "近期查询流量",
+      "auditStats": "{{count}} 次执行 · {{fingerprints}} 个模式",
+      "assetsSection": "工作区引用",
+      "preflightSection": "实时数据预检",
+      "violationsCount": "{{count}} 条违规",
+      "severity": {
+        "high": "高",
+        "medium": "中"
+      },
+      "kinds": {
+        "drop_table": "删除表",
+        "truncate_table": "清空表",
+        "drop_column": "删除列",
+        "alter_column_type": "修改列类型",
+        "add_not_null": "添加 NOT NULL",
+        "add_unique": "添加 UNIQUE",
+        "shrink_varchar": "缩短长度"
+      },
+      "assetKinds": {
+        "saved_query": "查询",
+        "notebook": "Notebook",
+        "contract": "数据契约",
+        "replay_set": "回放集"
+      }
+    }
   },
   "snapshots": {
     "title": "快照",
@@ -3923,7 +3982,12 @@
       "invalidPageSize": "最大行数必须介于 1 与 10000 之间。",
       "invalidParamName": "参数名称无效：{{name}}",
       "paramNotInQuery": "查询中未引用参数 {{name}}。",
-      "loadConnectionsFailed": "加载连接失败"
+      "loadConnectionsFailed": "加载连接失败",
+      "editTitle": "编辑端点",
+      "editDescription": "更新端点查询、参数或行数上限，无需轮换令牌。",
+      "save": "保存更改",
+      "saving": "保存中…",
+      "updateFailed": "更新端点失败"
     },
     "token": {
       "title": "端点令牌（仅显示一次）",
@@ -3948,7 +4012,8 @@
       "useHttps": "启用 HTTPS",
       "badge": "HTTPS",
       "selfSigned": "启动时生成自签名证书。浏览器首次访问时将要求手动确认信任。"
-    }
+    },
+    "edit": "编辑端点"
   },
   "restore": {
     "dialogTitle": "恢复到 {{name}}",

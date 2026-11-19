@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import type { Driver } from '@/lib/connection/drivers';
 import { UI_EVENT_CONNECTIONS_CHANGED } from '@/lib/events/uiEvents';
 import type { DiffSource } from '@/lib/tabs';
 import { listSavedConnections, type Namespace, type SavedConnection } from '@/lib/tauri';
@@ -232,6 +233,12 @@ export function DataDiffViewer({
         diffResult={diffResult}
         canSwap={hasResults}
         canRefresh={hasResults}
+        targetTableName={leftSource.tableName ?? rightSource.tableName}
+        targetNamespace={leftSource.namespace ?? rightSource.namespace}
+        targetDialect={
+          (leftSource.connection?.driver ?? rightSource.connection?.driver) as Driver | undefined
+        }
+        keyColumns={keyColumns}
       />
 
       <div className="grid grid-cols-2 gap-4 p-4 border-b border-border">

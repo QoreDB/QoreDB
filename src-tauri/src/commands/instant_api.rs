@@ -225,6 +225,69 @@ pub async fn create_endpoint(
     })
 }
 
+#[tauri::command]
+pub async fn update_endpoint(
+    app: AppHandle,
+    api_state: State<'_, SharedInstantApi>,
+    state: State<'_, crate::SharedState>,
+    ws_manager: State<'_, SharedWorkspaceManager>,
+    id: String,
+    name: String,
+    connection_id: String,
+    query_source: String,
+    #[allow(non_snake_case)] params: Option<Vec<EndpointParam>>,
+    shape: Option<QueryShape>,
+    page_size: Option<u32>,
+) -> Result<EndpointMeta, String> {
+    {
+        let app_state = state.lock().await;
+        if app_state.vault_lock.is_locked() {
+            return Err("Vault is locked".to_string());
+        }
+    }
+
+    let project_id = ws_manager.lock().await.project_id();
+    let (connection_config, _, _, _) = crate::commands::connection::resolve_saved_connection(
+        &app,
+        &ws_manager,
+        &project_id,
+        &connection_id,
+    )
+    .await?;
+    let params = params.unwrap_or_default();
+    let page_size = page_size.unwrap_or(100);
+    crate::api::handlers::validate_endpoint_definition(
+        &connection_config.driver,
+        &query_source,
+        &params,
+        page_size,
+    )?;
+
+    let guard = api_state.lock().await;
+    let (endpoint, previous_connection_id) = guard
+        .store
+        .update(
+            &id,
+            name,
+            connection_id.clone(),
+            query_source,
+            params,
+            shape.unwrap_or(QueryShape::Rows),
+            page_size,
+        )
+        .map_err(|e| e.to_string())?;
+
+    if previous_connection_id != connection_id {
+        if let Some(server) = guard.server.as_ref() {
+            server
+                .on_endpoint_deleted(&id, &previous_connection_id)
+                .await;
+        }
+    }
+
+    Ok(EndpointMeta::from(&endpoint))
+}
+
 /// Replaces the bearer token for an existing endpoint. The new raw token is
 /// returned **once** to the caller, exactly like `create_endpoint`. The old
 /// token stops being accepted as soon as the store has been flushed.

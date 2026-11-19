@@ -60,6 +60,21 @@ export async function createEndpoint(input: CreateEndpointInput): Promise<Create
   });
 }
 
+export async function updateEndpoint(
+  id: string,
+  input: CreateEndpointInput
+): Promise<EndpointMeta> {
+  return invoke('update_endpoint', {
+    id,
+    name: input.name,
+    connectionId: input.connectionId,
+    querySource: input.querySource,
+    params: input.params ?? null,
+    shape: input.shape ?? null,
+    pageSize: input.pageSize ?? null,
+  });
+}
+
 export async function regenerateEndpointToken(id: string): Promise<CreateEndpointResponse> {
   return invoke('regenerate_endpoint_token', { id });
 }

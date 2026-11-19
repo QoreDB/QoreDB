@@ -2,7 +2,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::engine::types::Namespace;
+use qore_core::types::Namespace;
 
 pub const REPLAY_SET_VERSION: u32 = 1;
 

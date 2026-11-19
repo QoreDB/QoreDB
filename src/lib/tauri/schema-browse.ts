@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { invoke } from '@/lib/transport';
+import { requestQueryConfirmationToken } from './query';
 import type { Namespace, QueryResult, Value } from './types';
 
 export interface CollationInfo {
@@ -36,7 +37,16 @@ export async function createDatabase(
   success: boolean;
   error?: string;
 }> {
-  return invoke('create_database', { sessionId, name, options, acknowledgedDangerous });
+  const confirmationToken = acknowledgedDangerous
+    ? await requestQueryConfirmationToken()
+    : undefined;
+  return invoke('create_database', {
+    sessionId,
+    name,
+    options,
+    acknowledgedDangerous,
+    confirmationToken,
+  });
 }
 
 export async function dropDatabase(
@@ -47,7 +57,15 @@ export async function dropDatabase(
   success: boolean;
   error?: string;
 }> {
-  return invoke('drop_database', { sessionId, name, acknowledgedDangerous });
+  const confirmationToken = acknowledgedDangerous
+    ? await requestQueryConfirmationToken()
+    : undefined;
+  return invoke('drop_database', {
+    sessionId,
+    name,
+    acknowledgedDangerous,
+    confirmationToken,
+  });
 }
 
 export interface ForeignKey {

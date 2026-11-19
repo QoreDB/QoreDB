@@ -28,12 +28,11 @@ pub struct SelfSignedCert {
     pub key_pem: String,
 }
 
-/// Mints a fresh self-signed certificate for `127.0.0.1` + `localhost`.
+/// Mints a fresh ephemeral self-signed certificate in memory for `127.0.0.1` + `localhost`.
 ///
-/// The cert is valid for the next 30 days. We keep the validity tight
-/// because we mint a new cert on every server start anyway, so longer
-/// validity offers no benefit and only widens the window if a key ever
-/// leaks (which is meant to be impossible since it never leaves RAM).
+/// The certificate uses `rcgen`'s default validity window and is regenerated
+/// on every server start without ever touching disk, limiting exposure to the
+/// lifetime of the running HTTPS server instance.
 pub fn generate_self_signed() -> Result<SelfSignedCert, TlsError> {
     let mut params = CertificateParams::new(vec!["127.0.0.1".to_string(), "localhost".to_string()])
         .map_err(|e| TlsError::Generate(e.to_string()))?;

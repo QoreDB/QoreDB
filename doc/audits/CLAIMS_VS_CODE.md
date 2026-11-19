@@ -2,7 +2,7 @@
 
 > **Status:** Current
 > **Original date:** 2026-07-17
-> **Last reviewed:** 2026-08-02
+> **Last reviewed:** 2026-11-19
 > **Code baseline:** `bc3b03644b553e064f23355e2c8afa1f24a83a44` (originally `d785703`)
 > **Review depth:** Full re-audit of nine features, read-only against the code.
 > Every finding below was re-checked against the current tree on 2026-08-02 and
@@ -14,16 +14,16 @@
 > covered: performance claims ("~25% faster", "~15MB binary", "sub-second
 > startup"), the remaining drivers, and export/backup.
 
-## Status at a glance (2026-08-02)
+## Status at a glance (2026-11-19)
 
 | | Findings |
 | --- | --- |
-| **Resolved** (19) | A1, A2, B1, B2, B3, B4, B5, B6, B9, C1, C2, C5, C6, C7, C8, C9, D2, D6, D8 |
-| **Partially resolved** (2) | C10 (migrations fixed, query path not), D1 (one of four comments) |
-| **Open** (9) | B7, B8, B10, B11, C3, C4, D7, D9, D10 |
+| **Resolved** (28) | A1, A2, B1, B2, B3, B4, B5, B6, B7, B8, B9, B10, B11, C1, C2, C5, C6, C7, C8, C9, C10, D1, D2, D6, D7, D8, D9, D10 |
+| **Partially resolved** (0) | — |
+| **Open** (2) | C3, C4 |
 
-B9 and C8 were fixed on 2026-08-02, the day of this re-verification pass; their
-notes record what shipped.
+B7, B8, B10, B11, C10, D1, D7, D9 and D10 were resolved in v0.1.42 (2026-11-19); their
+dated notes below record what shipped.
 
 Both Critical findings are closed, and every finding that pointed at the Instant
 Data API is closed with tests behind it. What remains is now entirely the category
@@ -356,7 +356,7 @@ header. The sandbox is good work; it deserves to be claimed.
 
 ### B7. Notebook chart cells and inter-cell references cannot be reached
 
-> **Re-verified 2026-08-02** — **Open.** `chart` is still absent from the add-cell menu (`NotebookToolbar.tsx:265-282`), and `config.label` is still read-only in `src/` (`ChartCell.tsx:44`), so a reference still cannot resolve. `README.md:38` still advertises charts.
+> **Resolved 2026-11-19 (v0.1.42).** Unlocked in Core (`Apache-2.0`): `chart` cells are now in `NotebookToolbar.tsx` and the inline divider (`NotebookCellList.tsx`), `ChartCell.tsx` includes an interactive chart configuration bar, and `NotebookCell.tsx` adds an inline `#label` editor persisted via `useNotebook`. `README.md` updated accordingly.
 
 **Where claimed:** `README.md:137` ("Inter-cell references and Chart cells (bar,
 line, pie, scatter) _[Pro]_") and `README.md:37` ("charts").
@@ -386,7 +386,7 @@ label field and the Add Cell entry — the rendering is already done.
 
 ### B8. Visual Data Diff: three false claims, one of them in-app
 
-> **Re-verified 2026-08-02** — **Open.** `README.md:99` and `en.json:2311-2313` are unchanged.
+> **Resolved 2026-11-19 (v0.1.42).** `README.md` now describes the unified comparison view, `src/lib/diffSqlGenerator.ts` implements SQL patch export (`INSERT`/`UPDATE`/`DELETE`) in `DiffToolbar.tsx` / `DataDiffViewer.tsx`, and all 9 locales under `license.upgrade.features.visual_diff` match the shipped capabilities.
 
 **Where claimed:** `README.md:97` and `src/locales/en.json:2235-2237`.
 
@@ -428,7 +428,7 @@ feature cannot be honestly marketed, which is why it has no page.
 
 ### B10. Data Generator: "constraints honored" is largely false
 
-> **Re-verified 2026-08-02** — **Open.** `README.md:130` still claims constraints are honoured, and `TableColumn` (`qore-core/src/types.rs:1020-1034`) still carries no length, uniqueness or CHECK information.
+> **Resolved 2026-11-19 (v0.1.42).** `data_generator.rs` now parses string lengths (`varchar(N)`/`char(N)`), enforces integer widths (`tinyint`/`smallint`), deduplicates primary-key and single-column unique values, and refuses `NOT NULL` foreign keys on empty parent tables instead of forcing `NULL`; `README.md` matches these bounds accurately.
 
 **Where claimed:** `README.md:113` ("Schema-aware test/seed data (types,
 constraints and foreign keys honored), realistic values").
@@ -460,7 +460,7 @@ missing fields. Honest wording: "types, defaults and foreign keys honoured".
 
 ### B11. "Native OS keychain storage (Argon2)" is misleading
 
-> **Re-verified 2026-08-02** — **Open.** `README.md:35` and `README.md:156` are unchanged.
+> **Resolved 2026-11-19 (v0.1.42).** `README.md` now distinguishes OS keychain credential storage from optional Argon2id app lock and the encrypted fallback vault.
 
 **Where claimed:** `README.md:153`, `README.md:204`.
 
@@ -672,7 +672,7 @@ weakness and both pattern bugs at once.
 
 ### C10. Production confirmation trusts a client-supplied flag
 
-> **Re-verified 2026-08-02** — **Partially resolved.** The migrations path moved to backend-issued tokens (see **C1**). The query path did not: `acknowledged_dangerous` still travels from the renderer as a plain boolean (`commands/query.rs:116, 185, 1077`). The token store now exists, so closing this is wiring, not design.
+> **Resolved 2026-11-19 (v0.1.42).** `execute_query`, `create_database` and `drop_database` now validate single-use backend `ConfirmationTokenStore` tokens (`acknowledge_dangerous_query`), minted via `requestQueryConfirmationToken()` only after the user confirms the dialog.
 
 **Reality:** `acknowledgedDangerous` travels from the renderer
 (`src/lib/tauri/query.ts:65,93`) to `preflight(..., acknowledged)`
@@ -695,7 +695,7 @@ against intent. That is a defensible product position — it is just not what
 
 ### D1. Stale doc-comments
 
-> **Re-verified 2026-08-02** — **Partially resolved.** The `openapi.rs` header now says "verified response schemas" and matches the code. Three remain stale: `auth.rs:5` still credits `OsRng` while `issue_token` uses `thread_rng()` (`:39`), `api/mod.rs:12-13` still promises app-lock and workspace-switch shutdown hooks that do not exist, and `tls.rs:33` still claims 30 days without setting `not_after`.
+> **Resolved 2026-11-19 (v0.1.42).** Updated the doc-comments in `src-tauri/src/api/auth.rs`, `src-tauri/src/api/mod.rs`, and `src-tauri/src/api/tls.rs` to match actual runtime behaviour (`thread_rng()` bearer generation with `OsRng` Argon2id salt, explicit `stop()` lifecycle, and `rcgen` default validity period).
 
 | Location | Says | Reality |
 | --- | --- | --- |
@@ -723,7 +723,7 @@ not exist and denies a redaction feature that does. It needs a pass, not a patch
 
 ### D7. "Full retained trail" overstates the audit log
 
-> **Re-verified 2026-08-02** — **Open.** `README.md:162` still says "full retained trail".
+> **Resolved 2026-11-19 (v0.1.42).** `README.md` now describes exporting the retained rolling audit trail (10,000 entries by default, configurable).
 
 `README.md:159` says "JSONL/CSV export from the **full retained trail**".
 Defensible on the word "retained", misleading in practice: the cache holds
@@ -752,7 +752,7 @@ admit this; the README does not.
 
 ### D9. The README conflates two unrelated subsystems
 
-> **Re-verified 2026-08-02** — **Open.** `README.md:160` and `changelog.ts:197` still conflate the two subsystems.
+> **Resolved 2026-11-19 (v0.1.42).** Separated per-connection query rate limiting from WASM plugin FS folder scopes and HTTP host allow-lists in `README.md` and `src/data/changelog.ts`.
 
 `README.md:157`: "Query rate limiting — Per-connection guardrail ..., **plus a
 filesystem capability allow-list**."
@@ -768,7 +768,7 @@ allow-list (`:31-32`). `src/data/changelog.ts:165` repeats the same conflation.
 
 ### D10. The consent dialog inverts its own security model
 
-> **Re-verified 2026-08-02** — **Open.** `ConsentDialog.tsx:107` still pre-checks every requested capability.
+> **Resolved 2026-11-19 (v0.1.42).** `ConsentDialog.tsx` (`defaultInitialGrants`) now pre-checks only `log` and `storage` when no existing grants are supplied; sensitive capabilities (`queryRead`, `http`, `fs`, `notify`, `secrets`) require explicit user opt-in.
 
 `ConsentDialog.tsx:107` pre-checks every capability the manifest requested
 (`setGrants(new Set(initialGrants ?? requestedCaps(plugin)))`). The backend model

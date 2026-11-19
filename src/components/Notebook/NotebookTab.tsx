@@ -293,6 +293,7 @@ export function NotebookTab({
         onReorderCells={nb.reorderCells}
         onFocusCell={nb.setFocusedCell}
         onSourceChange={nb.updateCellSource}
+        onConfigChange={nb.updateCellConfig}
         onExecuteCell={nb.executeCell}
         onDeleteCell={nb.deleteCell}
         onMoveCellUp={nb.moveCellUp}

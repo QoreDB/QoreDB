@@ -5,6 +5,7 @@ import {
   FileJson,
   Globe,
   KeyRound,
+  Pencil,
   Play,
   Plus,
   Power,
@@ -52,6 +53,7 @@ export function InstantApiPanel({ open, onClose }: Props) {
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
   const [newOpen, setNewOpen] = useState(false);
+  const [editingEndpoint, setEditingEndpoint] = useState<EndpointMeta | null>(null);
   const [openApiOpen, setOpenApiOpen] = useState(false);
   const [tokenView, setTokenView] = useState<CreateEndpointResponse | null>(null);
   const [tlsPref, setTlsPref] = useState(false);
@@ -183,6 +185,7 @@ export function InstantApiPanel({ open, onClose }: Props) {
               baseUrl={status?.base_url ?? null}
               loading={loading}
               onCreate={() => setNewOpen(true)}
+              onEdit={meta => setEditingEndpoint(meta)}
               onDelete={handleDelete}
               onRegenerate={handleRegenerate}
             />
@@ -196,7 +199,18 @@ export function InstantApiPanel({ open, onClose }: Props) {
         </DialogContent>
       </Dialog>
 
-      <EndpointDialog open={newOpen} onClose={() => setNewOpen(false)} onCreated={handleCreated} />
+      <EndpointDialog
+        open={newOpen || editingEndpoint !== null}
+        onClose={() => {
+          setNewOpen(false);
+          setEditingEndpoint(null);
+        }}
+        onCreated={handleCreated}
+        initialEndpoint={editingEndpoint}
+        onUpdated={() => {
+          void refresh();
+        }}
+      />
 
       <OpenApiPreview open={openApiOpen} onClose={() => setOpenApiOpen(false)} />
 
@@ -299,6 +313,7 @@ interface EndpointListProps {
   baseUrl: string | null;
   loading: boolean;
   onCreate: () => void;
+  onEdit: (meta: EndpointMeta) => void;
   onDelete: (meta: EndpointMeta) => void;
   onRegenerate: (meta: EndpointMeta) => void;
 }
@@ -308,6 +323,7 @@ function EndpointList({
   baseUrl,
   loading,
   onCreate,
+  onEdit,
   onDelete,
   onRegenerate,
 }: EndpointListProps) {
@@ -346,6 +362,7 @@ function EndpointList({
               key={meta.id}
               meta={meta}
               baseUrl={baseUrl}
+              onEdit={() => onEdit(meta)}
               onDelete={() => onDelete(meta)}
               onRegenerate={() => onRegenerate(meta)}
             />
@@ -359,11 +376,12 @@ function EndpointList({
 interface RowProps {
   meta: EndpointMeta;
   baseUrl: string | null;
+  onEdit: () => void;
   onDelete: () => void;
   onRegenerate: () => void;
 }
 
-function EndpointRow({ meta, baseUrl, onDelete, onRegenerate }: RowProps) {
+function EndpointRow({ meta, baseUrl, onEdit, onDelete, onRegenerate }: RowProps) {
   const { t } = useTranslation();
   const url = baseUrl ? `${baseUrl}/api/${meta.name}` : `/api/${meta.name}`;
 
@@ -402,6 +420,9 @@ function EndpointRow({ meta, baseUrl, onDelete, onRegenerate }: RowProps) {
         </button>
       </td>
       <td className="px-3 py-2 align-middle text-right whitespace-nowrap">
+        <Button variant="ghost" size="sm" onClick={onEdit} title={t('instantApi.edit')}>
+          <Pencil size={13} />
+        </Button>
         <Button variant="ghost" size="sm" onClick={onRegenerate} title={t('instantApi.regenerate')}>
           <KeyRound size={13} />
         </Button>

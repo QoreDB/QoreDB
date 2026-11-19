@@ -2,8 +2,9 @@
 
 //! Bearer token authentication for Instant Data API endpoints.
 //!
-//! - Tokens are generated with 32 cryptographically-random bytes (`OsRng`)
-//!   and prefixed with `api-` for visibility ("this is a QoreDB API token").
+//! - Tokens are generated with 32 cryptographically-random bytes (`thread_rng()`,
+//!   with `OsRng` for the Argon2id salt) and prefixed with `api-` for visibility
+//!   ("this is a QoreDB API token").
 //! - At rest, only the Argon2id hash is stored alongside the endpoint.
 //! - Constant-time verification via `argon2::PasswordVerifier`.
 

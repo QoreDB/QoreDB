@@ -6,6 +6,7 @@ pub mod agent;
 pub mod agents;
 pub mod ai;
 pub mod backup;
+pub mod blast_radius;
 pub mod cache;
 pub mod chat;
 pub mod confirmation;

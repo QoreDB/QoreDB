@@ -85,6 +85,7 @@ pub enum ApiError {
     Forbidden,
     BadRequest(String),
     TooManyRequests,
+    GatewayTimeout,
     BadGateway(String),
     Internal(String),
 }
@@ -97,6 +98,11 @@ impl IntoResponse for ApiError {
             ApiError::Forbidden => (StatusCode::FORBIDDEN, "forbidden", None),
             ApiError::BadRequest(m) => (StatusCode::BAD_REQUEST, "bad_request", Some(m)),
             ApiError::TooManyRequests => (StatusCode::TOO_MANY_REQUESTS, "rate_limited", None),
+            ApiError::GatewayTimeout => (
+                StatusCode::GATEWAY_TIMEOUT,
+                "timeout",
+                Some("query timed out after 30s".to_string()),
+            ),
             ApiError::BadGateway(m) => (StatusCode::BAD_GATEWAY, "upstream", Some(m)),
             ApiError::Internal(m) => (StatusCode::INTERNAL_SERVER_ERROR, "internal", Some(m)),
         };
@@ -107,6 +113,8 @@ impl IntoResponse for ApiError {
         (status, Json(body)).into_response()
     }
 }
+
+const ENDPOINT_EXECUTION_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(30);
 
 /// `GET /api/{name}` — execute a saved endpoint.
 pub async fn handle_endpoint(
@@ -146,10 +154,20 @@ pub async fn handle_endpoint(
         ));
     }
 
-    let mut result = driver
-        .execute(session_id, &final_sql, QueryId::new())
-        .await
-        .map_err(|e| ApiError::Internal(e.sanitized_message()))?;
+    let query_id = QueryId::new();
+    let mut result = match tokio::time::timeout(
+        ENDPOINT_EXECUTION_TIMEOUT,
+        driver.execute(session_id, &final_sql, query_id),
+    )
+    .await
+    {
+        Ok(Ok(res)) => res,
+        Ok(Err(e)) => return Err(ApiError::Internal(e.sanitized_message())),
+        Err(_) => {
+            let _ = driver.cancel(session_id, Some(query_id)).await;
+            return Err(ApiError::GatewayTimeout);
+        }
+    };
     qore_service::query::apply_masking(&state.session_manager, session_id, None, &mut result).await;
 
     let rows = rows_to_json(&result.columns, &result.rows);

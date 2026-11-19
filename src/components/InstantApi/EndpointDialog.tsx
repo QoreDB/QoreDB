@@ -27,9 +27,11 @@ import { Textarea } from '@/components/ui/textarea';
 import {
   type CreateEndpointResponse,
   createEndpoint,
+  type EndpointMeta,
   type EndpointParam,
   type EndpointParamType,
   type QueryShape,
+  updateEndpoint,
 } from '@/lib/instantApi';
 import { getWorkspaceProjectId, listSavedConnections, type SavedConnection } from '@/lib/tauri';
 
@@ -38,6 +40,9 @@ interface Props {
   onClose: () => void;
   /** Called after successful create — caller shows the one-shot token. */
   onCreated: (response: CreateEndpointResponse) => void;
+  /** When set, edits this endpoint without regenerating its token. */
+  initialEndpoint?: EndpointMeta | null;
+  onUpdated?: (endpoint: EndpointMeta) => void;
 }
 
 /**
@@ -59,8 +64,9 @@ const PARAM_TYPES: EndpointParamType[] = ['string', 'integer', 'float', 'bool'];
 const SHAPES: QueryShape[] = ['rows', 'object'];
 const NAME_RE = /^[A-Za-z0-9_-]{1,64}$/;
 
-export function EndpointDialog({ open, onClose, onCreated }: Props) {
+export function EndpointDialog({ open, onClose, onCreated, initialEndpoint, onUpdated }: Props) {
   const { t } = useTranslation();
+  const isEditing = Boolean(initialEndpoint);
   const [name, setName] = useState('');
   const [connectionId, setConnectionId] = useState<string>('');
   const [querySource, setQuerySource] = useState('');
@@ -85,13 +91,28 @@ export function EndpointDialog({ open, onClose, onCreated }: Props) {
 
   useEffect(() => {
     if (!open) return;
-    setName('');
-    setQuerySource('');
-    setShape('rows');
-    setPageSize(100);
-    setParams([]);
+    if (initialEndpoint) {
+      setName(initialEndpoint.name);
+      setConnectionId(initialEndpoint.connection_id);
+      setQuerySource(initialEndpoint.query_source ?? '');
+      setShape(initialEndpoint.shape);
+      setPageSize(initialEndpoint.page_size);
+      setParams(
+        (initialEndpoint.params ?? []).map(p => ({
+          ...p,
+          _key: nextParamKey(),
+        }))
+      );
+    } else {
+      setName('');
+      setConnectionId('');
+      setQuerySource('');
+      setShape('rows');
+      setPageSize(100);
+      setParams([]);
+    }
     void loadConnections();
-  }, [open, loadConnections]);
+  }, [open, initialEndpoint, loadConnections]);
 
   function addParam() {
     setParams(prev => [
@@ -132,7 +153,7 @@ export function EndpointDialog({ open, onClose, onCreated }: Props) {
     }
     setSubmitting(true);
     try {
-      const response = await createEndpoint({
+      const payload = {
         name,
         connectionId,
         querySource,
@@ -142,13 +163,22 @@ export function EndpointDialog({ open, onClose, onCreated }: Props) {
           ...rest,
           default: rest.default ?? null,
         })),
-      });
-      onCreated(response);
+      };
+      if (initialEndpoint) {
+        const updated = await updateEndpoint(initialEndpoint.id, payload);
+        onUpdated?.(updated);
+      } else {
+        const response = await createEndpoint(payload);
+        onCreated(response);
+      }
       onClose();
     } catch (e) {
-      toast.error(t('instantApi.endpoint.createFailed'), {
-        description: e instanceof Error ? e.message : String(e),
-      });
+      toast.error(
+        isEditing ? t('instantApi.endpoint.updateFailed') : t('instantApi.endpoint.createFailed'),
+        {
+          description: e instanceof Error ? e.message : String(e),
+        }
+      );
     } finally {
       setSubmitting(false);
     }
@@ -158,8 +188,14 @@ export function EndpointDialog({ open, onClose, onCreated }: Props) {
     <Dialog open={open} onOpenChange={v => !v && onClose()}>
       <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col">
         <DialogHeader>
-          <DialogTitle>{t('instantApi.endpoint.newTitle')}</DialogTitle>
-          <DialogDescription>{t('instantApi.endpoint.newDescription')}</DialogDescription>
+          <DialogTitle>
+            {isEditing ? t('instantApi.endpoint.editTitle') : t('instantApi.endpoint.newTitle')}
+          </DialogTitle>
+          <DialogDescription>
+            {isEditing
+              ? t('instantApi.endpoint.editDescription')
+              : t('instantApi.endpoint.newDescription')}
+          </DialogDescription>
         </DialogHeader>
 
         <div className="flex-1 space-y-4 py-2 pr-1">
@@ -271,7 +307,13 @@ export function EndpointDialog({ open, onClose, onCreated }: Props) {
             {t('instantApi.endpoint.cancel')}
           </Button>
           <Button onClick={handleSubmit} disabled={submitting}>
-            {submitting ? t('instantApi.endpoint.creating') : t('instantApi.endpoint.create')}
+            {submitting
+              ? isEditing
+                ? t('instantApi.endpoint.saving')
+                : t('instantApi.endpoint.creating')
+              : isEditing
+                ? t('instantApi.endpoint.save')
+                : t('instantApi.endpoint.create')}
           </Button>
         </DialogFooter>
       </DialogContent>

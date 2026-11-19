@@ -22,6 +22,8 @@ export interface EndpointMeta {
   id: string;
   name: string;
   connection_id: string;
+  query_source: string;
+  params: EndpointParam[];
   shape: QueryShape;
   params_count: number;
   page_size: number;

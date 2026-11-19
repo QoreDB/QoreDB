@@ -118,6 +118,7 @@ completed spec to `archive/` when delivery is established and update its links.
 | [Local Qore AI](todo/QORE_AI_LOCAL.md) | Local runtime work |
 | [Pagination and rendering](todo/PAGINATION_DATA_RENDERING.md) | Data browsing performance |
 | [Enterprise readiness](todo/ENTERPRISE_READINESS.md) | Enterprise requirements |
+| [v0.1.42 plan](todo/V0_1_42_PLAN.md) | Next update scope and implementation lots |
 
 ## Historical and local material
 

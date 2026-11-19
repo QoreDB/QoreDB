@@ -73,6 +73,9 @@
 | Persistence | Logs locaux avec rotation   | ✅     | Exportable   |
 | Support     | Export logs depuis l’UI     | ✅     | One-click    |
 
+| Env guards & tokens | Dev/Staging/Prod + confirmation backend à usage unique | ✅ | Requêtes et migrations via `ConfirmationTokenStore` (v0.1.42) |
+| CLI & Agent Gate | `expose_to_agents`, read-only, masquage colonnes en CI/MCP | ✅ | `qore contract/replay run` respecte les mêmes gardes (v0.1.42) |
+
 ---
 
 ## Qualité & Supply Chain

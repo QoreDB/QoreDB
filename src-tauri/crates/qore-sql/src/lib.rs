@@ -4,6 +4,7 @@
 
 pub mod clickhouse_safety;
 pub mod connection_url;
+pub mod ddl_impact;
 pub mod generator;
 pub mod migration_split;
 pub mod safety;

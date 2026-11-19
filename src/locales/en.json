@@ -756,7 +756,7 @@
     "collapseCell": "Collapse cell",
     "expandCell": "Expand cell",
     "copyError": "Copy error",
-    "chartNoConfig": "Configure this chart cell via the context menu.",
+    "chartNoConfig": "Select a source cell, X column, and Y column(s) above.",
     "chartNoData": "No data — execute the source cell first.",
     "undo": "Undo",
     "redo": "Redo",
@@ -777,7 +777,23 @@
     "aiGenerate": "Generate SQL",
     "aiCellInserted": "SQL cell inserted below",
     "insertSummaryMarkdown": "Insert as Markdown cell",
-    "generateDocumentation": "Generate documentation with AI"
+    "generateDocumentation": "Generate documentation with AI",
+    "addCellChart": "Chart Cell",
+    "cellLabelAria": "Cell reference label",
+    "cellLabelPlaceholder": "label",
+    "cellLabelHint": "Reference this cell as $label.column or in a Chart cell",
+    "duplicateLabelWarning": "Duplicate label: inter-cell references and charts require unique labels",
+    "chartSourcePlaceholder": "Source cell...",
+    "chartXColumn": "X column...",
+    "chartYColumns": "Y",
+    "chartTitlePlaceholder": "Chart title (optional)",
+    "chartNeedLabelledCell": "Assign a #label to an executed SQL or Mongo cell, then select it here.",
+    "chartTypes": {
+      "bar": "Bar",
+      "line": "Line",
+      "pie": "Pie",
+      "scatter": "Scatter"
+    }
   },
   "replay": {
     "cancelledReport": "Replay cancelled. Completed queries are preserved; an in-flight query may have finished.",
@@ -1370,7 +1386,18 @@
       "transferTooltip": "Network/Transfer Time",
       "totalTooltip": "Total Round Trip"
     },
-    "closeResult": "Close result {{label}}"
+    "closeResult": "Close result {{label}}",
+    "parameters": {
+      "title": "Parameters",
+      "valuePlaceholder": "Value...",
+      "clear": "Clear parameters",
+      "types": {
+        "text": "Text",
+        "number": "Number",
+        "date": "Date",
+        "null": "NULL"
+      }
+    }
   },
   "results": {
     "affectedRows": "{{count}} row(s) affected in {{time}}ms",
@@ -2676,7 +2703,9 @@
       "maskedColumns": "Masked values cannot be fully compared.",
       "truncated": "Only the loaded rows are compared."
     },
-    "retry": "Retry"
+    "retry": "Retry",
+    "exportSQL": "Download SQL patch",
+    "copySQL": "Copy as SQL patch"
   },
   "virtualRelations": {
     "title": "Virtual Relations",
@@ -2768,9 +2797,9 @@
         "visual_diff": {
           "title": "Visual data diff",
           "description": "Compare any two result sets row by row, with column-level highlights.",
-          "bullet1": "Side-by-side and unified views",
-          "bullet2": "Detects renames and reorders",
-          "bullet3": "Export the diff as SQL or report"
+          "bullet1": "Unified row-by-row view with column highlights",
+          "bullet2": "Detects additions, deletions, and modified cells",
+          "bullet3": "Export the diff as CSV, JSON, or an SQL patch"
         },
         "er_diagram": {
           "title": "ER Diagram",
@@ -3365,7 +3394,37 @@
     "pkLabel": "PK",
     "statusFailed": "Failed",
     "partiallyApplied": "Migration partially applied",
-    "partiallyAppliedWarning": "This driver commits DDL implicitly, so the statements that already ran could not be undone. Check the schema before forcing."
+    "partiallyAppliedWarning": "This driver commits DDL implicitly, so the statements that already ran could not be undone. Check the schema before forcing.",
+    "blastRadius": {
+      "title": "Blast Radius & Preflight",
+      "none": "No destructive DDL hazards or workspace references detected.",
+      "runPreflight": "Run data preflight",
+      "hazardsSection": "DDL hazards",
+      "auditSection": "Recent query traffic",
+      "auditStats": "{{count}} execs · {{fingerprints}} patterns",
+      "assetsSection": "Workspace references",
+      "preflightSection": "Live data preflight",
+      "violationsCount": "{{count}} violation(s)",
+      "severity": {
+        "high": "High",
+        "medium": "Medium"
+      },
+      "kinds": {
+        "drop_table": "Drop table",
+        "truncate_table": "Truncate table",
+        "drop_column": "Drop column",
+        "alter_column_type": "Alter column type",
+        "add_not_null": "Add NOT NULL",
+        "add_unique": "Add UNIQUE",
+        "shrink_varchar": "Shrink length"
+      },
+      "assetKinds": {
+        "saved_query": "Query",
+        "notebook": "Notebook",
+        "contract": "Contract",
+        "replay_set": "Replay"
+      }
+    }
   },
   "snapshots": {
     "title": "Snapshots",
@@ -3976,7 +4035,12 @@
       "invalidPageSize": "Maximum rows must be between 1 and 10000.",
       "invalidParamName": "Invalid parameter name: {{name}}",
       "paramNotInQuery": "Parameter {{name}} is not referenced in the query.",
-      "loadConnectionsFailed": "Failed to load connections"
+      "loadConnectionsFailed": "Failed to load connections",
+      "editTitle": "Edit endpoint",
+      "editDescription": "Update the endpoint query, parameters, or row cap without rotating its bearer token.",
+      "save": "Save changes",
+      "saving": "Saving…",
+      "updateFailed": "Endpoint update failed"
     },
     "token": {
       "title": "Endpoint token (shown once)",
@@ -4001,7 +4065,8 @@
       "useHttps": "Use HTTPS",
       "badge": "HTTPS",
       "selfSigned": "Self-signed certificate generated on start. Browsers will require a one-time trust override."
-    }
+    },
+    "edit": "Edit endpoint"
   },
   "restore": {
     "dialogTitle": "Restore into {{name}}",

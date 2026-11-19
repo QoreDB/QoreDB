@@ -11,6 +11,7 @@ qore-sql = { path = "../qore-sql" }
 qore-drivers = { path = "../qore-drivers", default-features = false }
 serde = { workspace = true }
 serde_json = { workspace = true }
+serde_yml = "0.0.12"
 uuid = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }

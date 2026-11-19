@@ -4,6 +4,7 @@ import {
   ArrowLeftRight,
   ChevronDown,
   Download,
+  FileCode2,
   FileJson,
   FileSpreadsheet,
   GitCompare,
@@ -16,10 +17,14 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import type { Driver } from '@/lib/connection/drivers';
+import { generateDiffSqlPatch } from '@/lib/diffSqlGenerator';
 import { type DiffResult, exportDiffAsCSV, exportDiffAsJSON } from '@/lib/diffUtils';
 import { notify } from '@/lib/notify';
+import type { Namespace } from '@/lib/tauri';
 
 interface DiffToolbarProps {
   onSwap: () => void;
@@ -27,6 +32,10 @@ interface DiffToolbarProps {
   diffResult: DiffResult | null;
   canSwap: boolean;
   canRefresh: boolean;
+  targetTableName?: string | null;
+  targetNamespace?: Namespace | null;
+  targetDialect?: Driver;
+  keyColumns?: string[];
 }
 
 export function DiffToolbar({
@@ -35,6 +44,10 @@ export function DiffToolbar({
   diffResult,
   canSwap,
   canRefresh,
+  targetTableName,
+  targetNamespace,
+  targetDialect,
+  keyColumns,
 }: DiffToolbarProps) {
   const { t } = useTranslation();
   const [exporting, setExporting] = useState(false);
@@ -89,6 +102,44 @@ export function DiffToolbar({
     }
   };
 
+  const buildSqlPatch = (): string | null => {
+    if (!diffResult) return null;
+    const { sql } = generateDiffSqlPatch(diffResult, {
+      tableName: targetTableName?.trim() || 'target_table',
+      namespace: targetTableName?.trim() ? targetNamespace : undefined,
+      dialect: targetDialect,
+      keyColumns,
+    });
+    return sql;
+  };
+
+  const handleExportSQL = async () => {
+    if (!diffResult) return;
+    setExporting(true);
+    try {
+      const sql = buildSqlPatch();
+      if (!sql) return;
+      await downloadFile(sql, 'diff-patch.sql', 'application/sql');
+      notify.success(t('diff.exportSuccess'));
+    } catch (err) {
+      notify.error(err instanceof Error ? err.message : t('diff.exportError'), err);
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const handleCopySQL = async () => {
+    if (!diffResult) return;
+    try {
+      const sql = buildSqlPatch();
+      if (!sql) return;
+      await navigator.clipboard.writeText(sql);
+      notify.success(t('common.copied'));
+    } catch (err) {
+      notify.error(err instanceof Error ? err.message : t('diff.exportError'), err);
+    }
+  };
+
   return (
     <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/30">
       <div className="flex items-center gap-2">
@@ -131,6 +182,15 @@ export function DiffToolbar({
             <DropdownMenuItem onClick={handleCopyJSON}>
               <FileJson size={14} className="mr-2" />
               {t('diff.copyJSON')}
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={handleExportSQL}>
+              <FileCode2 size={14} className="mr-2" />
+              {t('diff.exportSQL')}
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={handleCopySQL}>
+              <FileCode2 size={14} className="mr-2" />
+              {t('diff.copySQL')}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

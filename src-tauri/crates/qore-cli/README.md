@@ -21,7 +21,15 @@ qore connections                                   # list saved connections
 qore query <connection_id> "<sql>"                 # run a query, print rows
 qore tables <connection_id> <database> [--schema s] # list tables/collections
 qore describe <connection_id> <database> <table> [--schema s]
+qore contract list                                 # list workspace Data Contracts
+qore contract run <connection_id> [--contract name] [--format json|junit]
+qore replay list                                   # list workspace Replay Sets
+qore replay run <connection_id> <set_id> [--format json|junit]
 ```
+
+Contract and replay runs honor `expose_to_agents`, `read_only`, and column masking
+from the connection vault and exit with a non-zero status code when a contract
+rule fails or a replay regression is detected.
 
 `QOREDB_CONFIG_DIR` overrides the config directory (defaults to the desktop app's).
 

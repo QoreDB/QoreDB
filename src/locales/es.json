@@ -727,7 +727,7 @@
     "collapseCell": "Contraer celda",
     "expandCell": "Expandir celda",
     "copyError": "Copiar error",
-    "chartNoConfig": "Configura esta celda de gráfico a través del menú contextual.",
+    "chartNoConfig": "Selecciona arriba una celda de origen, la columna X y las columnas Y.",
     "chartNoData": "Sin datos — ejecuta la celda fuente primero.",
     "undo": "Deshacer",
     "redo": "Rehacer",
@@ -748,7 +748,23 @@
     "aiGenerate": "Generar SQL",
     "aiCellInserted": "Celda SQL insertada debajo",
     "insertSummaryMarkdown": "Insertar como celda Markdown",
-    "generateDocumentation": "Generar documentación con IA"
+    "generateDocumentation": "Generar documentación con IA",
+    "addCellChart": "Celda de gráfico",
+    "cellLabelAria": "Etiqueta de referencia de la celda",
+    "cellLabelPlaceholder": "etiqueta",
+    "cellLabelHint": "Referencia esta celda como $etiqueta.columna o en un gráfico",
+    "duplicateLabelWarning": "Etiqueta duplicada: las referencias y gráficos requieren etiquetas únicas",
+    "chartSourcePlaceholder": "Celda de origen...",
+    "chartXColumn": "Columna X...",
+    "chartYColumns": "Y",
+    "chartTitlePlaceholder": "Título del gráfico (opcional)",
+    "chartNeedLabelledCell": "Asigna una #etiqueta a una celda SQL o Mongo ejecutada y selecciónala aquí.",
+    "chartTypes": {
+      "bar": "Barras",
+      "line": "Línea",
+      "pie": "Circular",
+      "scatter": "Dispersión"
+    }
   },
   "replay": {
     "cancelledReport": "Reproducción cancelada. Se conservan las consultas ejecutadas; la consulta en curso puede haber terminado.",
@@ -1335,7 +1351,18 @@
       "transferTooltip": "Tiempo de red/transferencia",
       "totalTooltip": "Tiempo total de ida y vuelta"
     },
-    "closeResult": "Cerrar el resultado {{label}}"
+    "closeResult": "Cerrar el resultado {{label}}",
+    "parameters": {
+      "title": "Parámetros",
+      "valuePlaceholder": "Valor...",
+      "clear": "Limpiar parámetros",
+      "types": {
+        "text": "Texto",
+        "number": "Número",
+        "date": "Fecha",
+        "null": "NULL"
+      }
+    }
   },
   "results": {
     "affectedRows": "{{count}} fila(s) afectada(s) en {{time}}ms",
@@ -2637,7 +2664,9 @@
       "maskedColumns": "Los valores enmascarados no se pueden comparar por completo.",
       "truncated": "Solo se comparan las filas cargadas."
     },
-    "retry": "Reintentar"
+    "retry": "Reintentar",
+    "exportSQL": "Descargar parche SQL",
+    "copySQL": "Copiar como parche SQL"
   },
   "virtualRelations": {
     "title": "Relaciones virtuales",
@@ -2729,9 +2758,9 @@
         "visual_diff": {
           "title": "Diff visual de datos",
           "description": "Compara dos conjuntos de resultados fila a fila, con resaltado a nivel de columna.",
-          "bullet1": "Vistas en paralelo y unificada",
-          "bullet2": "Detecta renombrados y reordenaciones",
-          "bullet3": "Exporta el diff como SQL o informe"
+          "bullet1": "Vista unificada fila por fila con resaltado por columna",
+          "bullet2": "Detecta adiciones, eliminaciones y celdas modificadas",
+          "bullet3": "Exporta el diff en CSV, JSON o parche SQL"
         },
         "er_diagram": {
           "title": "Diagrama ER",
@@ -3326,7 +3355,37 @@
     "pkLabel": "PK",
     "statusFailed": "Fallida",
     "partiallyApplied": "Migración aplicada parcialmente",
-    "partiallyAppliedWarning": "Este driver confirma el DDL implícitamente, así que las sentencias ya ejecutadas no se pudieron deshacer. Revisa el esquema antes de forzar."
+    "partiallyAppliedWarning": "Este driver confirma el DDL implícitamente, así que las sentencias ya ejecutadas no se pudieron deshacer. Revisa el esquema antes de forzar.",
+    "blastRadius": {
+      "title": "Radio de impacto y prevalidación",
+      "none": "No se detectaron riesgos DDL destructivos ni referencias en el espacio de trabajo.",
+      "runPreflight": "Prevalidar datos",
+      "hazardsSection": "Riesgos DDL",
+      "auditSection": "Tráfico reciente",
+      "auditStats": "{{count}} ejec. · {{fingerprints}} patrones",
+      "assetsSection": "Referencias del workspace",
+      "preflightSection": "Prevalidación en datos reales",
+      "violationsCount": "{{count}} infracción(es)",
+      "severity": {
+        "high": "Alto",
+        "medium": "Medio"
+      },
+      "kinds": {
+        "drop_table": "Eliminar tabla",
+        "truncate_table": "Vaciar tabla",
+        "drop_column": "Eliminar columna",
+        "alter_column_type": "Cambiar tipo",
+        "add_not_null": "Añadir NOT NULL",
+        "add_unique": "Añadir UNIQUE",
+        "shrink_varchar": "Reducir longitud"
+      },
+      "assetKinds": {
+        "saved_query": "Consulta",
+        "notebook": "Notebook",
+        "contract": "Contrato",
+        "replay_set": "Replay"
+      }
+    }
   },
   "snapshots": {
     "title": "Capturas",
@@ -3937,7 +3996,12 @@
       "invalidPageSize": "El máximo de filas debe estar entre 1 y 10000.",
       "invalidParamName": "Nombre de parámetro no válido: {{name}}",
       "paramNotInQuery": "El parámetro {{name}} no se usa en la consulta.",
-      "loadConnectionsFailed": "No se pudieron cargar las conexiones"
+      "loadConnectionsFailed": "No se pudieron cargar las conexiones",
+      "editTitle": "Editar endpoint",
+      "editDescription": "Actualiza la consulta, los parámetros o el límite de filas sin rotar el token.",
+      "save": "Guardar cambios",
+      "saving": "Guardando…",
+      "updateFailed": "Error al actualizar el endpoint"
     },
     "token": {
       "title": "Token del endpoint (mostrado una sola vez)",
@@ -3962,7 +4026,8 @@
       "useHttps": "Usar HTTPS",
       "badge": "HTTPS",
       "selfSigned": "Certificado autofirmado generado al iniciar. Los navegadores pedirán una excepción manual en la primera visita."
-    }
+    },
+    "edit": "Editar endpoint"
   },
   "restore": {
     "dialogTitle": "Restaurar en {{name}}",

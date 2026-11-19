@@ -155,7 +155,7 @@ impl ReplaySetStore {
             .map_err(|e| format!("Failed to create replays directory: {}", e))?;
         let content = serde_json::to_string_pretty(set)
             .map_err(|e| format!("Failed to serialize replay set: {}", e))?;
-        let pending = qore_service::paths::PendingOutput::new(&path)
+        let pending = crate::paths::PendingOutput::new(&path)
             .map_err(|e| format!("Failed to prepare replay set: {e}"))?;
         fs::write(pending.path(), content)
             .map_err(|e| format!("Failed to write replay set: {e}"))?;

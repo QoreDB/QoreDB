@@ -389,7 +389,7 @@ fn split_ch_statements(input: &str) -> Vec<String> {
 /// `GenericDialect`: this dialect decides how the statement is tokenized before
 /// `analyze_sql` classifies it as a mutation, so a driver that falls through to
 /// the generic parser is classified on a best-effort tokenization.
-fn dialect_for_driver(driver_id: &str) -> Box<dyn Dialect> {
+pub(crate) fn dialect_for_driver(driver_id: &str) -> Box<dyn Dialect> {
     match driver_id.to_ascii_lowercase().as_str() {
         "postgres" | "postgresql" | "cockroachdb" | "cockroach" | "supabase" | "neon"
         | "timescaledb" | "yugabytedb" => Box::new(PostgreSqlDialect {}),

@@ -756,7 +756,7 @@
     "collapseCell": "Réduire la cellule",
     "expandCell": "Déplier la cellule",
     "copyError": "Copier l'erreur",
-    "chartNoConfig": "Configurez cette cellule chart via le menu contextuel.",
+    "chartNoConfig": "Sélectionnez ci-dessus une cellule source, une colonne X et au moins une colonne Y.",
     "chartNoData": "Aucune donnée — exécutez d'abord la cellule source.",
     "undo": "Annuler",
     "redo": "Rétablir",
@@ -777,7 +777,23 @@
     "aiGenerate": "Générer le SQL",
     "aiCellInserted": "Cellule SQL insérée en dessous",
     "insertSummaryMarkdown": "Insérer en cellule Markdown",
-    "generateDocumentation": "Générer la documentation avec l’IA"
+    "generateDocumentation": "Générer la documentation avec l’IA",
+    "addCellChart": "Cellule graphique",
+    "cellLabelAria": "Étiquette de référence de la cellule",
+    "cellLabelPlaceholder": "etiquette",
+    "cellLabelHint": "Référencer cette cellule via $etiquette.colonne ou dans un graphique",
+    "duplicateLabelWarning": "Étiquette en double : les références et graphiques exigent des étiquettes uniques",
+    "chartSourcePlaceholder": "Cellule source...",
+    "chartXColumn": "Colonne X...",
+    "chartYColumns": "Y",
+    "chartTitlePlaceholder": "Titre du graphique (optionnel)",
+    "chartNeedLabelledCell": "Attribuez une #etiquette à une cellule SQL ou Mongo exécutée, puis sélectionnez-la ici.",
+    "chartTypes": {
+      "bar": "Barres",
+      "line": "Courbe",
+      "pie": "Secteurs",
+      "scatter": "Nuage"
+    }
   },
   "replay": {
     "cancelledReport": "Rejeu annulé. Les requêtes exécutées sont conservées ; la requête en cours a pu se terminer.",
@@ -1370,7 +1386,18 @@
       "transferTooltip": "Temps réseau/transfert",
       "totalTooltip": "Temps total aller-retour"
     },
-    "closeResult": "Fermer le résultat {{label}}"
+    "closeResult": "Fermer le résultat {{label}}",
+    "parameters": {
+      "title": "Paramètres",
+      "valuePlaceholder": "Valeur...",
+      "clear": "Effacer les paramètres",
+      "types": {
+        "text": "Texte",
+        "number": "Nombre",
+        "date": "Date",
+        "null": "NULL"
+      }
+    }
   },
   "results": {
     "affectedRows": "{{count}} ligne(s) affectée(s) en {{time}}ms",
@@ -2676,7 +2703,9 @@
       "maskedColumns": "Les valeurs masquées ne peuvent pas être comparées intégralement.",
       "truncated": "Seules les lignes chargées sont comparées."
     },
-    "retry": "Réessayer"
+    "retry": "Réessayer",
+    "exportSQL": "Télécharger le patch SQL",
+    "copySQL": "Copier en patch SQL"
   },
   "virtualRelations": {
     "title": "Relations virtuelles",
@@ -2768,9 +2797,9 @@
         "visual_diff": {
           "title": "Diff visuel de données",
           "description": "Comparez deux jeux de résultats ligne par ligne, avec surbrillance par colonne.",
-          "bullet1": "Vues côte à côte et unifiée",
-          "bullet2": "Détection des renommages et réorganisations",
-          "bullet3": "Export du diff en SQL ou en rapport"
+          "bullet1": "Vue unifiée ligne par ligne avec surbrillance par colonne",
+          "bullet2": "Détecte les ajouts, suppressions et cellules modifiées",
+          "bullet3": "Export du diff en CSV, JSON ou patch SQL"
         },
         "er_diagram": {
           "title": "Diagramme ER",
@@ -3365,7 +3394,37 @@
     "pkLabel": "PK",
     "statusFailed": "Échec",
     "partiallyApplied": "Migration partiellement appliquée",
-    "partiallyAppliedWarning": "Ce driver committe le DDL implicitement : les statements déjà exécutés n'ont pas pu être annulés. Vérifiez le schéma avant de forcer."
+    "partiallyAppliedWarning": "Ce driver committe le DDL implicitement : les statements déjà exécutés n'ont pas pu être annulés. Vérifiez le schéma avant de forcer.",
+    "blastRadius": {
+      "title": "Rayon d'impact & pré-vérification",
+      "none": "Aucun risque DDL ni référence dans l'espace de travail détecté.",
+      "runPreflight": "Vérifier les données",
+      "hazardsSection": "Risques DDL",
+      "auditSection": "Trafic récent",
+      "auditStats": "{{count}} exéc. · {{fingerprints}} empreintes",
+      "assetsSection": "Références workspace",
+      "preflightSection": "Pré-vérification sur données live",
+      "violationsCount": "{{count}} violation(s)",
+      "severity": {
+        "high": "Élevé",
+        "medium": "Moyen"
+      },
+      "kinds": {
+        "drop_table": "Suppression table",
+        "truncate_table": "Vidage table",
+        "drop_column": "Suppression colonne",
+        "alter_column_type": "Changement de type",
+        "add_not_null": "Ajout NOT NULL",
+        "add_unique": "Ajout UNIQUE",
+        "shrink_varchar": "Réduction longueur"
+      },
+      "assetKinds": {
+        "saved_query": "Requête",
+        "notebook": "Notebook",
+        "contract": "Contrat",
+        "replay_set": "Replay"
+      }
+    }
   },
   "snapshots": {
     "title": "Snapshots",
@@ -3976,7 +4035,12 @@
       "invalidPageSize": "Le nombre maximal de lignes doit être compris entre 1 et 10000.",
       "invalidParamName": "Nom de paramètre invalide : {{name}}",
       "paramNotInQuery": "Le paramètre {{name}} n'est pas utilisé dans la requête.",
-      "loadConnectionsFailed": "Échec du chargement des connexions"
+      "loadConnectionsFailed": "Échec du chargement des connexions",
+      "editTitle": "Modifier l’endpoint",
+      "editDescription": "Mettez à jour la requête, les paramètres ou le plafond de lignes sans réémettre le jeton.",
+      "save": "Enregistrer",
+      "saving": "Enregistrement…",
+      "updateFailed": "Échec de la mise à jour de l’endpoint"
     },
     "token": {
       "title": "Jeton d'endpoint (affiché une seule fois)",
@@ -4001,7 +4065,8 @@
       "useHttps": "Utiliser HTTPS",
       "badge": "HTTPS",
       "selfSigned": "Certificat auto-signé généré au démarrage. Les navigateurs demanderont une exception manuelle à la première visite."
-    }
+    },
+    "edit": "Modifier l’endpoint"
   },
   "restore": {
     "dialogTitle": "Restaurer dans {{name}}",

@@ -2,11 +2,16 @@
 
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { Reorder } from 'framer-motion';
-import { Code, FileText } from 'lucide-react';
+import { BarChart3, Code, FileText } from 'lucide-react';
 import { useCallback, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import type { Driver } from '@/lib/connection/drivers';
-import type { CellType, NotebookCell as NotebookCellType } from '@/lib/notebook/notebookTypes';
+import type {
+  CellConfig,
+  CellType,
+  NotebookCell as NotebookCellType,
+} from '@/lib/notebook/notebookTypes';
 import type { Namespace } from '@/lib/tauri';
 import { NotebookCell } from './cells/NotebookCell';
 
@@ -22,6 +27,7 @@ interface NotebookCellListProps {
   onReorderCells: (newOrder: NotebookCellType[]) => void;
   onFocusCell: (cellId: string) => void;
   onSourceChange: (cellId: string, source: string) => void;
+  onConfigChange?: (cellId: string, patch: Partial<CellConfig>) => void;
   onExecuteCell: (cellId: string) => void;
   onDeleteCell: (cellId: string) => void;
   onMoveCellUp: (cellId: string) => void;
@@ -41,6 +47,7 @@ function AddCellDivider({
   afterCellId?: string;
   onAddCell: (type: CellType, afterCellId?: string) => void;
 }) {
+  const { t } = useTranslation();
   return (
     <div className="flex items-center justify-center h-6 group/divider relative">
       <div className="w-full h-px bg-border group-hover/divider:bg-accent/50 transition-colors" />
@@ -49,6 +56,7 @@ function AddCellDivider({
           variant="outline"
           size="icon"
           className="h-5 w-5 rounded-full bg-background"
+          title={t('notebook.addCellSql')}
           onClick={() => onAddCell('sql', afterCellId)}
         >
           <Code size={10} />
@@ -57,9 +65,19 @@ function AddCellDivider({
           variant="outline"
           size="icon"
           className="h-5 w-5 rounded-full bg-background"
+          title={t('notebook.addCellMarkdown')}
           onClick={() => onAddCell('markdown', afterCellId)}
         >
           <FileText size={10} />
+        </Button>
+        <Button
+          variant="outline"
+          size="icon"
+          className="h-5 w-5 rounded-full bg-background"
+          title={t('notebook.addCellChart')}
+          onClick={() => onAddCell('chart', afterCellId)}
+        >
+          <BarChart3 size={10} />
         </Button>
       </div>
     </div>
@@ -89,6 +107,7 @@ function CellRenderer({ cell, allCells, index, total, props }: CellRendererProps
         isLast={index === total - 1}
         onFocus={() => props.onFocusCell(cell.id)}
         onSourceChange={source => props.onSourceChange(cell.id, source)}
+        onConfigChange={props.onConfigChange && (patch => props.onConfigChange?.(cell.id, patch))}
         onExecute={() => props.onExecuteCell(cell.id)}
         onDelete={() => props.onDeleteCell(cell.id)}
         onMoveUp={() => props.onMoveCellUp(cell.id)}

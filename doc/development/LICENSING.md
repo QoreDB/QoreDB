@@ -30,12 +30,12 @@ rg -l '^// SPDX-License-Identifier: BUSL-1.1' src src-tauri --glob '*.ts' --glob
 | Module | Premium locations / exceptions to inspect |
 | --- | --- |
 | AI and chat | `src/components/AI/`, `Chat/`, `Settings/sections/AiSection.tsx`, `Brand/QoreAiMark.tsx`, `Notebook/cells/AiCell.tsx`; AI/chat hooks, bindings, preferences, `query/inlineEditDiff*`; `src-tauri/src/ai/` and AI/agent/chat commands |
-| Contracts | `src/components/Contracts/`, `src/lib/contracts/`, `src-tauri/src/contracts/`, contracts command |
-| Data diff | `src/components/Diff/`, `src/lib/diffUtils.ts` |
+| Contracts | `src/components/Contracts/`, `src/lib/contracts/`, `src-tauri/src/contracts/`, `qore-service/src/contracts/`, `qore-service/src/ci_runner.rs`, contracts command |
+| Data diff | `src/components/Diff/`, `src/lib/diffUtils.ts`, `src/lib/diffSqlGenerator*` |
 | Federation | `src/components/Federation/`, `src/lib/connection/federation.ts`, `qore-service/src/federation/`, federation command |
-| Query replay | `src/components/Replay/`, `src/hooks/useReplay.ts`, `src/lib/replay*.ts`, `src-tauri/src/replay/`, replay command and `tests/replay_e2e.rs` |
+| Query replay | `src/components/Replay/`, `src/hooks/useReplay.ts`, `src/lib/replay*.ts`, `src-tauri/src/replay/`, `qore-service/src/replay/`, `qore-service/src/ci_runner.rs`, replay command and `tests/replay_e2e.rs` |
 | Time travel | `src/components/TimeTravel/`, `src-tauri/src/time_travel/`, time-travel command; `qore-service/src/mutation/{capture,capture_tests,batch_capture_tests}.rs`; `src-tauri/tests/integration_databases/time_travel_capture.rs` |
-| Advanced notebook | `ChartCell.tsx`, `ContractCell.tsx`, `CellResultSummary.tsx`, `notebookInterCellRef.ts` |
+| Advanced notebook | `ContractCell.tsx`, `CellResultSummary.tsx` |
 | Advanced schema | `src/components/Schema/ERDiagram.tsx` |
 | Advanced export | `src-tauri/src/export/writers/parquet_writer.rs`, `xlsx.rs` |
 | Profiling and alerts | `qore-service/src/interceptor/{profiling,regression,n_plus_one,alerts}.rs`, `src/providers/InterceptorAlertsProvider.tsx` |

@@ -725,7 +725,7 @@
     "collapseCell": "셀 접기",
     "expandCell": "셀 펼치기",
     "copyError": "오류 복사",
-    "chartNoConfig": "컨텍스트 메뉴를 통해 이 차트 셀을 구성하세요.",
+    "chartNoConfig": "위에서 소스 셀, X 열 및 Y 열을 선택하세요.",
     "chartNoData": "데이터 없음 — 먼저 소스 셀을 실행하세요.",
     "undo": "실행 취소",
     "redo": "다시 실행",
@@ -746,7 +746,23 @@
     "aiGenerate": "SQL 생성",
     "aiCellInserted": "아래에 SQL 셀을 삽입했습니다",
     "insertSummaryMarkdown": "Markdown 셀로 삽입",
-    "generateDocumentation": "AI로 문서 생성"
+    "generateDocumentation": "AI로 문서 생성",
+    "addCellChart": "차트 셀",
+    "cellLabelAria": "셀 참조 레이블",
+    "cellLabelPlaceholder": "label",
+    "cellLabelHint": "$label.column 또는 차트 셀에서 이 셀을 참조합니다",
+    "duplicateLabelWarning": "중복된 레이블: 셀 간 참조 및 차트에는 고유한 레이블이 필요합니다",
+    "chartSourcePlaceholder": "소스 셀...",
+    "chartXColumn": "X 열...",
+    "chartYColumns": "Y",
+    "chartTitlePlaceholder": "차트 제목(선택 사항)",
+    "chartNeedLabelledCell": "실행된 SQL 또는 Mongo 셀에 #label을 지정한 다음 여기에서 선택하세요.",
+    "chartTypes": {
+      "bar": "막대",
+      "line": "선",
+      "pie": "원형",
+      "scatter": "분산형"
+    }
   },
   "replay": {
     "cancelledReport": "재실행이 취소되었습니다. 실행된 쿼리는 보존되며, 진행 중이던 쿼리는 완료되었을 수 있습니다.",
@@ -1324,7 +1340,18 @@
       "transferTooltip": "네트워크/전송 시간",
       "totalTooltip": "총 왕복 시간"
     },
-    "closeResult": "결과 {{label}} 닫기"
+    "closeResult": "결과 {{label}} 닫기",
+    "parameters": {
+      "title": "매개변수",
+      "valuePlaceholder": "값...",
+      "clear": "매개변수 지우기",
+      "types": {
+        "text": "텍스트",
+        "number": "숫자",
+        "date": "날짜",
+        "null": "NULL"
+      }
+    }
   },
   "results": {
     "affectedRows": "{{time}}ms 동안 {{count}}개 행 영향 받음",
@@ -2625,7 +2652,9 @@
       "maskedColumns": "마스킹된 값은 완전히 비교할 수 없습니다.",
       "truncated": "불러온 행만 비교합니다."
     },
-    "retry": "다시 시도"
+    "retry": "다시 시도",
+    "exportSQL": "SQL 패치 다운로드",
+    "copySQL": "SQL 패치로 복사"
   },
   "virtualRelations": {
     "title": "가상 관계",
@@ -2717,9 +2746,9 @@
         "visual_diff": {
           "title": "비주얼 데이터 diff",
           "description": "두 결과 집합을 열 수준 하이라이트와 함께 행 단위로 비교합니다.",
-          "bullet1": "나란히 보기 및 통합 보기",
-          "bullet2": "이름 변경 및 순서 변경 감지",
-          "bullet3": "diff를 SQL 또는 보고서로 내보내기"
+          "bullet1": "열 강조 표시가 있는 통합 행별 보기",
+          "bullet2": "추가, 삭제 및 수정된 셀 감지",
+          "bullet3": "차이를 CSV, JSON 또는 SQL 패치로 내보내기"
         },
         "er_diagram": {
           "title": "ER 다이어그램",
@@ -3313,7 +3342,37 @@
     "pkLabel": "기본 키",
     "statusFailed": "실패",
     "partiallyApplied": "마이그레이션이 부분적으로 적용됨",
-    "partiallyAppliedWarning": "이 드라이버는 DDL을 암시적으로 커밋하므로 이미 실행된 문을 되돌릴 수 없습니다. 강제하기 전에 스키마를 확인하세요."
+    "partiallyAppliedWarning": "이 드라이버는 DDL을 암시적으로 커밋하므로 이미 실행된 문을 되돌릴 수 없습니다. 강제하기 전에 스키마를 확인하세요.",
+    "blastRadius": {
+      "title": "영향 반경 및 사전 검사",
+      "none": "파괴적인 DDL 위험이나 워크스페이스 참조가 감지되지 않았습니다.",
+      "runPreflight": "데이터 사전 검사 실행",
+      "hazardsSection": "DDL 위험",
+      "auditSection": "최근 쿼리 트래픽",
+      "auditStats": "{{count}}회 실행 · {{fingerprints}}개 패턴",
+      "assetsSection": "워크스페이스 참조",
+      "preflightSection": "실시간 데이터 사전 검사",
+      "violationsCount": "{{count}}건 위반",
+      "severity": {
+        "high": "높음",
+        "medium": "보통"
+      },
+      "kinds": {
+        "drop_table": "테이블 삭제",
+        "truncate_table": "테이블 비우기",
+        "drop_column": "열 삭제",
+        "alter_column_type": "열 타입 변경",
+        "add_not_null": "NOT NULL 추가",
+        "add_unique": "UNIQUE 추가",
+        "shrink_varchar": "길이 축소"
+      },
+      "assetKinds": {
+        "saved_query": "쿼리",
+        "notebook": "노트북",
+        "contract": "계약",
+        "replay_set": "리플레이"
+      }
+    }
   },
   "snapshots": {
     "title": "스냅샷",
@@ -3923,7 +3982,12 @@
       "invalidPageSize": "최대 행 수는 1 ~ 10000 사이여야 합니다.",
       "invalidParamName": "잘못된 매개변수 이름: {{name}}",
       "paramNotInQuery": "매개변수 {{name}} 이(가) 쿼리에서 참조되지 않습니다.",
-      "loadConnectionsFailed": "연결을 불러오지 못했습니다"
+      "loadConnectionsFailed": "연결을 불러오지 못했습니다",
+      "editTitle": "엔드포인트 편집",
+      "editDescription": "토큰을 재발급하지 않고 쿼리, 매개변수 또는 최대 행 수를 업데이트합니다.",
+      "save": "변경 사항 저장",
+      "saving": "저장 중…",
+      "updateFailed": "엔드포인트 업데이트 실패"
     },
     "token": {
       "title": "엔드포인트 토큰 (1회만 표시)",
@@ -3948,7 +4012,8 @@
       "useHttps": "HTTPS 사용",
       "badge": "HTTPS",
       "selfSigned": "서버 시작 시 자체 서명 인증서가 생성됩니다. 브라우저는 첫 접속 시 신뢰 예외를 요청합니다."
-    }
+    },
+    "edit": "엔드포인트 편집"
   },
   "restore": {
     "dialogTitle": "{{name}}(으)로 복원",

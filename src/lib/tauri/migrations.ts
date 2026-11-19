@@ -83,3 +83,60 @@ export async function getMigrationStatus(
 ): Promise<MigrationStatusEntry[] | null> {
   return invoke('get_migration_status', { sessionId, database });
 }
+
+export interface BlastRadiusHazardItem {
+  kind: string;
+  severity: 'high' | 'medium';
+  table: string;
+  columns: string[];
+  detail: string | null;
+}
+
+export interface AuditTrafficMatch {
+  table: string;
+  execution_count: number;
+  unique_fingerprints: number;
+  sample_queries: string[];
+}
+
+export interface WorkspaceAssetImpact {
+  kind: 'saved_query' | 'notebook' | 'contract' | 'replay_set';
+  name: string;
+  path: string;
+  matched_tables: string[];
+}
+
+export interface PreflightCheckResult {
+  table: string;
+  columns: string[];
+  kind: string;
+  violations: number | null;
+  error: string | null;
+}
+
+export interface MigrationBlastRadiusReport {
+  hazards: BlastRadiusHazardItem[];
+  affected_tables: string[];
+  audit_matches: AuditTrafficMatch[];
+  workspace_assets: WorkspaceAssetImpact[];
+  preflight_checks: PreflightCheckResult[];
+  parse_error: string | null;
+}
+
+export async function analyzeMigrationBlastRadius(params: {
+  sessionId?: string;
+  database?: string;
+  schema?: string;
+  driver?: string;
+  sql: string;
+  runPreflight?: boolean;
+}): Promise<MigrationBlastRadiusReport> {
+  return invoke('analyze_migration_blast_radius', {
+    sessionId: params.sessionId ?? null,
+    database: params.database ?? null,
+    schema: params.schema ?? null,
+    driver: params.driver ?? null,
+    sql: params.sql,
+    runPreflight: params.runPreflight ?? false,
+  });
+}

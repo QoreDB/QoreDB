@@ -74,6 +74,7 @@ import {
 import { cn } from '@/lib/utils';
 import { useLicense } from '@/providers/LicenseProvider';
 import { useWorkspace } from '@/providers/WorkspaceProvider';
+import { BlastRadiusPanel } from './BlastRadiusPanel';
 import { SchemaDeltaView } from './SchemaDeltaView';
 
 function prependWarnings(up: string, warnings: DdlWarning[], t: TFunction): string {
@@ -871,6 +872,12 @@ export function MigrationsPanel({
                         />
                       </div>
                     </section>
+                    <BlastRadiusPanel
+                      sql={draft.up}
+                      sessionId={sessionId}
+                      database={targetDatabase || undefined}
+                      driver={driver}
+                    />
                     <section>
                       <div className="text-xs font-semibold uppercase text-muted-foreground mb-1">
                         {t('migrations.downLabel')}

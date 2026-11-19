@@ -20,6 +20,56 @@ export interface ChangelogEntry {
  */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.1.42',
+    date: '2026-11-19',
+    items: [
+      {
+        title: 'Ad-hoc SQL parameters in the Query Editor',
+        description:
+          'Detect $1, :param, @param, and {{param}} placeholders directly in the main SQL editor with a collapsible parameter bar and safe literal substitution before execution.',
+        type: 'feature',
+      },
+      {
+        title: 'Notebook charts & inter-cell references unlocked for all users',
+        description:
+          'Chart cells (bar, line, pie, scatter) and inline #label editing for inter-cell references ($label.column / $label.rows) are now available in Core (Apache-2.0).',
+        type: 'improvement',
+      },
+      {
+        title: 'Migration Blast Radius',
+        description:
+          'Analyze migration UP scripts against AST DDL hazards, recent audit traffic, workspace assets (.qoredb/ queries, notebooks, contracts, replay sets), and optional live data preflight checks.',
+        type: 'feature',
+      },
+      {
+        title: 'Headless CI runner for Data Contracts & Replay Sets',
+        description:
+          'Run `qore contract list|run` and `qore replay list|run` from the CLI with `--format json|junit`, honoring connection exposure, read-only guards, and column masking.',
+        type: 'feature',
+      },
+      {
+        title: 'Visual Data Diff SQL patch export',
+        description:
+          'Export or copy driver-quoted INSERT, UPDATE, and DELETE SQL statements directly from Visual Data Diff results.',
+        type: 'feature',
+        proOnly: true,
+      },
+      {
+        title: 'Schema-faithful Data Generator & Instant Data API hardening',
+        description:
+          'Data Generator enforces varchar/char lengths, tinyint/smallint bounds, single-column uniqueness, and non-null FKs on empty parents. Instant Data API caps endpoints at 64, clamps page_size up to 10,000, enforces a 30s query timeout, and supports non-destructive endpoint updates.',
+        type: 'improvement',
+        proOnly: true,
+      },
+      {
+        title: 'Strict consent defaults & backend query confirmation tokens',
+        description:
+          'Plugin consent pre-checks only log and storage capabilities; dangerous production queries now require single-use backend confirmation tokens. Stale documentation claims and doc-comments are resolved.',
+        type: 'fix',
+      },
+    ],
+  },
+  {
     version: '0.1.41',
     date: '2026-11-12',
     items: [
@@ -451,7 +501,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       {
         title: 'Security hardening',
         description:
-          'Per-connection query rate limiting stops runaway loops, and filesystem access is now restricted to an explicit allow-list.',
+          'Per-connection query rate limiting stops runaway loops, and Tauri filesystem permissions are restricted to app and workspace directories.',
         type: 'improvement',
       },
     ],

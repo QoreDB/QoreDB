@@ -456,6 +456,8 @@ pub fn run() {
             #[cfg(feature = "pro")]
             commands::instant_api::create_endpoint,
             #[cfg(feature = "pro")]
+            commands::instant_api::update_endpoint,
+            #[cfg(feature = "pro")]
             commands::instant_api::regenerate_endpoint_token,
             #[cfg(feature = "pro")]
             commands::instant_api::delete_endpoint,
@@ -518,6 +520,7 @@ pub fn run() {
             // Migration runner commands
             commands::migrations::apply_migration,
             commands::migrations::get_migration_status,
+            commands::blast_radius::analyze_migration_blast_radius,
             // Schema baseline commands (drift reference)
             commands::workspace_baselines::ws_read_baseline,
             commands::workspace_baselines::ws_write_baseline,

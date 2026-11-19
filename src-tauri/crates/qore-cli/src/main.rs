@@ -1,22 +1,30 @@
 // SPDX-License-Identifier: Apache-2.0
 
+use std::path::PathBuf;
 use std::process::ExitCode;
 
-use clap::{Parser, Subcommand};
-
-use std::path::PathBuf;
+use clap::{Parser, Subcommand, ValueEnum};
 
 use qore_core::{Namespace, SessionId};
 use qore_service::ServiceContext;
 use qore_service::agent_access::{self, AgentVault};
 use qore_service::agent_tools::{self, AgentToolContext};
+use qore_service::ci_runner;
+use qore_service::contracts::storage as contract_storage;
 use qore_service::interceptor::QuerySource;
 use qore_service::paths::{QUERY_TIMEOUT_MS, config_dir};
+use qore_service::replay::ReplaySetStore;
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, ValueEnum)]
+enum OutputFormat {
+    Json,
+    Junit,
+}
 
 #[derive(Parser)]
 #[command(
     name = "qore",
-    about = "QoreDB CLI — query your saved connections from the terminal"
+    about = "QoreDB CLI — query connections and run contracts or replay checks from the terminal"
 )]
 struct Cli {
     /// Use the .qoredb workspace at this directory (or its parent) instead of
@@ -48,6 +56,43 @@ enum Command {
         #[arg(long)]
         schema: Option<String>,
     },
+    /// List or run workspace Data Contracts
+    Contract {
+        #[command(subcommand)]
+        action: ContractCommand,
+    },
+    /// List or run workspace Query Replay sets
+    Replay {
+        #[command(subcommand)]
+        action: ReplayCommand,
+    },
+}
+
+#[derive(Subcommand)]
+enum ContractCommand {
+    /// List Data Contracts in the active workspace
+    List,
+    /// Run one or all workspace Data Contracts against an exposed connection
+    Run {
+        connection_id: String,
+        #[arg(long)]
+        contract: Option<String>,
+        #[arg(long, value_enum, default_value_t = OutputFormat::Json)]
+        format: OutputFormat,
+    },
+}
+
+#[derive(Subcommand)]
+enum ReplayCommand {
+    /// List Query Replay sets in the active workspace
+    List,
+    /// Replay a saved set against an exposed connection
+    Run {
+        connection_id: String,
+        set_id: String,
+        #[arg(long, value_enum, default_value_t = OutputFormat::Json)]
+        format: OutputFormat,
+    },
 }
 
 async fn connect(
@@ -58,13 +103,17 @@ async fn connect(
     agent_access::open_session(vault, &ctx.session_manager, connection_id).await
 }
 
-async fn run(cli: Cli) -> Result<String, String> {
+async fn run(cli: Cli) -> Result<(String, bool), String> {
     let ctx = ServiceContext::new();
     let workspace = agent_access::detect_workspace(cli.workspace.as_deref());
     if cli.workspace.is_some() && workspace.is_none() {
         return Err("no .qoredb/workspace.json found at the given --workspace path".to_string());
     }
     let vault = AgentVault::open(config_dir(), workspace.as_deref());
+    let ws_root = vault
+        .workspace_path()
+        .map(PathBuf::from)
+        .unwrap_or_else(config_dir);
 
     match cli.command {
         Command::Connections => {
@@ -73,7 +122,8 @@ async fn run(cli: Cli) -> Result<String, String> {
                 .iter()
                 .map(agent_access::connection_summary)
                 .collect();
-            serde_json::to_string_pretty(&summary).map_err(|e| e.to_string())
+            let json = serde_json::to_string_pretty(&summary).map_err(|e| e.to_string())?;
+            Ok((json, true))
         }
         Command::Query { connection_id, sql } => {
             let session = connect(&ctx, &vault, &connection_id).await?;
@@ -87,7 +137,8 @@ async fn run(cli: Cli) -> Result<String, String> {
                 QuerySource::Cli,
             )
             .await?;
-            serde_json::to_string_pretty(&result).map_err(|e| e.to_string())
+            let json = serde_json::to_string_pretty(&result).map_err(|e| e.to_string())?;
+            Ok((json, true))
         }
         Command::Tables {
             connection_id,
@@ -103,7 +154,8 @@ async fn run(cli: Cli) -> Result<String, String> {
                 None,
             )
             .await?;
-            serde_json::to_string_pretty(&list).map_err(|e| e.to_string())
+            let json = serde_json::to_string_pretty(&list).map_err(|e| e.to_string())?;
+            Ok((json, true))
         }
         Command::Describe {
             connection_id,
@@ -121,8 +173,63 @@ async fn run(cli: Cli) -> Result<String, String> {
                 None,
             )
             .await?;
-            serde_json::to_string_pretty(&schema_info).map_err(|e| e.to_string())
+            let json = serde_json::to_string_pretty(&schema_info).map_err(|e| e.to_string())?;
+            Ok((json, true))
         }
+        Command::Contract { action } => match action {
+            ContractCommand::List => {
+                let list = contract_storage::list_contracts(&ws_root).map_err(|e| e.to_string())?;
+                let json = serde_json::to_string_pretty(&list).map_err(|e| e.to_string())?;
+                Ok((json, true))
+            }
+            ContractCommand::Run {
+                connection_id,
+                contract,
+                format,
+            } => {
+                let session = connect(&ctx, &vault, &connection_id).await?;
+                let runs = ci_runner::run_workspace_contracts(
+                    &ctx,
+                    session,
+                    &connection_id,
+                    &ws_root,
+                    contract.as_deref(),
+                )
+                .await?;
+                let passed = runs.iter().all(ci_runner::contract_run_passed);
+                let output = match format {
+                    OutputFormat::Json => {
+                        serde_json::to_string_pretty(&runs).map_err(|e| e.to_string())?
+                    }
+                    OutputFormat::Junit => ci_runner::contracts_to_junit_xml(&runs),
+                };
+                Ok((output, passed))
+            }
+        },
+        Command::Replay { action } => match action {
+            ReplayCommand::List => {
+                let list = ReplaySetStore::new(&ws_root).list()?;
+                let json = serde_json::to_string_pretty(&list).map_err(|e| e.to_string())?;
+                Ok((json, true))
+            }
+            ReplayCommand::Run {
+                connection_id,
+                set_id,
+                format,
+            } => {
+                let session = connect(&ctx, &vault, &connection_id).await?;
+                let report =
+                    ci_runner::run_workspace_replay(&ctx, session, &ws_root, &set_id).await?;
+                let passed = ci_runner::replay_report_passed(&report);
+                let output = match format {
+                    OutputFormat::Json => {
+                        serde_json::to_string_pretty(&report).map_err(|e| e.to_string())?
+                    }
+                    OutputFormat::Junit => ci_runner::replay_to_junit_xml(&report),
+                };
+                Ok((output, passed))
+            }
+        },
     }
 }
 
@@ -130,13 +237,68 @@ async fn run(cli: Cli) -> Result<String, String> {
 async fn main() -> ExitCode {
     let cli = Cli::parse();
     match run(cli).await {
-        Ok(output) => {
+        Ok((output, true)) => {
             println!("{output}");
             ExitCode::SUCCESS
+        }
+        Ok((output, false)) => {
+            println!("{output}");
+            ExitCode::FAILURE
         }
         Err(err) => {
             eprintln!("error: {err}");
             ExitCode::FAILURE
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parses_contract_and_replay_subcommands() {
+        let cli = Cli::try_parse_from([
+            "qore",
+            "--workspace",
+            "/tmp/proj",
+            "contract",
+            "run",
+            "staging",
+            "--contract",
+            "users",
+            "--format",
+            "junit",
+        ])
+        .unwrap();
+        assert_eq!(cli.workspace, Some(PathBuf::from("/tmp/proj")));
+        assert!(matches!(
+            cli.command,
+            Command::Contract {
+                action: ContractCommand::Run {
+                    format: OutputFormat::Junit,
+                    ..
+                }
+            }
+        ));
+
+        let cli = Cli::try_parse_from(["qore", "replay", "list"]).unwrap();
+        assert!(matches!(
+            cli.command,
+            Command::Replay {
+                action: ReplayCommand::List
+            }
+        ));
+
+        let cli = Cli::try_parse_from(["qore", "replay", "run", "prod", "smoke-set"]).unwrap();
+        assert!(matches!(
+            cli.command,
+            Command::Replay {
+                action: ReplayCommand::Run {
+                    format: OutputFormat::Json,
+                    ..
+                }
+            }
+        ));
     }
 }

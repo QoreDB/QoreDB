@@ -51,6 +51,11 @@ import {
   isMutationQuery,
 } from '../../lib/environment';
 import { addToHistory } from '../../lib/query/history';
+import {
+  extractQueryParameters,
+  type QueryParameterValue,
+  substituteQueryParameters,
+} from '../../lib/query/queryParameters';
 import { formatSql } from '../../lib/query/sqlFormatter';
 import {
   incrementTransactionStatements,
@@ -96,6 +101,7 @@ import { SaveQueryDialog } from './SaveQueryDialog';
 const InlineEditDialog = lazy(() =>
   import('@/components/AI/InlineEditDialog').then(module => ({ default: module.InlineEditDialog }))
 );
+const QueryParametersBar = lazy(() => import('./QueryParametersBar'));
 
 const EDITOR_HEIGHT_KEY = 'query-editor-height';
 const MIN_EDITOR_HEIGHT = 100;
@@ -184,6 +190,26 @@ export function QueryPanel({
   const defaultQuery = getDefaultQuery(queryDialect);
 
   const [query, setQuery] = useState(initialQuery || defaultQuery);
+  const [paramValues, setParamValues] = useState<Record<string, QueryParameterValue>>({});
+  const detectedParams = useMemo(
+    () => (isDocument || isSearch ? [] : extractQueryParameters(query)),
+    [isDocument, isSearch, query]
+  );
+
+  const resolveQueryWithParams = useCallback(
+    (rawSql: string): string => {
+      if (isDocument || isSearch) return rawSql;
+      const filled: Record<string, QueryParameterValue> = {};
+      for (const [name, entry] of Object.entries(paramValues)) {
+        if (entry.type === 'null' || entry.value.length > 0) {
+          filled[name] = entry;
+        }
+      }
+      if (Object.keys(filled).length === 0) return rawSql;
+      return substituteQueryParameters(rawSql, filled);
+    },
+    [isDocument, isSearch, paramValues]
+  );
   const [results, setResults] = useState<QueryResultEntry[]>([]);
   const [activeResultId, setActiveResultId] = useState<string | null>(null);
   const [keepResults, setKeepResults] = useState(true);
@@ -786,8 +812,9 @@ export function QueryPanel({
         return;
       }
 
-      const queryToRun = queryText || query;
-      if (!queryToRun.trim()) return;
+      const rawQuery = queryText || query;
+      if (!rawQuery.trim()) return;
+      const queryToRun = resolveQueryWithParams(rawQuery);
 
       const isMutation = isMutationQuery(
         queryToRun,
@@ -834,6 +861,7 @@ export function QueryPanel({
     [
       sessionId,
       query,
+      resolveQueryWithParams,
       isDocument,
       readOnly,
       environment,
@@ -952,15 +980,24 @@ export function QueryPanel({
       return;
     }
     const selection = sqlEditorRef.current?.getSelection();
-    const queryToExplain = selection && selection.trim().length > 0 ? selection : query;
-    if (!queryToExplain.trim()) return;
+    const rawToExplain = selection && selection.trim().length > 0 ? selection : query;
+    if (!rawToExplain.trim()) return;
+    const queryToExplain = resolveQueryWithParams(rawToExplain);
     const trimmed = queryToExplain.replace(/;+\s*$/, '');
     // The driver declares its own EXPLAIN syntax; the PostgreSQL form is the
     // fallback while capabilities are still loading.
     const prefix = driverCapabilities?.explain_prefix ?? 'EXPLAIN (FORMAT JSON)';
 
     await runQuery(`${prefix} ${trimmed}`, false, 'explain');
-  }, [sessionId, isDocument, isExplainSupported, query, runQuery, driverCapabilities]);
+  }, [
+    sessionId,
+    isDocument,
+    isExplainSupported,
+    query,
+    resolveQueryWithParams,
+    runQuery,
+    driverCapabilities,
+  ]);
 
   const handleToggleKeepResults = useCallback(() => {
     setKeepResults(prev => {
@@ -1315,6 +1352,20 @@ export function QueryPanel({
         onRollbackTransaction={handleRollbackTransaction}
         onInsertSnippet={template => sqlEditorRef.current?.insertSnippet(template)}
       />
+
+      {detectedParams.length > 0 && (
+        <Suspense fallback={null}>
+          <QueryParametersBar
+            parameters={detectedParams}
+            values={paramValues}
+            onChange={(name, next) => setParamValues(prev => ({ ...prev, [name]: next }))}
+            onReset={() => setParamValues({})}
+            onExecute={() => {
+              void handleExecute();
+            }}
+          />
+        </Suspense>
+      )}
 
       <div
         id={editorPaneId}

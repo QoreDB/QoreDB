@@ -24,6 +24,7 @@ import {
   saveNotebookToFile,
 } from '../lib/notebook/notebookIO';
 import {
+  type CellConfig,
   type CellExecutionState,
   type CellResult,
   type CellType,
@@ -65,6 +66,7 @@ export interface UseNotebookReturn {
   moveCellDown: (cellId: string) => void;
   reorderCells: (newOrder: NotebookCell[]) => void;
   updateCellSource: (cellId: string, source: string) => void;
+  updateCellConfig: (cellId: string, patch: Partial<CellConfig>) => void;
   setFocusedCell: (cellId: string | null) => void;
   // Execution
   executeCell: (cellId: string) => Promise<void>;
@@ -347,6 +349,19 @@ export function useNotebook(options: UseNotebookOptions): UseNotebookReturn {
   const updateCellSource = useCallback(
     (cellId: string, source: string) => {
       updateCell(cellId, cell => ({ ...cell, source }));
+    },
+    [updateCell]
+  );
+
+  const updateCellConfig = useCallback(
+    (cellId: string, patch: Partial<CellConfig>) => {
+      updateCell(cellId, cell => {
+        const nextConfig: CellConfig = { ...cell.config, ...patch };
+        if (nextConfig.label !== undefined && nextConfig.label.trim() === '') {
+          delete nextConfig.label;
+        }
+        return { ...cell, config: nextConfig };
+      });
     },
     [updateCell]
   );
@@ -899,6 +914,7 @@ export function useNotebook(options: UseNotebookOptions): UseNotebookReturn {
     moveCellDown,
     reorderCells,
     updateCellSource,
+    updateCellConfig,
     setFocusedCell,
     executeCell,
     executeAll,

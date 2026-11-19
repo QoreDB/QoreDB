@@ -19,8 +19,8 @@ import { type InstalledPlugin, type PluginCapabilityKind, setPluginConsent } fro
 interface ConsentDialogProps {
   plugin: InstalledPlugin | null;
   /** Capabilities currently granted, used to prefill the checkboxes when the
-   *  dialog is opened from the detail view. Defaults to "all requested" the
-   *  first time. */
+   *  dialog is opened from the detail view. On initial install (`undefined`),
+   *  only benign capabilities (`log`, `storage`) are pre-selected. */
   initialGrants?: PluginCapabilityKind[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -37,6 +37,8 @@ const ORDERED: PluginCapabilityKind[] = [
   'fs',
   'secrets',
 ];
+
+const BENIGN_DEFAULT_CAPS: ReadonlySet<PluginCapabilityKind> = new Set(['log', 'storage']);
 
 function isRequested(
   caps: NonNullable<InstalledPlugin['manifest']['runtime']>['capabilities'],
@@ -64,6 +66,18 @@ export function requestedCaps(plugin: InstalledPlugin | null): PluginCapabilityK
   const caps = plugin?.manifest.runtime?.capabilities;
   if (!caps) return [];
   return ORDERED.filter(k => isRequested(caps, k));
+}
+
+/** Initial capabilities pre-checked in the consent dialog: explicit existing
+ *  grants if provided, otherwise only benign capabilities (`log`, `storage`). */
+export function defaultInitialGrants(
+  plugin: InstalledPlugin | null,
+  initialGrants?: PluginCapabilityKind[]
+): PluginCapabilityKind[] {
+  if (initialGrants !== undefined) {
+    return initialGrants;
+  }
+  return requestedCaps(plugin).filter(cap => BENIGN_DEFAULT_CAPS.has(cap));
 }
 
 /** Manifest specifics surfaced below the generic description: hosts the
@@ -104,7 +118,7 @@ export function ConsentDialog({
 
   useEffect(() => {
     if (!open || !plugin) return;
-    setGrants(new Set(initialGrants ?? requestedCaps(plugin)));
+    setGrants(new Set(defaultInitialGrants(plugin, initialGrants)));
   }, [open, plugin, initialGrants]);
 
   if (!plugin || requested.length === 0) return null;

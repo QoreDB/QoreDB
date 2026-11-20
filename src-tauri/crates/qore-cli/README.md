@@ -32,6 +32,22 @@ from the connection vault and exit with status code `2` when a contract
 rule fails, a replay regression is detected, or nothing was checked (no
 contract found, every replay entry skipped); `1` on CLI or connection errors.
 Slower replay entries are reported but only fail the run with `--fail-on-slower`.
+
+`contract run` and `replay run` execute Premium engines and need a QoreDB Pro
+license (or higher). On your machine, the license activated in the desktop app is
+used. On a CI runner, which has no OS keyring, store the license key as a secret
+and expose it as `QOREDB_LICENSE_KEY`:
+
+```yaml
+# GitHub Actions
+- run: qore contract run staging --format junit > contracts.xml
+  env:
+    QOREDB_LICENSE_KEY: ${{ secrets.QOREDB_LICENSE_KEY }}
+```
+
+Without a valid license these commands exit with status `1`. `list`, `query`,
+`tables` and `describe` stay available without a license.
+
 Contract runs write no history unless `--record-history` is passed, so CI
 checkouts stay clean.
 

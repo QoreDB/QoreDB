@@ -3,8 +3,9 @@
 //! Headless CI runners for Data Contracts and Query Replay Sets.
 //!
 //! Shared by `qore-cli` so CI pipelines can evaluate `.qoredb/contracts/` and
-//! `.qoredb/replays/` against an AgentVault connection without requiring a
-//! desktop session or a Pro license key on the runner.
+//! `.qoredb/replays/` against an AgentVault connection without a desktop
+//! session. Both engines are Premium: a run needs a Pro license, see
+//! [`require_ci_license`].
 
 use std::fmt::Write as _;
 use std::path::Path;
@@ -19,6 +20,9 @@ use crate::contracts::runner::{RunOptions, RunnerError, run_contract};
 use crate::contracts::storage;
 use crate::contracts::{ContractRun, Rule, RuleStatus};
 use crate::interceptor::{Environment, QuerySource, map_environment};
+use crate::license::LicenseManager;
+use crate::license::key::{LicenseError, LicensePayload, verify_license};
+use crate::license::status::LicenseTier;
 use crate::paths::QUERY_TIMEOUT_MS;
 use crate::replay::compare::{SlowerThresholds, summarize};
 use crate::replay::execute::{
@@ -28,6 +32,41 @@ use crate::replay::{
     CaptureMode, ReplayReport, ReplayRunOptions, ReplaySetStore, ReplaySummary, ReplayVerdict,
     RunMeta,
 };
+
+/// CI runners have no OS keyring, so the key comes from a pipeline secret.
+pub const LICENSE_ENV: &str = "QOREDB_LICENSE_KEY";
+
+/// Checks that a Pro (or higher) license covers this run: the key in
+/// [`LICENSE_ENV`] when set, otherwise the license activated in the desktop app
+/// on this machine.
+pub fn require_ci_license(manager: &LicenseManager, env_key: Option<&str>) -> Result<(), String> {
+    check_ci_license(manager.effective_status().tier, env_key, verify_license)
+}
+
+fn check_ci_license(
+    stored_tier: LicenseTier,
+    env_key: Option<&str>,
+    verify: impl Fn(&str) -> Result<LicensePayload, LicenseError>,
+) -> Result<(), String> {
+    let tier = match env_key.map(str::trim).filter(|key| !key.is_empty()) {
+        Some(key) => match verify(key) {
+            Ok(payload) => payload.tier,
+            Err(LicenseError::Expired) => {
+                return Err(format!("the license in {LICENSE_ENV} has expired"));
+            }
+            Err(_) => return Err(format!("{LICENSE_ENV} is not a valid QoreDB license key")),
+        },
+        None => stored_tier,
+    };
+    if tier.includes(LicenseTier::Pro) {
+        Ok(())
+    } else {
+        Err(format!(
+            "running Data Contracts and Replay sets requires a QoreDB Pro license: \
+             set {LICENSE_ENV} in your CI secrets, or activate a license in the desktop app"
+        ))
+    }
+}
 
 /// How a CI run decides pass/fail beyond hard failures.
 #[derive(Debug, Clone, Copy, Default)]
@@ -407,7 +446,50 @@ pub fn replay_to_junit_xml(report: &ReplayReport, gate: CiGate) -> String {
 mod tests {
     use super::*;
     use crate::contracts::{ContractRun, RuleResult, RuleStatus};
+    use crate::license::key::test_helpers::{create_test_license, dev_keypair};
+    use crate::license::key::verify_license_with_key;
     use crate::replay::{CaptureMode, ReplayEntryResult, ReplaySummary, ReplayVerdict, RunMeta};
+
+    fn signed_key(tier: LicenseTier, expires_at: Option<&str>) -> String {
+        let (signing_key, _) = dev_keypair();
+        create_test_license(
+            &signing_key,
+            &LicensePayload {
+                email: "ci@example.com".into(),
+                tier,
+                issued_at: "2026-01-01T00:00:00Z".into(),
+                expires_at: expires_at.map(str::to_string),
+                payment_id: "pay_1".into(),
+                seats: None,
+                is_founder: false,
+            },
+        )
+    }
+
+    #[test]
+    fn ci_runs_require_a_pro_license_from_env_or_desktop() {
+        let (_, public_key) = dev_keypair();
+        let verify = |key: &str| verify_license_with_key(key, &public_key);
+
+        let missing = check_ci_license(LicenseTier::Core, None, verify).unwrap_err();
+        assert!(missing.contains(LICENSE_ENV));
+        assert!(check_ci_license(LicenseTier::Pro, None, verify).is_ok());
+
+        let pro = signed_key(LicenseTier::Pro, None);
+        assert!(check_ci_license(LicenseTier::Core, Some(&pro), verify).is_ok());
+        let team = signed_key(LicenseTier::Team, None);
+        assert!(check_ci_license(LicenseTier::Core, Some(&team), verify).is_ok());
+
+        let expired = signed_key(LicenseTier::Pro, Some("2020-01-01T00:00:00Z"));
+        let err = check_ci_license(LicenseTier::Pro, Some(&expired), verify).unwrap_err();
+        assert!(err.contains("expired"));
+
+        let err = check_ci_license(LicenseTier::Pro, Some("forged"), verify).unwrap_err();
+        assert!(err.contains("not a valid"));
+        assert!(!err.contains("forged"));
+
+        assert!(check_ci_license(LicenseTier::Pro, Some("  "), verify).is_ok());
+    }
 
     #[test]
     fn junit_escapes_and_reports_contract_failures() {

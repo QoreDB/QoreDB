@@ -110,6 +110,11 @@ async fn connect(
     agent_access::open_session(vault, &ctx.session_manager, connection_id).await
 }
 
+fn require_license(ctx: &ServiceContext) -> Result<(), String> {
+    let env_key = std::env::var(ci_runner::LICENSE_ENV).ok();
+    ci_runner::require_ci_license(&ctx.license_manager, env_key.as_deref())
+}
+
 async fn run(cli: Cli) -> Result<(String, bool), String> {
     let ctx = ServiceContext::new();
     let workspace = agent_access::detect_workspace(cli.workspace.as_deref());
@@ -195,6 +200,7 @@ async fn run(cli: Cli) -> Result<(String, bool), String> {
                 format,
                 record_history,
             } => {
+                require_license(&ctx)?;
                 let session = connect(&ctx, &vault, &connection_id).await?;
                 let runs = ci_runner::run_workspace_contracts(
                     &ctx,
@@ -230,6 +236,7 @@ async fn run(cli: Cli) -> Result<(String, bool), String> {
                 format,
                 fail_on_slower,
             } => {
+                require_license(&ctx)?;
                 let session = connect(&ctx, &vault, &connection_id).await?;
                 let report =
                     ci_runner::run_workspace_replay(&ctx, session, &ws_root, &set_id).await?;

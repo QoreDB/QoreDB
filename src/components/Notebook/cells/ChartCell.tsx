@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { useMemo } from 'react';
+import { ChevronDown, ChevronRight } from 'lucide-react';
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Bar,
@@ -27,6 +28,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { buildChartPoints, numericColumnNames } from '@/lib/notebook/chartData';
 import type { ChartConfig, NotebookCell as NotebookCellType } from '@/lib/notebook/notebookTypes';
 
 interface ChartCellProps {
@@ -68,38 +70,22 @@ export function ChartCell({ cell, allCells, onChartConfigChange }: ChartCellProp
     return matches.length === 1 ? matches[0] : undefined;
   }, [allCells, config?.sourceLabel]);
 
-  const availableColumns = useMemo(() => {
-    if (sourceCell?.lastResult?.type !== 'table' || !sourceCell.lastResult.columns) return [];
-    return sourceCell.lastResult.columns.filter(c => !c.masked).map(c => c.name);
-  }, [sourceCell]);
+  const sourceTable =
+    sourceCell?.lastResult?.type === 'table' && sourceCell.lastResult.columns
+      ? { columns: sourceCell.lastResult.columns, rows: sourceCell.lastResult.rows ?? [] }
+      : null;
+  const sourceReady = sourceCell?.executionState === 'success' && sourceTable !== null;
+  const availableColumns = sourceTable
+    ? sourceTable.columns.filter(c => !c.masked).map(c => c.name)
+    : [];
+  const numericColumns = sourceTable
+    ? numericColumnNames(sourceTable.columns, sourceTable.rows)
+    : [];
 
-  const data = useMemo(() => {
-    if (!config || !config.sourceLabel || !config.xColumn || config.yColumns.length === 0) {
-      return [];
-    }
-    const sources = allCells.filter(c => c.config?.label === config.sourceLabel);
-    const matched = sources[0];
-    if (sources.length !== 1 || matched.executionState !== 'success') return [];
-    if (!matched?.lastResult || matched.lastResult.type !== 'table') return [];
-    const { columns, rows } = matched.lastResult;
-    if (!columns || !rows) return [];
-
-    const xIdx = columns.findIndex(c => c.name === config.xColumn && !c.masked);
-    if (xIdx < 0) return [];
-    const yIdxs = config.yColumns.map(y => columns.findIndex(c => c.name === y && !c.masked));
-    if (yIdxs.some(idx => idx < 0)) return [];
-
-    return rows.map(row => {
-      const point: Record<string, unknown> = {
-        [config.xColumn]: row.values[xIdx],
-      };
-      for (let i = 0; i < config.yColumns.length; i++) {
-        const idx = yIdxs[i];
-        if (idx >= 0) point[config.yColumns[i]] = Number(row.values[idx]) || 0;
-      }
-      return point;
-    });
-  }, [config, allCells]);
+  const data =
+    config?.xColumn && config.yColumns.length > 0 && sourceReady && sourceTable
+      ? buildChartPoints(sourceTable.columns, sourceTable.rows, config.xColumn, config.yColumns)
+      : [];
 
   const activeConfig: ChartConfig = config ?? {
     sourceLabel: '',
@@ -115,13 +101,13 @@ export function ChartCell({ cell, allCells, onChartConfigChange }: ChartCellProp
 
   const handleSourceChange = (nextSource: string) => {
     const nextCell = allCells.find(c => c.config?.label === nextSource);
-    const cols =
-      nextCell?.lastResult?.type === 'table' && nextCell.lastResult.columns
-        ? nextCell.lastResult.columns.filter(c => !c.masked).map(c => c.name)
-        : [];
+    const result = nextCell?.lastResult?.type === 'table' ? nextCell.lastResult : null;
+    const cols = result?.columns ? result.columns.filter(c => !c.masked).map(c => c.name) : [];
+    const numeric = result?.columns ? numericColumnNames(result.columns, result.rows ?? []) : [];
     const nextX = cols.includes(activeConfig.xColumn) ? activeConfig.xColumn : (cols[0] ?? '');
-    const keptY = activeConfig.yColumns.filter(col => cols.includes(col));
-    const nextY = keptY.length > 0 ? keptY : cols.length > 1 ? [cols[1]] : cols.slice(0, 1);
+    const keptY = activeConfig.yColumns.filter(col => numeric.includes(col));
+    const firstY = numeric.find(col => col !== nextX);
+    const nextY = keptY.length > 0 ? keptY : firstY ? [firstY] : [];
     updateConfig({ sourceLabel: nextSource, xColumn: nextX, yColumns: nextY });
   };
 
@@ -141,10 +127,32 @@ export function ChartCell({ cell, allCells, onChartConfigChange }: ChartCellProp
     Boolean(config?.sourceLabel) &&
     Boolean(config?.xColumn) &&
     Boolean(config?.yColumns && config.yColumns.length > 0);
+  const [configOpen, setConfigOpen] = useState(!isConfigured);
 
   return (
     <div className="space-y-2">
       {onChartConfigChange && (
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="h-6 gap-1 px-1.5 text-[11px] text-muted-foreground"
+          aria-expanded={configOpen}
+          onClick={() => setConfigOpen(open => !open)}
+        >
+          {configOpen ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+          {configOpen
+            ? t('notebook.chartHideConfig')
+            : isConfigured && config
+              ? t('notebook.chartConfigSummary', {
+                  source: config.sourceLabel,
+                  x: config.xColumn,
+                  y: config.yColumns.join(', '),
+                })
+              : t('notebook.chartShowConfig')}
+        </Button>
+      )}
+      {onChartConfigChange && configOpen && (
         <div className="flex flex-wrap items-center gap-2 rounded-md border border-border/60 bg-muted/20 p-2 text-xs">
           <Select value={activeConfig.sourceLabel || undefined} onValueChange={handleSourceChange}>
             <SelectTrigger className="h-7 w-36 text-xs">
@@ -211,7 +219,12 @@ export function ChartCell({ cell, allCells, onChartConfigChange }: ChartCellProp
               <span className="text-[11px] text-muted-foreground mr-1">
                 {t('notebook.chartYColumns')}:
               </span>
-              {availableColumns.map(col => {
+              {numericColumns.length === 0 && (
+                <span className="text-[11px] text-muted-foreground italic">
+                  {t('notebook.chartNoNumericColumns')}
+                </span>
+              )}
+              {numericColumns.map(col => {
                 const selected = activeConfig.yColumns.includes(col);
                 return (
                   <Button
@@ -239,7 +252,9 @@ export function ChartCell({ cell, allCells, onChartConfigChange }: ChartCellProp
         </div>
       ) : data.length === 0 ? (
         <div className="p-4 text-sm text-muted-foreground italic border border-dashed border-border rounded-md">
-          {t('notebook.chartNoData')}
+          {sourceReady
+            ? t('notebook.chartNoData')
+            : t('notebook.chartSourceNotRun', { label: config?.sourceLabel })}
         </div>
       ) : (
         <div className="border border-border rounded-md p-2">

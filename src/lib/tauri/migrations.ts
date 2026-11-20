@@ -100,7 +100,7 @@ export interface AuditTrafficMatch {
 }
 
 export interface WorkspaceAssetImpact {
-  kind: 'saved_query' | 'notebook' | 'contract' | 'replay_set';
+  kind: 'saved_query' | 'notebook' | 'contract' | 'replay_set' | 'instant_api';
   name: string;
   path: string;
   matched_tables: string[];

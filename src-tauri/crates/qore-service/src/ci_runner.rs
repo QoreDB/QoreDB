@@ -24,8 +24,8 @@ use crate::query as service_query;
 use crate::replay::compare::{Observed, SlowerThresholds, classify, summarize};
 use crate::replay::digest::compute_digest;
 use crate::replay::{
-    CaptureMode, ReplayEntryResult, ReplayReport, ReplayRunOptions, ReplaySetStore, ReplaySummary,
-    ReplayVerdict, RunMeta, query_preview,
+    CaptureMode, ReplayEntry, ReplayEntryResult, ReplayReport, ReplayRunOptions, ReplaySetStore,
+    ReplaySummary, ReplayVerdict, RunMeta, query_preview,
 };
 
 const CODE_MUTATION_EXCLUDED: &str = "mutation_excluded";
@@ -33,14 +33,25 @@ const CODE_MUTATION_PRODUCTION_BLOCKED: &str = "mutation_production_blocked";
 const MUTATION_EXCLUDED: &str = "Mutation excluded from replay";
 const MUTATION_PRODUCTION_BLOCKED: &str = "Mutations are never replayed against production";
 
+/// How a CI run decides pass/fail beyond hard failures.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct CiGate {
+    /// Latency regressions are noisy on shared runners, so they only fail the
+    /// run when the pipeline asks for it.
+    pub fail_on_slower: bool,
+}
+
 /// Executes all contracts in `<workspace_root>/contracts/` (or the named one)
 /// against `session`. Honors column masking rules attached to `session`.
+/// `record_history` appends each run to `contracts/.history/`, which dirties
+/// the checkout, so CI leaves it off unless asked.
 pub async fn run_workspace_contracts(
     ctx: &ServiceContext,
     session: SessionId,
     connection_id: &str,
     workspace_root: &Path,
     contract_name: Option<&str>,
+    record_history: bool,
 ) -> Result<Vec<ContractRun>, String> {
     let driver = ctx
         .session_manager
@@ -102,7 +113,7 @@ pub async fn run_workspace_contracts(
             }
         }
 
-        if let Err(err) = storage::append_run(workspace_root, &name, &run) {
+        if record_history && let Err(err) = storage::append_run(workspace_root, &name, &run) {
             tracing::warn!("failed to append contract run history in CI runner: {err}");
         }
         runs.push(run);
@@ -159,24 +170,7 @@ pub async fn run_workspace_replay(
             && let Err(reason) =
                 crate::masking_guard::check_agent_query(&driver_id, &entry.query, &m.config)
         {
-            results.push(ReplayEntryResult {
-                entry_id: entry.id.clone(),
-                order: entry.order,
-                query_preview: query_preview(&entry.query),
-                verdict: ReplayVerdict::Skipped,
-                success: false,
-                error: None,
-                skip_reason: Some(reason),
-                skip_code: None,
-                execution_time_ms: 0.0,
-                expected_execution_time_ms: entry.expected.execution_time_ms,
-                row_count: None,
-                expected_row_count: entry.expected.row_count,
-                digest: None,
-                expected_digest: entry.expected.result_digest.clone(),
-                captured: false,
-                partial_comparison: false,
-            });
+            results.push(skipped_result(entry, reason, None));
             continue;
         }
 
@@ -196,24 +190,7 @@ pub async fn run_workspace_replay(
         {
             Ok(pf) => pf,
             Err(reason) => {
-                results.push(ReplayEntryResult {
-                    entry_id: entry.id.clone(),
-                    order: entry.order,
-                    query_preview: query_preview(&entry.query),
-                    verdict: ReplayVerdict::Skipped,
-                    success: false,
-                    error: None,
-                    skip_reason: Some(reason),
-                    skip_code: None,
-                    execution_time_ms: 0.0,
-                    expected_execution_time_ms: entry.expected.execution_time_ms,
-                    row_count: None,
-                    expected_row_count: entry.expected.row_count,
-                    digest: None,
-                    expected_digest: entry.expected.result_digest.clone(),
-                    captured: false,
-                    partial_comparison: false,
-                });
+                results.push(skipped_result(entry, reason, None));
                 continue;
             }
         };
@@ -227,24 +204,7 @@ pub async fn run_workspace_replay(
             } else {
                 (CODE_MUTATION_EXCLUDED, MUTATION_EXCLUDED)
             };
-            results.push(ReplayEntryResult {
-                entry_id: entry.id.clone(),
-                order: entry.order,
-                query_preview: query_preview(&entry.query),
-                verdict: ReplayVerdict::Skipped,
-                success: false,
-                error: None,
-                skip_reason: Some(reason.to_string()),
-                skip_code: Some(code.to_string()),
-                execution_time_ms: 0.0,
-                expected_execution_time_ms: entry.expected.execution_time_ms,
-                row_count: None,
-                expected_row_count: entry.expected.row_count,
-                digest: None,
-                expected_digest: entry.expected.result_digest.clone(),
-                captured: false,
-                partial_comparison: false,
-            });
+            results.push(skipped_result(entry, reason.to_string(), Some(code)));
             continue;
         }
 
@@ -349,15 +309,43 @@ pub async fn run_workspace_replay(
     })
 }
 
+fn skipped_result(entry: &ReplayEntry, reason: String, code: Option<&str>) -> ReplayEntryResult {
+    ReplayEntryResult {
+        entry_id: entry.id.clone(),
+        order: entry.order,
+        query_preview: query_preview(&entry.query),
+        verdict: ReplayVerdict::Skipped,
+        success: false,
+        error: None,
+        skip_reason: Some(reason),
+        skip_code: code.map(str::to_string),
+        execution_time_ms: 0.0,
+        expected_execution_time_ms: entry.expected.execution_time_ms,
+        row_count: None,
+        expected_row_count: entry.expected.row_count,
+        digest: None,
+        expected_digest: entry.expected.result_digest.clone(),
+        captured: false,
+        partial_comparison: false,
+    }
+}
+
 pub fn contract_run_passed(run: &ContractRun) -> bool {
     run.fail_count == 0 && run.error_count == 0
 }
 
-pub fn replay_report_passed(report: &ReplayReport) -> bool {
-    report.summary.broken == 0
-        && report.summary.row_count_diff == 0
-        && report.summary.digest_diff == 0
-        && report.summary.slower == 0
+/// A pipeline that checked nothing must not report green.
+pub fn contract_runs_passed(runs: &[ContractRun]) -> bool {
+    !runs.is_empty() && runs.iter().all(contract_run_passed)
+}
+
+pub fn replay_report_passed(report: &ReplayReport, gate: CiGate) -> bool {
+    let summary = &report.summary;
+    summary.total > summary.skipped
+        && summary.broken == 0
+        && summary.row_count_diff == 0
+        && summary.digest_diff == 0
+        && (!gate.fail_on_slower || summary.slower == 0)
 }
 
 fn escape_xml(input: &str) -> String {
@@ -440,8 +428,13 @@ pub fn contracts_to_junit_xml(runs: &[ContractRun]) -> String {
     xml
 }
 
-pub fn replay_to_junit_xml(report: &ReplayReport) -> String {
-    let failures = report.summary.row_count_diff + report.summary.digest_diff + report.summary.slower;
+pub fn replay_to_junit_xml(report: &ReplayReport, gate: CiGate) -> String {
+    let slower_failures = if gate.fail_on_slower {
+        report.summary.slower
+    } else {
+        0
+    };
+    let failures = report.summary.row_count_diff + report.summary.digest_diff + slower_failures;
     let errors = report.summary.broken;
     let total_ms: f64 = report.results.iter().map(|r| r.execution_time_ms).sum();
 
@@ -468,6 +461,16 @@ pub fn replay_to_junit_xml(report: &ReplayReport) -> String {
         );
         match entry.verdict {
             ReplayVerdict::Match | ReplayVerdict::NotCompared => xml.push_str(" />\n"),
+            ReplayVerdict::Slower if !gate.fail_on_slower => {
+                let _ = write!(
+                    xml,
+                    ">\n      <system-out>{}</system-out>\n    </testcase>\n",
+                    escape_xml(&format!(
+                        "slower: expected_ms={:.2} actual_ms={:.2}",
+                        entry.expected_execution_time_ms, entry.execution_time_ms
+                    ))
+                );
+            }
             ReplayVerdict::Skipped => {
                 xml.push_str(">\n      <skipped");
                 if let Some(msg) = &entry.skip_reason {
@@ -476,7 +479,10 @@ pub fn replay_to_junit_xml(report: &ReplayReport) -> String {
                 xml.push_str(" />\n    </testcase>\n");
             }
             ReplayVerdict::Broken => {
-                let msg = entry.error.as_deref().unwrap_or("query execution status changed");
+                let msg = entry
+                    .error
+                    .as_deref()
+                    .unwrap_or("query execution status changed");
                 let _ = write!(
                     xml,
                     ">\n      <error message=\"{}\" />\n    </testcase>\n",
@@ -601,9 +607,233 @@ mod tests {
             },
         };
 
-        assert!(!replay_report_passed(&report));
-        let xml = replay_to_junit_xml(&report);
+        assert!(!replay_report_passed(&report, CiGate::default()));
+        let xml = replay_to_junit_xml(&report, CiGate::default());
         assert!(xml.contains("failures=\"1\""));
         assert!(xml.contains("<failure message=\"verdict=DigestDiff"));
+    }
+
+    #[cfg(feature = "driver-sqlite")]
+    mod workspace_runs {
+        use super::*;
+        use crate::cache::QueryCache;
+        use crate::interceptor::InterceptorPipeline;
+        use crate::license::LicenseManager;
+        use crate::policy::SafetyPolicy;
+        use crate::ratelimit::QueryRateLimiter;
+        use crate::replay::{ExpectedOutcome, ReplayEntry, ReplaySet, ReplaySource};
+        use crate::vault::VaultLock;
+        use crate::vault::backend::MockProvider;
+        use crate::virtual_relations::VirtualRelationStore;
+        use qore_core::ConnectionConfig;
+        use qore_core::registry::DriverRegistry;
+        use qore_drivers::drivers::sqlite::SqliteDriver;
+        use qore_drivers::query_manager::QueryManager;
+        use qore_drivers::session_manager::SessionManager;
+
+        struct Fixture {
+            ctx: ServiceContext,
+            session: SessionId,
+            root: std::path::PathBuf,
+            _dir: tempfile::TempDir,
+        }
+
+        async fn fixture() -> Fixture {
+            let dir = tempfile::tempdir().unwrap();
+            let mut registry = DriverRegistry::new();
+            registry.register(Arc::new(SqliteDriver::new()));
+            let registry = Arc::new(registry);
+            let ctx = ServiceContext {
+                registry: Arc::clone(&registry),
+                session_manager: Arc::new(SessionManager::new(registry)),
+                query_manager: Arc::new(QueryManager::new()),
+                query_rate_limiter: Arc::new(QueryRateLimiter::with_defaults()),
+                query_cache: Arc::new(QueryCache::new()),
+                policy: SafetyPolicy {
+                    prod_require_confirmation: true,
+                    prod_block_dangerous_sql: false,
+                    max_query_duration_ms: None,
+                    max_result_rows: None,
+                    max_concurrent_queries: None,
+                    query_rate_limit_enabled: false,
+                },
+                interceptor: Arc::new(InterceptorPipeline::new(dir.path().join("interceptor"))),
+                virtual_relations: Arc::new(VirtualRelationStore::new(dir.path().join("vr"))),
+                vault_lock: VaultLock::new(Box::new(MockProvider::new())),
+                license_manager: LicenseManager::new(Box::new(MockProvider::new())),
+            };
+            let config = ConnectionConfig {
+                options: Default::default(),
+                driver: "sqlite".to_string(),
+                host: dir.path().join("ci.db").to_string_lossy().to_string(),
+                port: 0,
+                username: String::new(),
+                password: String::new(),
+                database: None,
+                ssl: false,
+                ssl_mode: None,
+                environment: "development".to_string(),
+                read_only: false,
+                ssh_tunnel: None,
+                pool_acquire_timeout_secs: None,
+                pool_max_connections: None,
+                pool_min_connections: None,
+                proxy: None,
+                mssql_auth: None,
+                clickhouse_cluster: None,
+                search_auth_mode: None,
+                ssl_ca_cert: None,
+                ssl_client_cert: None,
+                ssl_client_key: None,
+            };
+            let session = crate::connection::connect(&ctx.session_manager, config)
+                .await
+                .unwrap();
+            let driver = ctx.session_manager.get_driver(session).await.unwrap();
+            for sql in [
+                "CREATE TABLE users (id INTEGER PRIMARY KEY, city TEXT NOT NULL)",
+                "INSERT INTO users (city) VALUES ('Paris'), ('Lyon'), ('Nice')",
+            ] {
+                driver
+                    .execute(session, sql, qore_core::QueryId::new())
+                    .await
+                    .unwrap();
+            }
+            let root = dir.path().join(".qoredb");
+            std::fs::create_dir_all(&root).unwrap();
+            Fixture {
+                ctx,
+                session,
+                root,
+                _dir: dir,
+            }
+        }
+
+        const CONTRACT: &str = r#"
+name: users_quality
+version: 1
+target:
+  connection: ci
+  table: users
+rules:
+  - id: id_unique
+    type: unique
+    columns: [id]
+  - id: city_known
+    type: allowed_values
+    column: city
+    values: [Paris, Lyon]
+"#;
+
+        #[tokio::test]
+        async fn contracts_fail_on_violations_and_skip_history_unless_asked() {
+            let f = fixture().await;
+            let empty = run_workspace_contracts(&f.ctx, f.session, "ci", &f.root, None, false)
+                .await
+                .unwrap();
+            assert!(!contract_runs_passed(&empty));
+
+            storage::save_contract_source(&f.root, "users_quality", CONTRACT).unwrap();
+            let runs = run_workspace_contracts(&f.ctx, f.session, "ci", &f.root, None, false)
+                .await
+                .unwrap();
+            assert_eq!(runs.len(), 1);
+            assert_eq!(runs[0].pass_count, 1);
+            assert_eq!(runs[0].fail_count, 1);
+            assert!(!contract_runs_passed(&runs));
+            let history = f.root.join("contracts/.history/users_quality.jsonl");
+            assert!(!history.exists());
+
+            run_workspace_contracts(&f.ctx, f.session, "ci", &f.root, None, true)
+                .await
+                .unwrap();
+            assert!(history.exists());
+        }
+
+        fn entry(id: &str, order: u32, query: &str, rows: i64, is_mutation: bool) -> ReplayEntry {
+            ReplayEntry {
+                id: id.into(),
+                order,
+                query: query.into(),
+                driver_id: "sqlite".into(),
+                namespace: None,
+                operation_type: if is_mutation { "update" } else { "select" }.into(),
+                is_mutation,
+                expected: ExpectedOutcome {
+                    execution_time_ms: 1_000.0,
+                    row_count: Some(rows),
+                    success: true,
+                    fingerprint: None,
+                    result_digest: None,
+                },
+            }
+        }
+
+        fn replay_set(entries: Vec<ReplayEntry>) -> ReplaySet {
+            ReplaySet {
+                version: 1,
+                name: "Smoke".into(),
+                created_at: "2026-01-01T00:00:00Z".into(),
+                source: ReplaySource {
+                    driver_id: "sqlite".into(),
+                    connection_label: None,
+                    environment: "development".into(),
+                },
+                ignored_columns: Vec::new(),
+                redacted: false,
+                entries,
+                baseline_run_id: None,
+            }
+        }
+
+        #[tokio::test]
+        async fn replay_detects_row_count_regressions_and_excludes_mutations() {
+            let f = fixture().await;
+            let store = ReplaySetStore::new(&f.root);
+            store
+                .save(
+                    "smoke",
+                    &replay_set(vec![
+                        entry("e1", 1, "SELECT id FROM users", 3, false),
+                        entry(
+                            "e2",
+                            2,
+                            "SELECT id FROM users WHERE city = 'Paris'",
+                            5,
+                            false,
+                        ),
+                        entry("e3", 3, "UPDATE users SET city = 'Lille'", 0, true),
+                    ]),
+                )
+                .unwrap();
+            let report = run_workspace_replay(&f.ctx, f.session, &f.root, "smoke")
+                .await
+                .unwrap();
+            assert_eq!(report.summary.matched, 1);
+            assert_eq!(report.summary.row_count_diff, 1);
+            assert_eq!(report.summary.skipped, 1);
+            assert_eq!(
+                report.results[2].skip_code.as_deref(),
+                Some(CODE_MUTATION_EXCLUDED)
+            );
+            assert!(!replay_report_passed(&report, CiGate::default()));
+        }
+
+        #[tokio::test]
+        async fn replay_with_only_skipped_entries_does_not_pass() {
+            let f = fixture().await;
+            let store = ReplaySetStore::new(&f.root);
+            store
+                .save(
+                    "writes",
+                    &replay_set(vec![entry("e1", 1, "DELETE FROM users", 0, true)]),
+                )
+                .unwrap();
+            let report = run_workspace_replay(&f.ctx, f.session, &f.root, "writes")
+                .await
+                .unwrap();
+            assert_eq!(report.summary.skipped, 1);
+            assert!(!replay_report_passed(&report, CiGate::default()));
+        }
     }
 }

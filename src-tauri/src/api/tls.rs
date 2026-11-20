@@ -30,10 +30,12 @@ pub struct SelfSignedCert {
 
 /// Mints a fresh ephemeral self-signed certificate in memory for `127.0.0.1` + `localhost`.
 ///
-/// The certificate uses `rcgen`'s default validity window and is regenerated
-/// on every server start without ever touching disk, limiting exposure to the
-/// lifetime of the running HTTPS server instance.
-pub fn generate_self_signed() -> Result<SelfSignedCert, TlsError> {
+/// The certificate is valid for [`VALIDITY_DAYS`] (from the day before, to
+/// absorb clock skew) and is regenerated on every server start without ever
+/// touching disk, limiting exposure to the running HTTPS server instance.
+pub const VALIDITY_DAYS: i64 = 30;
+
+fn certificate_params(today: chrono::NaiveDate) -> Result<CertificateParams, TlsError> {
     let mut params = CertificateParams::new(vec!["127.0.0.1".to_string(), "localhost".to_string()])
         .map_err(|e| TlsError::Generate(e.to_string()))?;
 
@@ -41,12 +43,22 @@ pub fn generate_self_signed() -> Result<SelfSignedCert, TlsError> {
     dn.push(DnType::CommonName, "QoreDB Instant API");
     dn.push(DnType::OrganizationName, "QoreDB local");
     params.distinguished_name = dn;
+    let ymd = |date: chrono::NaiveDate| {
+        use chrono::Datelike;
+        rcgen::date_time_ymd(date.year(), date.month() as u8, date.day() as u8)
+    };
+    params.not_before = ymd(today - chrono::Duration::days(1));
+    params.not_after = ymd(today + chrono::Duration::days(VALIDITY_DAYS));
 
     // Force the IP into the SAN even when rcgen's parser doesn't auto-detect it.
     params
         .subject_alt_names
         .push(SanType::IpAddress(std::net::IpAddr::from([127, 0, 0, 1])));
+    Ok(params)
+}
 
+pub fn generate_self_signed() -> Result<SelfSignedCert, TlsError> {
+    let params = certificate_params(chrono::Utc::now().date_naive())?;
     let key_pair = KeyPair::generate().map_err(|e| TlsError::Generate(e.to_string()))?;
     let cert = params
         .self_signed(&key_pair)
@@ -79,5 +91,16 @@ mod tests {
         // sun out of dice.
         assert_ne!(a.cert_pem, b.cert_pem);
         assert_ne!(a.key_pem, b.key_pem);
+    }
+
+    #[test]
+    fn certificate_is_short_lived() {
+        let today = chrono::NaiveDate::from_ymd_opt(2026, 2, 27).unwrap();
+        let params = certificate_params(today).unwrap();
+        assert_eq!(
+            (params.not_after - params.not_before).whole_days(),
+            VALIDITY_DAYS + 1
+        );
+        assert_eq!(params.not_before.date().to_string(), "2026-02-26");
     }
 }

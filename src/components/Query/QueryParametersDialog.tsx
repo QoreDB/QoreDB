@@ -24,6 +24,7 @@ import {
   formatQueryParameter,
   type QueryParameterType,
   type QueryParameterValue,
+  substituteQueryParameters,
 } from '@/lib/query/queryParameters';
 import { cn } from '@/lib/utils';
 
@@ -31,6 +32,7 @@ interface QueryParametersDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   parameters: string[];
+  sql: string;
   values: Record<string, QueryParameterValue>;
   driver?: Driver;
   onChange: (name: string, next: QueryParameterValue) => void;
@@ -44,6 +46,7 @@ export function QueryParametersDialog({
   open,
   onOpenChange,
   parameters,
+  sql,
   values,
   driver,
   onChange,
@@ -92,9 +95,7 @@ export function QueryParametersDialog({
                   <span
                     className={cn(
                       'font-mono text-[11px] truncate max-w-56',
-                      preview !== null
-                        ? 'text-muted-foreground'
-                        : 'text-amber-600 dark:text-amber-400'
+                      preview !== null ? 'text-muted-foreground' : 'text-warning'
                     )}
                   >
                     {preview !== null ? `→ ${preview}` : t('query.parameters.required')}
@@ -153,6 +154,18 @@ export function QueryParametersDialog({
               </div>
             );
           })}
+        </div>
+
+        <div className="space-y-1">
+          <div className="text-xs font-medium text-muted-foreground">
+            {t('query.parameters.preview')}
+          </div>
+          <pre
+            data-testid="query-parameters-preview"
+            className="max-h-40 overflow-auto whitespace-pre-wrap break-words rounded-md border border-border bg-muted/30 p-2 font-mono text-[11px] text-foreground"
+          >
+            {substituteQueryParameters(sql, values, driver)}
+          </pre>
         </div>
 
         <DialogFooter className="gap-2 sm:justify-between">

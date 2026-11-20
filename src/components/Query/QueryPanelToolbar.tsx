@@ -274,7 +274,7 @@ export function QueryPanelToolbar({
           const missingCount = entries.filter(e => e.formatted === null).length;
           const summary =
             missingCount > 0
-              ? t('query.parameters.missingCount', { count: detectedParams.length })
+              ? t('query.parameters.missingCount', { count: missingCount })
               : entries.map(e => `${e.name}=${e.formatted}`).join(', ');
           return (
             <Tooltip content={t('query.parameters.dialogTitle')}>
@@ -285,7 +285,7 @@ export function QueryPanelToolbar({
                 className={cn(
                   'flex items-center gap-1.5 h-7 max-w-64 rounded-md border px-2 text-xs transition-colors',
                   missingCount > 0
-                    ? 'border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-400 hover:bg-amber-500/20'
+                    ? 'border-warning/40 bg-warning/10 text-warning hover:bg-warning/20'
                     : 'border-accent/30 bg-accent/10 text-accent hover:bg-accent/20'
                 )}
               >

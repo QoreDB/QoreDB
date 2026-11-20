@@ -732,7 +732,7 @@
     "expandCell": "Развернуть ячейку",
     "copyError": "Копировать ошибку",
     "chartNoConfig": "Выберите выше исходную ячейку, столбец X и столбцы Y.",
-    "chartNoData": "Нет данных — сначала выполните исходную ячейку.",
+    "chartNoData": "Исходная ячейка не вернула строк для графика.",
     "undo": "Отменить",
     "redo": "Повторить",
     "toggleVariables": "Переменные",
@@ -757,6 +757,7 @@
     "cellLabelAria": "Метка ссылки на ячейку",
     "cellLabelPlaceholder": "label",
     "cellLabelHint": "Ссылайтесь на эту ячейку как $label.column или из графика",
+    "cellLabelCharsStripped": "Сохраняются только буквы, цифры и _",
     "duplicateLabelWarning": "Повторяющаяся метка: для ссылок и графиков нужны уникальные метки",
     "chartSourcePlaceholder": "Исходная ячейка...",
     "chartXColumn": "Столбец X...",
@@ -768,7 +769,12 @@
       "line": "Линия",
       "pie": "Круговая",
       "scatter": "Точечная"
-    }
+    },
+    "chartSourceNotRun": "Выполните #{{label}}, чтобы построить график.",
+    "chartNoNumericColumns": "Нет числовых столбцов",
+    "chartShowConfig": "Настроить график",
+    "chartHideConfig": "Скрыть настройки",
+    "chartConfigSummary": "#{{source}} · {{x}} → {{y}}"
   },
   "replay": {
     "cancelledReport": "Повтор отменён. Выполненные запросы сохранены; запрос, который уже выполнялся, мог завершиться.",
@@ -1378,7 +1384,11 @@
       "title": "Параметры",
       "dialogTitle": "Параметры запроса",
       "dialogDescription": "Укажите значения перед выполнением запроса. Авторежим определяет числа, логические значения, NULL и строки.",
-      "missingCount": "{{count}} парам.",
+      "preview": "Предпросмотр SQL",
+      "missingCount_one": "Не задан {{count}}",
+      "missingCount_few": "Не заданы {{count}}",
+      "missingCount_many": "Не задано {{count}}",
+      "missingCount_other": "Не задано {{count}}",
       "required": "Обязательно",
       "runWithParams": "Выполнить",
       "valuePlaceholder": "Значение...",
@@ -3409,7 +3419,10 @@
       "auditStats": "{{count}} вып. · {{fingerprints}} шаблонов",
       "assetsSection": "Ссылки в рабочей области",
       "preflightSection": "Проверка текущих данных",
-      "violationsCount": "{{count}} наруш.",
+      "violationsCount_one": "{{count}} нарушение",
+      "violationsCount_few": "{{count}} нарушения",
+      "violationsCount_many": "{{count}} нарушений",
+      "violationsCount_other": "{{count}} нарушения",
       "severity": {
         "high": "Высокий",
         "medium": "Средний"
@@ -3421,13 +3434,19 @@
         "alter_column_type": "Смена типа столбца",
         "add_not_null": "Добавление NOT NULL",
         "add_unique": "Добавление UNIQUE",
-        "shrink_varchar": "Уменьшение длины"
+        "shrink_varchar": "Изменение длины",
+        "rename_table": "Переименование таблицы",
+        "rename_column": "Переименование столбца",
+        "add_not_null_column": "Столбец NOT NULL без значения по умолчанию",
+        "add_foreign_key": "Добавление внешнего ключа",
+        "add_check": "Добавление CHECK"
       },
       "assetKinds": {
         "saved_query": "Запрос",
         "notebook": "Ноутбук",
         "contract": "Контракт",
-        "replay_set": "Реплей"
+        "replay_set": "Реплей",
+        "instant_api": "Instant API"
       }
     }
   },
@@ -4048,7 +4067,10 @@
       "editDescription": "Обновите запрос, параметры или лимит строк без перевыпуска токена.",
       "save": "Сохранить изменения",
       "saving": "Сохранение…",
-      "updateFailed": "Не удалось обновить эндпоинт"
+      "updateFailed": "Не удалось обновить эндпоинт",
+      "updated": "Endpoint «{{name}}» обновлён",
+      "renameChangesUrl": "Переименование меняет URL: /api/{{from}} → /api/{{to}}. Существующие клиенты перестанут работать.",
+      "optionalParamHint": "Пропущенный параметр без значения по умолчанию становится NULL, а `col = NULL` не находит ни одной строки. Для необязательного фильтра пишите ({{tag}} IS NULL OR col = {{tag}})."
     },
     "token": {
       "title": "Токен эндпоинта (показан один раз)",

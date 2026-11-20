@@ -28,6 +28,7 @@ import { createNotebookTab } from '@/lib/tabs';
 import { recordQueryAndMaybeNotify } from '@/lib/usageBanner';
 import { useLicense } from '@/providers/LicenseProvider';
 import { useTabActions } from '@/providers/TabProvider';
+import { useQueryParameters } from '../../hooks/useQueryParameters';
 import { forceRefreshCache } from '../../hooks/useSchemaCache';
 import { useTourManager } from '../../hooks/useTourManager';
 import { getQueryDialect, isDocumentDatabase } from '../../lib/connection/driverCapabilities';
@@ -51,12 +52,6 @@ import {
   isMutationQuery,
 } from '../../lib/environment';
 import { addToHistory } from '../../lib/query/history';
-import {
-  areAllQueryParametersFilled,
-  extractQueryParameters,
-  type QueryParameterValue,
-  substituteQueryParameters,
-} from '../../lib/query/queryParameters';
 import { formatSql } from '../../lib/query/sqlFormatter';
 import {
   incrementTransactionStatements,
@@ -102,7 +97,7 @@ import { SaveQueryDialog } from './SaveQueryDialog';
 const InlineEditDialog = lazy(() =>
   import('@/components/AI/InlineEditDialog').then(module => ({ default: module.InlineEditDialog }))
 );
-const QueryParametersDialog = lazy(() => import('./QueryParametersBar'));
+const QueryParametersDialog = lazy(() => import('./QueryParametersDialog'));
 
 const EDITOR_HEIGHT_KEY = 'query-editor-height';
 const MIN_EDITOR_HEIGHT = 100;
@@ -191,21 +186,11 @@ export function QueryPanel({
   const defaultQuery = getDefaultQuery(queryDialect);
 
   const [query, setQuery] = useState(initialQuery || defaultQuery);
-  const [paramValues, setParamValues] = useState<Record<string, QueryParameterValue>>({});
-  const [paramsDialogOpen, setParamsDialogOpen] = useState(false);
-  const [pendingParamAction, setPendingParamAction] = useState<{
-    mode: 'query' | 'explain';
-    sql: string;
-  } | null>(null);
-  const detectedParams = useMemo(
-    () => (isDocument || isSearch ? [] : extractQueryParameters(query, dialect)),
-    [isDocument, isSearch, query, dialect]
-  );
-  const dialogParams = useMemo(
-    () =>
-      pendingParamAction ? extractQueryParameters(pendingParamAction.sql, dialect) : detectedParams,
-    [pendingParamAction, detectedParams, dialect]
-  );
+  const params = useQueryParameters({
+    query,
+    driver: dialect,
+    enabled: !isDocument && !isSearch,
+  });
   const [results, setResults] = useState<QueryResultEntry[]>([]);
   const [activeResultId, setActiveResultId] = useState<string | null>(null);
   const [keepResults, setKeepResults] = useState(true);
@@ -874,23 +859,11 @@ export function QueryPanel({
       const rawQuery = queryText || query;
       if (!rawQuery.trim()) return;
 
-      if (
-        !isDocument &&
-        !isSearch &&
-        !areAllQueryParametersFilled(rawQuery, paramValues, dialect)
-      ) {
-        setPendingParamAction({ mode: 'query', sql: rawQuery });
-        setParamsDialogOpen(true);
-        return;
-      }
-
-      const queryToRun =
-        isDocument || isSearch
-          ? rawQuery
-          : substituteQueryParameters(rawQuery, paramValues, dialect);
+      const queryToRun = params.resolve(rawQuery, 'query');
+      if (queryToRun === null) return;
       await executeResolvedQuery(queryToRun);
     },
-    [sessionId, query, isDocument, isSearch, paramValues, dialect, t, executeResolvedQuery]
+    [sessionId, query, params, t, executeResolvedQuery]
   );
 
   const handleConfirm = useCallback(async () => {
@@ -1013,48 +986,20 @@ export function QueryPanel({
     const rawToExplain = selection && selection.trim().length > 0 ? selection : query;
     if (!rawToExplain.trim()) return;
 
-    if (!isSearch && !areAllQueryParametersFilled(rawToExplain, paramValues, dialect)) {
-      setPendingParamAction({ mode: 'explain', sql: rawToExplain });
-      setParamsDialogOpen(true);
-      return;
-    }
-
-    const queryToExplain = isSearch
-      ? rawToExplain
-      : substituteQueryParameters(rawToExplain, paramValues, dialect);
+    const queryToExplain = params.resolve(rawToExplain, 'explain');
+    if (queryToExplain === null) return;
     await executeResolvedExplain(queryToExplain);
-  }, [
-    sessionId,
-    isDocument,
-    isExplainSupported,
-    query,
-    isSearch,
-    paramValues,
-    dialect,
-    executeResolvedExplain,
-  ]);
+  }, [sessionId, isDocument, isExplainSupported, query, params, executeResolvedExplain]);
 
   const handleConfirmParameters = useCallback(async () => {
-    const action = pendingParamAction ?? { mode: 'query' as const, sql: query };
-    setPendingParamAction(null);
-    setParamsDialogOpen(false);
-    if (!action.sql.trim() || !areAllQueryParametersFilled(action.sql, paramValues, dialect)) {
-      return;
-    }
-    const resolvedSql = substituteQueryParameters(action.sql, paramValues, dialect);
+    const action = params.confirm();
+    if (!action) return;
     if (action.mode === 'explain') {
-      await executeResolvedExplain(resolvedSql);
+      await executeResolvedExplain(action.sql);
     } else {
-      await executeResolvedQuery(resolvedSql);
+      await executeResolvedQuery(action.sql);
     }
-  }, [
-    pendingParamAction,
-    query,
-    paramValues,
-    dialect,
-    executeResolvedExplain,
-    executeResolvedQuery,
-  ]);
+  }, [params, executeResolvedExplain, executeResolvedQuery]);
 
   const handleToggleKeepResults = useCallback(() => {
     setKeepResults(prev => {
@@ -1408,13 +1353,10 @@ export function QueryPanel({
         onCommitTransaction={handleCommitTransaction}
         onRollbackTransaction={handleRollbackTransaction}
         onInsertSnippet={template => sqlEditorRef.current?.insertSnippet(template)}
-        detectedParams={detectedParams}
-        paramValues={paramValues}
+        detectedParams={params.detected}
+        paramValues={params.values}
         paramDriver={dialect}
-        onOpenParams={() => {
-          setPendingParamAction(null);
-          setParamsDialogOpen(true);
-        }}
+        onOpenParams={params.openDialog}
       />
 
       <div
@@ -1688,19 +1630,17 @@ export function QueryPanel({
         onSelectQuery={q => setQuery(q)}
       />
 
-      {paramsDialogOpen && (
+      {params.dialogOpen && (
         <Suspense fallback={null}>
           <QueryParametersDialog
-            open={paramsDialogOpen}
-            onOpenChange={open => {
-              setParamsDialogOpen(open);
-              if (!open) setPendingParamAction(null);
-            }}
-            parameters={dialogParams}
-            values={paramValues}
+            open={params.dialogOpen}
+            onOpenChange={params.setDialogVisibility}
+            parameters={params.dialogParameters}
+            sql={params.dialogSql}
+            values={params.values}
             driver={dialect}
-            onChange={(name, next) => setParamValues(prev => ({ ...prev, [name]: next }))}
-            onReset={() => setParamValues({})}
+            onChange={params.setValue}
+            onReset={params.reset}
             onConfirmExecute={() => {
               void handleConfirmParameters();
             }}

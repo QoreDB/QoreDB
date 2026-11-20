@@ -22,14 +22,18 @@ qore query <connection_id> "<sql>"                 # run a query, print rows
 qore tables <connection_id> <database> [--schema s] # list tables/collections
 qore describe <connection_id> <database> <table> [--schema s]
 qore contract list                                 # list workspace Data Contracts
-qore contract run <connection_id> [--contract name] [--format json|junit]
+qore contract run <connection_id> [--contract name] [--format json|junit] [--record-history]
 qore replay list                                   # list workspace Replay Sets
-qore replay run <connection_id> <set_id> [--format json|junit]
+qore replay run <connection_id> <set_id> [--format json|junit] [--fail-on-slower]
 ```
 
 Contract and replay runs honor `expose_to_agents`, `read_only`, and column masking
 from the connection vault and exit with status code `2` when a contract
-rule fails or a replay regression is detected (`1` on CLI or connection errors).
+rule fails, a replay regression is detected, or nothing was checked (no
+contract found, every replay entry skipped); `1` on CLI or connection errors.
+Slower replay entries are reported but only fail the run with `--fail-on-slower`.
+Contract runs write no history unless `--record-history` is passed, so CI
+checkouts stay clean.
 
 `QOREDB_CONFIG_DIR` overrides the config directory (defaults to the desktop app's).
 

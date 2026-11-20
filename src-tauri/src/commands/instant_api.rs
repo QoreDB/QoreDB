@@ -174,7 +174,7 @@ pub async fn create_endpoint(
     name: String,
     connection_id: String,
     query_source: String,
-    #[allow(non_snake_case)] params: Option<Vec<EndpointParam>>,
+    params: Option<Vec<EndpointParam>>,
     shape: Option<QueryShape>,
     page_size: Option<u32>,
 ) -> Result<CreateEndpointResponse, String> {
@@ -235,7 +235,7 @@ pub async fn update_endpoint(
     name: String,
     connection_id: String,
     query_source: String,
-    #[allow(non_snake_case)] params: Option<Vec<EndpointParam>>,
+    params: Option<Vec<EndpointParam>>,
     shape: Option<QueryShape>,
     page_size: Option<u32>,
 ) -> Result<EndpointMeta, String> {

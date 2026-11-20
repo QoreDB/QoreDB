@@ -726,7 +726,7 @@
     "expandCell": "セルを展開",
     "copyError": "エラーをコピー",
     "chartNoConfig": "上でソースセル、X 列、Y 列を選択してください。",
-    "chartNoData": "データがありません — まずソースセルを実行してください。",
+    "chartNoData": "ソースセルにグラフ化できる行がありません。",
     "undo": "元に戻す",
     "redo": "やり直し",
     "toggleVariables": "変数",
@@ -751,6 +751,7 @@
     "cellLabelAria": "セル参照ラベル",
     "cellLabelPlaceholder": "label",
     "cellLabelHint": "$label.column またはチャートセルからこのセルを参照します",
+    "cellLabelCharsStripped": "英字・数字・_ のみ使用できます",
     "duplicateLabelWarning": "ラベルが重複しています：セル間参照とチャートには一意のラベルが必要です",
     "chartSourcePlaceholder": "ソースセル...",
     "chartXColumn": "X 列...",
@@ -762,7 +763,12 @@
       "line": "折れ線",
       "pie": "円",
       "scatter": "散布図"
-    }
+    },
+    "chartSourceNotRun": "このグラフを描画するには #{{label}} を実行してください。",
+    "chartNoNumericColumns": "数値列がありません",
+    "chartShowConfig": "グラフを設定",
+    "chartHideConfig": "設定を隠す",
+    "chartConfigSummary": "#{{source}} · {{x}} → {{y}}"
   },
   "replay": {
     "cancelledReport": "再実行をキャンセルしました。実行済みのクエリは保持されます。実行中のクエリは完了した可能性があります。",
@@ -1345,7 +1351,8 @@
       "title": "パラメーター",
       "dialogTitle": "クエリパラメーター",
       "dialogDescription": "クエリを実行する前に値を入力してください。自動モードは数値・真偽値・NULL・文字列を判別します。",
-      "missingCount": "{{count}} 個の変数",
+      "preview": "SQL プレビュー",
+      "missingCount_other": "未入力 {{count}} 件",
       "required": "必須",
       "runWithParams": "実行",
       "valuePlaceholder": "値...",
@@ -3370,7 +3377,7 @@
       "auditStats": "{{count}} 回 · {{fingerprints}} パターン",
       "assetsSection": "ワークスペース参照",
       "preflightSection": "ライブデータの事前チェック",
-      "violationsCount": "{{count}} 件の違反",
+      "violationsCount_other": "{{count}} 件の違反",
       "severity": {
         "high": "高",
         "medium": "中"
@@ -3382,13 +3389,19 @@
         "alter_column_type": "列型変更",
         "add_not_null": "NOT NULL 追加",
         "add_unique": "UNIQUE 追加",
-        "shrink_varchar": "長さ縮小"
+        "shrink_varchar": "長さの変更",
+        "rename_table": "テーブル名の変更",
+        "rename_column": "列名の変更",
+        "add_not_null_column": "デフォルトなしの NOT NULL 列",
+        "add_foreign_key": "外部キーの追加",
+        "add_check": "CHECK の追加"
       },
       "assetKinds": {
         "saved_query": "クエリ",
         "notebook": "ノートブック",
         "contract": "コントラクト",
-        "replay_set": "リプレイ"
+        "replay_set": "リプレイ",
+        "instant_api": "Instant API"
       }
     }
   },
@@ -4005,7 +4018,10 @@
       "editDescription": "トークンを再発行せずにクエリ、パラメーター、または最大行数を更新します。",
       "save": "変更を保存",
       "saving": "保存中…",
-      "updateFailed": "エンドポイントの更新に失敗しました"
+      "updateFailed": "エンドポイントの更新に失敗しました",
+      "updated": "エンドポイント「{{name}}」を更新しました",
+      "renameChangesUrl": "名前を変更すると URL が変わります: /api/{{from}} → /api/{{to}}。既存のクライアントは動作しなくなります。",
+      "optionalParamHint": "既定値のない省略されたパラメーターは NULL になり、`col = NULL` はどの行にも一致しません。任意のフィルターには ({{tag}} IS NULL OR col = {{tag}}) と書いてください。"
     },
     "token": {
       "title": "エンドポイントのトークン（一度だけ表示）",

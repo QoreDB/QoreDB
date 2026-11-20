@@ -757,7 +757,7 @@
     "expandCell": "Expand cell",
     "copyError": "Copy error",
     "chartNoConfig": "Select a source cell, X column, and Y column(s) above.",
-    "chartNoData": "No data — execute the source cell first.",
+    "chartNoData": "The source cell returned no plottable rows.",
     "undo": "Undo",
     "redo": "Redo",
     "toggleVariables": "Variables",
@@ -782,6 +782,7 @@
     "cellLabelAria": "Cell reference label",
     "cellLabelPlaceholder": "label",
     "cellLabelHint": "Reference this cell as $label.column or in a Chart cell",
+    "cellLabelCharsStripped": "Only letters, digits and _ are kept",
     "duplicateLabelWarning": "Duplicate label: inter-cell references and charts require unique labels",
     "chartSourcePlaceholder": "Source cell...",
     "chartXColumn": "X column...",
@@ -793,7 +794,12 @@
       "line": "Line",
       "pie": "Pie",
       "scatter": "Scatter"
-    }
+    },
+    "chartSourceNotRun": "Run #{{label}} to draw this chart.",
+    "chartNoNumericColumns": "No numeric column",
+    "chartShowConfig": "Configure chart",
+    "chartHideConfig": "Hide settings",
+    "chartConfigSummary": "#{{source}} · {{x}} → {{y}}"
   },
   "replay": {
     "cancelledReport": "Replay cancelled. Completed queries are preserved; an in-flight query may have finished.",
@@ -1391,7 +1397,9 @@
       "title": "Parameters",
       "dialogTitle": "Query parameters",
       "dialogDescription": "Enter values before running the query. Auto mode infers numbers, booleans, NULL, and quoted text.",
-      "missingCount": "{{count}} param(s)",
+      "preview": "SQL preview",
+      "missingCount_one": "{{count}} missing",
+      "missingCount_other": "{{count}} missing",
       "required": "Required",
       "runWithParams": "Run query",
       "valuePlaceholder": "Value...",
@@ -3422,7 +3430,8 @@
       "auditStats": "{{count}} execs · {{fingerprints}} patterns",
       "assetsSection": "Workspace references",
       "preflightSection": "Live data preflight",
-      "violationsCount": "{{count}} violation(s)",
+      "violationsCount_one": "{{count}} violation",
+      "violationsCount_other": "{{count}} violations",
       "severity": {
         "high": "High",
         "medium": "Medium"
@@ -3434,13 +3443,19 @@
         "alter_column_type": "Alter column type",
         "add_not_null": "Add NOT NULL",
         "add_unique": "Add UNIQUE",
-        "shrink_varchar": "Shrink length"
+        "shrink_varchar": "Change length",
+        "rename_table": "Rename table",
+        "rename_column": "Rename column",
+        "add_not_null_column": "NOT NULL column without default",
+        "add_foreign_key": "Add foreign key",
+        "add_check": "Add CHECK"
       },
       "assetKinds": {
         "saved_query": "Query",
         "notebook": "Notebook",
         "contract": "Contract",
-        "replay_set": "Replay"
+        "replay_set": "Replay",
+        "instant_api": "Instant API"
       }
     }
   },
@@ -4058,7 +4073,10 @@
       "editDescription": "Update the endpoint query, parameters, or row cap without rotating its bearer token.",
       "save": "Save changes",
       "saving": "Saving…",
-      "updateFailed": "Endpoint update failed"
+      "updateFailed": "Endpoint update failed",
+      "updated": "Endpoint “{{name}}” updated",
+      "renameChangesUrl": "Renaming changes the URL: /api/{{from}} → /api/{{to}}. Existing clients will break.",
+      "optionalParamHint": "An omitted parameter without a default becomes NULL, and `col = NULL` matches no row. For an optional filter, write ({{tag}} IS NULL OR col = {{tag}})."
     },
     "token": {
       "title": "Endpoint token (shown once)",

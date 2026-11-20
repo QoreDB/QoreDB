@@ -24,6 +24,8 @@ interface ParameterMatch {
 // biome-ignore lint/suspicious/noControlCharactersInRegex: intentional — strips control characters that could prematurely terminate a SQL statement
 const SQL_QUOTE_STRIP_RE = /[\u0000\r\n\u2028\u2029]/g;
 const NUMBER_LITERAL_RE = /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/;
+/** `007`, `01234`: codes and zip codes, not numbers. */
+const LEADING_ZERO_RE = /^[+-]?0\d/;
 const DATE_LITERAL_RE = /^\d{4}-\d{2}-\d{2}(?:[T ][\d:.+\-Z]+)?$/;
 
 const DOLLAR_TAG_RE = /^\$([a-zA-Z_][a-zA-Z0-9_]*)?\$/;
@@ -56,7 +58,7 @@ export function formatQueryParameter(
     case 'auto': {
       const trimmed = param.value.trim();
       if (trimmed.length === 0) return null;
-      if (NUMBER_LITERAL_RE.test(trimmed)) return trimmed;
+      if (NUMBER_LITERAL_RE.test(trimmed) && !LEADING_ZERO_RE.test(trimmed)) return trimmed;
       const lower = trimmed.toLowerCase();
       if (lower === 'null') return 'NULL';
       if (lower === 'true' || lower === 'false') {

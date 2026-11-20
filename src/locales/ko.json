@@ -726,7 +726,7 @@
     "expandCell": "셀 펼치기",
     "copyError": "오류 복사",
     "chartNoConfig": "위에서 소스 셀, X 열 및 Y 열을 선택하세요.",
-    "chartNoData": "데이터 없음 — 먼저 소스 셀을 실행하세요.",
+    "chartNoData": "소스 셀에 차트로 표시할 행이 없습니다.",
     "undo": "실행 취소",
     "redo": "다시 실행",
     "toggleVariables": "변수",
@@ -751,6 +751,7 @@
     "cellLabelAria": "셀 참조 레이블",
     "cellLabelPlaceholder": "label",
     "cellLabelHint": "$label.column 또는 차트 셀에서 이 셀을 참조합니다",
+    "cellLabelCharsStripped": "영문자, 숫자, _만 유지됩니다",
     "duplicateLabelWarning": "중복된 레이블: 셀 간 참조 및 차트에는 고유한 레이블이 필요합니다",
     "chartSourcePlaceholder": "소스 셀...",
     "chartXColumn": "X 열...",
@@ -762,7 +763,12 @@
       "line": "선",
       "pie": "원형",
       "scatter": "분산형"
-    }
+    },
+    "chartSourceNotRun": "이 차트를 그리려면 #{{label}}을(를) 실행하세요.",
+    "chartNoNumericColumns": "숫자 열 없음",
+    "chartShowConfig": "차트 설정",
+    "chartHideConfig": "설정 숨기기",
+    "chartConfigSummary": "#{{source}} · {{x}} → {{y}}"
   },
   "replay": {
     "cancelledReport": "재실행이 취소되었습니다. 실행된 쿼리는 보존되며, 진행 중이던 쿼리는 완료되었을 수 있습니다.",
@@ -1345,7 +1351,8 @@
       "title": "매개변수",
       "dialogTitle": "쿼리 매개변수",
       "dialogDescription": "쿼리를 실행하기 전에 값을 입력하세요. 자동 모드는 숫자, 불리언, NULL, 문자열을 판별합니다.",
-      "missingCount": "{{count}}개 매개변수",
+      "preview": "SQL 미리보기",
+      "missingCount_other": "{{count}}개 누락",
       "required": "필수",
       "runWithParams": "실행",
       "valuePlaceholder": "값...",
@@ -3370,7 +3377,7 @@
       "auditStats": "{{count}}회 실행 · {{fingerprints}}개 패턴",
       "assetsSection": "워크스페이스 참조",
       "preflightSection": "실시간 데이터 사전 검사",
-      "violationsCount": "{{count}}건 위반",
+      "violationsCount_other": "위반 {{count}}건",
       "severity": {
         "high": "높음",
         "medium": "보통"
@@ -3382,13 +3389,19 @@
         "alter_column_type": "열 타입 변경",
         "add_not_null": "NOT NULL 추가",
         "add_unique": "UNIQUE 추가",
-        "shrink_varchar": "길이 축소"
+        "shrink_varchar": "길이 변경",
+        "rename_table": "테이블 이름 변경",
+        "rename_column": "열 이름 변경",
+        "add_not_null_column": "기본값 없는 NOT NULL 열",
+        "add_foreign_key": "외래 키 추가",
+        "add_check": "CHECK 추가"
       },
       "assetKinds": {
         "saved_query": "쿼리",
         "notebook": "노트북",
         "contract": "계약",
-        "replay_set": "리플레이"
+        "replay_set": "리플레이",
+        "instant_api": "Instant API"
       }
     }
   },
@@ -4005,7 +4018,10 @@
       "editDescription": "토큰을 재발급하지 않고 쿼리, 매개변수 또는 최대 행 수를 업데이트합니다.",
       "save": "변경 사항 저장",
       "saving": "저장 중…",
-      "updateFailed": "엔드포인트 업데이트 실패"
+      "updateFailed": "엔드포인트 업데이트 실패",
+      "updated": "엔드포인트 “{{name}}” 업데이트됨",
+      "renameChangesUrl": "이름을 바꾸면 URL이 변경됩니다: /api/{{from}} → /api/{{to}}. 기존 클라이언트가 더 이상 동작하지 않습니다.",
+      "optionalParamHint": "기본값 없이 생략된 매개변수는 NULL이 되며 `col = NULL`은 어떤 행과도 일치하지 않습니다. 선택적 필터는 ({{tag}} IS NULL OR col = {{tag}})로 작성하세요."
     },
     "token": {
       "title": "엔드포인트 토큰 (1회만 표시)",

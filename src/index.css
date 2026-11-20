@@ -335,11 +335,4 @@ button {
     -webkit-app-region: no-drag;
     app-region: no-drag;
   }
-
-  /* Keep exit states pinned until Radix unmounts the portal so overlays do not
-     flash opaque for one frame after a fade-out ends. */
-  [data-state='closed'] {
-    --tw-animation-fill-mode: forwards;
-    animation-fill-mode: forwards;
-  }
 }

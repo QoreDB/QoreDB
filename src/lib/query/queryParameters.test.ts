@@ -136,4 +136,11 @@ describe('dialect-aware parameters', () => {
     expect(formatQueryParameter({ value: 'true', type: 'auto' }, Driver.SqlServer)).toBe('1');
     expect(formatQueryParameter({ value: 'false', type: 'auto' }, Driver.Postgres)).toBe('FALSE');
   });
+
+  it('keeps leading-zero codes as text in auto mode', () => {
+    expect(formatQueryParameter({ value: '007', type: 'auto' })).toBe("'007'");
+    expect(formatQueryParameter({ value: '0.5', type: 'auto' })).toBe('0.5');
+    expect(formatQueryParameter({ value: '0', type: 'auto' })).toBe('0');
+    expect(formatQueryParameter({ value: '007', type: 'number' })).toBe('007');
+  });
 });

@@ -35,6 +35,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Input } from '@/components/ui/input';
 import { Tooltip } from '@/components/ui/tooltip';
 import type { Driver } from '@/lib/connection/drivers';
 import type {
@@ -130,6 +131,10 @@ export function NotebookCell({
 }: NotebookCellProps) {
   const { t } = useTranslation();
   const [showSuccessBorder, setShowSuccessBorder] = useState(false);
+  const [labelStripped, setLabelStripped] = useState(false);
+  const label = cell.config?.label ?? '';
+  const labelIsDuplicate =
+    label !== '' && (allCells?.filter(c => c.config?.label === label).length ?? 0) > 1;
 
   useEffect(() => {
     if (cell.executionState === 'success') {
@@ -324,36 +329,34 @@ export function NotebookCell({
               {(cell.type === 'sql' || cell.type === 'mongo') && onConfigChange && (
                 <div className="flex items-center gap-1 ml-2">
                   <span className="text-[11px] font-mono text-muted-foreground/70">#</span>
-                  <input
-                    type="text"
+                  <Input
                     aria-label={t('notebook.cellLabelAria')}
-                    value={cell.config?.label ?? ''}
+                    aria-invalid={labelIsDuplicate || undefined}
+                    value={label}
                     placeholder={t('notebook.cellLabelPlaceholder')}
                     onClick={e => e.stopPropagation()}
                     onChange={e => {
                       const sanitized = e.target.value.replace(/[^a-zA-Z0-9_]/g, '');
+                      setLabelStripped(sanitized !== e.target.value);
                       onConfigChange({ label: sanitized });
                     }}
-                    className={cn(
-                      'h-5 w-28 rounded border bg-transparent px-1.5 text-[11px] font-mono text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-ring',
-                      cell.config?.label &&
-                        allCells &&
-                        allCells.filter(c => c.config?.label === cell.config?.label).length > 1
-                        ? 'border-destructive text-destructive'
-                        : 'border-border/60'
-                    )}
+                    onBlur={() => setLabelStripped(false)}
+                    className="h-5 w-28 rounded px-1.5 py-0 text-[11px] font-mono shadow-none"
                     title={
-                      cell.config?.label &&
-                      allCells &&
-                      allCells.filter(c => c.config?.label === cell.config?.label).length > 1
+                      labelIsDuplicate
                         ? t('notebook.duplicateLabelWarning')
                         : t('notebook.cellLabelHint')
                     }
                   />
+                  {labelStripped && (
+                    <span role="status" className="text-[10px] text-warning">
+                      {t('notebook.cellLabelCharsStripped')}
+                    </span>
+                  )}
                 </div>
               )}
               {cell.executionState === 'stale' && (
-                <span className="text-[10px] text-amber-500 font-medium ml-1">
+                <span className="text-[10px] text-warning font-medium ml-1">
                   {t('notebook.stale')}
                 </span>
               )}

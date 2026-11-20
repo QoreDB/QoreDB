@@ -728,7 +728,7 @@
     "expandCell": "Expandir celda",
     "copyError": "Copiar error",
     "chartNoConfig": "Selecciona arriba una celda de origen, la columna X y las columnas Y.",
-    "chartNoData": "Sin datos — ejecuta la celda fuente primero.",
+    "chartNoData": "La celda de origen no devolvió filas representables.",
     "undo": "Deshacer",
     "redo": "Rehacer",
     "toggleVariables": "Variables",
@@ -753,6 +753,7 @@
     "cellLabelAria": "Etiqueta de referencia de la celda",
     "cellLabelPlaceholder": "etiqueta",
     "cellLabelHint": "Referencia esta celda como $etiqueta.columna o en un gráfico",
+    "cellLabelCharsStripped": "Solo se conservan letras, dígitos y _",
     "duplicateLabelWarning": "Etiqueta duplicada: las referencias y gráficos requieren etiquetas únicas",
     "chartSourcePlaceholder": "Celda de origen...",
     "chartXColumn": "Columna X...",
@@ -764,7 +765,12 @@
       "line": "Línea",
       "pie": "Circular",
       "scatter": "Dispersión"
-    }
+    },
+    "chartSourceNotRun": "Ejecute #{{label}} para dibujar este gráfico.",
+    "chartNoNumericColumns": "Ninguna columna numérica",
+    "chartShowConfig": "Configurar gráfico",
+    "chartHideConfig": "Ocultar ajustes",
+    "chartConfigSummary": "#{{source}} · {{x}} → {{y}}"
   },
   "replay": {
     "cancelledReport": "Reproducción cancelada. Se conservan las consultas ejecutadas; la consulta en curso puede haber terminado.",
@@ -1356,7 +1362,10 @@
       "title": "Parámetros",
       "dialogTitle": "Parámetros de la consulta",
       "dialogDescription": "Introduce los valores antes de ejecutar la consulta. El modo Auto detecta números, booleanos, NULL y texto.",
-      "missingCount": "{{count}} parám.",
+      "preview": "Vista previa SQL",
+      "missingCount_one": "Falta {{count}}",
+      "missingCount_many": "Faltan {{count}}",
+      "missingCount_other": "Faltan {{count}}",
       "required": "Obligatorio",
       "runWithParams": "Ejecutar",
       "valuePlaceholder": "Valor...",
@@ -3383,7 +3392,9 @@
       "auditStats": "{{count}} ejec. · {{fingerprints}} patrones",
       "assetsSection": "Referencias del workspace",
       "preflightSection": "Prevalidación en datos reales",
-      "violationsCount": "{{count}} infracción(es)",
+      "violationsCount_one": "{{count}} infracción",
+      "violationsCount_many": "{{count}} infracciones",
+      "violationsCount_other": "{{count}} infracciones",
       "severity": {
         "high": "Alto",
         "medium": "Medio"
@@ -3395,13 +3406,19 @@
         "alter_column_type": "Cambiar tipo",
         "add_not_null": "Añadir NOT NULL",
         "add_unique": "Añadir UNIQUE",
-        "shrink_varchar": "Reducir longitud"
+        "shrink_varchar": "Cambio de longitud",
+        "rename_table": "Renombrar tabla",
+        "rename_column": "Renombrar columna",
+        "add_not_null_column": "Columna NOT NULL sin valor por defecto",
+        "add_foreign_key": "Añadir clave foránea",
+        "add_check": "Añadir CHECK"
       },
       "assetKinds": {
         "saved_query": "Consulta",
         "notebook": "Notebook",
         "contract": "Contrato",
-        "replay_set": "Replay"
+        "replay_set": "Replay",
+        "instant_api": "Instant API"
       }
     }
   },
@@ -4019,7 +4036,10 @@
       "editDescription": "Actualiza la consulta, los parámetros o el límite de filas sin rotar el token.",
       "save": "Guardar cambios",
       "saving": "Guardando…",
-      "updateFailed": "Error al actualizar el endpoint"
+      "updateFailed": "Error al actualizar el endpoint",
+      "updated": "Endpoint «{{name}}» actualizado",
+      "renameChangesUrl": "Renombrar cambia la URL: /api/{{from}} → /api/{{to}}. Los clientes existentes dejarán de funcionar.",
+      "optionalParamHint": "Un parámetro omitido sin valor por defecto pasa a ser NULL, y `col = NULL` no coincide con ninguna fila. Para un filtro opcional, escriba ({{tag}} IS NULL OR col = {{tag}})."
     },
     "token": {
       "title": "Token del endpoint (mostrado una sola vez)",

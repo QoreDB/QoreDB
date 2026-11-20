@@ -15,7 +15,15 @@ import { Button } from '@/components/ui/button';
 import { analyzeMigrationBlastRadius, type MigrationBlastRadiusReport } from '@/lib/tauri';
 import { cn } from '@/lib/utils';
 
-const PREFLIGHT_CAPABLE_KINDS = new Set(['add_not_null', 'add_unique', 'shrink_varchar']);
+const PREFLIGHT_CAPABLE_KINDS = new Set([
+  'add_not_null',
+  'add_not_null_column',
+  'add_unique',
+  'add_foreign_key',
+  'add_check',
+  'shrink_varchar',
+]);
+const RENAME_KINDS = new Set(['rename_table', 'rename_column']);
 
 interface BlastRadiusPanelProps {
   sql: string;
@@ -128,7 +136,7 @@ export function BlastRadiusPanel({ sql, sessionId, database, driver }: BlastRadi
   if (isCurrent && !analyzing && !hasFindings && !parseError && !error) {
     return (
       <div className="flex items-center gap-2 rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-        <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-600 dark:text-emerald-400" />
+        <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-success" />
         <span>{t('migrations.blastRadius.none')}</span>
       </div>
     );
@@ -138,7 +146,7 @@ export function BlastRadiusPanel({ sql, sessionId, database, driver }: BlastRadi
     <div className="rounded-lg border border-border bg-muted/20 p-3 text-xs space-y-2.5">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2 font-medium text-foreground">
-          <ShieldAlert className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+          <ShieldAlert className="h-3.5 w-3.5 text-warning" />
           <span>{t('migrations.blastRadius.title')}</span>
           {(analyzing || (!isCurrent && !error)) && (
             <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
@@ -194,13 +202,12 @@ export function BlastRadiusPanel({ sql, sessionId, database, driver }: BlastRadi
                   variant={hazard.severity === 'high' ? 'destructive' : 'outline'}
                   className={cn(
                     'text-[10px] uppercase',
-                    hazard.severity !== 'high' &&
-                      'border-amber-500/40 text-amber-700 dark:text-amber-400'
+                    hazard.severity !== 'high' && 'border-warning/40 text-warning'
                   )}
                 >
                   {t(`migrations.blastRadius.severity.${hazard.severity}`)}
                 </Badge>
-                <AlertTriangle className="h-3 w-3 shrink-0 text-amber-500" />
+                <AlertTriangle className="h-3 w-3 shrink-0 text-warning" />
                 <span className="font-medium">
                   {t(`migrations.blastRadius.kinds.${hazard.kind}`)}
                 </span>
@@ -210,7 +217,7 @@ export function BlastRadiusPanel({ sql, sessionId, database, driver }: BlastRadi
                 </span>
                 {hazard.detail && (
                   <span className="font-mono text-[11px] text-muted-foreground">
-                    ({hazard.detail})
+                    {RENAME_KINDS.has(hazard.kind) ? `→ ${hazard.detail}` : `(${hazard.detail})`}
                   </span>
                 )}
               </div>
@@ -284,14 +291,12 @@ export function BlastRadiusPanel({ sql, sessionId, database, driver }: BlastRadi
                   {t(`migrations.blastRadius.kinds.${check.kind}`)})
                 </span>
                 {check.error ? (
-                  <span className="text-amber-700 dark:text-amber-400">{check.error}</span>
+                  <span className="text-warning">{check.error}</span>
                 ) : (
                   <span
                     className={cn(
                       'font-medium',
-                      (check.violations ?? 0) > 0
-                        ? 'text-destructive'
-                        : 'text-emerald-700 dark:text-emerald-400'
+                      (check.violations ?? 0) > 0 ? 'text-destructive' : 'text-success'
                     )}
                   >
                     {t('migrations.blastRadius.violationsCount', {

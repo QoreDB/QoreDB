@@ -728,7 +728,7 @@
     "expandCell": "Zelle ausklappen",
     "copyError": "Fehler kopieren",
     "chartNoConfig": "Wähle oben eine Quellzelle, X-Spalte und Y-Spalte(n) aus.",
-    "chartNoData": "Keine Daten — führen Sie zuerst die Quellzelle aus.",
+    "chartNoData": "Die Quellzelle hat keine darstellbaren Zeilen geliefert.",
     "undo": "Rückgängig",
     "redo": "Wiederholen",
     "toggleVariables": "Variablen",
@@ -753,6 +753,7 @@
     "cellLabelAria": "Referenz-Label der Zelle",
     "cellLabelPlaceholder": "label",
     "cellLabelHint": "Diese Zelle als $label.spalte oder in einem Diagramm referenzieren",
+    "cellLabelCharsStripped": "Nur Buchstaben, Ziffern und _ werden übernommen",
     "duplicateLabelWarning": "Doppeltes Label: Zellreferenzen und Diagramme erfordern eindeutige Labels",
     "chartSourcePlaceholder": "Quellzelle...",
     "chartXColumn": "X-Spalte...",
@@ -764,7 +765,12 @@
       "line": "Linie",
       "pie": "Kreis",
       "scatter": "Punkte"
-    }
+    },
+    "chartSourceNotRun": "Führen Sie #{{label}} aus, um dieses Diagramm zu zeichnen.",
+    "chartNoNumericColumns": "Keine numerische Spalte",
+    "chartShowConfig": "Diagramm konfigurieren",
+    "chartHideConfig": "Einstellungen ausblenden",
+    "chartConfigSummary": "#{{source}} · {{x}} → {{y}}"
   },
   "replay": {
     "cancelledReport": "Wiedergabe abgebrochen. Ausgeführte Abfragen bleiben erhalten; eine laufende Abfrage kann beendet worden sein.",
@@ -1356,7 +1362,9 @@
       "title": "Parameter",
       "dialogTitle": "Abfrageparameter",
       "dialogDescription": "Geben Sie vor der Ausführung Werte ein. Der Auto-Modus erkennt Zahlen, Boolesche Werte, NULL und Text.",
-      "missingCount": "{{count}} Param.",
+      "preview": "SQL-Vorschau",
+      "missingCount_one": "{{count}} fehlt",
+      "missingCount_other": "{{count}} fehlen",
       "required": "Erforderlich",
       "runWithParams": "Ausführen",
       "valuePlaceholder": "Wert...",
@@ -3383,7 +3391,8 @@
       "auditStats": "{{count}} Ausf. · {{fingerprints}} Muster",
       "assetsSection": "Workspace-Referenzen",
       "preflightSection": "Live-Daten-Preflight",
-      "violationsCount": "{{count}} Verstoß/Verstöße",
+      "violationsCount_one": "{{count}} Verstoß",
+      "violationsCount_other": "{{count}} Verstöße",
       "severity": {
         "high": "Hoch",
         "medium": "Mittel"
@@ -3395,13 +3404,19 @@
         "alter_column_type": "Spaltentyp ändern",
         "add_not_null": "NOT NULL hinzufügen",
         "add_unique": "UNIQUE hinzufügen",
-        "shrink_varchar": "Länge verkürzen"
+        "shrink_varchar": "Länge ändern",
+        "rename_table": "Tabelle umbenennen",
+        "rename_column": "Spalte umbenennen",
+        "add_not_null_column": "NOT-NULL-Spalte ohne Standardwert",
+        "add_foreign_key": "Fremdschlüssel hinzufügen",
+        "add_check": "CHECK hinzufügen"
       },
       "assetKinds": {
         "saved_query": "Abfrage",
         "notebook": "Notebook",
         "contract": "Contract",
-        "replay_set": "Replay"
+        "replay_set": "Replay",
+        "instant_api": "Instant API"
       }
     }
   },
@@ -4019,7 +4034,10 @@
       "editDescription": "Aktualisiere Abfrage, Parameter oder Zeilenlimit ohne Token-Rotation.",
       "save": "Änderungen speichern",
       "saving": "Speichern…",
-      "updateFailed": "Endpunkt-Aktualisierung fehlgeschlagen"
+      "updateFailed": "Endpunkt-Aktualisierung fehlgeschlagen",
+      "updated": "Endpoint „{{name}}“ aktualisiert",
+      "renameChangesUrl": "Umbenennen ändert die URL: /api/{{from}} → /api/{{to}}. Bestehende Clients funktionieren dann nicht mehr.",
+      "optionalParamHint": "Ein weggelassener Parameter ohne Standardwert wird zu NULL, und `col = NULL` trifft keine Zeile. Für einen optionalen Filter schreiben Sie ({{tag}} IS NULL OR col = {{tag}})."
     },
     "token": {
       "title": "Endpunkt-Token (einmalig)",

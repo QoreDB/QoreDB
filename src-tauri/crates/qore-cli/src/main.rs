@@ -79,6 +79,10 @@ enum ContractCommand {
         contract: Option<String>,
         #[arg(long, value_enum, default_value_t = OutputFormat::Json)]
         format: OutputFormat,
+        /// Append each run to .qoredb/contracts/.history (off by default so CI
+        /// checkouts stay clean)
+        #[arg(long)]
+        record_history: bool,
     },
 }
 
@@ -92,6 +96,9 @@ enum ReplayCommand {
         set_id: String,
         #[arg(long, value_enum, default_value_t = OutputFormat::Json)]
         format: OutputFormat,
+        /// Also fail when an entry runs slower than its recording
+        #[arg(long)]
+        fail_on_slower: bool,
     },
 }
 
@@ -186,6 +193,7 @@ async fn run(cli: Cli) -> Result<(String, bool), String> {
                 connection_id,
                 contract,
                 format,
+                record_history,
             } => {
                 let session = connect(&ctx, &vault, &connection_id).await?;
                 let runs = ci_runner::run_workspace_contracts(
@@ -194,9 +202,13 @@ async fn run(cli: Cli) -> Result<(String, bool), String> {
                     &connection_id,
                     &ws_root,
                     contract.as_deref(),
+                    record_history,
                 )
                 .await?;
-                let passed = runs.iter().all(ci_runner::contract_run_passed);
+                if runs.is_empty() {
+                    eprintln!("warning: no Data Contracts found in {}", ws_root.display());
+                }
+                let passed = ci_runner::contract_runs_passed(&runs);
                 let output = match format {
                     OutputFormat::Json => {
                         serde_json::to_string_pretty(&runs).map_err(|e| e.to_string())?
@@ -216,16 +228,21 @@ async fn run(cli: Cli) -> Result<(String, bool), String> {
                 connection_id,
                 set_id,
                 format,
+                fail_on_slower,
             } => {
                 let session = connect(&ctx, &vault, &connection_id).await?;
                 let report =
                     ci_runner::run_workspace_replay(&ctx, session, &ws_root, &set_id).await?;
-                let passed = ci_runner::replay_report_passed(&report);
+                let gate = ci_runner::CiGate { fail_on_slower };
+                if report.summary.total == report.summary.skipped {
+                    eprintln!("warning: every replay entry was skipped; nothing was compared");
+                }
+                let passed = ci_runner::replay_report_passed(&report, gate);
                 let output = match format {
                     OutputFormat::Json => {
                         serde_json::to_string_pretty(&report).map_err(|e| e.to_string())?
                     }
-                    OutputFormat::Junit => ci_runner::replay_to_junit_xml(&report),
+                    OutputFormat::Junit => ci_runner::replay_to_junit_xml(&report, gate),
                 };
                 Ok((output, passed))
             }
@@ -277,6 +294,7 @@ mod tests {
             Command::Contract {
                 action: ContractCommand::Run {
                     format: OutputFormat::Junit,
+                    record_history: false,
                     ..
                 }
             }
@@ -296,6 +314,26 @@ mod tests {
             Command::Replay {
                 action: ReplayCommand::Run {
                     format: OutputFormat::Json,
+                    fail_on_slower: false,
+                    ..
+                }
+            }
+        ));
+
+        let cli = Cli::try_parse_from([
+            "qore",
+            "replay",
+            "run",
+            "prod",
+            "smoke-set",
+            "--fail-on-slower",
+        ])
+        .unwrap();
+        assert!(matches!(
+            cli.command,
+            Command::Replay {
+                action: ReplayCommand::Run {
+                    fail_on_slower: true,
                     ..
                 }
             }

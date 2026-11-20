@@ -27,7 +27,8 @@ const DialogOverlay = React.forwardRef<
     data-slot="dialog-overlay"
     className={cn(
       'fixed inset-0 z-50 bg-background/85 duration-150 fill-mode-forwards data-[state=open]:animate-in data-[state=open]:fade-in-0',
-      !disableExitAnimation && 'data-[state=closed]:animate-out data-[state=closed]:fade-out-0',
+      !disableExitAnimation &&
+        'data-[state=closed]:animate-out data-[state=closed]:fill-mode-forwards data-[state=closed]:fade-out-0',
       className
     )}
     {...props}
@@ -54,7 +55,7 @@ const DialogContent = React.forwardRef<
           className={cn(
             'pointer-events-auto relative grid w-full max-w-lg gap-4 border bg-background p-6 shadow-lg duration-150 fill-mode-forwards data-[state=open]:animate-in data-[state=open]:fade-in-0 sm:rounded-lg',
             !disableExitAnimation &&
-              'data-[state=closed]:animate-out data-[state=closed]:fade-out-0',
+              'data-[state=closed]:animate-out data-[state=closed]:fill-mode-forwards data-[state=closed]:fade-out-0',
             className
           )}
           {...props}

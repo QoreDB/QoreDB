@@ -726,7 +726,7 @@
     "expandCell": "展开单元格",
     "copyError": "复制错误",
     "chartNoConfig": "请在上方选择源单元格、X 列和 Y 列。",
-    "chartNoData": "无数据 — 请先执行源单元格。",
+    "chartNoData": "源单元格没有可绘制的行。",
     "undo": "撤销",
     "redo": "重做",
     "toggleVariables": "变量",
@@ -751,6 +751,7 @@
     "cellLabelAria": "单元格引用标签",
     "cellLabelPlaceholder": "label",
     "cellLabelHint": "通过 $label.column 或在图表单元格中引用此单元格",
+    "cellLabelCharsStripped": "仅保留字母、数字和 _",
     "duplicateLabelWarning": "标签重复：跨单元格引用和图表需要唯一标签",
     "chartSourcePlaceholder": "源单元格...",
     "chartXColumn": "X 列...",
@@ -762,7 +763,12 @@
       "line": "折线图",
       "pie": "饼图",
       "scatter": "散点图"
-    }
+    },
+    "chartSourceNotRun": "运行 #{{label}} 以绘制此图表。",
+    "chartNoNumericColumns": "没有数值列",
+    "chartShowConfig": "配置图表",
+    "chartHideConfig": "隐藏设置",
+    "chartConfigSummary": "#{{source}} · {{x}} → {{y}}"
   },
   "replay": {
     "cancelledReport": "重放已取消。已执行的查询会保留；正在执行的查询可能已完成。",
@@ -1345,7 +1351,8 @@
       "title": "参数",
       "dialogTitle": "查询参数",
       "dialogDescription": "执行查询前请填写参数值。自动模式会识别数字、布尔值、NULL 和文本。",
-      "missingCount": "{{count}} 个参数",
+      "preview": "SQL 预览",
+      "missingCount_other": "缺少 {{count}} 个",
       "required": "必填",
       "runWithParams": "执行查询",
       "valuePlaceholder": "值...",
@@ -3370,7 +3377,7 @@
       "auditStats": "{{count}} 次执行 · {{fingerprints}} 个模式",
       "assetsSection": "工作区引用",
       "preflightSection": "实时数据预检",
-      "violationsCount": "{{count}} 条违规",
+      "violationsCount_other": "{{count}} 处违规",
       "severity": {
         "high": "高",
         "medium": "中"
@@ -3382,13 +3389,19 @@
         "alter_column_type": "修改列类型",
         "add_not_null": "添加 NOT NULL",
         "add_unique": "添加 UNIQUE",
-        "shrink_varchar": "缩短长度"
+        "shrink_varchar": "长度变更",
+        "rename_table": "重命名表",
+        "rename_column": "重命名列",
+        "add_not_null_column": "无默认值的 NOT NULL 列",
+        "add_foreign_key": "添加外键",
+        "add_check": "添加 CHECK"
       },
       "assetKinds": {
         "saved_query": "查询",
         "notebook": "Notebook",
         "contract": "数据契约",
-        "replay_set": "回放集"
+        "replay_set": "回放集",
+        "instant_api": "Instant API"
       }
     }
   },
@@ -4005,7 +4018,10 @@
       "editDescription": "更新端点查询、参数或行数上限，无需轮换令牌。",
       "save": "保存更改",
       "saving": "保存中…",
-      "updateFailed": "更新端点失败"
+      "updateFailed": "更新端点失败",
+      "updated": "端点“{{name}}”已更新",
+      "renameChangesUrl": "重命名会更改 URL：/api/{{from}} → /api/{{to}}。现有客户端将无法使用。",
+      "optionalParamHint": "省略且无默认值的参数会变为 NULL，而 `col = NULL` 不匹配任何行。可选筛选请写成 ({{tag}} IS NULL OR col = {{tag}})。"
     },
     "token": {
       "title": "端点令牌（仅显示一次）",

@@ -167,6 +167,7 @@ export function EndpointDialog({ open, onClose, onCreated, initialEndpoint, onUp
       if (initialEndpoint) {
         const updated = await updateEndpoint(initialEndpoint.id, payload);
         onUpdated?.(updated);
+        toast.success(t('instantApi.endpoint.updated', { name: updated.name }));
       } else {
         const response = await createEndpoint(payload);
         onCreated(response);
@@ -209,9 +210,18 @@ export function EndpointDialog({ open, onClose, onCreated, initialEndpoint, onUp
                 placeholder="orders_top"
                 spellCheck={false}
               />
-              <p className="text-[11px] text-muted-foreground mt-1">
-                {t('instantApi.endpoint.nameHint')}
-              </p>
+              {initialEndpoint && name !== initialEndpoint.name ? (
+                <p className="text-[11px] text-warning mt-1">
+                  {t('instantApi.endpoint.renameChangesUrl', {
+                    from: initialEndpoint.name,
+                    to: name,
+                  })}
+                </p>
+              ) : (
+                <p className="text-[11px] text-muted-foreground mt-1">
+                  {t('instantApi.endpoint.nameHint')}
+                </p>
+              )}
             </div>
             <div>
               <Label htmlFor="ep-conn">{t('instantApi.endpoint.connectionLabel')}</Label>
@@ -297,6 +307,9 @@ export function EndpointDialog({ open, onClose, onCreated, initialEndpoint, onUp
                     onRemove={() => removeParam(p._key)}
                   />
                 ))}
+                <p className="text-[11px] text-muted-foreground">
+                  {t('instantApi.endpoint.optionalParamHint', { tag: '{{status}}' })}
+                </p>
               </div>
             )}
           </div>

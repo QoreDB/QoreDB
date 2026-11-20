@@ -757,7 +757,7 @@
     "expandCell": "Déplier la cellule",
     "copyError": "Copier l'erreur",
     "chartNoConfig": "Sélectionnez ci-dessus une cellule source, une colonne X et au moins une colonne Y.",
-    "chartNoData": "Aucune donnée — exécutez d'abord la cellule source.",
+    "chartNoData": "La cellule source n'a renvoyé aucune ligne exploitable.",
     "undo": "Annuler",
     "redo": "Rétablir",
     "toggleVariables": "Variables",
@@ -782,18 +782,24 @@
     "cellLabelAria": "Étiquette de référence de la cellule",
     "cellLabelPlaceholder": "etiquette",
     "cellLabelHint": "Référencer cette cellule via $etiquette.colonne ou dans un graphique",
+    "cellLabelCharsStripped": "Lettres, chiffres et _ uniquement",
     "duplicateLabelWarning": "Étiquette en double : les références et graphiques exigent des étiquettes uniques",
     "chartSourcePlaceholder": "Cellule source...",
     "chartXColumn": "Colonne X...",
     "chartYColumns": "Y",
     "chartTitlePlaceholder": "Titre du graphique (optionnel)",
-    "chartNeedLabelledCell": "Attribuez une #etiquette à une cellule SQL ou Mongo exécutée, puis sélectionnez-la ici.",
+    "chartNeedLabelledCell": "Donnez une étiquette (#nom) à une cellule SQL ou Mongo exécutée, puis sélectionnez-la ici.",
     "chartTypes": {
       "bar": "Barres",
       "line": "Courbe",
       "pie": "Secteurs",
       "scatter": "Nuage"
-    }
+    },
+    "chartSourceNotRun": "Exécutez #{{label}} pour tracer ce graphique.",
+    "chartNoNumericColumns": "Aucune colonne numérique",
+    "chartShowConfig": "Configurer le graphique",
+    "chartHideConfig": "Masquer les réglages",
+    "chartConfigSummary": "#{{source}} · {{x}} → {{y}}"
   },
   "replay": {
     "cancelledReport": "Rejeu annulé. Les requêtes exécutées sont conservées ; la requête en cours a pu se terminer.",
@@ -1391,7 +1397,10 @@
       "title": "Paramètres",
       "dialogTitle": "Paramètres de la requête",
       "dialogDescription": "Renseignez les valeurs avant l'exécution. Le mode Auto détecte nombres, booléens, NULL et chaînes.",
-      "missingCount": "{{count}} param.",
+      "preview": "Aperçu SQL",
+      "missingCount_one": "{{count}} manquant",
+      "missingCount_many": "{{count}} manquants",
+      "missingCount_other": "{{count}} manquants",
       "required": "Requis",
       "runWithParams": "Exécuter",
       "valuePlaceholder": "Valeur...",
@@ -3420,9 +3429,10 @@
       "hazardsSection": "Risques DDL",
       "auditSection": "Trafic récent",
       "auditStats": "{{count}} exéc. · {{fingerprints}} empreintes",
-      "assetsSection": "Références workspace",
-      "preflightSection": "Pré-vérification sur données live",
-      "violationsCount": "{{count}} violation(s)",
+      "assetsSection": "Références dans l'espace de travail",
+      "preflightSection": "Pré-vérification sur les données",
+      "violationsCount_one": "{{count}} violation",
+      "violationsCount_other": "{{count}} violations",
       "severity": {
         "high": "Élevé",
         "medium": "Moyen"
@@ -3434,13 +3444,19 @@
         "alter_column_type": "Changement de type",
         "add_not_null": "Ajout NOT NULL",
         "add_unique": "Ajout UNIQUE",
-        "shrink_varchar": "Réduction longueur"
+        "shrink_varchar": "Changement de longueur",
+        "rename_table": "Renommage table",
+        "rename_column": "Renommage colonne",
+        "add_not_null_column": "Colonne NOT NULL sans défaut",
+        "add_foreign_key": "Ajout clé étrangère",
+        "add_check": "Ajout CHECK"
       },
       "assetKinds": {
         "saved_query": "Requête",
         "notebook": "Notebook",
         "contract": "Contrat",
-        "replay_set": "Replay"
+        "replay_set": "Replay",
+        "instant_api": "Instant API"
       }
     }
   },
@@ -4058,7 +4074,10 @@
       "editDescription": "Mettez à jour la requête, les paramètres ou le plafond de lignes sans réémettre le jeton.",
       "save": "Enregistrer",
       "saving": "Enregistrement…",
-      "updateFailed": "Échec de la mise à jour de l’endpoint"
+      "updateFailed": "Échec de la mise à jour de l’endpoint",
+      "updated": "Endpoint « {{name}} » mis à jour",
+      "renameChangesUrl": "Renommer change l'URL : /api/{{from}} → /api/{{to}}. Les clients existants ne fonctionneront plus.",
+      "optionalParamHint": "Un paramètre omis sans valeur par défaut devient NULL, et `col = NULL` ne renvoie aucune ligne. Pour un filtre facultatif, écrivez ({{tag}} IS NULL OR col = {{tag}})."
     },
     "token": {
       "title": "Jeton d'endpoint (affiché une seule fois)",

@@ -20,7 +20,8 @@ use qore_sql::generator::SqlDialect;
 
 use super::parse_session_id;
 use crate::engine::types::{
-    CountMode, Namespace, TableColumn, TableQueryOptions, TableSchema, Value,
+    ColumnFilter, CountMode, FilterOperator, Namespace, SortDirection, TableColumn,
+    TableQueryOptions, TableSchema, Value,
 };
 
 /// Rows per `INSERT` statement. SQLite caps a multi-row VALUES list at 500, so
@@ -30,6 +31,8 @@ const CHUNK_SIZE: usize = 500;
 const MAX_ROWS: u32 = 10_000;
 /// How many existing values to sample per foreign-key column.
 const FK_SAMPLE_SIZE: u32 = 500;
+/// Attempts to draw a row whose composite-key tuple is not already used.
+const COMPOSITE_RETRIES: usize = 64;
 
 const FIRST_NAMES: &[&str] = &[
     "Alex", "Marie", "Liam", "Sofia", "Noah", "Emma", "Lucas", "Olivia", "Hugo", "Lina", "Adam",
@@ -142,14 +145,6 @@ pub async fn generate_seed_data(
 
     let mut warnings: Vec<String> = Vec::new();
 
-    // Columns constrained by a foreign key. These must never fall back to a
-    // generated value: an invented key would violate the constraint.
-    let fk_columns: HashSet<&str> = schema
-        .foreign_keys
-        .iter()
-        .map(|fk| fk.column.as_str())
-        .collect();
-
     // Pre-fetch existing values for each foreign-key column so generated rows
     // reference real parents (drawn from a sample of the referenced table).
     let mut fk_values: HashMap<String, Vec<Value>> = HashMap::new();
@@ -236,10 +231,94 @@ pub async fn generate_seed_data(
         }
     }
 
+    let existing = {
+        let fetch = |options: TableQueryOptions| {
+            qore_service::query::query_table(
+                &session_manager,
+                &query_manager,
+                &query_cache,
+                &policy,
+                session,
+                &namespace,
+                &table,
+                options,
+                false,
+            )
+        };
+        let row_count = match fetch(TableQueryOptions {
+            page_size: Some(1),
+            count_mode: Some(CountMode::Exact),
+            ..Default::default()
+        })
+        .await
+        {
+            Ok((paginated, _)) => paginated.total_rows.unwrap_or(0) as usize,
+            Err(e) => {
+                warnings.push(format!(
+                    "Could not count existing rows; generated unique values may collide: {}",
+                    e.sanitized()
+                ));
+                0
+            }
+        };
+        let mut int_max = HashMap::new();
+        if row_count > 0 {
+            let unique = unique_column_names(&schema);
+            let fk_cols: HashSet<&str> = schema
+                .foreign_keys
+                .iter()
+                .map(|fk| fk.column.as_str())
+                .collect();
+            for col in target_columns.iter().filter(|c| {
+                unique.contains(c.name.as_str())
+                    && !fk_cols.contains(c.name.as_str())
+                    && int_bounds(&c.data_type.to_lowercase()).is_some()
+            }) {
+                let options = TableQueryOptions {
+                    page_size: Some(1),
+                    count_mode: Some(CountMode::None),
+                    sort_column: Some(col.name.clone()),
+                    sort_direction: Some(SortDirection::Desc),
+                    filters: Some(vec![ColumnFilter {
+                        column: col.name.clone(),
+                        operator: FilterOperator::IsNotNull,
+                        value: Value::Null,
+                        options: Default::default(),
+                    }]),
+                    ..Default::default()
+                };
+                match fetch(options).await {
+                    Ok((paginated, _)) => {
+                        let max = paginated
+                            .result
+                            .columns
+                            .iter()
+                            .position(|c| c.name == col.name)
+                            .and_then(|idx| paginated.result.rows.first()?.values.get(idx).cloned());
+                        if let Some(Value::Int(max)) = max {
+                            int_max.insert(col.name.clone(), max);
+                        }
+                    }
+                    Err(e) => warnings.push(format!(
+                        "Could not read the current maximum of '{}'; generated values may collide: {}",
+                        col.name,
+                        e.sanitized()
+                    )),
+                }
+            }
+        }
+        ExistingRows { row_count, int_max }
+    };
+
     // Synchronous generation block (rng is not Send across await points).
     let (sql, row_maps) = {
-        let _ = &fk_columns;
-        let rows = generate_seed_rows(&schema, &target_columns, &fk_values, count as usize)?;
+        let rows = generate_seed_rows(
+            &schema,
+            &target_columns,
+            &fk_values,
+            &existing,
+            count as usize,
+        )?;
         let row_maps: Vec<HashMap<String, Value>> = rows
             .iter()
             .map(|row| {
@@ -264,13 +343,33 @@ pub async fn generate_seed_data(
     })
 }
 
+/// What already lives in the target table, so generated unique values start
+/// past it instead of colliding with a previous seed run.
+#[derive(Debug, Default)]
+struct ExistingRows {
+    row_count: usize,
+    int_max: HashMap<String, i64>,
+}
+
+fn primary_key_columns(schema: &TableSchema) -> Vec<&str> {
+    match &schema.primary_key {
+        Some(cols) if !cols.is_empty() => cols.iter().map(String::as_str).collect(),
+        _ => schema
+            .columns
+            .iter()
+            .filter(|c| c.is_primary_key)
+            .map(|c| c.name.as_str())
+            .collect(),
+    }
+}
+
+/// Columns that must be unique on their own. A column that is only part of a
+/// composite key may repeat; see [`composite_unique_keys`].
 fn unique_column_names(schema: &TableSchema) -> HashSet<&str> {
-    let mut unique: HashSet<&str> = schema
-        .columns
-        .iter()
-        .filter(|c| c.is_primary_key)
-        .map(|c| c.name.as_str())
-        .collect();
+    let mut unique = HashSet::new();
+    if let [single] = primary_key_columns(schema).as_slice() {
+        unique.insert(*single);
+    }
     for idx in &schema.indexes {
         if idx.is_unique && idx.columns.len() == 1 {
             unique.insert(idx.columns[0].as_str());
@@ -279,10 +378,40 @@ fn unique_column_names(schema: &TableSchema) -> HashSet<&str> {
     unique
 }
 
+/// Multi-column unique constraints as indexes into `target_columns`. A key
+/// with a database-filled column is skipped: its tuple cannot be known here.
+fn composite_unique_keys(schema: &TableSchema, target_columns: &[TableColumn]) -> Vec<Vec<usize>> {
+    let position = |name: &str| target_columns.iter().position(|c| c.name == name);
+    let mut keys: Vec<Vec<usize>> = Vec::new();
+    let pk = primary_key_columns(schema);
+    let candidates = std::iter::once(pk).filter(|cols| cols.len() > 1).chain(
+        schema
+            .indexes
+            .iter()
+            .filter(|idx| idx.is_unique && idx.columns.len() > 1)
+            .map(|idx| idx.columns.iter().map(String::as_str).collect()),
+    );
+    for cols in candidates {
+        let Some(mut key) = cols
+            .into_iter()
+            .map(position)
+            .collect::<Option<Vec<usize>>>()
+        else {
+            continue;
+        };
+        key.sort_unstable();
+        if !keys.contains(&key) {
+            keys.push(key);
+        }
+    }
+    keys
+}
+
 fn generate_seed_rows(
     schema: &TableSchema,
     target_columns: &[TableColumn],
     fk_values: &HashMap<String, Vec<Value>>,
+    existing: &ExistingRows,
     count: usize,
 ) -> Result<Vec<Vec<Value>>, String> {
     let fk_map: HashMap<&str, &str> = schema
@@ -291,6 +420,14 @@ fn generate_seed_rows(
         .map(|fk| (fk.column.as_str(), fk.referenced_table.as_str()))
         .collect();
     let unique_cols = unique_column_names(schema);
+    let composite_keys = composite_unique_keys(schema, target_columns);
+    let mut seen_composite: Vec<HashSet<String>> = vec![HashSet::new(); composite_keys.len()];
+    let int_start = |col: &TableColumn| {
+        existing
+            .int_max
+            .get(&col.name)
+            .map_or(1, |max| max.saturating_add(1).max(1))
+    };
 
     let mut rng = rand::thread_rng();
     let mut rows: Vec<Vec<Value>> = Vec::with_capacity(count);
@@ -308,7 +445,10 @@ fn generate_seed_rows(
                         if pool.len() < count {
                             return Err(format!(
                                 "Unique foreign key column '{}' needs {} distinct parent values, but '{}' only has {}.",
-                                col.name, count, ref_table, pool.len()
+                                col.name,
+                                count,
+                                ref_table,
+                                pool.len()
                             ));
                         }
                         shuffled_fk_pools.insert(col_idx, pool);
@@ -323,33 +463,70 @@ fn generate_seed_rows(
                     }
                 }
             }
-        } else if is_unique {
-            if let Some((_, max_int)) = int_bounds(&col.data_type.to_lowercase()) {
-                if (count as i64) > max_int {
-                    return Err(format!(
-                        "Cannot generate {} unique values for '{}' ({}): maximum is {}.",
-                        count, col.name, col.data_type, max_int
-                    ));
-                }
-            }
+        } else if is_unique
+            && let Some((_, max_int)) = int_bounds(&col.data_type.to_lowercase())
+            && int_start(col).saturating_add(count as i64 - 1) > max_int
+        {
+            return Err(format!(
+                "Cannot generate {} unique values for '{}' ({}): maximum is {}.",
+                count, col.name, col.data_type, max_int
+            ));
         }
     }
 
     for i in 0..count {
-        let mut row: Vec<Value> = Vec::with_capacity(target_columns.len());
-        for (col_idx, col) in target_columns.iter().enumerate() {
-            let is_unique = unique_cols.contains(col.name.as_str());
-            let value = if let Some(pool) = shuffled_fk_pools.get(&col_idx) {
-                pool[i].clone()
-            } else if let Some(candidates) = fk_values.get(&col.name) {
-                candidates.choose(&mut rng).cloned().unwrap_or(Value::Null)
-            } else if fk_map.contains_key(col.name.as_str()) {
-                Value::Null
-            } else {
-                generate_column_value(col, i, is_unique, &mut seen_unique, col_idx, &mut rng)?
-            };
-            row.push(value);
-        }
+        let ordinal = existing.row_count + i;
+        let mut attempt = 0;
+        let row = loop {
+            let mut row: Vec<Value> = Vec::with_capacity(target_columns.len());
+            for (col_idx, col) in target_columns.iter().enumerate() {
+                let is_unique = unique_cols.contains(col.name.as_str());
+                let value = if let Some(pool) = shuffled_fk_pools.get(&col_idx) {
+                    pool[i].clone()
+                } else if let Some(candidates) = fk_values.get(&col.name) {
+                    candidates.choose(&mut rng).cloned().unwrap_or(Value::Null)
+                } else if fk_map.contains_key(col.name.as_str()) {
+                    Value::Null
+                } else if is_unique && int_bounds(&col.data_type.to_lowercase()).is_some() {
+                    Value::Int(int_start(col) + i as i64)
+                } else {
+                    generate_column_value(
+                        col,
+                        ordinal,
+                        is_unique,
+                        &mut seen_unique,
+                        col_idx,
+                        &mut rng,
+                    )?
+                };
+                row.push(value);
+            }
+            let tuples: Vec<String> = composite_keys
+                .iter()
+                .map(|key| {
+                    key.iter()
+                        .map(|&idx| value_dedup_key(&row[idx]))
+                        .collect::<Vec<_>>()
+                        .join("\u{1f}")
+                })
+                .collect();
+            let fresh = tuples
+                .iter()
+                .zip(&seen_composite)
+                .all(|(tuple, seen)| !seen.contains(tuple));
+            if fresh {
+                for (tuple, seen) in tuples.into_iter().zip(seen_composite.iter_mut()) {
+                    seen.insert(tuple);
+                }
+                break row;
+            }
+            attempt += 1;
+            if attempt >= COMPOSITE_RETRIES {
+                return Err(format!(
+                    "Cannot generate {count} rows with distinct composite keys: the available value combinations are exhausted."
+                ));
+            }
+        };
         rows.push(row);
     }
 
@@ -462,7 +639,8 @@ fn generate_value(col: &TableColumn, index: usize, is_unique: bool, rng: &mut im
         return Value::Text(truncate_chars(Uuid::new_v4().to_string(), max_len));
     }
 
-    let is_textual = dt.contains("char") || dt.contains("text") || dt.contains("string") || dt.contains("clob");
+    let is_textual =
+        dt.contains("char") || dt.contains("text") || dt.contains("string") || dt.contains("clob");
     if is_textual {
         if name.contains("email") {
             let full = format!("user{}@example.com", index + 1);
@@ -639,6 +817,101 @@ mod tests {
         }
     }
 
+    fn unique_index(name: &str, columns: &[&str]) -> TableIndex {
+        TableIndex {
+            name: name.to_string(),
+            columns: columns.iter().map(|c| c.to_string()).collect(),
+            is_unique: true,
+            is_primary: false,
+            index_type: None,
+        }
+    }
+
+    fn fk(column: &str, table: &str) -> ForeignKey {
+        ForeignKey {
+            column: column.to_string(),
+            referenced_table: table.to_string(),
+            referenced_column: "id".to_string(),
+            referenced_schema: None,
+            referenced_database: None,
+            constraint_name: None,
+            is_virtual: false,
+        }
+    }
+
+    #[test]
+    fn unique_values_start_after_existing_rows() {
+        let columns = vec![
+            col("id", "int", false, true),
+            col("email", "varchar(64)", false, false),
+        ];
+        let schema = TableSchema {
+            columns: columns.clone(),
+            primary_key: Some(vec!["id".to_string()]),
+            foreign_keys: vec![],
+            row_count_estimate: None,
+            indexes: vec![unique_index("uq_email", &["email"])],
+        };
+        let existing = ExistingRows {
+            row_count: 40,
+            int_max: HashMap::from([("id".to_string(), 120)]),
+        };
+        let rows = generate_seed_rows(&schema, &columns, &HashMap::new(), &existing, 3).unwrap();
+        let ids: Vec<String> = rows.iter().map(|r| value_dedup_key(&r[0])).collect();
+        assert_eq!(ids, vec!["121", "122", "123"]);
+        assert_eq!(value_dedup_key(&rows[0][1]), "user41@example.com");
+
+        let tiny = vec![col("id", "tinyint", false, true)];
+        let tiny_schema = TableSchema {
+            columns: tiny.clone(),
+            primary_key: Some(vec!["id".to_string()]),
+            foreign_keys: vec![],
+            row_count_estimate: None,
+            indexes: vec![],
+        };
+        let full = ExistingRows {
+            row_count: 120,
+            int_max: HashMap::from([("id".to_string(), 120)]),
+        };
+        assert!(generate_seed_rows(&tiny_schema, &tiny, &HashMap::new(), &full, 10).is_err());
+    }
+
+    #[test]
+    fn composite_primary_key_columns_may_repeat_but_tuples_stay_distinct() {
+        let columns = vec![
+            col("user_id", "int", false, true),
+            col("role_id", "int", false, true),
+        ];
+        let schema = TableSchema {
+            columns: columns.clone(),
+            primary_key: Some(vec!["user_id".to_string(), "role_id".to_string()]),
+            foreign_keys: vec![fk("user_id", "users"), fk("role_id", "roles")],
+            row_count_estimate: None,
+            indexes: vec![],
+        };
+        let fks = HashMap::from([
+            (
+                "user_id".to_string(),
+                (1..=3).map(Value::Int).collect::<Vec<_>>(),
+            ),
+            (
+                "role_id".to_string(),
+                (1..=2).map(Value::Int).collect::<Vec<_>>(),
+            ),
+        ]);
+        let rows =
+            generate_seed_rows(&schema, &columns, &fks, &ExistingRows::default(), 6).unwrap();
+        let tuples: HashSet<String> = rows
+            .iter()
+            .map(|r| format!("{}-{}", value_dedup_key(&r[0]), value_dedup_key(&r[1])))
+            .collect();
+        assert_eq!(tuples.len(), 6);
+
+        let err =
+            generate_seed_rows(&schema, &columns, &fks, &ExistingRows::default(), 7).unwrap_err();
+        assert!(err.contains("composite"));
+    }
+
     #[test]
     fn parses_char_lengths_and_ignores_numeric_precision() {
         assert_eq!(parse_max_char_length("varchar(10)"), Some(10));
@@ -655,17 +928,27 @@ mod tests {
             col("id", "int", false, true),
             col("tiny", "tinyint", false, false),
             col("small", "smallint", false, false),
-            col("code", "varchar(5)", false, true),
-            col("email", "varchar(10)", false, true),
+            col("code", "varchar(5)", false, false),
+            col("email", "varchar(10)", false, false),
         ];
         let schema = TableSchema {
             columns: columns.clone(),
             primary_key: Some(vec!["id".to_string()]),
             foreign_keys: vec![],
             row_count_estimate: None,
-            indexes: vec![],
+            indexes: vec![
+                unique_index("uq_code", &["code"]),
+                unique_index("uq_email", &["email"]),
+            ],
         };
-        let rows = generate_seed_rows(&schema, &columns, &HashMap::new(), 25).unwrap();
+        let rows = generate_seed_rows(
+            &schema,
+            &columns,
+            &HashMap::new(),
+            &ExistingRows::default(),
+            25,
+        )
+        .unwrap();
         assert_eq!(rows.len(), 25);
 
         let mut seen_ids = HashSet::new();
@@ -730,17 +1013,28 @@ mod tests {
         };
 
         // Empty FK pool on NOT NULL FK must fail instead of emitting NULL.
-        let err = generate_seed_rows(&schema, &columns, &HashMap::new(), 5).unwrap_err();
+        let err = generate_seed_rows(
+            &schema,
+            &columns,
+            &HashMap::new(),
+            &ExistingRows::default(),
+            5,
+        )
+        .unwrap_err();
         assert!(err.contains("NOT NULL"));
 
         let mut fks = HashMap::new();
         fks.insert("user_id".to_string(), vec![Value::Int(42)]);
-        let rows = generate_seed_rows(&schema, &columns, &fks, 30).unwrap();
+        let rows =
+            generate_seed_rows(&schema, &columns, &fks, &ExistingRows::default(), 30).unwrap();
         let mut names = HashSet::new();
         for row in rows {
             assert!(matches!(row[0], Value::Int(42)));
             if let Value::Text(name) = &row[1] {
-                assert!(names.insert(name.clone()), "duplicate unique index value: {name}");
+                assert!(
+                    names.insert(name.clone()),
+                    "duplicate unique index value: {name}"
+                );
             }
         }
     }

@@ -20,18 +20,14 @@ use crate::contracts::storage;
 use crate::contracts::{ContractRun, Rule, RuleStatus};
 use crate::interceptor::{Environment, QuerySource, map_environment};
 use crate::paths::QUERY_TIMEOUT_MS;
-use crate::query as service_query;
-use crate::replay::compare::{Observed, SlowerThresholds, classify, summarize};
-use crate::replay::digest::compute_digest;
-use crate::replay::{
-    CaptureMode, ReplayEntry, ReplayEntryResult, ReplayReport, ReplayRunOptions, ReplaySetStore,
-    ReplaySummary, ReplayVerdict, RunMeta, query_preview,
+use crate::replay::compare::{SlowerThresholds, summarize};
+use crate::replay::execute::{
+    EntryRun, EntryStep, ReplayServices, SET_IS_REDACTED, replay_entry, skipped_result,
 };
-
-const CODE_MUTATION_EXCLUDED: &str = "mutation_excluded";
-const CODE_MUTATION_PRODUCTION_BLOCKED: &str = "mutation_production_blocked";
-const MUTATION_EXCLUDED: &str = "Mutation excluded from replay";
-const MUTATION_PRODUCTION_BLOCKED: &str = "Mutations are never replayed against production";
+use crate::replay::{
+    CaptureMode, ReplayReport, ReplayRunOptions, ReplaySetStore, ReplaySummary, ReplayVerdict,
+    RunMeta,
+};
 
 /// How a CI run decides pass/fail beyond hard failures.
 #[derive(Debug, Clone, Copy, Default)]
@@ -133,10 +129,7 @@ pub async fn run_workspace_replay(
     let store = ReplaySetStore::new(workspace_root);
     let set = store.load(set_slug)?;
     if set.redacted {
-        return Err(
-            "This replay set was recorded with redaction: its queries cannot be replayed"
-                .to_string(),
-        );
+        return Err(SET_IS_REDACTED.to_string());
     }
 
     let driver = ctx
@@ -155,14 +148,32 @@ pub async fn run_workspace_replay(
     let masking = ctx.session_manager.masking(session).await;
 
     let options = ReplayRunOptions::default();
-    let thresholds = SlowerThresholds {
-        ratio: options.slower_ratio,
-        min_delta_ms: options.slower_min_delta_ms,
-    };
-
     let session_id = session.0.to_string();
     let run_id = uuid::Uuid::new_v4().to_string();
     let started_at = chrono::Utc::now().to_rfc3339();
+    let services = ReplayServices {
+        session_manager: &ctx.session_manager,
+        query_manager: &ctx.query_manager,
+        query_rate_limiter: &ctx.query_rate_limiter,
+        query_cache: &ctx.query_cache,
+        interceptor: &ctx.interceptor,
+        policy: &ctx.policy,
+    };
+    let entry_run = EntryRun {
+        session,
+        session_id: &session_id,
+        source: QuerySource::Cli,
+        timeout_ms: Some(QUERY_TIMEOUT_MS),
+        is_production,
+        allow_mutations: false,
+        ignored_columns: &set.ignored_columns,
+        max_captured_rows: options.max_captured_rows,
+        thresholds: SlowerThresholds {
+            ratio: options.slower_ratio,
+            min_delta_ms: options.slower_min_delta_ms,
+        },
+        cancel: None,
+    };
     let mut results = Vec::with_capacity(set.entries.len());
 
     for entry in &set.entries {
@@ -170,110 +181,12 @@ pub async fn run_workspace_replay(
             && let Err(reason) =
                 crate::masking_guard::check_agent_query(&driver_id, &entry.query, &m.config)
         {
-            results.push(skipped_result(entry, reason, None));
+            results.push(skipped_result(entry, &reason, None));
             continue;
         }
-
-        let preflight = match service_query::preflight_with_source(
-            &ctx.session_manager,
-            &ctx.query_rate_limiter,
-            &ctx.interceptor,
-            &ctx.policy,
-            session,
-            &session_id,
-            &entry.query,
-            entry.namespace.as_ref(),
-            false,
-            QuerySource::Cli,
-        )
-        .await
-        {
-            Ok(pf) => pf,
-            Err(reason) => {
-                results.push(skipped_result(entry, reason, None));
-                continue;
-            }
-        };
-
-        if preflight.is_mutation {
-            let (code, reason) = if is_production {
-                (
-                    CODE_MUTATION_PRODUCTION_BLOCKED,
-                    MUTATION_PRODUCTION_BLOCKED,
-                )
-            } else {
-                (CODE_MUTATION_EXCLUDED, MUTATION_EXCLUDED)
-            };
-            results.push(skipped_result(entry, reason.to_string(), Some(code)));
-            continue;
-        }
-
-        let query_id = ctx.query_manager.register(session).await;
-        let outcome = service_query::execute(
-            &ctx.query_manager,
-            &ctx.query_cache,
-            &ctx.interceptor,
-            &ctx.policy,
-            preflight.driver,
-            &preflight.context,
-            session,
-            entry.namespace.clone(),
-            &entry.query,
-            query_id,
-            preflight.is_mutation,
-            preflight.connection_key.as_deref(),
-            preflight.safety_warning.as_deref(),
-            Some(QUERY_TIMEOUT_MS),
-            false,
-            None,
-            None,
-            preflight.masking.clone(),
-            |_, _| {},
-        )
-        .await;
-
-        let execution_time_ms = outcome
-            .result
-            .as_ref()
-            .map(|r| r.execution_time_ms)
-            .unwrap_or(0.0);
-        let (digest, partial) = match outcome.result.as_ref() {
-            Some(result) => {
-                let d = compute_digest(result, &set.ignored_columns, options.max_captured_rows);
-                (Some(d.digest), d.partial)
-            }
-            None => (None, false),
-        };
-        let row_count = outcome.result.as_ref().map(|r| r.rows.len() as i64);
-
-        let verdict = classify(
-            &entry.expected,
-            &Observed {
-                success: outcome.success,
-                execution_time_ms,
-                row_count,
-                digest: digest.clone(),
-            },
-            &thresholds,
-        );
-
-        results.push(ReplayEntryResult {
-            entry_id: entry.id.clone(),
-            order: entry.order,
-            query_preview: query_preview(&entry.query),
-            verdict,
-            success: outcome.success,
-            error: outcome.error,
-            skip_reason: None,
-            skip_code: None,
-            execution_time_ms,
-            expected_execution_time_ms: entry.expected.execution_time_ms,
-            row_count,
-            expected_row_count: entry.expected.row_count,
-            digest,
-            expected_digest: entry.expected.result_digest.clone(),
-            captured: false,
-            partial_comparison: partial,
+        results.push(match replay_entry(&services, entry, &entry_run).await {
+            EntryStep::Skipped(result) | EntryStep::Cancelled(result) => result,
+            EntryStep::Executed { result, .. } => result,
         });
     }
 
@@ -307,27 +220,6 @@ pub async fn run_workspace_replay(
         results,
         summary,
     })
-}
-
-fn skipped_result(entry: &ReplayEntry, reason: String, code: Option<&str>) -> ReplayEntryResult {
-    ReplayEntryResult {
-        entry_id: entry.id.clone(),
-        order: entry.order,
-        query_preview: query_preview(&entry.query),
-        verdict: ReplayVerdict::Skipped,
-        success: false,
-        error: None,
-        skip_reason: Some(reason),
-        skip_code: code.map(str::to_string),
-        execution_time_ms: 0.0,
-        expected_execution_time_ms: entry.expected.execution_time_ms,
-        row_count: None,
-        expected_row_count: entry.expected.row_count,
-        digest: None,
-        expected_digest: entry.expected.result_digest.clone(),
-        captured: false,
-        partial_comparison: false,
-    }
 }
 
 pub fn contract_run_passed(run: &ContractRun) -> bool {
@@ -814,7 +706,7 @@ rules:
             assert_eq!(report.summary.skipped, 1);
             assert_eq!(
                 report.results[2].skip_code.as_deref(),
-                Some(CODE_MUTATION_EXCLUDED)
+                Some(crate::replay::execute::CODE_MUTATION_EXCLUDED)
             );
             assert!(!replay_report_passed(&report, CiGate::default()));
         }

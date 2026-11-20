@@ -4,6 +4,7 @@
 
 pub mod compare;
 pub mod digest;
+pub mod execute;
 pub mod secrets;
 pub mod store;
 pub mod types;

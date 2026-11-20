@@ -10,69 +10,28 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
-use qore_drivers::query_manager::QueryManager;
 use qore_drivers::session_manager::SessionManager;
-use qore_service::cache::QueryCache;
-use qore_service::interceptor::{Environment, InterceptorPipeline, QuerySource, map_environment};
-use qore_service::policy::SafetyPolicy;
+use qore_service::interceptor::{Environment, QuerySource, map_environment};
 use qore_service::query as service_query;
-use qore_service::ratelimit::QueryRateLimiter;
 
 use crate::engine::types::SessionId;
 
 use super::capture::CaptureStore;
-use super::compare::{Observed, SlowerThresholds, classify, compare_sides, summarize};
-use super::digest::compute_digest;
+use super::compare::{SlowerThresholds, compare_sides, summarize};
 use super::types::{
     CaptureMode, CaptureStopReason, ReplayAbReport, ReplayEntryResult, ReplayProgress,
-    ReplayReport, ReplayRunOptions, ReplaySet, ReplayVerdict, RunMeta, query_preview,
+    ReplayReport, ReplayRunOptions, ReplaySet, RunMeta, query_preview,
 };
 
-pub const MUTATION_EXCLUDED: &str = "Mutation excluded from replay";
-pub const MUTATION_PRODUCTION_BLOCKED: &str = "Mutations are never replayed against production";
-/// Stable identifiers for the reasons above. The message travels with them so a
-/// report stays readable outside the app; the UI translates from the code.
-pub const CODE_MUTATION_EXCLUDED: &str = "mutation_excluded";
-pub const CODE_MUTATION_PRODUCTION_BLOCKED: &str = "mutation_production_blocked";
-pub const CANCELLED: &str = "Replay cancelled";
-pub const CODE_CANCELLED: &str = "cancelled";
-pub const SET_IS_REDACTED: &str =
-    "This replay set was recorded with redaction: its queries cannot be replayed";
+pub use qore_service::replay::execute::{
+    CANCELLED, CODE_CANCELLED, CODE_MUTATION_EXCLUDED, CODE_MUTATION_PRODUCTION_BLOCKED,
+    MUTATION_EXCLUDED, MUTATION_PRODUCTION_BLOCKED, ReplayServices, SET_IS_REDACTED,
+};
+use qore_service::replay::execute::{
+    EntryRun, EntryStep, cancelled_result, mutation_refusal, replay_entry, skipped_result,
+};
+
 pub const SAME_CONNECTION: &str = "A/B replay needs two different connections";
-
-pub struct ReplayServices<'a> {
-    pub session_manager: &'a Arc<SessionManager>,
-    pub query_manager: &'a Arc<QueryManager>,
-    pub query_rate_limiter: &'a Arc<QueryRateLimiter>,
-    pub query_cache: &'a Arc<QueryCache>,
-    pub interceptor: &'a Arc<InterceptorPipeline>,
-    pub policy: &'a SafetyPolicy,
-}
-
-fn skipped(
-    entry: &super::types::ReplayEntry,
-    reason: &str,
-    code: Option<&str>,
-) -> ReplayEntryResult {
-    ReplayEntryResult {
-        entry_id: entry.id.clone(),
-        order: entry.order,
-        query_preview: query_preview(&entry.query),
-        verdict: ReplayVerdict::Skipped,
-        success: false,
-        error: None,
-        skip_reason: Some(reason.to_string()),
-        skip_code: code.map(|c| c.to_string()),
-        execution_time_ms: 0.0,
-        expected_execution_time_ms: entry.expected.execution_time_ms,
-        row_count: None,
-        expected_row_count: entry.expected.row_count,
-        digest: None,
-        expected_digest: entry.expected.result_digest.clone(),
-        captured: false,
-        partial_comparison: false,
-    }
-}
 
 #[allow(clippy::too_many_arguments)]
 pub async fn run_set(
@@ -150,9 +109,20 @@ pub async fn run_set(
     run.capture_mode = capture_mode;
     capture_store.save_run_meta(&run)?;
 
-    let thresholds = SlowerThresholds {
-        ratio: options.slower_ratio,
-        min_delta_ms: options.slower_min_delta_ms,
+    let entry_run = EntryRun {
+        session,
+        session_id,
+        source: QuerySource::Replay,
+        timeout_ms: services.policy.max_query_duration_ms,
+        is_production,
+        allow_mutations: options.allow_mutations,
+        ignored_columns: &set.ignored_columns,
+        max_captured_rows: options.max_captured_rows,
+        thresholds: SlowerThresholds {
+            ratio: options.slower_ratio,
+            min_delta_ms: options.slower_min_delta_ms,
+        },
+        cancel: Some(cancel),
     };
 
     let total = set.entries.len();
@@ -168,111 +138,30 @@ pub async fn run_set(
 
         if cancel.load(Ordering::SeqCst) {
             run.cancelled = true;
-            results.push(skipped(entry, CANCELLED, Some(CODE_CANCELLED)));
+            results.push(cancelled_result(entry));
             continue;
         }
 
         if let Some((code, reason)) = excluded.get(&entry.id) {
-            results.push(skipped(entry, reason, Some(code)));
+            results.push(skipped_result(entry, reason, Some(code)));
             continue;
         }
 
-        let preflight = match service_query::preflight_with_source(
-            services.session_manager,
-            services.query_rate_limiter,
-            services.interceptor,
-            services.policy,
-            session,
-            session_id,
-            &entry.query,
-            entry.namespace.as_ref(),
-            false,
-            QuerySource::Replay,
-        )
-        .await
-        {
-            Ok(preflight) => preflight,
-            // A refused preflight is QoreDB declining to run the query — a
-            // safety rule, read-only mode, the rate limiter. That is not the
-            // database answering differently, so it is not a regression.
-            Err(message) => {
-                results.push(skipped(entry, &message, None));
+        let (mut result, query_result) = match replay_entry(&services, entry, &entry_run).await {
+            EntryStep::Skipped(result) => {
+                results.push(result);
                 continue;
             }
-        };
-
-        // The trustworthy classification is the preflight's, never the set's:
-        // `.qreplay.json` is a versioned, hand-editable file, and a mutation
-        // declared as a read would otherwise run — in production included.
-        if preflight.is_mutation {
-            let refusal = if is_production {
-                Some((
-                    CODE_MUTATION_PRODUCTION_BLOCKED,
-                    MUTATION_PRODUCTION_BLOCKED,
-                ))
-            } else if !options.allow_mutations {
-                Some((CODE_MUTATION_EXCLUDED, MUTATION_EXCLUDED))
-            } else {
-                None
-            };
-            if let Some((code, reason)) = refusal {
-                results.push(skipped(entry, reason, Some(code)));
+            EntryStep::Cancelled(result) => {
+                run.cancelled = true;
+                results.push(result);
                 continue;
             }
-        }
-
-        // Preflight can await locks and interceptors. Recheck before dispatch.
-        if cancel.load(Ordering::SeqCst) {
-            run.cancelled = true;
-            results.push(skipped(entry, CANCELLED, Some(CODE_CANCELLED)));
-            continue;
-        }
-        let query_id = services.query_manager.register(session).await;
-        if cancel.load(Ordering::SeqCst) {
-            services.query_manager.finish(query_id).await;
-            run.cancelled = true;
-            results.push(skipped(entry, CANCELLED, Some(CODE_CANCELLED)));
-            continue;
-        }
-        let outcome = service_query::execute(
-            services.query_manager,
-            services.query_cache,
-            services.interceptor,
-            services.policy,
-            preflight.driver,
-            &preflight.context,
-            session,
-            entry.namespace.clone(),
-            &entry.query,
-            query_id,
-            preflight.is_mutation,
-            preflight.connection_key.as_deref(),
-            preflight.safety_warning.as_deref(),
-            services.policy.max_query_duration_ms,
-            false,
-            None,
-            None,
-            preflight.masking.clone(),
-            |_, _| {},
-        )
-        .await;
-
-        let execution_time_ms = outcome
-            .result
-            .as_ref()
-            .map(|r| r.execution_time_ms)
-            .unwrap_or(0.0);
-
-        let (digest, partial) = match outcome.result.as_ref() {
-            Some(result) => {
-                let outcome =
-                    compute_digest(result, &set.ignored_columns, options.max_captured_rows);
-                (Some(outcome.digest), outcome.partial)
-            }
-            None => (None, false),
+            EntryStep::Executed {
+                result,
+                query_result,
+            } => (result, query_result),
         };
-
-        let row_count = outcome.result.as_ref().map(|r| r.rows.len() as i64);
 
         let mut captured = false;
         if capture_mode == CaptureMode::Full {
@@ -281,7 +170,7 @@ pub async fn run_set(
                 .saturating_sub(run.captured_bytes);
             if budget_left == 0 {
                 run.capture_stopped_reason = Some(CaptureStopReason::BudgetExceeded);
-            } else if let Some(result) = outcome.result.as_ref() {
+            } else if let Some(query_result) = query_result.as_ref() {
                 match capture_store.save_entry(
                     &run_id,
                     &entry.id,
@@ -289,7 +178,7 @@ pub async fn run_set(
                     &driver_id,
                     connection_label.as_deref(),
                     entry.namespace.clone(),
-                    result,
+                    query_result,
                     options.max_captured_rows,
                     budget_left,
                 ) {
@@ -308,35 +197,8 @@ pub async fn run_set(
             }
         }
 
-        let verdict = classify(
-            &entry.expected,
-            &Observed {
-                success: outcome.success,
-                execution_time_ms,
-                row_count,
-                digest: digest.clone(),
-            },
-            &thresholds,
-        );
-
-        results.push(ReplayEntryResult {
-            entry_id: entry.id.clone(),
-            order: entry.order,
-            query_preview: query_preview(&entry.query),
-            verdict,
-            success: outcome.success,
-            error: outcome.error,
-            skip_reason: None,
-            skip_code: None,
-            execution_time_ms,
-            expected_execution_time_ms: entry.expected.execution_time_ms,
-            row_count,
-            expected_row_count: entry.expected.row_count,
-            digest,
-            expected_digest: entry.expected.result_digest.clone(),
-            captured,
-            partial_comparison: partial,
-        });
+        result.captured = captured;
+        results.push(result);
     }
 
     // Keep the actual outcome of an in-flight query, including a mutation that
@@ -395,17 +257,9 @@ async fn plan_exclusions(
         if !is_mutation {
             continue;
         }
-        let refusal = if is_production {
-            (
-                CODE_MUTATION_PRODUCTION_BLOCKED,
-                MUTATION_PRODUCTION_BLOCKED,
-            )
-        } else if !options.allow_mutations {
-            (CODE_MUTATION_EXCLUDED, MUTATION_EXCLUDED)
-        } else {
-            continue;
-        };
-        excluded.insert(entry.id.clone(), refusal);
+        if let Some(refusal) = mutation_refusal(is_production, options.allow_mutations) {
+            excluded.insert(entry.id.clone(), refusal);
+        }
     }
     Ok(excluded)
 }
@@ -518,13 +372,16 @@ pub async fn run_ab(
 mod tests {
     use super::*;
     use qore_core::registry::DriverRegistry;
+    use qore_drivers::query_manager::QueryManager;
     use qore_service::cache::QueryCache;
+    use qore_service::interceptor::InterceptorPipeline;
     use qore_service::policy::SafetyPolicy;
+    use qore_service::ratelimit::QueryRateLimiter;
 
     use crate::engine::testing::MockDriver;
     use crate::engine::types::{ColumnInfo, ConnectionConfig, QueryResult, Row, Value};
     use crate::replay::types::{
-        ExpectedOutcome, REPLAY_SET_VERSION, ReplayEntry, ReplaySet, ReplaySource,
+        ExpectedOutcome, REPLAY_SET_VERSION, ReplayEntry, ReplaySet, ReplaySource, ReplayVerdict,
     };
 
     struct Harness {
